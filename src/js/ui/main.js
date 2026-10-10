@@ -57,7 +57,7 @@ layoutEl.append(story, stage, chartsCol);
 app.append(layoutEl, overlay);
 
 const shortCommit = (c) => (c || '').slice(0, 12);
-story.append(h('header', { class: 'hero' },
+story.append(h('header', { class: 'hero card' },
   h('div', { class: 'eyebrow', text: 'cbft / bleve / scorch' }),
   h('h1', { text: narrative.title }),
   h('div', { class: 'subtitle', html: narrative.subtitleHtml }),
@@ -74,12 +74,13 @@ const codeDrawer = new CodeDrawer(document.body, snippets);
 const stepEls = [];
 let idx = 0;
 narrative.chapters.forEach((ch) => {
-  story.append(h('h2', { class: `chapter-title sec-${ch.color || 'neutral'}`, id: ch.id },
+  story.append(h('h2', { class: `chapter-title card sec-${ch.color || 'neutral'}`, id: ch.id },
     h('span', { class: 'chapter-dot' }), h('span', { text: ch.title })));
   ch.steps.forEach((st) => {
     const i = idx++;
     const el = h('section', { class: 'step', id: `${ch.id}--${st.id}`, 'data-index': String(i) });
-    el.append(h('div', { class: 'step-body', html: st.html }));
+    const card = h('div', { class: 'card' }, h('div', { class: 'step-body', html: st.html }));
+    el.append(card);
     if (st.code && st.code.length) {
       const chips = h('div', { class: 'code-chips' });
       st.code.forEach((id) => {
@@ -89,7 +90,7 @@ narrative.chapters.forEach((ch) => {
           onclick: () => codeDrawer.open(st.code, id),
         }, h('span', { class: 'repo', text: `${sn.repo}/${sn.path.split('/').pop()} · ` }), sn.title.split(' — ')[0]));
       });
-      el.append(chips);
+      card.append(chips);
     }
     story.append(el);
     stepEls.push(el);
@@ -176,7 +177,8 @@ function enter(i, { rebuild = false } = {}) {
   ctl.tokenAt.set(i, diagram.tokenTarget(ctl.model, view.token));
   const cam = typeof view.camera === 'string' ? CAMERAS[view.camera] : { label: 'detail', section: null };
   crumbDot.className = `crumb-dot sec-${cam.section || 'neutral'}`;
-  crumbText.textContent = cam.label;
+  crumbText.textContent = cam.label || '';
+  crumb.hidden = !cam.label;
   chartEls.forEach((c) => c.el.classList.toggle('emph', c.id === view.chart));
   codeBtn.disabled = !(st.code && st.code.length);
   codeDrawer.setDefault(st.code || []);
@@ -214,9 +216,20 @@ function scrollState() {
 // ---------------------------------------------------------------
 // Camera: interpolate between steps' regions, plus the reader's pan/zoom
 
+// The part of the viewport the story's camera frames: on wide screens,
+// right of the story column and below the toolbar. The diagram still
+// draws under the story's transparent column, around its cards.
+function freeArea() {
+  const r = viewport.getBoundingClientRect();
+  if (window.innerWidth <= 900) return { left: r.left, top: r.top, width: r.width, height: r.height };
+  const L = Math.min(r.width * 0.7, Math.max(0, story.getBoundingClientRect().right + 24 - r.left));
+  const T = Math.max(0, stage.querySelector('.toolbar').getBoundingClientRect().bottom + 8 - r.top);
+  return { left: r.left + L, top: r.top + T, width: r.width - L, height: r.height - T };
+}
+
 function fitRect(name) {
   const c = typeof name === 'string' ? CAMERAS[name].rect : name;
-  const r = viewport.getBoundingClientRect();
+  const r = freeArea();
   const aspect = r.width / Math.max(1, r.height);
   const [x0, y0, x1, y1] = c;
   let w = Math.max(x1 - x0, r.width < 600 ? 360 : 560), hgt = y1 - y0;
@@ -257,10 +270,15 @@ function applyUser(c) {
   return { x: c.x + (c.w - w) / 2 + u.dx, y: c.y + (c.h - hh) / 2 + u.dy, w, h: hh };
 }
 
-let cam = null;
-function setCamera(c) {
-  cam = c;
-  svg.setAttribute('viewBox', `${c.x.toFixed(2)} ${c.y.toFixed(2)} ${c.w.toFixed(2)} ${c.h.toFixed(2)}`);
+// `free` is the region framed in the free area; the viewBox extends it
+// to the whole viewport at the same scale.
+let cam = null, freeCam = null;
+function setCamera(free) {
+  freeCam = free;
+  const r = viewport.getBoundingClientRect(), f = freeArea();
+  const s = f.width / free.w;
+  cam = { x: free.x - (f.left - r.left) / s, y: free.y - (f.top - r.top) / s, w: r.width / s, h: r.height / s };
+  svg.setAttribute('viewBox', `${cam.x.toFixed(2)} ${cam.y.toFixed(2)} ${cam.w.toFixed(2)} ${cam.h.toFixed(2)}`);
 }
 
 function screenScale() {
@@ -365,6 +383,11 @@ function tokenFrame(i, p) {
     return { t: { p: along(route(prev, cur), e), size: lerp(prev.size, cur.size, e), kind: mid.kind, label: mid.label },
       o: 1, dest: prev.st !== cur.st || prev.key !== cur.key ? cur : null, arrived: e >= 0.97 };
   }
+  // A batch is born at the DCP goroutine: docs flow in from KV and
+  // condense into the marker.
+  if (cur && cur.st === 'dcp' && i > 0 && ctl.tokenAt.has(i - 1)) {
+    return { t: cur, o: clamp01((e - 0.72) / 0.25), birth: e };
+  }
   if (cur) return { t: cur, o: i > 0 && !ctl.tokenAt.has(i - 1) ? 1 : e };
   if (prev) return { t: prev, o: 1 - e };
   return null;
@@ -411,6 +434,7 @@ function render() {
   for (const id of Object.keys(LIDS)) diagram.setLid(id, lerp(pv.open.has(id) ? 1 : 0, v.open.has(id) ? 1 : 0, t));
   for (const id of Object.keys(BUBBLES)) diagram.setBubble(id, lerp(pv.bubbles.has(id) ? 1 : 0, v.bubbles.has(id) ? 1 : 0, t));
   diagram.setToken(tf && tf.t, tf ? tf.o : 0);
+  diagram.setDocs(tf && tf.birth !== undefined ? tf.birth : -1, tf && tf.t);
   // Our segment's slot stays faint until the marker arrives.
   const dest = tf && tf.dest;
   diagram.setArrival(dest || null, dest && !tf.arrived ? 0 : 1);
@@ -421,6 +445,8 @@ function render() {
       el.style.opacity = chrome.toFixed(3);
       el.style.visibility = chrome < 0.02 ? 'hidden' : '';
     }
+    // On phones the toolbar wraps, so hidden controls would leave an empty row.
+    controls.style.display = chrome < 0.02 && window.innerWidth <= 900 ? 'none' : '';
     zoomHint.style.opacity = (1 - chrome).toFixed(3);
     zoomHint.style.visibility = chrome > 0.98 ? 'hidden' : '';
   }
@@ -501,12 +527,13 @@ function frame(ts) {
 
 function zoomAt(factor, sx, sy) {
   const u = ctl.user;
-  const { r, s, ox, oy } = screenScale();
-  const px = sx ?? r.left + r.width / 2, py = sy ?? r.top + r.height / 2;
-  const cx = cam.x + (px - ox) / s, cy = cam.y + (py - oy) / s; // canvas point under the cursor
-  const fx = (cx - cam.x) / cam.w, fy = (cy - cam.y) / cam.h;
-  const bw = cam.w * u.z, bh = cam.h * u.z; // the story camera's size
-  const bx = cam.x - (bw - cam.w) / 2 - u.dx, by = cam.y - (bh - cam.h) / 2 - u.dy;
+  const f = freeArea(), c = freeCam;
+  const s = f.width / c.w;
+  const px = sx ?? f.left + f.width / 2, py = sy ?? f.top + f.height / 2;
+  const cx = c.x + (px - f.left) / s, cy = c.y + (py - f.top) / s; // canvas point under the cursor
+  const fx = (cx - c.x) / c.w, fy = (cy - c.y) / c.h;
+  const bw = c.w * u.z, bh = c.h * u.z; // the story camera's size
+  const bx = c.x - (bw - c.w) / 2 - u.dx, by = c.y - (bh - c.h) / 2 - u.dy;
   const z = Math.max(0.5, Math.min(8, u.z * factor));
   const w = bw / z, hh = bh / z;
   u.dx = cx - fx * w - bx - (bw - w) / 2;

@@ -81,33 +81,55 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .sec-disk { --sec: var(--sec-disk); }
 .sec-neutral { --sec: var(--sec-neutral); }
 
-/* ---------- layout ---------- */
+/* ---------- layout ----------
+   Wide screens: the diagram fills the window behind a transparent story
+   column whose text sits on opaque cards; the camera frames its region
+   to the right of the story. The charts column opens on the right when
+   --chrome (0..1, set from the scroll position) says so. */
 
 .layout {
-  /* --chrome (0..1, set from the scroll position) opens the charts column */
   --chrome: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 27rem) minmax(0, 1fr) calc(var(--chrome) * 18rem);
-  column-gap: 3rem;
-  padding-inline: max(16px, 2vw) calc(max(16px, 2vw) - 3rem * (1 - var(--chrome)));
-}
-.story { min-width: 0; padding-block: 1rem 45vh; }
-.stage, .charts {
-  position: sticky;
-  top: env(safe-area-inset-top, 0px);
-  height: 100vh;
-  min-width: 0;
-  padding-block: 1rem;
-}
-.stage { display: flex; flex-direction: column; gap: 0.5rem; }
-.viewport {
+  --gutter: max(16px, 2vw);
+  --story-w: min(27rem, 38vw);
+  --charts-w: calc(var(--chrome) * 18rem);
   position: relative;
-  flex: 1;
-  min-height: 0;
-  border: 1px solid var(--faint);
-  border-radius: var(--radius);
+}
+.story {
+  position: relative;
+  z-index: 2;
+  width: var(--story-w);
+  margin-left: var(--gutter);
+  padding-block: 4.5rem 45vh;
+  pointer-events: none; /* let drags reach the diagram between cards */
+}
+.story .card { pointer-events: auto; }
+.stage {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  right: var(--charts-w);
+  z-index: 0;
+}
+.toolbar {
+  position: absolute;
+  z-index: 3;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  left: calc(var(--gutter) + var(--story-w) + 1.5rem);
+  right: 1rem;
+}
+.viewport {
+  position: absolute;
+  inset: 0;
   background: var(--bg);
   overflow: hidden;
+}
+.charts {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: var(--charts-w);
+  z-index: 1;
+  background: var(--bg);
+  border-left: calc(var(--chrome) * 1px) solid var(--faint);
+  padding: 4rem calc(var(--chrome) * 1.25rem) 1rem calc(var(--chrome) * 1.5rem);
 }
 .diagram { display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
 .viewport.dragging .diagram { cursor: grabbing; }
@@ -122,13 +144,20 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .zbtn:hover { border-color: var(--accent); }
 .zoom-hint { font: 400 0.6875rem/1 var(--font-mono); color: var(--muted); }
 @media (max-width: 1100px) { .zoom-hint { display: none; } }
-.charts { display: flex; flex-direction: column; gap: 1.6rem; padding-top: 3.5rem; overflow: hidden; }
+.charts { display: flex; flex-direction: column; gap: 1.6rem; overflow: hidden; }
 .chart { min-width: 15rem; }
 .overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 4; overflow: visible; }
 
 /* ---------- story ---------- */
 
-.hero { padding-block: 2rem 4rem; }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--faint);
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(20, 30, 40, 0.08);
+  padding: 1.1rem 1.35rem;
+}
+.hero { margin-bottom: 4rem; padding-block: 1.6rem; }
 .eyebrow { font: 600 0.75rem/1.2 var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
 .hero h1 { font: 600 2.4rem/1.08 var(--font-display); margin: 0.5rem 0 1rem; text-wrap: balance; }
 .hero .subtitle { color: var(--muted); font-size: 1.15rem; line-height: 1.45; }
@@ -145,16 +174,18 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
+  width: fit-content;
+  max-width: 100%;
+  padding-block: 0.7rem;
 }
 .chapter-dot { flex: none; width: 0.75rem; height: 0.75rem; border-radius: 3px; background: var(--sec); }
 .step {
   min-height: 70vh;
   padding-block: 2rem;
   max-width: 62ch;
-  opacity: 0.35;
-  transition: opacity 0.4s ease;
 }
-.step.active { opacity: 1; }
+.step .card { opacity: 0.55; transition: opacity 0.4s ease; }
+.step.active .card { opacity: 1; }
 .step p { margin: 0 0 0.9em; }
 .step ul, .step ol { padding-left: 1.3em; margin: 0 0 0.9em; }
 .step li { margin-bottom: 0.3em; }
@@ -343,6 +374,8 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .token-chip.kind-mem { fill: var(--seg-mem); }
 .token-chip.kind-file { fill: var(--seg-file); }
 .token-label { font-size: 11px; font-weight: 600; fill: var(--accent); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.doc-body { fill: var(--panel); stroke: var(--ink); stroke-width: 1; }
+.doc-lines { stroke: var(--muted); stroke-width: 0.8; fill: none; }
 .network { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 2 5; stroke-linecap: round; }
 
 /* ---------- drawers ---------- */
@@ -389,16 +422,18 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 /* ---------- narrower screens ---------- */
 
 @media (max-width: 1250px) {
-  .layout { grid-template-columns: minmax(0, 24rem) minmax(0, 1fr); column-gap: 2rem; padding-inline: max(16px, 2vw); }
+  .layout { --charts-w: 0px; --story-w: min(24rem, 40vw); }
   .charts { display: none; }
 }
+/* Phones: the diagram is a sticky panel on top; the story scrolls below. */
 @media (max-width: 900px) {
-  .layout { display: flex; flex-direction: column; padding-inline: 16px; }
-  .toolbar { flex-wrap: wrap; }
+  .layout { display: flex; flex-direction: column; padding-inline: 16px; --story-w: 100%; --gutter: 0px; }
+  .stage { position: sticky; top: 0; left: auto; right: auto; bottom: auto; order: -1; height: 56vh; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.4rem; padding-block: 0.5rem; }
+  .toolbar { position: static; flex-wrap: wrap; }
+  .viewport { position: relative; inset: auto; flex: 1; min-height: 0; }
   .tools, .controls { display: flex; flex-wrap: wrap; gap: 0.4rem; min-width: 0; }
-  .stage { order: -1; height: 56vh; z-index: 5; background: var(--bg); padding-block: 0.5rem; border-bottom: 1px solid var(--line); }
-  .story { padding-block: 1rem 60vh; }
-  .step { min-height: 50vh; opacity: 0.5; scroll-margin-top: 58vh; }
+  .story { width: auto; margin-left: 0; padding-block: 1rem 60vh; pointer-events: auto; }
+  .step { min-height: 50vh; scroll-margin-top: 58vh; }
   .hero h1 { font-size: 1.8rem; }
   .knob { grid-template-columns: minmax(0, 1fr) minmax(0, 7rem); }
   .knob .doc { grid-column: 1 / -1; }

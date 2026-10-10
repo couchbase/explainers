@@ -131,6 +131,7 @@ export class Diagram {
     const order = ['introducer', 'persister', 'merger', 'scorch', 'cbft', 'kv', 'disk'];
     for (const id of order) this._lid(g, id);
     for (const id of Object.keys(BUBBLES)) this._bubble(g, id);
+    this._docs(g);
     this._token(g);
 
     // Tabs last so they're never covered; a nested section's tab only
@@ -167,9 +168,6 @@ export class Diagram {
     txt(f, 940, 690, 'introduce ↑', 'note', 'end');
     this._arrow(f, 'M280,1152 V1288');
     this._arrow(f, 'M720,1152 V1288');
-    el('line', { x1: 14, x2: 986, y1: 1231, y2: 1231, class: 'boundary' }, f);
-    txt(f, 16, 1224, 'MEMORY', 'boundary-label');
-    txt(f, 16, 1245, 'DISK', 'boundary-label');
     // Files being written, shown on the write arrows.
     this.writeP = this._writeBadge(f, 290, 1172);
     this.writeM = this._writeBadge(f, 730, 1172);
@@ -363,6 +361,54 @@ export class Diagram {
       this.tierLines.push({ l, t });
     }
     txt(b, x, base + 20, 'file segments by live size (log scale); outlined: being merged', 'back-note');
+  }
+
+  // Documents flowing from KV down the DCP arrow, for a batch's birth.
+  _docs(g) {
+    this.docs = [];
+    for (let i = 0; i < 9; i++) {
+      const dg = el('g', { class: 'doc', opacity: 0 }, g);
+      el('path', { d: 'M-5,-6.5 H2 L5,-3.5 V6.5 H-5 Z', class: 'doc-body' }, dg);
+      el('path', { d: 'M-3,-2 H3 M-3,1 H3 M-3,4 H1', class: 'doc-lines' }, dg);
+      this.docs.push(dg);
+    }
+  }
+
+  // t in 0..1 is the birth's progress (<0 hides the docs). Each doc
+  // leaves the KV engine a little after the last, comes down the DCP
+  // arrow into the DCP goroutine, and shrinks into the marker at `tok`.
+  setDocs(t, tok) {
+    if (t < 0 || !tok) {
+      if (this.docsShown) for (const d of this.docs) d.setAttribute('opacity', 0);
+      this.docsShown = false;
+      return;
+    }
+    this.docsShown = true;
+    const [tx, ty] = tok.p;
+    const pts = [[500, 96], [500, 214], [tx, 214], [tx, ty]];
+    const lens = [];
+    let total = 0;
+    for (let k = 1; k < pts.length; k++) { const d = Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); lens.push(d); total += d; }
+    const at = (q) => {
+      let want = q * total;
+      for (let k = 0; k < lens.length; k++) {
+        if (want <= lens[k] || k === lens.length - 1) {
+          const f = Math.min(1, want / lens[k]);
+          return [pts[k][0] + (pts[k + 1][0] - pts[k][0]) * f, pts[k][1] + (pts[k + 1][1] - pts[k][1]) * f];
+        }
+        want -= lens[k];
+      }
+      return pts[pts.length - 1];
+    };
+    this.docs.forEach((d, i) => {
+      const start = i * 0.065;
+      const q = Math.max(0, Math.min(1, (t - start) / 0.4));
+      if (q <= 0 || q >= 1) { d.setAttribute('opacity', 0); return; }
+      const [x, y] = at(q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2);
+      const sc = q > 0.85 ? 1 - (q - 0.85) / 0.15 * 0.7 : 1;
+      d.setAttribute('opacity', q > 0.9 ? ((1 - q) / 0.1).toFixed(3) : 1);
+      d.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${sc.toFixed(3)})`);
+    });
   }
 
   // The marker for "our batch": a ringed chip that becomes our segment.

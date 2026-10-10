@@ -45,7 +45,7 @@ export const BUBBLES = {
 
 // Named camera regions: [x0, y0, x1, y1] plus a "where am I" label.
 export const CAMERAS = {
-  overview: { rect: [0, 0, CW, CH], label: 'the whole picture', section: null },
+  overview: { rect: [0, 0, CW, CH], label: '', section: null },
   top: { rect: [80, 0, 920, 490], label: 'KV and cbft', section: 'cbft' },
   kv: { rect: [260, 0, 740, 190], label: 'KV', section: 'kv' },
   cbft: { rect: [100, 190, 900, 480], label: 'cbft', section: 'cbft' },
