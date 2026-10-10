@@ -190,3 +190,18 @@ test('goroutine labels fit without clipping', async () => {
   assert.deepEqual([...clipped], []);
   await page.close();
 });
+
+test('goroutine labels never overlap mid-transition', async () => {
+  const { page } = await openPage(browser);
+  const n = await stepCount(page);
+  let overlaps = 0;
+  for (let i = 0; i < n; i++) {
+    for (const p of [0.3, 0.5, 0.7]) {
+      await scrollToStep(page, i, p, 20);
+      overlaps += await page.evaluate(() => [...document.querySelectorAll('.gnode')].filter((g) =>
+        [...g.querySelectorAll('.glabel')].filter((t) => Number(t.getAttribute('opacity') ?? 1) > 0.01).length > 1).length);
+    }
+  }
+  assert.equal(overlaps, 0);
+  await page.close();
+});

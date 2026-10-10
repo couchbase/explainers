@@ -20,7 +20,7 @@ export function procState(p) {
 //
 // A box draws a change from one state to another at a progress q in
 // 0..1: the old and new borders and dots cross-fade (two overlaid
-// copies), and the old label slides out to the left as the new one
+// copies), and the old label slides out to the left, then the new one
 // slides in from the right. Who drives q depends on who owns time:
 // scrolling (scrub) on paused story steps, or the clock (live) when the
 // reader has pressed Play.
@@ -74,8 +74,11 @@ export class GNode {
       this._label(this.labels[0], { state: b.state, label: b.label }, 0, 1);
       this.labels[1].setAttribute('opacity', 0);
     } else {
-      this._label(this.labels[0], a, -SLIDE * q, 1 - q);
-      this._label(this.labels[1], b, SLIDE * (1 - q), q);
+      // One after the other, never overlapping: the old label slides
+      // out during the first half, the new one in during the second.
+      const out = Math.min(1, q * 2), inn = Math.max(0, q * 2 - 1);
+      this._label(this.labels[0], a, -SLIDE * out, 1 - out);
+      this._label(this.labels[1], b, SLIDE * (1 - inn), inn);
     }
   }
 
@@ -120,6 +123,7 @@ const SHORT = [
   [/^herder: BatchIntroductionStart/, 'stalled by the app herder'],
   [/^waiting for batches/, 'idle: waiting for batches'],
   [/^waiting for analysis/, 'waiting for analysis'],
+  [/^Scorch\.Batch\(\)/, 'calling Scorch.Batch()'],
   [/^NewUsing/, 'building in-memory segment'],
   [/^prepareSegment/, 'computing obsoletes'],
   [/^introductions <- segment/, 'handing segment over'],
