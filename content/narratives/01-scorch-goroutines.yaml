@@ -116,15 +116,25 @@ chapters:
 
           Our batch is being built right now by [[the DCP goroutine]].
 
+      - id: to-channel
+        sim: { until: channel }
+        view: { target: ourBatch }
+        expect: ["reached:channel"]
+        code: [cbft.submitAsync]
+        text: |
+          The batch is complete. The DCP goroutine puts it into
+          [[a worker's channel]], a slot that holds just one batch.
+          Which worker is fixed by the vbucket number, so each
+          vbucket's batches stay in order.
+
       - id: to-worker
         sim: { until: worker }
         view: { target: ourBatch }
         expect: ["reached:worker"]
         text: |
-          The batch is complete. It went over a capacity-1 channel to
-          [[its batch worker]], which is now in front of the stack.
-          Which worker gets it is fixed by the vbucket number, so each
-          vbucket's batches stay in order.
+          [[Its batch worker]] takes the batch from the channel, and
+          moves to the front of the stack. If the slot had still been
+          full, the DCP goroutine would have had to wait.
 
       - id: to-herder
         sim: { until: herder }
@@ -161,10 +171,18 @@ chapters:
         view: { camera: scorchTop, target: batch }
         code: [scorch.Batch]
         text: |
-          The worker calls [[Scorch.Batch()]]. It fans the docs out to
-          the **analysis queue**, a pool of one analyzer per CPU shared
-          by all workers. Then it encodes the results into a new
-          **in-memory zap segment**.
+          The worker calls [[Scorch.Batch()]], bleve's entry point for
+          indexing a batch.
+
+      - id: analysis
+        sim: { until: analysis }
+        view: { target: analysis }
+        expect: ["reached:analysis"]
+        text: |
+          It fans the docs out to [[the analysis queue]]: a pool of
+          one analyzer per CPU, shared by all four workers. Analysis
+          tokenizes each field into terms. Then the results are
+          encoded into a new **in-memory zap segment**.
 
       - id: built
         sim: { until: introducing }

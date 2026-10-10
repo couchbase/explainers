@@ -113,7 +113,7 @@ const replayBtn = h('button', { class: 'btn', type: 'button', text: 'Replay', ti
 const knobsBtn = h('button', { class: 'btn', type: 'button', text: 'Knobs' });
 const controls = h('span', { class: 'controls' }, clock, playBtn, speedSel, replayBtn, knobsBtn);
 const codeBtn = h('button', { class: 'btn', type: 'button', text: 'Code' });
-const zoomHint = h('span', { class: 'zoom-hint', text: 'drag to pan · ⌘/Ctrl + scroll to zoom' });
+const zoomHint = h('span', { class: 'zoom-hint', text: 'drag to pan · ⌘/⌥ + scroll or pinch to zoom · double-click to zoom in' });
 // The hint and the controls share one slot and cross-fade.
 stage.append(h('div', { class: 'toolbar' }, crumb, h('span', { class: 'spacer' }), h('span', { class: 'tools' }, zoomHint, controls), codeBtn));
 
@@ -143,7 +143,7 @@ const CHARTS = [
 const chartEls = CHARTS.map((c) => {
   const val = h('b');
   const plot = h('div', { class: 'plot' });
-  const el = h('div', { class: 'chart' }, h('div', { class: 'chart-head' }, h('span', { text: c.title }), val), plot);
+  const el = h('div', { class: 'chart card' }, h('div', { class: 'chart-head' }, h('span', { text: c.title }), val), plot);
   chartsCol.append(el);
   return { ...c, el, val, plot };
 });
@@ -155,6 +155,7 @@ const ctl = {
   model: null, current: -1, speed: 0, playing: false,
   lastTs: null, lastSim: 0, dirty: true, scrolled: false, autoKnobs: false,
   tokenAt: new Map(), // step index -> marker target at that step
+  stateAt: new Map(), // step index -> goroutine box states at that step
   user: { dx: 0, dy: 0, z: 1 }, // the reader's own pan/zoom
   relaxUser: false,
 };
@@ -173,8 +174,10 @@ function enter(i, { rebuild = false } = {}) {
   stepEls.forEach((el, j) => el.classList.toggle('active', j === i));
   const view = views[i];
   diagram.setView(view.open, view.bubbles);
+  diagram.live = ctl.playing;
   diagram.update(ctl.model);
   ctl.tokenAt.set(i, diagram.tokenTarget(ctl.model, view.token));
+  ctl.stateAt.set(i, diagram.nodeStates);
   const cam = typeof view.camera === 'string' ? CAMERAS[view.camera] : { label: 'detail', section: null };
   crumbDot.className = `crumb-dot sec-${cam.section || 'neutral'}`;
   crumbText.textContent = cam.label || '';
@@ -217,14 +220,17 @@ function scrollState() {
 // Camera: interpolate between steps' regions, plus the reader's pan/zoom
 
 // The part of the viewport the story's camera frames: on wide screens,
-// right of the story column and below the toolbar. The diagram still
-// draws under the story's transparent column, around its cards.
+// between the story column and the charts column, below the toolbar.
+// The diagram still draws under both transparent columns, around their
+// cards.
 function freeArea() {
   const r = viewport.getBoundingClientRect();
   if (window.innerWidth <= 900) return { left: r.left, top: r.top, width: r.width, height: r.height };
   const L = Math.min(r.width * 0.7, Math.max(0, story.getBoundingClientRect().right + 24 - r.left));
+  const cw = chartsCol.getBoundingClientRect().width;
+  const R = cw > 1 ? Math.min(r.width * 0.3, cw + 16) : 0;
   const T = Math.max(0, stage.querySelector('.toolbar').getBoundingClientRect().bottom + 8 - r.top);
-  return { left: r.left + L, top: r.top + T, width: r.width - L, height: r.height - T };
+  return { left: r.left + L, top: r.top + T, width: Math.max(100, r.width - L - R), height: r.height - T };
 }
 
 function fitRect(name) {
@@ -313,6 +319,9 @@ const VIA = {
 
 const LEGS = {
   'dcp>worker': (a, b) => [a, b],
+  'dcp>channel': (a, b) => [a, [a[0], b[1]], b],
+  'channel>worker': (a, b) => [a, [b[0], a[1]], b],
+  'channel>herder': (a, b) => [a, [a[0] - 128, a[1]], [a[0] - 128, b[1]], b],
   'worker>herder': (a, b) => [a, [a[0], b[1]], b],
   'herder>analysis': (a, b) => [a, [a[0], 490], [b[0], 490], b],
   'worker>analysis': (a, b) => [a, [a[0], 490], b],
@@ -393,6 +402,26 @@ function tokenFrame(i, p) {
   return null;
 }
 
+// Goroutine box states for step i at progress p. On paused steps, boxes
+// whose state differs from the previous step change one at a time, in
+// the order data meets them, spread across the transition; scrolling
+// back undoes them in reverse. Running live, they just follow the sim.
+function nodeFrame(i, p) {
+  const cur = ctl.stateAt.get(i) || diagram.nodeStates;
+  const prev = i > 0 ? ctl.stateAt.get(i - 1) : null;
+  if (ctl.playing || !prev || p >= 1) return cur;
+  const order = Diagram.NODE_ORDER.filter((k) => prev[k] && cur[k] &&
+    (prev[k].state !== cur[k].state || prev[k].label !== cur[k].label));
+  if (order.length === 0) return cur;
+  const t = ease(p);
+  const out = { ...cur };
+  order.forEach((k, n) => {
+    const at = 0.15 + 0.7 * (n + 0.5) / order.length;
+    out[k] = t >= at ? cur[k] : prev[k];
+  });
+  return out;
+}
+
 // ---------------------------------------------------------------
 // Callouts: one per step, fading with the transition
 
@@ -434,6 +463,7 @@ function render() {
   for (const id of Object.keys(LIDS)) diagram.setLid(id, lerp(pv.open.has(id) ? 1 : 0, v.open.has(id) ? 1 : 0, t));
   for (const id of Object.keys(BUBBLES)) diagram.setBubble(id, lerp(pv.bubbles.has(id) ? 1 : 0, v.bubbles.has(id) ? 1 : 0, t));
   diagram.setToken(tf && tf.t, tf ? tf.o : 0);
+  diagram.applyNodes(nodeFrame(i, p), performance.now(), ctl.playing ? 450 : 0);
   diagram.setDocs(tf && tf.birth !== undefined ? tf.birth : -1, tf && tf.t);
   // Our segment's slot stays faint until the marker arrives.
   const dest = tf && tf.dest;
@@ -457,7 +487,7 @@ function render() {
   const target = v.target ? diagram.anchor(v.target) : null;
   diagram.setTarget(target && target.visible && p > 0.6 ? target.p : null);
 
-  const chartsShown = chartsCol.offsetParent !== null && chrome > 0.02;
+  const chartsShown = chrome > 0.02 && getComputedStyle(chartsCol).display !== 'none';
   for (const c of chartEls) {
     const a = diagram.anchor(c.anchor);
     const sp = a && toScreen(a.p);
@@ -477,8 +507,12 @@ function drawSim() {
   if (!m) return;
   clock.textContent = `t = ${(m.now / 1000).toFixed(2)}s`;
   playBtn.textContent = ctl.playing ? 'Pause' : 'Play';
+  diagram.live = ctl.playing;
   diagram.update(m);
-  if (ctl.playing) ctl.tokenAt.set(ctl.current, diagram.tokenTarget(m, views[ctl.current].token));
+  if (ctl.playing) {
+    ctl.tokenAt.set(ctl.current, diagram.tokenTarget(m, views[ctl.current].token));
+    ctl.stateAt.set(ctl.current, diagram.nodeStates);
+  }
   updateCharts(m);
   if (debug) {
     const errs = checkInvariants(m);
@@ -545,29 +579,84 @@ function zoomAt(factor, sx, sy) {
 zoomIn.addEventListener('click', () => zoomAt(1.3));
 zoomOut.addEventListener('click', () => zoomAt(1 / 1.3));
 recenter.addEventListener('click', () => { ctl.relaxUser = true; });
+// Map-style gestures. Plain scrolling always drives the story, so
+// zooming needs a modifier: ⌘, Ctrl or ⌥ + scroll (a trackpad pinch
+// arrives as Ctrl + scroll in Chrome and Firefox; Safari sends gesture
+// events). Drag pans; double-click zooms in, ⌥/Shift + double-click
+// zooms out; on touchscreens, two fingers pinch and pan.
+
+const clampFactor = (f) => Math.max(0.7, Math.min(1.45, f));
+
 viewport.addEventListener('wheel', (e) => {
-  if (!(e.ctrlKey || e.metaKey)) return;
+  if (!(e.ctrlKey || e.metaKey || e.altKey)) return;
   e.preventDefault();
-  zoomAt(Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  // pinches send small deltas; wheel notches send ~100
+  const k = Math.abs(dy) < 20 ? 0.012 : 0.0025;
+  zoomAt(clampFactor(Math.exp(-dy * k)), e.clientX, e.clientY);
 }, { passive: false });
-let drag = null;
+
+let gestureScale = 1;
+viewport.addEventListener('gesturestart', (e) => { e.preventDefault(); gestureScale = 1; });
+viewport.addEventListener('gesturechange', (e) => {
+  e.preventDefault();
+  zoomAt(clampFactor(e.scale / gestureScale), e.clientX, e.clientY);
+  gestureScale = e.scale;
+});
+viewport.addEventListener('gestureend', (e) => e.preventDefault());
+
+viewport.addEventListener('dblclick', (e) => {
+  if (e.target.closest('button')) return;
+  e.preventDefault();
+  zoomAt(e.altKey || e.shiftKey ? 1 / 1.6 : 1.6, e.clientX, e.clientY);
+});
+
+const pointers = new Map(); // pointerId -> {x, y, type}
+let drag = null, pinch = null;
+function pinchState() {
+  const [a, b] = [...pointers.values()];
+  return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+function panBy(dxPx, dyPx) {
+  const s = freeArea().width / freeCam.w;
+  ctl.user.dx -= dxPx / s;
+  ctl.user.dy -= dyPx / s;
+  ctl.relaxUser = false;
+}
 viewport.addEventListener('pointerdown', (e) => {
-  if (e.pointerType !== 'mouse' || e.button !== 0 || e.target.closest('button')) return;
+  if (e.target.closest('button')) return;
+  if (e.pointerType !== 'touch' && e.button !== 0) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+  if (e.pointerType === 'touch') {
+    // one finger scrolls the page; two fingers pinch and pan the diagram
+    if (pointers.size === 2) { pinch = pinchState(); viewport.setPointerCapture(e.pointerId); }
+    return;
+  }
   drag = { x: e.clientX, y: e.clientY };
   viewport.setPointerCapture(e.pointerId);
   viewport.classList.add('dragging');
 });
 viewport.addEventListener('pointermove', (e) => {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+  if (pinch && pointers.size === 2) {
+    const now = pinchState();
+    if (pinch.d > 0) zoomAt(clampFactor(now.d / pinch.d), now.x, now.y);
+    panBy(now.x - pinch.x, now.y - pinch.y);
+    pinch = now;
+    return;
+  }
   if (!drag) return;
-  const { s } = screenScale();
-  ctl.user.dx -= (e.clientX - drag.x) / s;
-  ctl.user.dy -= (e.clientY - drag.y) / s;
+  panBy(e.clientX - drag.x, e.clientY - drag.y);
   drag = { x: e.clientX, y: e.clientY };
-  ctl.relaxUser = false;
 });
-const endDrag = () => { drag = null; viewport.classList.remove('dragging'); };
-viewport.addEventListener('pointerup', endDrag);
-viewport.addEventListener('pointercancel', endDrag);
+const endPointer = (e) => {
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinch = null;
+  if (pointers.size === 0) { drag = null; viewport.classList.remove('dragging'); }
+};
+viewport.addEventListener('pointerup', endPointer);
+viewport.addEventListener('pointercancel', endPointer);
 
 // ---------------------------------------------------------------
 

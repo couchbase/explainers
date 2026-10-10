@@ -43,6 +43,11 @@ export function procState(p) {
 // A goroutine box: state dot, name, one line of live activity.
 // With `header: true`, it's the title row of a bigger panel: the
 // activity goes on the same line, after the name.
+//
+// State changes are animated: the border and dot colors cross-fade
+// (CSS), and the new activity label slides in from the right while
+// the old one slides out to the left. A box holds each state for at
+// least `dwell` ms of wall time, so a fast simulation doesn't flicker.
 class GNode {
   constructor(parent, x, y, w, h, title, { sub, header } = {}) {
     this.g = el('g', { class: 'gnode s-wait' }, parent);
@@ -50,16 +55,95 @@ class GNode {
     el('circle', { cx: x + 14, cy: y + 17, r: 4.5, class: 'gdot' }, this.g);
     this.title = txt(this.g, x + 26, y + 21, title, 'gtitle');
     const lx = header ? x + 34 + title.length * 8.2 : x + 14;
-    this.label = txt(this.g, lx, header ? y + 21 : y + h - 11, sub || '', 'glabel');
-    this.max = Math.floor((w - (lx - x) - 50) / 6.4);
+    const ly = header ? y + 21 : y + h - 11;
+    this.labels = [txt(this.g, lx, ly, sub || '', 'glabel'), txt(this.g, lx, ly, '', 'glabel leave')];
+    this.active = 0;
+    // characters that fit at the normal and the small label size
+    const room = w - (lx - x) - (header ? 46 : 12);
+    this.fit = [Math.floor(room / 6.7), Math.floor(room / 6.0)];
     this.since = txt(this.g, x + w - 10, y + 20, '', 'gsince', 'end');
+    this.shown = { state: 'wait', label: sub || '' };
+    this.lastChange = -Infinity;
   }
-  set(p, now, labelOverride) {
-    setCls(this.g, `gnode s-${procState(p)}`);
-    const label = labelOverride ?? (p ? p.label : '');
-    setText(this.label, clip(label, this.max));
-    setText(this.since, p && now - p.since >= 100 ? fmtMs(now - p.since) : '');
+
+  // Shows {state, label, since?}, animating if it changed and the box
+  // has held its current state for at least `dwell` ms.
+  show(want, wallNow, dwell) {
+    setText(this.since, want.since || '');
+    const sh = this.shown;
+    if (want.state === sh.state && want.label === sh.label) return;
+    // A changed number (an epoch, a count) isn't a new activity: update
+    // it in place, without the slide.
+    const gist = (l) => l.replace(/[\d.,]+/g, '#');
+    if (want.state === sh.state && gist(want.label) === gist(sh.label)) {
+      const cur = this.labels[this.active];
+      cur.textContent = clip(want.label, cur.classList.contains('small') ? this.fit[1] : this.fit[0]);
+      this.shown = { state: want.state, label: want.label };
+      return;
+    }
+    if (wallNow - this.lastChange < dwell) return;
+    this.lastChange = wallNow;
+    if (want.state !== sh.state) setCls(this.g, `gnode s-${want.state}`);
+    if (want.label !== sh.label) {
+      const out = this.labels[this.active];
+      this.active = 1 - this.active;
+      const inc = this.labels[this.active];
+      const small = want.label.length > this.fit[0];
+      inc.textContent = clip(want.label, small ? this.fit[1] : this.fit[0]);
+      inc.setAttribute('class', `glabel enter${small ? ' small' : ''}`);
+      void inc.getBoundingClientRect(); // commit the start position
+      inc.setAttribute('class', `glabel${small ? ' small' : ''}`);
+      out.setAttribute('class', `glabel leave${out.classList.contains('small') ? ' small' : ''}`);
+    }
+    this.shown = { state: want.state, label: want.label };
   }
+}
+
+// Short, plain activity labels for each goroutine box, so they fit
+// without clipping. Raw labels come from the simulation's processes.
+const SHORT = [
+  [/^waiting for DCP mutations/, 'idle: waiting for DCP'],
+  [/^batch\.Index/, 'batch.Index(): mapping docs'],
+  [/^batchCh-(\d) <- batch/, 'stalled: worker $1 is busy'],
+  [/^herder: IndexStart/, 'stalled by the app herder'],
+  [/^herder: BatchIntroductionStart/, 'stalled by the app herder'],
+  [/^waiting for batches/, 'idle: waiting for batches'],
+  [/^waiting for analysis/, 'waiting for analysis'],
+  [/^NewUsing/, 'building in-memory segment'],
+  [/^prepareSegment/, 'computing obsoletes'],
+  [/^introductions <- segment/, 'handing segment over'],
+  [/^waiting for introduction to be applied/, 'waiting for the introducer'],
+  [/^waiting for persistence/, 'stalled: waiting for persist'],
+  [/^select: introductions/, 'idle'],
+  [/^introduceSegment/, 'introducing a segment'],
+  [/^introducePersist/, 'swapping in files'],
+  [/^introduceMerge/, 'introducing a merge'],
+  [/^nap /, 'napping (≤2s)'],
+  [/^waiting for (\d+) in-memory merge/, 'waiting on $1 workers'],
+  [/^writing (\S+)/, 'writing $1'],
+  [/^fsync (\S+\.zap)/, 'fsync $1'],
+  [/^root\.bolt: commit/, 'committing root.bolt'],
+  [/^root\.bolt: fsync/, 'fsync root.bolt'],
+  [/^root\.bolt: removed/, 'removing old snapshots'],
+  [/^introducerNotifier <- watcher/, 'idle'],
+  [/^waiting for a new root epoch/, 'idle: waiting for a new epoch'],
+  [/^paused: /, 'paused: waiting for the merger'],
+  [/^persists <- new files/, 'introducing new files'],
+  [/^waiting for persist introduction/, 'waiting for the introducer'],
+  [/^waiting for persister/, 'waiting for the persister'],
+  [/^persisterNotifier <- watcher/, 'notifying the persister'],
+  [/^MergeUsing: merging (\d+) files/, 'merging $1 files'],
+  [/^MergeUsing: (\d+) mem segs/, 'merging $1 segments'],
+  [/^merges <- /, 'handing result over'],
+  [/^waiting for merge introduction/, 'waiting for the introducer'],
+  [/^analyzing/, 'analyzing'],
+];
+export function shortLabel(label) {
+  for (const [re, out] of SHORT) {
+    const mm = label.match(re);
+    if (mm) return out.replace(/\$(\d)/g, (_, n) => mm[Number(n)]);
+  }
+  return label;
 }
 
 // Assigns stable slots to keys, so items don't shift as others come and go.
@@ -481,6 +565,15 @@ export class Diagram {
   }
 
   // ---------------------------------------------------------------
+  // The goroutine boxes, in the order data meets them.
+  static NODE_ORDER = ['kv', 'dcp', 'worker', 'batch', 'introducer', 'persister', 'merger'];
+
+  // Shows node states (from nodeStates, possibly mixed across steps by
+  // the page), animating changes.
+  applyNodes(states, wallNow, dwell) {
+    for (const k of Diagram.NODE_ORDER) if (states[k]) this.nodes[k].show(states[k], wallNow, dwell);
+  }
+
   // The logical view, for anchor visibility.
   setView(open, bubbles) {
     this.open = open;
@@ -541,13 +634,13 @@ export class Diagram {
       }
     }
     const fixed = {
-      dcp: [372, 253], channel: [372, 361], worker: [372, 361], herder: [478, 432],
+      dcp: [372, 253], channel: [500, 298], worker: [372, 361], herder: [478, 432],
       analysis: [372, 545], introducing: [332, 652], persisting: [60, 1067], merging: [940, 1067],
     }[tr.stage];
     if (fixed) {
       const kind = ['persisting', 'merging'].includes(tr.stage) ? (tr.stage === 'persisting' ? 'mem' : 'file') : 'batch';
-      const st = tr.stage === 'channel' ? 'worker' : tr.stage;
-      return { p: fixed, size: 16, kind, st, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
+      const st = tr.stage;
+      return { p: fixed, size: st === 'channel' ? 14 : 16, kind, st, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
     }
     const seg = this.positions.ourSeg;
     if (seg) {
@@ -593,18 +686,20 @@ export class Diagram {
 
     // KV
     const rate = ratePerSec(m);
-    this.nodes.kv.set(procs.get('kv'), now, m.kvPausedSince !== null ? 'paused: DCP buffer full' : `sending · ${fmtNum(rate)} docs/s`);
+    const ns = {};
+    const st = (p, label) => ({ state: procState(p), label: label ?? (p ? shortLabel(p.label) : ''), since: p && now - p.since >= 100 && this.live ? fmtMs(now - p.since) : '' });
+    ns.kv = st(procs.get('kv'), m.kvPausedSince !== null ? 'paused: DCP buffer full' : `sending ${fmtNum(rate)} docs/s`);
     const frac = Math.min(1, m.dcpBufUsed / m.cfg.dcpBufferBytes);
     this.dcpFill.setAttribute('width', (140 * frac).toFixed(1));
     setCls(this.dcpFill, frac > 0.8 ? 'gauge-fill warn' : 'gauge-fill');
     setText(this.dcpText, `${fmtBytes(m.dcpBufUsed)} / ${fmtBytes(m.cfg.dcpBufferBytes)}`);
 
     // cbft
-    this.nodes.dcp.set(procs.get('dcp'), now);
+    ns.dcp = st(procs.get('dcp'));
     // The front panel shows our batch's worker while we follow it.
     const front = tr && tr.worker != null && !m.reached('introduced') ? tr.worker : 0;
     setText(this.nodes.worker.title, `batch worker ${front}`);
-    this.nodes.worker.set(procs.get(`batchWorker-${front}`), now);
+    ns.worker = st(procs.get(`batchWorker-${front}`));
     const others = [0, 1, 2, 3].filter((i) => i !== front);
     for (let i = 1; i <= 3; i++) setCls(this.workerBack[i], `gbox behind s-${procState(procs.get(`batchWorker-${others[i - 1]}`))}`);
     const ch = m.workerChs[front];
@@ -618,10 +713,10 @@ export class Diagram {
 
     // scorch
     const bp = [0, 1, 2, 3].map((i) => procs.get(`batchWorker-${i}`)).find((p) => p && /Batch|analy|NewUsing|introduc|obsolete/.test(p.label));
-    this.nodes.batch.set(bp, now, bp ? bp.label : 'analyze → in-memory segment');
+    ns.batch = st(bp, bp ? shortLabel(bp.label) : 'analyze → in-memory segment');
     const q = m.analysisQueue;
     this.cpus.forEach((c, i) => setCls(c, i < q.inUse ? 'cpu busy' : 'cpu'));
-    this.nodes.introducer.set(procs.get('introducer'), now, `epoch ${s.CurRootEpoch}`);
+    ns.introducer = st(procs.get('introducer'), `epoch ${s.CurRootEpoch}`);
     for (const [k, r] of Object.entries(this.chans)) setCls(r, m.introLast && m.introLast.kind === k ? 'chan lit' : 'chan');
 
     // queries
@@ -635,6 +730,9 @@ export class Diagram {
     this._updateRoot(m);
     this._updatePersister(m, procs);
     this._updateMerger(m, procs);
+    ns.persister = st(procs.get('persister'));
+    ns.merger = st(procs.get('merger'));
+    this.nodeStates = ns;
     this._updateDisk(m);
     this._updateWrites(m);
     this._updateLids(m, procs, rate);
@@ -670,7 +768,7 @@ export class Diagram {
 
   _updatePersister(m, procs) {
     const p = procs.get('persister');
-    this.nodes.persister.set(p, m.now);
+
     const label = p ? p.label : '';
     const workers = [...procs.values()].filter((x) => x.name.startsWith('persisterWorker-'));
     let row = -1;
@@ -690,7 +788,7 @@ export class Diagram {
 
   _updateMerger(m, procs) {
     const p = procs.get('merger');
-    this.nodes.merger.set(p, m.now);
+
     const label = p ? p.label : '';
     let row = -1;
     if (/waiting for persister|persisterNotifier/.test(label)) row = 0;
@@ -820,7 +918,7 @@ export class Diagram {
     if (tr.fileName) { const p = dirPos(tr.fileName); if (p) this.positions.ourFile = { p, needs: ['disk'] }; }
     if (tr.deletedFile) { const p = dirPos(tr.deletedFile); if (p) this.positions.deletedFile = { p, needs: ['disk'] }; }
     const at = {
-      dcp: 'dcp', channel: 'workers', worker: 'workers', herder: 'gate',
+      dcp: 'dcp', channel: 'slot', worker: 'workers', herder: 'gate',
       analysis: 'batch', introducing: 'introducer', persisting: 'persister', merging: 'merger',
     }[tr.stage];
     // Callouts about our batch end at its marker.

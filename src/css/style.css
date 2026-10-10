@@ -105,8 +105,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .story .card { pointer-events: auto; }
 .stage {
   position: fixed;
-  top: 0; left: 0; bottom: 0;
-  right: var(--charts-w);
+  inset: 0;
   z-index: 0;
 }
 .toolbar {
@@ -114,7 +113,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
   z-index: 3;
   top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
   left: calc(var(--gutter) + var(--story-w) + 1.5rem);
-  right: 1rem;
+  right: calc(var(--charts-w) + 1rem);
 }
 .viewport {
   position: absolute;
@@ -123,17 +122,18 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
   overflow: hidden;
 }
 .charts {
+  /* transparent, like the story column: each chart is its own card */
   position: fixed;
   top: 0; right: 0; bottom: 0;
   width: var(--charts-w);
   z-index: 1;
-  background: var(--bg);
-  border-left: calc(var(--chrome) * 1px) solid var(--faint);
-  padding: 4rem calc(var(--chrome) * 1.25rem) 1rem calc(var(--chrome) * 1.5rem);
+  padding: 4rem calc(var(--chrome) * 1rem) 1rem 0;
+  pointer-events: none;
 }
-.diagram { display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
+.charts .chart { pointer-events: auto; }
+.diagram { display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .viewport.dragging .diagram { cursor: grabbing; }
-.zoom { position: absolute; right: 0.6rem; bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.zoom { position: absolute; right: calc(var(--charts-w) + 0.6rem); bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
 .zbtn {
   width: 2rem; height: 2rem;
   font: 500 1rem/1 var(--font-body);
@@ -145,7 +145,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .zoom-hint { font: 400 0.6875rem/1 var(--font-mono); color: var(--muted); }
 @media (max-width: 1100px) { .zoom-hint { display: none; } }
 .charts { display: flex; flex-direction: column; gap: 1.6rem; overflow: hidden; }
-.chart { min-width: 15rem; }
+.chart { min-width: 15rem; padding: 0.7rem 0.85rem 0.8rem; }
 .overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 4; overflow: visible; }
 
 /* ---------- story ---------- */
@@ -293,7 +293,11 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .s-nap .gdot, .gdot.dot-nap { fill: var(--nap); stroke: none; }
 .s-stall .gdot, .gdot.dot-stall { fill: var(--stall); stroke: none; }
 .gtitle { font-size: 13px; font-weight: 600; fill: var(--ink); }
-.glabel { font-size: 11px; fill: var(--muted); }
+.glabel { font-size: 11px; fill: var(--muted); transition: transform 0.4s ease, opacity 0.4s ease; transform-box: fill-box; }
+.glabel.small { font-size: 10px; }
+.glabel.enter { transform: translateX(22px); opacity: 0; transition: none; }
+.glabel.leave { transform: translateX(-22px); opacity: 0; }
+.gbox, .gdot { transition: stroke 0.45s ease, fill 0.45s ease; }
 .s-stall .glabel { fill: var(--stall); }
 .gsince { font-size: 10px; fill: var(--muted); font-variant-numeric: tabular-nums; }
 .badge { fill: var(--ink); }
@@ -428,7 +432,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 /* Phones: the diagram is a sticky panel on top; the story scrolls below. */
 @media (max-width: 900px) {
   .layout { display: flex; flex-direction: column; padding-inline: 16px; --story-w: 100%; --gutter: 0px; }
-  .stage { position: sticky; top: 0; left: auto; right: auto; bottom: auto; order: -1; height: 56vh; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.4rem; padding-block: 0.5rem; }
+  .stage { position: sticky; inset: auto; top: 0; order: -1; height: 56vh; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.4rem; padding-block: 0.5rem; }
   .toolbar { position: static; flex-wrap: wrap; }
   .viewport { position: relative; inset: auto; flex: 1; min-height: 0; }
   .tools, .controls { display: flex; flex-wrap: wrap; gap: 0.4rem; min-width: 0; }

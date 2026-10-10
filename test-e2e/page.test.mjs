@@ -185,3 +185,60 @@ test('the charts column takes no room until the controls appear', async () => {
   assert.ok(after > 200, `charts column is only ${after}px wide when shown`);
   await page.close();
 });
+
+test('map-style gestures zoom and pan the diagram', async () => {
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await page.goto('file://' + file + '#scorch--our-segment');
+  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  await page.waitForTimeout(600);
+  const vb = () => page.evaluate(() => document.querySelector('.diagram').getAttribute('viewBox').split(' ').map(Number));
+  const box = await page.locator('.viewport').boundingBox();
+  const cx = box.x + box.width * 0.75, cy = box.y + box.height * 0.5;
+  const w0 = (await vb())[2];
+  await page.mouse.move(cx, cy);
+  for (const mod of ['Meta', 'Alt', 'Control']) {
+    const before = (await vb())[2];
+    await page.keyboard.down(mod);
+    await page.mouse.wheel(0, -100);
+    await page.keyboard.up(mod);
+    await page.waitForTimeout(50);
+    assert.ok((await vb())[2] < before, `${mod} + scroll zooms in`);
+  }
+  const sy = await page.evaluate(() => scrollY);
+  await page.mouse.wheel(0, 200); // plain scroll moves the story, not the zoom
+  await page.waitForTimeout(100);
+  assert.ok((await page.evaluate(() => scrollY)) > sy, 'plain scrolling scrolls the page');
+  await page.mouse.wheel(0, -200);
+  await page.waitForTimeout(100);
+  const z1 = (await vb())[2];
+  await page.mouse.dblclick(cx, cy);
+  await page.waitForTimeout(50);
+  assert.ok((await vb())[2] < z1, 'double-click zooms in');
+  const before = await vb();
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx - 120, cy - 60, { steps: 4 });
+  await page.mouse.up();
+  const after = await vb();
+  assert.ok(after[0] > before[0] && after[1] > before[1], 'dragging pans');
+  await page.locator('button[aria-label="Recenter on the story"]').click();
+  await page.waitForTimeout(800);
+  assert.ok(Math.abs((await vb())[2] - w0) < 2, 'recenter returns to the story camera');
+  await page.close();
+});
+
+test('goroutine labels fit without clipping', async () => {
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await page.goto('file://' + file);
+  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  const clipped = new Set();
+  for (const id of ['cbft--cbft-open', 'cbft--to-worker', 'scorch--built', 'persister--persisting', 'merger--merged', 'together--running', 'slowdisk--herder']) {
+    await page.evaluate((id) => { const el = document.getElementById(id); window.scrollTo(0, el.getBoundingClientRect().top + scrollY - innerHeight * 0.35); }, id);
+    await page.waitForTimeout(700);
+    for (const t of await page.evaluate(() => [...document.querySelectorAll('.glabel:not(.leave)')].map((e) => e.textContent))) {
+      if (t.includes('…')) clipped.add(t);
+    }
+  }
+  assert.deepEqual([...clipped], []);
+  await page.close();
+});

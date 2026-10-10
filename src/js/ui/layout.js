@@ -76,6 +76,7 @@ export const ANCHORS = {
   network: { p: [130, 180], needs: [] },
 
   dcp: { p: [390, 253], needs: ['cbft'] },
+  slot: { p: [488, 298], needs: ['cbft'] },
   workers: { p: [390, 361], needs: ['cbft'] },
   gate: { p: [140, 432], needs: ['cbft'] },
   memGaugeR: { p: [860, 446], needs: ['cbft'] },

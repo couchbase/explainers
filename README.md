@@ -26,6 +26,14 @@ system fonts when offline.
 
 `npm run dev` rebuilds on every change under `src/` and `content/`.
 
+Reading it: scrolling drives the story. You can also navigate the
+diagram like a map:
+- drag to pan;
+- ⌘, Ctrl or ⌥ + scroll, or pinch, to zoom at the cursor;
+- double-click to zoom in, ⌥/Shift + double-click to zoom out;
+- two fingers to pinch and pan on touchscreens;
+- ⟲ to return to the story's view (the next step also eases back to it).
+
 ## How it works
 
 The visuals are driven by a **live simulation**, not by canned
