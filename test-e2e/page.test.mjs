@@ -140,3 +140,48 @@ test('the view changes continuously with scrolling, not in jumps', async () => {
   assert.equal(tokenOpacity, 0, 'no marker before we start following a batch');
   await page.close();
 });
+
+test('our batch\'s marker stays in view at every step that shows it', async () => {
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await page.goto('file://' + file);
+  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  const n = await page.evaluate(() => window.bleveExplainer.steps.length);
+  let checked = 0;
+  for (let i = 0; i < n; i++) {
+    for (const frac of [0.5, 1.2]) {
+      await page.evaluate(([i, frac]) => {
+        const el = document.querySelector(`.step[data-index="${i}"]`);
+        const H = innerHeight, enterY = H * 0.82, settleY = H * 0.42;
+        window.scrollTo(0, el.getBoundingClientRect().top + scrollY - (enterY - frac * (enterY - settleY)));
+      }, [i, frac]);
+      await page.waitForTimeout(60);
+      const r = await page.evaluate(() => {
+        const tok = document.querySelector('.token');
+        if (Number(tok.getAttribute('opacity')) < 0.5) return null;
+        const vp = document.querySelector('.viewport').getBoundingClientRect();
+        const b = tok.querySelector('rect').getBoundingClientRect();
+        return { inside: b.left >= vp.left && b.right <= vp.right && b.top >= vp.top && b.bottom <= vp.bottom,
+          step: window.bleveExplainer.steps[window.bleveExplainer.ctl.current].id };
+      });
+      if (!r) continue;
+      checked++;
+      assert.ok(r.inside, `marker out of view at step ${r.step} (progress ${frac})`);
+    }
+  }
+  assert.ok(checked > 20, `only checked ${checked} frames`);
+  await page.close();
+});
+
+test('the charts column takes no room until the controls appear', async () => {
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await page.goto('file://' + file);
+  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  await page.waitForTimeout(200);
+  const before = await page.evaluate(() => document.querySelector('.charts').getBoundingClientRect().width);
+  await page.evaluate(() => document.getElementById('together--running').scrollIntoView());
+  await page.waitForTimeout(300);
+  const after = await page.evaluate(() => document.querySelector('.charts').getBoundingClientRect().width);
+  assert.ok(before < 1, `charts column is ${before}px wide while hidden`);
+  assert.ok(after > 200, `charts column is only ${after}px wide when shown`);
+  await page.close();
+});

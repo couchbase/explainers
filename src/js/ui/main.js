@@ -46,13 +46,15 @@ const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 // Page skeleton: story | stage (toolbar + diagram) | charts
 
 const app = document.getElementById('app');
+const layoutEl = h('div', { class: 'layout' });
 const story = h('main', { class: 'story' });
 const stage = h('section', { class: 'stage', 'aria-label': 'Diagram' });
 const chartsCol = h('aside', { class: 'charts', 'aria-label': 'Charts' });
 const overlay = document.createElementNS(NS, 'svg');
 overlay.setAttribute('class', 'overlay');
 overlay.setAttribute('aria-hidden', 'true');
-app.append(h('div', { class: 'layout' }, story, stage, chartsCol), overlay);
+layoutEl.append(story, stage, chartsCol);
+app.append(layoutEl, overlay);
 
 const shortCommit = (c) => (c || '').slice(0, 12);
 story.append(h('header', { class: 'hero' },
@@ -233,6 +235,21 @@ function cameraAt(i, p) {
   return { x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t), w: lerp(a.w, b.w, t), h: lerp(a.h, b.h, t) };
 }
 
+// Keeps our batch's marker in view: if the story's camera would leave
+// it outside (or too near an edge), shift the camera just enough. The
+// marker moves continuously, so this shift does too.
+function follow(c, tf) {
+  if (!tf || !tf.t || tf.o <= 0.01) return c;
+  const [x, y] = tf.t.p;
+  const mx = Math.min(80, c.w * 0.12), my = Math.min(70, c.h * 0.1);
+  let dx = 0, dy = 0;
+  if (x < c.x + mx) dx = x - (c.x + mx);
+  else if (x > c.x + c.w - mx) dx = x - (c.x + c.w - mx);
+  if (y < c.y + my) dy = y - (c.y + my);
+  else if (y > c.y + c.h - my) dy = y - (c.y + c.h - my);
+  return { ...c, x: c.x + dx, y: c.y + dy };
+}
+
 // The reader's zoom (z) and pan (dx, dy, canvas units) on top of the story's camera.
 function applyUser(c) {
   const u = ctl.user;
@@ -339,14 +356,17 @@ function render() {
   const v = views[i], pv = i > 0 ? views[i - 1] : v;
   const t = ease(p);
 
-  setCamera(applyUser(cameraAt(i, p)));
+  // UI chrome (controls, charts) fades in only when the story asks;
+  // the charts column takes no room until then.
+  const chrome = lerp(pv.ui === 'full' ? 1 : 0, v.ui === 'full' ? 1 : 0, t);
+  if (chrome !== lastChrome) layoutEl.style.setProperty('--chrome', chrome.toFixed(4));
+
+  const tf = tokenFrame(i, p);
+  setCamera(applyUser(follow(cameraAt(i, p), tf)));
   for (const id of Object.keys(LIDS)) diagram.setLid(id, lerp(pv.open.has(id) ? 1 : 0, v.open.has(id) ? 1 : 0, t));
   for (const id of Object.keys(BUBBLES)) diagram.setBubble(id, lerp(pv.bubbles.has(id) ? 1 : 0, v.bubbles.has(id) ? 1 : 0, t));
-  const tf = tokenFrame(i, p);
   diagram.setToken(tf && tf.t, tf ? tf.o : 0);
 
-  // UI chrome (controls, charts) fades in only when the story asks.
-  const chrome = lerp(pv.ui === 'full' ? 1 : 0, v.ui === 'full' ? 1 : 0, t);
   if (chrome !== lastChrome) {
     lastChrome = chrome;
     for (const el of [controls, chartsCol]) {

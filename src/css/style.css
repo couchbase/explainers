@@ -84,10 +84,12 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 /* ---------- layout ---------- */
 
 .layout {
+  /* --chrome (0..1, set from the scroll position) opens the charts column */
+  --chrome: 0;
   display: grid;
-  grid-template-columns: minmax(0, 27rem) minmax(0, 1fr) minmax(0, 15rem);
-  gap: 0 3rem;
-  padding-inline: max(16px, 2vw);
+  grid-template-columns: minmax(0, 27rem) minmax(0, 1fr) calc(var(--chrome) * 18rem);
+  column-gap: 3rem;
+  padding-inline: max(16px, 2vw) calc(max(16px, 2vw) - 3rem * (1 - var(--chrome)));
 }
 .story { min-width: 0; padding-block: 1rem 45vh; }
 .stage, .charts {
@@ -120,7 +122,8 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .zbtn:hover { border-color: var(--accent); }
 .zoom-hint { font: 400 0.6875rem/1 var(--font-mono); color: var(--muted); }
 @media (max-width: 1100px) { .zoom-hint { display: none; } }
-.charts { display: flex; flex-direction: column; gap: 1.6rem; padding-top: 3.5rem; }
+.charts { display: flex; flex-direction: column; gap: 1.6rem; padding-top: 3.5rem; overflow: hidden; }
+.chart { min-width: 15rem; }
 .overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 4; overflow: visible; }
 
 /* ---------- story ---------- */
@@ -386,7 +389,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 /* ---------- narrower screens ---------- */
 
 @media (max-width: 1250px) {
-  .layout { grid-template-columns: minmax(0, 24rem) minmax(0, 1fr); gap: 0 2rem; }
+  .layout { grid-template-columns: minmax(0, 24rem) minmax(0, 1fr); column-gap: 2rem; padding-inline: max(16px, 2vw); }
   .charts { display: none; }
 }
 @media (max-width: 900px) {
