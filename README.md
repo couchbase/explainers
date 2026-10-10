@@ -5,7 +5,7 @@ works under the hood, as used by Couchbase's
 [cbft](https://github.com/couchbase/cbft). The style is inspired by
 [r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
 
-The first explainer, **"Inside scorch: introducer, persister, merger"**,
+The first explainer, **"Inside bleve / scorch: introducer, persister, merger"**,
 follows DCP mutations through cbft's batch workers and app herder into
 scorch's introducer, persister and merger goroutines. It walks through
 four scenarios: steady state, a slow I/O hiccup, a huge ingest, and a

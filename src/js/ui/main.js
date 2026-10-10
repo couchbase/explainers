@@ -58,7 +58,7 @@ app.append(layoutEl, overlay);
 
 const shortCommit = (c) => (c || '').slice(0, 12);
 story.append(h('header', { class: 'hero' },
-  h('div', { class: 'eyebrow', text: 'bleve · scorch · cbft' }),
+  h('div', { class: 'eyebrow', text: 'cbft / bleve / scorch' }),
   h('h1', { text: narrative.title }),
   h('div', { class: 'subtitle', html: narrative.subtitleHtml }),
   h('div', { class: 'meta', html:

@@ -4,7 +4,7 @@
 # camera, the lids, a detail bubble, the UI, or the simulation.
 
 id: scorch-goroutines
-title: "Inside scorch: introducer, persister, merger"
+title: "Inside bleve / scorch: introducer, persister, merger"
 subtitle: >-
   How a Couchbase FTS index turns a stream of DCP mutations into
   searchable, durable segments, and what pushes back when things get slow.
