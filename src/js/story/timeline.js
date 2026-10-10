@@ -9,7 +9,8 @@
 //     `until` the followed batch reaches the named stage.
 //
 // View, folded from the first step up to N: the camera, the set of open
-// lids, and the set of flipped panels. A step only states what changes.
+// lids, the shown detail bubbles, the UI mode (minimal or full chrome)
+// and how to place our batch's marker. A step only states what changes.
 
 import { Model } from '../sim/model.js';
 
@@ -86,7 +87,9 @@ export function speedAt(steps, i) {
 export function resolveViews(steps) {
   let camera = 'overview';
   let open = new Set();
-  let flipped = new Set();
+  let bubbles = new Set();
+  let ui = 'minimal';
+  let token = 'auto';
   return steps.map((st) => {
     const v = st.view || {};
     if (v.camera !== undefined) camera = v.camera;
@@ -95,12 +98,14 @@ export function resolveViews(steps) {
       for (const id of v.open || []) open.add(id);
       for (const id of v.close || []) open.delete(id);
     }
-    if (v.flip || v.unflip) {
-      flipped = new Set(flipped);
-      for (const id of v.flip || []) flipped.add(id);
-      for (const id of v.unflip || []) flipped.delete(id);
+    if (v.bubble || v.unbubble) {
+      bubbles = new Set(bubbles);
+      for (const id of v.bubble || []) bubbles.add(id);
+      for (const id of v.unbubble || []) bubbles.delete(id);
     }
-    return { camera, open, flipped, target: v.target || null, chart: v.chart || null };
+    if (v.ui !== undefined) ui = v.ui;
+    if (v.token !== undefined) token = v.token;
+    return { camera, open, bubbles, ui, token, target: v.target || null, chart: v.chart || null };
   });
 }
 
@@ -108,13 +113,14 @@ const SIM_CHANGES = ['reset', 'set', 'query', 'follow', 'until', 'minTimeMs'];
 const sameSet = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
 const sameCamera = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-// What changes from step i-1 to step i: any of camera, lids, flips, sim.
+// What changes from step i-1 to step i: camera, lids, bubbles, UI, sim.
 export function changesAt(steps, views, i) {
   if (i === 0) return [];
   const out = [];
   if (!sameCamera(views[i - 1].camera, views[i].camera)) out.push('camera');
   if (!sameSet(views[i - 1].open, views[i].open)) out.push('lids');
-  if (!sameSet(views[i - 1].flipped, views[i].flipped)) out.push('flips');
+  if (!sameSet(views[i - 1].bubbles, views[i].bubbles)) out.push('bubbles');
+  if (views[i - 1].ui !== views[i].ui) out.push('ui');
   if (steps[i].sim && SIM_CHANGES.some((k) => steps[i].sim[k] !== undefined)) out.push('simulation');
   return out;
 }

@@ -1,10 +1,15 @@
 // The diagram: one SVG canvas (see layout.js) built once, then patched
 // in place from the simulation. Everything sits in fixed slots, so
 // nothing moves around as counts change; only fills, states and labels
-// update. Lids cover section and panel insides until the story opens
-// them; flippable panels turn over to show a more detailed back side.
+// update. Lids cover frame and panel insides until the story opens
+// them; detail bubbles pop out of panels into the side gutters. A
+// marker for "our batch" travels through it all.
+//
+// Lid openness, bubble growth and the marker's position are set by the
+// page as continuous values (0..1, or a point), so the page can tie
+// them to the scroll position.
 
-import { SECTIONS, PANELS, LIDS, ANCHORS, CW, CH, isAnchorVisible } from './layout.js';
+import { SECTIONS, PANELS, LIDS, BUBBLES, ANCHORS, CANVAS, isAnchorVisible } from './layout.js';
 import { fmtBytes, fmtMs } from '../sim/model.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -89,12 +94,13 @@ const DIR_COLS = 32, DIR_ROWS = 6;
 export class Diagram {
   constructor(svg) {
     this.svg = svg;
-    svg.setAttribute('viewBox', `0 0 ${CW} ${CH}`);
+    svg.setAttribute('viewBox', CANVAS.join(' '));
     svg.innerHTML = `<defs>${SYMBOLS}</defs>`;
     this.root = el('g', {}, svg);
     this.nodes = {};
     this.lids = {};
     this.panels = {};
+    this.bubbles = {};
     this.memSlots = new Slots(MEM_COLS * MEM_ROWS);
     this.fileSlots = new Slots(FILE_SLOTS);
     this.dirSlots = new Slots(DIR_COLS * DIR_ROWS);
@@ -110,6 +116,9 @@ export class Diagram {
       const [x, y, w, h] = s.frame;
       el('rect', { x, y, width: w, height: h, rx: 10, class: `frame sec-${s.color}` }, g);
     }
+    // KV is a separate process, one network hop away.
+    el('line', { x1: 120, x2: 880, y1: 179, y2: 179, class: 'network' }, g);
+    txt(g, 880, 173, 'network: DCP over TCP', 'note', 'end');
     const flows = el('g', { class: 'flows' }, g);
     this._flows(flows);
 
@@ -119,17 +128,23 @@ export class Diagram {
     this._disk(el('g', {}, g));
 
     // Lids: nested ones first, so the outer ones sit on top.
-    const order = ['introducer', 'persister', 'merger', 'kv', 'cbft', 'scorch', 'disk'];
+    const order = ['introducer', 'persister', 'merger', 'scorch', 'cbft', 'kv', 'disk'];
     for (const id of order) this._lid(g, id);
+    for (const id of Object.keys(BUBBLES)) this._bubble(g, id);
+    this._token(g);
 
-    // Tabs last so they're never covered.
+    // Tabs last so they're never covered; a nested section's tab only
+    // shows once its parent's lid is open.
+    this.tabs = {};
     for (const [id, s] of Object.entries(SECTIONS)) {
       const [x, y] = s.frame;
       const w = 18 + s.label.length * 7.4;
-      el('rect', { x: x + 14, y: y - 10, width: w, height: 20, rx: 10, class: `tab sec-${s.color}` }, g);
-      txt(g, x + 14 + w / 2, y + 4, s.label, 'tab-text', 'middle');
+      const tg = el('g', {}, g);
+      el('rect', { x: x + 14, y: y - 10, width: w, height: 20, rx: 10, class: `tab sec-${s.color}` }, tg);
+      txt(tg, x + 14 + w / 2, y + 4, s.label, 'tab-text', 'middle');
+      this.tabs[id] = tg;
     }
-    this.targetRing = el('circle', { r: 9, class: 'target-ring', cx: -100, cy: -100 }, g);
+    this.targetRing = el('circle', { r: 9, class: 'target-ring', cx: -9999, cy: -9999 }, g);
   }
 
   _arrow(parent, d, up = false) {
@@ -243,7 +258,6 @@ export class Diagram {
       this.fileBars.push({ bg, bar, del, x });
     }
     this.fileMore = txt(g, 900, 906, '', 'note-in', 'end');
-    this.ourRing = el('rect', { x: -100, y: -100, width: 15, height: 15, rx: 3, class: 'ours-ring' }, g);
 
     this._persister(g);
     this._merger(g);
@@ -253,11 +267,8 @@ export class Diagram {
     const [x, y, w, h] = PANELS[id].frame;
     const pg = el('g', { class: 'panel' }, g);
     el('rect', { x, y, width: w, height: h, rx: 6, class: 'panel-frame' }, pg);
-    const origin = `${x + w / 2}px ${y + h / 2}px`;
-    const front = el('g', { class: 'face front', style: `transform-origin: ${origin}` }, pg);
-    const back = PANELS[id].flippable ? el('g', { class: 'face back', style: `transform-origin: ${origin}` }, pg) : null;
-    if (back) el('rect', { x: x + 1, y: y + 1, width: w - 2, height: h - 2, rx: 6, class: 'back-bg' }, back);
-    const p = { g: pg, front, back };
+    const front = el('g', {}, pg);
+    const p = { g: pg, front };
     this.panels[id] = p;
     return p;
   }
@@ -282,23 +293,6 @@ export class Diagram {
     ]);
     this.pWorkers = [];
     for (let i = 0; i < 4; i++) this.pWorkers.push(el('rect', { x: 372 + i * 22, y: 1063, width: 16, height: 16, rx: 3, class: 'pw s-wait' }, p.front));
-    // back: the code-level cycle
-    const b = p.back;
-    txt(b, 96, 974, 'persisterLoop(), one cycle', 'back-title');
-    this.pBack = [
-      ['pausePersisterForMergerCatchUp()', 'nap, or pause while files ≥ 1000 and the merger is behind'],
-      ['root.epoch > lastPersistedEpoch?', 'take the latest root; intermediate epochs are skipped'],
-      ['persistSnapshotMaybeMerge()', '≥2 in-memory segments → ~20MB flushables'],
-      ['mergeAndPersistInMemorySegments()', '≤4 workers: MergeUsing, write, fsync, introduce'],
-      ['persistSnapshotDirect()', 'root.bolt: tx.Commit() + Sync()'],
-      ['removeOldData()', 'when idle: old bolt snapshots, then unlisted zap files'],
-    ].map(([fn, note], i) => {
-      const yy = 986 + i * 27;
-      const r = el('rect', { x: 92, y: yy, width: 376, height: 24, rx: 3, class: 'row' }, b);
-      txt(b, 100, yy + 11, fn, 'back-fn');
-      txt(b, 100, yy + 21, note, 'back-note');
-      return r;
-    });
   }
 
   _merger(g) {
@@ -310,21 +304,65 @@ export class Diagram {
       '3 · each task in turn: merge → write zap → fsync',
       '4 · introduce the merged segment ↑',
     ]);
-    // back: the tier staircase
-    const b = p.back;
-    txt(b, 536, 974, 'mergeplan.Plan(): the tier staircase', 'back-title');
-    this.tierText = txt(b, 904, 974, '', 'back-note', 'end');
+  }
+
+  // A speech bubble in a side gutter, with a tail to its panel.
+  _bubble(g, id) {
+    const B = BUBBLES[id];
+    const [x, y, w, h] = B.box;
+    const [tx, ty] = B.tail;
+    const bg = el('g', { class: 'bubble', opacity: 0 }, g);
+    const edge = tx > x + w ? x + w : x; // which side the tail leaves from
+    el('path', { d: `M${edge},${ty - 34} L${tx + (tx > edge ? -4 : 4)},${ty} L${edge},${ty - 6} Z`, class: 'bubble-tail' }, bg);
+    el('rect', { x, y, width: w, height: h, rx: 10, class: 'bubble-box' }, bg);
+    el('path', { d: `M${edge},${ty - 33} L${edge},${ty - 7}`, class: 'bubble-seam' }, bg);
+    txt(bg, x + 18, y + 28, B.title, 'bubble-title');
+    const body = el('g', {}, bg);
+    if (id === 'persister') this._persisterDetail(body, x + 14, y + 42);
+    else this._mergerDetail(body, x + 14, y + 42, w - 28);
+    this.bubbles[id] = { g: bg, tail: [tx, ty] };
+  }
+
+  _persisterDetail(b, x, y) {
+    this.pBack = [
+      ['pausePersisterForMergerCatchUp()', 'nap, or pause while files ≥ 1000 and the merger is behind'],
+      ['root.epoch > lastPersistedEpoch?', 'take the latest root; intermediate epochs are skipped'],
+      ['persistSnapshotMaybeMerge()', '≥2 in-memory segments → ~20MB flushables'],
+      ['mergeAndPersistInMemorySegments()', '≤4 workers: MergeUsing, write, fsync, introduce'],
+      ['persistSnapshotDirect()', 'root.bolt: tx.Commit() + Sync()'],
+      ['removeOldData()', 'when idle: old bolt snapshots, then unlisted zap files'],
+    ].map(([fn, note], i) => {
+      const yy = y + i * 37;
+      const r = el('rect', { x, y: yy, width: 392, height: 33, rx: 4, class: 'row' }, b);
+      txt(b, x + 10, yy + 14, fn, 'back-fn');
+      txt(b, x + 10, yy + 28, note, 'back-note');
+      return r;
+    });
+  }
+
+  _mergerDetail(b, x, y, w) {
+    this.tierText = txt(b, x + w, y + 4, '', 'back-note', 'end');
+    const base = y + 190;
+    this.tierBase = base;
     this.tierBars = [];
     for (let i = 0; i < 20; i++) {
-      this.tierBars.push(el('rect', { x: 540 + i * 18, y: 1130, width: 14, height: 0, rx: 2, class: 'fbar' }, b));
+      this.tierBars.push(el('rect', { x: x + 4 + i * 19, y: base, width: 14, height: 0, rx: 2, class: 'fbar' }, b));
     }
     this.tierLines = [];
     for (let i = 0; i < 3; i++) {
-      const l = el('line', { x1: 536, x2: 904, y1: 0, y2: 0, class: 'tier-line' }, b);
-      const t = txt(b, 904, 0, '', 'back-note', 'end');
+      const l = el('line', { x1: x, x2: x + w, y1: 0, y2: 0, class: 'tier-line' }, b);
+      const t = txt(b, x + w, 0, '', 'back-note', 'end');
       this.tierLines.push({ l, t });
     }
-    txt(b, 536, 1146, 'file segments by live size (log scale); outlined: being merged', 'back-note');
+    txt(b, x, base + 20, 'file segments by live size (log scale); outlined: being merged', 'back-note');
+  }
+
+  // The marker for "our batch": a ringed chip that becomes our segment.
+  _token(g) {
+    const tg = el('g', { class: 'token', opacity: 0 }, g);
+    this.tokenRect = el('rect', { x: -8, y: -8, width: 16, height: 16, rx: 3, class: 'token-chip' }, tg);
+    this.tokenLabel = txt(tg, 0, -14, 'our batch', 'token-label', 'middle');
+    this.token = tg;
   }
 
   _disk(g) {
@@ -389,27 +427,90 @@ export class Diagram {
   }
 
   // ---------------------------------------------------------------
-  setView(open, flipped) {
+  // The logical view, for anchor visibility.
+  setView(open, bubbles) {
     this.open = open;
-    this.flipped = flipped;
-    for (const [id, l] of Object.entries(this.lids)) l.g.classList.toggle('open', open.has(id));
-    for (const [id, p] of Object.entries(this.panels)) p.g.classList.toggle('flipped', flipped.has(id));
+    this.shownBubbles = bubbles;
+  }
+
+  // 0 = closed, 1 = fully open.
+  setLid(id, t) {
+    const l = this.lids[id];
+    l.g.style.opacity = (1 - t).toFixed(3);
+    l.g.style.transform = `translateY(${(-12 * t).toFixed(2)}px)`;
+    l.g.style.pointerEvents = t > 0.5 ? 'none' : '';
+    l.g.style.visibility = t >= 0.999 ? 'hidden' : '';
+    for (const [sid, L] of Object.entries(LIDS)) {
+      if (L.parent === id && L.section && this.tabs[sid]) this.tabs[sid].setAttribute('opacity', t.toFixed(3));
+    }
+  }
+
+  // 0 = hidden, 1 = fully grown out of its panel.
+  setBubble(id, t) {
+    const b = this.bubbles[id];
+    const [tx, ty] = b.tail;
+    const s = 0.15 + 0.85 * t;
+    b.g.setAttribute('opacity', t.toFixed(3));
+    b.g.setAttribute('transform', `translate(${tx} ${ty}) scale(${s.toFixed(3)}) translate(${-tx} ${-ty})`);
+    b.g.style.visibility = t <= 0.001 ? 'hidden' : '';
   }
 
   setTarget(p) {
-    if (!p) { this.targetRing.setAttribute('cx', -100); return; }
+    if (!p) { this.targetRing.setAttribute('cx', -9999); return; }
     this.targetRing.setAttribute('cx', p[0]);
     this.targetRing.setAttribute('cy', p[1]);
   }
 
+  // Places the marker: {p: [x, y], size, kind: 'batch'|'mem'|'file', label}.
+  setToken(t, opacity) {
+    if (!t || opacity <= 0.001) { this.token.setAttribute('opacity', 0); return; }
+    this.token.setAttribute('opacity', opacity.toFixed(3));
+    this.token.setAttribute('transform', `translate(${t.p[0].toFixed(1)} ${t.p[1].toFixed(1)})`);
+    const z = t.size;
+    this.tokenRect.setAttribute('x', -z / 2); this.tokenRect.setAttribute('y', -z / 2);
+    this.tokenRect.setAttribute('width', z); this.tokenRect.setAttribute('height', z);
+    setCls(this.tokenRect, `token-chip kind-${t.kind}`);
+    setText(this.tokenLabel, t.label);
+    this.tokenLabel.setAttribute('y', (-z / 2 - 5).toFixed(1));
+  }
+
+  // Where the marker belongs for the current model state. mode 'file'
+  // puts it on our file's icon in the index directory.
+  tokenTarget(m, mode) {
+    const tr = m.trace;
+    if (!tr) return null;
+    if (mode === 'file' && tr.fileName) {
+      const i = this.dirSlots.get(tr.fileName);
+      if (i !== undefined) {
+        const ic = this.dirIcons[i];
+        return { p: [ic.x + 6, ic.y + 7.5], size: 18, kind: 'file', label: 'our file' };
+      }
+    }
+    const fixed = {
+      dcp: [372, 253], channel: [372, 361], worker: [372, 361], herder: [478, 432],
+      analysis: [372, 545], introducing: [332, 652], persisting: [60, 1067], merging: [940, 1067],
+    }[tr.stage];
+    if (fixed) {
+      const kind = ['persisting', 'merging'].includes(tr.stage) ? (tr.stage === 'persisting' ? 'mem' : 'file') : 'batch';
+      return { p: fixed, size: 16, kind, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
+    }
+    const seg = this.positions.ourSeg;
+    if (seg) {
+      const isFile = m.root.segs.some((ss) => ss.seg.id === tr.segId && ss.seg.kind === 'file');
+      return isFile
+        ? { p: [seg.p[0] + 10, seg.p[1]], size: 18, kind: 'file', label: 'our file' }
+        : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment' };
+    }
+    return null;
+  }
+
   // Position of a named anchor (static or dynamic) and whether it's visible.
   anchor(id) {
-    if (ANCHORS[id]) {
-      return { p: ANCHORS[id].p, visible: isAnchorVisible(id, this.open || new Set(), this.flipped || new Set()) };
-    }
+    const open = this.open || new Set(), bubbles = this.shownBubbles || new Set();
+    if (ANCHORS[id]) return { p: ANCHORS[id].p, visible: isAnchorVisible(id, open, bubbles) };
     const d = this.positions[id];
     if (!d) return null;
-    return { p: d.p, visible: isAnchorVisible(id, this.open || new Set(), this.flipped || new Set(), d.needs) };
+    return { p: d.p, visible: isAnchorVisible(id, open, bubbles, d.needs) };
   }
 
   // ---------------------------------------------------------------
@@ -534,14 +635,14 @@ export class Diagram {
     this.tierBars.forEach((b, i) => {
       const f = files[i];
       if (!f) { b.setAttribute('height', 0); return; }
-      const h = barHeight(f.live, 120);
-      b.setAttribute('y', (1130 - h).toFixed(1)); b.setAttribute('height', h.toFixed(1));
+      const h = barHeight(f.live, 150);
+      b.setAttribute('y', (this.tierBase - h).toFixed(1)); b.setAttribute('height', h.toFixed(1));
       setCls(b, merging.has(f.id) ? 'fbar merging' : 'fbar');
     });
     const floor = m.cfg.mergePlan.floorSegmentFileSize || 20 * 1024 * 1024;
     this.tierLines.forEach((t, i) => {
       const bytes = floor * Math.pow(m.cfg.mergePlan.tierGrowth, i);
-      const y = 1130 - barHeight(bytes, 120);
+      const y = this.tierBase - barHeight(bytes, 150);
       t.l.setAttribute('y1', y.toFixed(1)); t.l.setAttribute('y2', y.toFixed(1));
       t.t.setAttribute('y', (y - 3).toFixed(1));
       setText(t.t, `tier ${i + 1}: ${fmtBytes(bytes)}`);
@@ -630,20 +731,15 @@ export class Diagram {
         const i = this.memSlots.get(id);
         if (i === undefined) return null;
         const x = 96 + (i % MEM_COLS) * 14, y = 788 + Math.floor(i / MEM_COLS) * 14;
-        this.ourRing.setAttribute('x', x - 2.5); this.ourRing.setAttribute('y', y - 2.5);
-        this.ourRing.setAttribute('width', 15); this.ourRing.setAttribute('height', 15);
         return [x - 3, y + 5];
       }
       const i = this.fileSlots.get(id);
       if (i === undefined) return null;
       const x = 520 + i * 18;
-      this.ourRing.setAttribute('x', x - 2.5); this.ourRing.setAttribute('y', 787);
-      this.ourRing.setAttribute('width', 19); this.ourRing.setAttribute('height', 106);
       return [x - 3, 840];
     };
-    this.ourRing.setAttribute('x', -100);
     const seg = tr.segId != null ? segPos(tr.segId) : null;
-    if (seg) this.positions.ourSeg = { p: seg, needs: ['scorch'] };
+    if (seg) this.positions.ourSeg = { p: seg, needs: ['cbft', 'scorch'] };
     const dirPos = (name) => {
       const i = this.dirSlots.get(name);
       if (i === undefined) return null;
@@ -653,12 +749,13 @@ export class Diagram {
     if (tr.fileName) { const p = dirPos(tr.fileName); if (p) this.positions.ourFile = { p, needs: ['disk'] }; }
     if (tr.deletedFile) { const p = dirPos(tr.deletedFile); if (p) this.positions.deletedFile = { p, needs: ['disk'] }; }
     const at = {
-      dcp: ['dcp', ['cbft']], channel: ['workers', ['cbft']], worker: ['workers', ['cbft']], herder: ['gate', ['cbft']],
-      analysis: ['batch', ['scorch']], introducing: ['introducer', ['scorch']],
-      persisting: ['persister', ['scorch']], merging: ['merger', ['scorch']],
+      dcp: 'dcp', channel: 'workers', worker: 'workers', herder: 'gate',
+      analysis: 'batch', introducing: 'introducer', persisting: 'persister', merging: 'merger',
     }[tr.stage];
-    if (at) this.positions.ourBatch = { p: ANCHORS[at[0]].p, needs: at[1] };
-    else if (seg) this.positions.ourBatch = { p: seg, needs: ['scorch'] };
+    // Callouts about our batch end at its marker.
+    const tok = this.tokenTarget(m, 'auto');
+    const needs = at ? ANCHORS[at].needs : ['cbft', 'scorch'];
+    if (tok) this.positions.ourBatch = { p: [tok.p[0] - tok.size / 2 - 2, tok.p[1]], needs };
   }
 }
 

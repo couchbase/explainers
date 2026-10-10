@@ -1,7 +1,7 @@
 # The first explainer: scorch's goroutines and backpressure, as driven
 # by cbft. See README.md for the schema; `npm test` validates it,
 # including the rule that each step changes only one thing: the
-# camera, the lids, a flip, or the simulation.
+# camera, the lids, a detail bubble, the UI, or the simulation.
 
 id: scorch-goroutines
 title: "Inside scorch: introducer, persister, merger"
@@ -23,25 +23,27 @@ chapters:
     steps:
 
       - id: layers
-        sim: { reset: true, minTimeMs: 6000, speed: 1 }
-        view: { camera: overview, target: scorchLid }
+        sim: { reset: true, minTimeMs: 6000, speed: 0 }
+        view: { camera: overview, target: cbftLid }
         expect: [kvFlowing, herderIdle]
         text: |
-          This is one cbft index partition (a *pindex*) on one node.
-          Data flows down through four layers, from KV at the top to
-          files on disk at the bottom. In the middle is bleve's
-          [[scorch]] index, which we'll treat as a black box for now.
+          This is one FTS index partition (a *pindex*) on one node.
+          Data flows from top to bottom. The big box in the middle is
+          [[the cbft process]], the search service. Inside it, though
+          still closed for now, is the bleve library and its scorch
+          index.
 
-          The diagram is a **live simulation**, not a recording. Its
+          The diagram is a **simulation**, not a recording. Its
           goroutines follow the control flow of the real cbft and bleve
-          code, with the same channel capacities and the same default
-          settings. Timings and sizes are modeled, not measured.
+          code, with the same channel capacities and default settings.
+          Timings and sizes are modeled, not measured. It's paused
+          while we look around.
 
       - id: kv
         view: { target: kvLid }
         text: |
-          Mutations start in [[KV]], which streams them to cbft over
-          DCP.
+          Mutations start in [[KV]], a separate process. They reach
+          cbft over the network, as a DCP stream.
 
       - id: disk
         view: { target: diskLid }
@@ -53,8 +55,8 @@ chapters:
         view: { target: cbftLid }
         text: |
           Each box is closed for now. A closed box shows only its name,
-          its job, and a one-line live summary, like how many of
-          [[cbft]]'s batch workers are busy right now.
+          its job, and a one-line summary of what it's doing, like how
+          many of [[cbft]]'s batch workers are busy.
 
           We'll open the boxes one at a time.
 
@@ -104,13 +106,13 @@ chapters:
           <span class="st st-stall">stalled by backpressure</span>.
 
       - id: follow
-        sim: { follow: true, until: dcp, speed: 0 }
+        sim: { follow: true, until: dcp }
         view: { target: ourBatch }
         expect: ["reached:dcp"]
         text: |
-          Now let's **follow one batch**. The simulation is paused, and
-          will stay paused while we follow it. Press *Play* anytime to
-          let it run.
+          Now let's **follow one batch**. Its marker, the small chip
+          with the orange outline, will travel through the diagram as
+          you scroll.
 
           Our batch is being built right now by [[the DCP goroutine]].
 
@@ -142,17 +144,18 @@ chapters:
     steps:
 
       - id: step-back
-        view: { camera: overview, target: scorchLid }
+        view: { camera: process, target: scorchLid }
         text: |
-          Step back for a moment. Our batch is about to cross into
-          [[scorch]].
+          Step back for a moment. Our batch is about to cross from
+          cbft's own code into [[the bleve library]], which runs inside
+          the same process.
 
       - id: scorch-open
         view: { open: [scorch], target: introducer }
         text: |
-          Inside scorch: `Scorch.Batch()` at the top, the root snapshot
-          in the middle, and three goroutines in their own boxes:
-          [[the introducer]], the persister and the merger.
+          Inside bleve's scorch index: `Scorch.Batch()` at the top, the
+          root snapshot in the middle, and three goroutines in their
+          own boxes: [[the introducer]], the persister and the merger.
 
       - id: zoom-top
         view: { camera: scorchTop, target: batch }
@@ -250,25 +253,36 @@ chapters:
           neighbors. [[A persister worker]] is merging them into one
           new zap file, which it then writes and fsyncs.
 
-      - id: flip
-        view: { flip: [persister], target: persisterBack }
+      - id: make-room
+        view: { camera: persisterDetail, target: persister }
+        text: |
+          Let's look more closely at [[the persister]]. We'll make some
+          room to its left.
+
+      - id: detail
+        view: { bubble: [persister], target: persisterDetail }
         code: [persister.loop, persister.persistSnapshot, persister.direct]
         text: |
-          [[Flip the panel over]] to see the same cycle in terms of the
-          code in `persisterLoop()`. It only ever persists the *latest*
-          root, so the epochs in between are skipped, which acts as a
-          group commit. The new files are swapped into the root first,
-          and only then committed to `root.bolt` and fsynced.
+          Here's [[the same cycle]], in terms of the code in
+          `persisterLoop()`. It only ever persists the *latest* root, so
+          the epochs in between are skipped, which acts as a group
+          commit. The new files are swapped into the root first, and
+          only then committed to `root.bolt` and fsynced.
 
-      - id: unflip
-        view: { unflip: [persister], target: persisterInside }
+      - id: detail-close
+        view: { unbubble: [persister], target: persisterInside }
         expect: [napBroken]
         code: [merger.loop]
         text: |
-          Back to the front. One surprise: [[the nap]] rarely runs its
-          full 2 seconds. Every time the merger finishes a plan, it
-          hands the persister an "epoch watcher", and that ends the
-          nap (`num_persister_nap_merger_break`).
+          One surprise: [[the nap]] rarely runs its full 2 seconds.
+          Every time the merger finishes a plan, it hands the persister
+          an "epoch watcher", and that ends the nap
+          (`num_persister_nap_merger_break`).
+
+      - id: back
+        view: { camera: persister, target: ourBatch }
+        text: |
+          Back to [[our segment]], still being written.
 
       - id: file
         sim: { until: file }
@@ -288,14 +302,15 @@ chapters:
       - id: step-back
         view: { camera: overview, target: diskLid }
         text: |
-          Step back again. Our file went down to [[disk]].
+          Step back again. Our segment's file was written to
+          [[disk]].
 
       - id: open
-        view: { open: [disk], target: ourFile }
+        view: { open: [disk], target: ourFile, token: file }
         text: |
-          There's [[our file]], outlined in the index directory. Blue
-          files are in the current root. Gray ones are no longer in the
-          root, but still on disk.
+          There's [[our file]] in the index directory. Blue files are
+          in the current root. Gray ones are no longer in the root, but
+          are still on disk.
 
       - id: zoom
         view: { camera: disk, target: bolt }
@@ -313,10 +328,11 @@ chapters:
     steps:
 
       - id: zoom
-        view: { camera: merger, target: merger }
+        view: { camera: merger, target: merger, token: auto }
         text: |
           Lots of small files would make every query slower. So
-          [[the merger]] compacts them.
+          [[the merger]] compacts them. Our marker is back on our file
+          segment in the root.
 
       - id: open
         view: { open: [merger], target: mergerInside }
@@ -337,27 +353,32 @@ chapters:
           Any deletes that happened while the merge ran are remapped
           into the new segment by the introducer.
 
-      - id: flip
-        view: { flip: [merger], target: mergerBack }
+      - id: make-room
+        view: { camera: mergerDetail, target: merger }
+        text: |
+          How does [[the merger]] decide what to merge? Let's make room
+          to its right.
+
+      - id: detail
+        view: { bubble: [merger], target: mergerDetail }
         code: [mergeplan.plan, mergeplan.CalcBudget, mergeplan.ScoreSegments, cbft.persisterDefaults]
         text: |
-          [[Flip it over]] for the plan. bleve uses a tiered merge
-          policy, a cousin of Lucene's. The *budget* is a staircase of
-          tiers: up to 10 segments per tier, each tier 10× bigger.
-          cbft's `floorSegmentFileSize` of 20MB makes the budget count
-          bytes rather than docs. While over budget, the planner picks
-          the best-scoring run of up to 10 segments, favoring similar
-          sizes and segments with many deletes.
+          With [[a plan]]. bleve uses a tiered merge policy, a cousin
+          of Lucene's. The *budget* is a staircase of tiers: up to 10
+          segments per tier, each tier 10× bigger. cbft's
+          `floorSegmentFileSize` of 20MB makes the budget count bytes
+          rather than docs. While over budget, the planner picks the
+          best-scoring run of up to 10 segments, favoring similar sizes
+          and segments with many deletes.
 
-      - id: unflip
-        view: { unflip: [merger], target: mergerInside }
+      - id: detail-close
+        view: { unbubble: [merger], target: mergerInside }
         text: |
-          Back to the front. The files our docs used to live in are no
-          longer in the root, so [[the merger's work]] has left
-          garbage on disk.
+          The files our docs used to live in are no longer in the root,
+          so [[the merger's work]] has left garbage on disk.
 
       - id: to-disk
-        view: { camera: disk, target: disk }
+        view: { camera: disk, target: disk, token: file }
         code: [persister.removeOldData]
         text: |
           Old files stay in [[the directory]] until no remaining
@@ -381,16 +402,23 @@ chapters:
     steps:
 
       - id: live
-        view: { camera: overview, target: root }
+        view: { camera: overview, target: root, token: hide }
+        text: |
+          That's the whole path for one batch, from KV down to a merged
+          file on disk, through [[the root snapshot]].
+
+      - id: running
+        view: { ui: full, target: root }
         sim: { speed: 1 }
         text: |
-          That's the whole path for one batch. Here's everything at
-          once, running live, with [[the root snapshot]] at the center.
-
-          The charts on the right track the numbers you'd see in cbft's
+          Now let's let the simulation run, and bring in the controls
+          and some charts. The charts track numbers you'd see in cbft's
           stats, such as `num_root_memorysegments`,
           `num_files_on_disk` and `num_bytes_used_disk`. Leader lines
-          show what each one measures.
+          show what each one measures, like [[the root snapshot]].
+
+          From here on, you can pause, change the speed, or open the
+          knobs.
 
   # ------------------------------------------------------------------
   - id: slowdisk

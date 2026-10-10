@@ -1,12 +1,12 @@
 // Validates narrative YAML. Hand-rolled (no schema library) so errors
 // can say exactly which step is wrong, in terms an author understands.
 // Also enforces the storytelling rule: each step changes at most one
-// thing (camera, lids, flips, or the simulation) unless it says
+// thing (camera, lids, bubbles, UI, or the simulation) unless it says
 // `multi: true`.
 
 import { applyConfig, makeConfig } from '../src/js/sim/config.js';
 import { isKnownExpectation, flattenSteps, resolveViews, changesAt } from '../src/js/story/timeline.js';
-import { CAMERAS, LIDS, FLIPPABLE, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, isAnchorVisible } from '../src/js/ui/layout.js';
+import { CAMERAS, LIDS, BUBBLES, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, UI_MODES, TOKEN_MODES, isAnchorVisible } from '../src/js/ui/layout.js';
 import { TRACE_STAGES } from '../src/js/story/timeline.js';
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
@@ -90,7 +90,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
       if (first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');
       first = false;
       if (st.view !== undefined) {
-        keys(st.view, ['camera', 'open', 'close', 'flip', 'unflip', 'target', 'chart'], `${sw} view`);
+        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'target', 'chart'], `${sw} view`);
         const v = st.view;
         if (v.camera !== undefined && !(typeof v.camera === 'string' && CAMERAS[v.camera]) &&
           !(Array.isArray(v.camera) && v.camera.length === 4 && v.camera.every((x) => typeof x === 'number'))) {
@@ -98,8 +98,10 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         }
         checkIds(v.open, Object.keys(LIDS), sw, 'lid');
         checkIds(v.close, Object.keys(LIDS), sw, 'lid');
-        checkIds(v.flip, FLIPPABLE, sw, 'flippable panel');
-        checkIds(v.unflip, FLIPPABLE, sw, 'flippable panel');
+        checkIds(v.bubble, Object.keys(BUBBLES), sw, 'bubble');
+        checkIds(v.unbubble, Object.keys(BUBBLES), sw, 'bubble');
+        if (v.ui !== undefined && !UI_MODES.includes(v.ui)) err(sw, `unknown ui "${v.ui}" (known: ${UI_MODES.join(', ')})`);
+        if (v.token !== undefined && !TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${TOKEN_MODES.join(', ')})`);
         if (v.target !== undefined && !(v.target in ANCHORS) && !DYNAMIC_ANCHORS.includes(v.target)) {
           err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(ANCHORS), ...DYNAMIC_ANCHORS].join(', ')})`);
         }
@@ -123,9 +125,9 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
       const parent = LIDS[id].parent;
       if (parent && !v.open.has(parent)) err(sw, `lid "${id}" is open but its parent "${parent}" isn't`);
     }
-    for (const id of v.flipped) if (!v.open.has(id)) err(sw, `panel "${id}" is flipped but its lid isn't open`);
-    if (v.target && ANCHORS[v.target] && !isAnchorVisible(v.target, v.open, v.flipped)) {
-      err(sw, `target "${v.target}" is hidden under a closed lid (or an unflipped panel) at this step`);
+    for (const id of v.bubbles) if (!v.open.has(BUBBLES[id].parent)) err(sw, `bubble "${id}" shows, but its panel's lid isn't open`);
+    if (v.target && ANCHORS[v.target] && !isAnchorVisible(v.target, v.open, v.bubbles)) {
+      err(sw, `target "${v.target}" is hidden under a closed lid (or needs its bubble) at this step`);
     }
     const changes = changesAt(steps, views, i);
     if (changes.length > 1 && !st.multi) {

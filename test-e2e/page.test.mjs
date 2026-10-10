@@ -70,6 +70,9 @@ test('code drawer shows highlighted, linked source', async () => {
 
 test('knobs change the live simulation', async () => {
   const { page, errors } = await open({ width: 1440, height: 900 });
+  // The controls appear once the story brings them in.
+  await page.evaluate(() => document.getElementById('together--running').scrollIntoView());
+  await page.waitForTimeout(600);
   await page.getByRole('button', { name: 'Knobs' }).click();
   await page.fill('#knob-ingestDocsPerSec', '1234');
   await page.dispatchEvent('#knob-ingestDocsPerSec', 'change');
@@ -93,23 +96,47 @@ for (const scheme of ['light', 'dark']) {
   });
 }
 
-test('a deep-linked step shows its lids, flips and one callout', async () => {
+test('a deep-linked step shows its lids, bubble and one callout', async () => {
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + file + '#persister--flip');
+  await page.goto('file://' + file + '#persister--detail');
   await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(800);
   const state = await page.evaluate(() => ({
-    flipped: document.querySelectorAll('.panel.flipped').length,
-    openLids: document.querySelectorAll('.lid.open').length,
+    step: window.bleveExplainer.steps[window.bleveExplainer.ctl.current].id,
+    openLids: [...document.querySelectorAll('.lid')].filter((l) => l.style.visibility === 'hidden').length,
+    bubble: Number(document.querySelector('.bubble').getAttribute('opacity')),
     callouts: document.querySelectorAll('.overlay .callout').length,
     trace: window.bleveExplainer.ctl.model.trace.stage,
   }));
-  assert.equal(state.flipped, 1);
+  assert.equal(state.step, 'detail');
   assert.equal(state.openLids, 5); // kv, cbft, scorch, introducer, persister
+  assert.ok(state.bubble > 0.99, `bubble opacity ${state.bubble}`);
   assert.equal(state.callouts, 1);
   assert.equal(state.trace, 'persisting');
   assert.deepEqual(errors, []);
+  await page.close();
+});
+
+test('the view changes continuously with scrolling, not in jumps', async () => {
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await page.goto('file://' + file);
+  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  // cbft/zoom moves the camera from the overview to the top.
+  const vbAt = async (frac) => {
+    await page.evaluate((frac) => {
+      const el = document.getElementById('cbft--zoom');
+      const H = innerHeight, enterY = H * 0.82, settleY = H * 0.42;
+      const top = enterY - frac * (enterY - settleY);
+      window.scrollTo(0, el.getBoundingClientRect().top + scrollY - top);
+    }, frac);
+    await page.waitForTimeout(150);
+    return page.evaluate(() => document.querySelector('.diagram').getAttribute('viewBox').split(' ').map(Number));
+  };
+  const a = await vbAt(0.02), m = await vbAt(0.5), b = await vbAt(0.98);
+  assert.ok(m[3] < a[3] && m[3] > b[3], `height should shrink smoothly: ${a[3]} > ${m[3]} > ${b[3]}`);
+  const tokenOpacity = await page.evaluate(() => Number(document.querySelector('.token').getAttribute('opacity')));
+  assert.equal(tokenOpacity, 0, 'no marker before we start following a batch');
   await page.close();
 });
