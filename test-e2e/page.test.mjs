@@ -205,3 +205,19 @@ test('goroutine labels never overlap mid-transition', async () => {
   assert.equal(overlaps, 0);
   await page.close();
 });
+
+test('contents: jumps straight to a chapter, settled', async () => {
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 400, height: 800 }]) {
+    const { page, errors } = await openPage(browser, { viewport });
+    await page.click('.toc-btn');
+    assert.equal(await page.isVisible('.toc-panel'), true);
+    await page.click('.toc-item:has-text("The merger")');
+    await page.waitForFunction(() => window.bleveExplainer.steps[window.bleveExplainer.ctl.current].chapterId === 'merger');
+    const s = await page.evaluate(() => window.bleveExplainer.scrollState());
+    assert.equal(s.p, 1);
+    assert.equal(await page.isVisible('.toc-panel'), false);
+    assert.equal(await page.getAttribute('.toc-item.current', 'href'), '#merger--zoom');
+    assert.deepEqual(errors, []);
+    await page.close();
+  }
+});

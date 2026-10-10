@@ -15,6 +15,7 @@ import { CodeDrawer } from './code.js';
 import { KnobsDrawer } from './knobs.js';
 import { ChartsPanel } from './charts.js';
 import { buildPage } from './page.js';
+import { Toc } from './toc.js';
 import { Camera } from './camera.js';
 import { bindGestures } from './gestures.js';
 import { Overlay } from './overlay.js';
@@ -39,6 +40,12 @@ const charts = new ChartsPanel(page.chartsCol);
 const overlay = new Overlay(page.overlay);
 const camera = new Camera({ ...page, reduceMotion });
 bindGestures(page.viewport, camera);
+
+// Contents: jump straight to a chapter's first step, settled.
+const firstStepOf = narrative.chapters.map((ch) => steps.findIndex((st) => st.chapterId === ch.id));
+const toc = new Toc(document.body, narrative.chapters.map((ch, ci) => ({
+  ...ch, href: `#${ch.id}--${ch.steps[0].id}`, first: firstStepOf[ci],
+})), (ci) => jumpTo(firstStepOf[ci]));
 
 // ---------------------------------------------------------------
 // Simulation state, per step
@@ -65,6 +72,7 @@ function enter(i, { rebuild = false } = {}) {
   ctl.playing = ctl.speed > 0 && !reduceMotion;
   camera.recenter();
   stepEls.forEach((el, j) => el.classList.toggle('active', j === i));
+  toc.setCurrent(st.chapterIndex);
 
   diagram.setView(view.open, view.bubbles);
   diagram.live = ctl.playing;
@@ -229,6 +237,14 @@ window.addEventListener('scroll', () => {
   if (i !== ctl.current) enter(i);
 }, { passive: true });
 
+// Jumps (no smooth scroll through everything in between) to step i,
+// fully settled.
+function jumpTo(i) {
+  window.scrollTo({ top: scrollYFor(stepEls[i], 1) + 2, behavior: 'instant' });
+  ctl.scrolled = true;
+  enter(scrollState(stepEls, reduceMotion).i);
+}
+
 // Deep links (#chapter--step) land with the step fully settled. The
 // browser scrolls to the fragment itself once the page has loaded, so
 // land again then.
@@ -246,7 +262,7 @@ requestAnimationFrame(frame);
 
 // For tests and the curious.
 window.bleveExplainer = {
-  ctl, steps, views, enter, diagram, camera,
+  ctl, steps, views, enter, jumpTo, diagram, camera, toc,
   scrollState: () => scrollState(stepEls, reduceMotion),
   scrollYFor: (i, p) => scrollYFor(stepEls[i], p),
 };

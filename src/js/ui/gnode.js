@@ -122,6 +122,7 @@ const SHORT = [
   [/^herder: IndexStart/, 'stalled by the app herder'],
   [/^herder: BatchIntroductionStart/, 'stalled by the app herder'],
   [/^waiting for batches/, 'idle: waiting for batches'],
+  [/^holding a batch \((\d+) ops\)/, 'holding $1 ops till the tick'],
   [/^waiting for analysis/, 'waiting for analysis'],
   [/^Scorch\.Batch\(\)/, 'calling Scorch.Batch()'],
   [/^NewUsing/, 'building in-memory segment'],

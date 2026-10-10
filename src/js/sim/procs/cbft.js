@@ -117,7 +117,9 @@ export class CbftProcs {
     let nextTick = k.now + this.cfg.batchFlushMs;
     for (;;) {
       const wait = Math.max(0, nextTick - k.now);
-      const r = yield k.select([ch.recvCase(), k.timeoutCase(wait)], { label: 'waiting for batches / ticker' });
+      // Holding a batch: more may merge into it before the ticker fires.
+      const label = target ? `holding a batch (${target.ops} ops) for the ticker` : 'waiting for batches / ticker';
+      const r = yield k.select([ch.recvCase(), k.timeoutCase(wait)], { label });
       if (r.index === 1) {
         nextTick = Math.max(nextTick + this.cfg.batchFlushMs, k.now + 1);
         if (target) {

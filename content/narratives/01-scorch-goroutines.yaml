@@ -23,7 +23,7 @@ chapters:
     steps:
 
       - id: layers
-        sim: { reset: true, minTimeMs: 6000, speed: 0 }
+        sim: { reset: true, minTimeMs: 6010, speed: 0 }
         view: { camera: overview, target: cbftLid }
         expect: [kvFlowing, herderIdle]
         text: |
@@ -53,7 +53,7 @@ chapters:
 
   # ------------------------------------------------------------------
   - id: cbft
-    title: "Into cbft"
+    title: "KV and cbft"
     color: cbft
     steps:
 
@@ -124,8 +124,10 @@ chapters:
         expect: ["reached:worker"]
         text: |
           [[Its batch worker]], worker 0 at the front of the stack,
-          takes the batch from the channel. If the slot had still been
-          full, the DCP goroutine would have had to wait.
+          takes the batch from the channel and holds it, merging in any
+          more that arrive, until it reaches 200 ops or the ticker
+          fires. If the slot had still been full, the DCP goroutine
+          would have had to wait.
 
       - id: to-herder
         sim: { until: herder }
