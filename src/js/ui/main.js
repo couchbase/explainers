@@ -142,6 +142,7 @@ function render() {
 
   for (const id of Object.keys(LIDS)) diagram.setLid(id, toggleAt(pv.open.has(id), v.open.has(id), p));
   for (const id of Object.keys(BUBBLES)) diagram.setBubble(id, toggleAt(pv.bubbles.has(id), v.bubbles.has(id), p));
+  if (pv.bubbles.has('merger') || v.bubbles.has('merger')) diagram.setStairs(pv.plan, v.plan, t);
   diagram.setToken(mf && mf.t, mf ? mf.o : 0);
   diagram.setDocs(mf && mf.birth !== undefined ? mf.birth : -1, mf && mf.t);
   // Our segment's slot stays faint until the marker arrives.

@@ -121,7 +121,8 @@ step to step:
 |---|---|
 | `camera` | a named region (`overview`, `top`, `cbft`, `scorchTop`, `introducer`, `root`, `persister`, `merger`, `lower`, `disk`, ...) or `[x0, y0, x1, y1]` |
 | `open` / `close` | lids to open or close: `kv`, `cbft`, `scorch`, `disk`, and inside scorch `introducer`, `persister`, `merger` |
-| `flip` / `unflip` | turn a panel over to its detailed back side: `persister`, `merger` |
+| `bubble` / `unbubble` | pop a detail bubble out of a panel: `persister`, `merger` |
+| `plan` | what the merger bubble's tier staircase shows: an example index's `budget`, `files`, `over`, `pick`, `merged`; or `live`, the simulation's own files (the default) |
 | `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
 
 **Simulation directives:**
@@ -226,6 +227,7 @@ src/js/ui/               the page
   layout.js              diagram geometry: frames, lids, cameras, anchors, stations
   diagram.js             the diagram canvas (with gnode.js and slots.js)
   transitions.js         what's shown partway between steps (marker route, boxes)
+  stairs-scene.js        the merger bubble's tier staircase, as data (staircase.js draws it)
   camera.js, gestures.js the camera, the reader's pan/zoom, map-style gestures
   scroll.js              scroll position -> (step, progress)
   overlay.js, charts.js  callout and leader lines; the charts column

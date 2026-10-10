@@ -13,6 +13,8 @@
 // and how to place our batch's marker. A step only states what changes.
 
 import { Model } from '../sim/model.js';
+import { plan as mergePlan } from '../sim/mergeplan.js';
+import { planInput } from '../sim/procs/merger.js';
 
 // The stages a followed batch goes through, in order (see Model._trace).
 export const TRACE_STAGES = ['dcp', 'channel', 'worker', 'herder', 'analysis', 'introducing', 'introduced',
@@ -90,6 +92,7 @@ export function resolveViews(steps) {
   let bubbles = new Set();
   let ui = 'minimal';
   let token = 'auto';
+  let plan = 'live';
   return steps.map((st) => {
     const v = st.view || {};
     if (v.camera !== undefined) camera = v.camera;
@@ -105,7 +108,8 @@ export function resolveViews(steps) {
     }
     if (v.ui !== undefined) ui = v.ui;
     if (v.token !== undefined) token = v.token;
-    return { camera, open, bubbles, ui, token, target: v.target || null, chart: v.chart || null };
+    if (v.plan !== undefined) plan = v.plan;
+    return { camera, open, bubbles, ui, token, plan, target: v.target || null, chart: v.chart || null };
   });
 }
 
@@ -121,6 +125,9 @@ export function changesAt(steps, views, i) {
   if (!sameSet(views[i - 1].open, views[i].open)) out.push('lids');
   if (!sameSet(views[i - 1].bubbles, views[i].bubbles)) out.push('bubbles');
   if (views[i - 1].ui !== views[i].ui) out.push('ui');
+  // The merger bubble's staircase phase counts only while it shows.
+  const stairs = (v) => v.bubbles.has('merger');
+  if (views[i - 1].plan !== views[i].plan && stairs(views[i - 1]) && stairs(views[i])) out.push('plan');
   if (steps[i].sim && SIM_CHANGES.some((k) => steps[i].sim[k] !== undefined)) out.push('simulation');
   return out;
 }
@@ -145,6 +152,7 @@ export const EXPECTATIONS = {
   queryRunning: (m) => m.queries.size > 0,
   noQueries: (m) => m.queries.size === 0,
   zombies: (m) => m.zombieBytes() > 0,
+  filesWithinBudget: (m) => mergePlan(planInput(m.root), m.cfg.mergePlan).tasks.length === 0,
   noZombies: (m) => m.zombieBytes() === 0,
   safeBatchesSlow: (m) => m.stats.NumBatchesIntroduced > 0 &&
     m.stats.TotBatchIntroTime / m.stats.NumBatchesIntroduced > 100,

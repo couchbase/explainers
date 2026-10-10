@@ -376,16 +376,58 @@ chapters:
           below it.
 
       - id: detail
-        view: { bubble: [merger], target: mergerDetail }
-        code: [mergeplan.plan, mergeplan.CalcBudget, mergeplan.ScoreSegments, cbft.persisterDefaults]
+        view: { bubble: [merger], plan: budget, target: stairs }
+        code: [mergeplan.plan, mergeplan.CalcBudget, cbft.persisterDefaults]
         text: |
-          With [[a plan]]. bleve uses a tiered merge policy, a cousin
-          of Lucene's. The *budget* is a staircase of tiers: up to 10
-          segments per tier, each tier 10× bigger. cbft's
-          `floorSegmentFileSize` of 20MB makes the budget count bytes
-          rather than docs. While over budget, the planner picks the
-          best-scoring run of up to 10 segments, favoring similar sizes
-          and segments with many deletes.
+          With [[a staircase]]. bleve's tiered merge policy, a cousin
+          of Lucene's, first sets a *budget*: how many files the index
+          may have. Take an example index with 1.3GB of live data. The
+          first tier is up to 10 files at the floor size (cbft sets
+          `floorSegmentFileSize` to 20MB), each tier above is 10×
+          bigger, and tiers stack until all the bytes fit. Here that's
+          10 small stairs and 6 bigger ones: a budget of 16 files.
+
+      - id: files
+        view: { plan: files, target: stairFiles }
+        text: |
+          Now [[the actual files]], biggest first, as `Plan()` sorts
+          them: a few big ones from earlier merges, and a tail of small
+          fresh ones that the persister keeps writing.
+
+      - id: over
+        view: { plan: over, target: stairOver }
+        text: |
+          Twenty files on a budget of 16: there are more files than
+          stairs, so [[the last four]] are over budget, and the planner
+          must merge.
+
+      - id: pick
+        view: { plan: pick, target: stairPick }
+        code: [mergeplan.plan, mergeplan.ScoreSegments]
+        text: |
+          Which files? The planner slides a window along the sorted
+          files and scores every run of up to 10. Lower is better: runs
+          of similar sizes win, since merging a big file with small
+          ones rewrites the big one for little gain, and files with
+          many deletes get a bonus. Here [[the winner]] is the ten
+          smallest.
+
+      - id: merged-file
+        view: { plan: merged, target: stairMerged }
+        text: |
+          They become [[one 39MB file]], a step up the staircase, and
+          eleven files fit the budget. A byte is rewritten about once
+          per tier it climbs, so a few times over its life, rather than
+          on every merge.
+
+      - id: ours
+        view: { plan: live, target: mergerDetail }
+        expect: [filesWithinBudget]
+        text: |
+          Back to [[our own index]]. It's still small, a stair or two,
+          and the merge our file was part of brought it back within
+          budget, so the next plan will have nothing to do until more
+          files arrive.
 
       - id: detail-close
         view: { unbubble: [merger], target: mergerInside }

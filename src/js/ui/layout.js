@@ -8,6 +8,8 @@
 // Lids cover frame and panel insides until the story opens them.
 // Detail bubbles pop out of a panel into the gutters on either side.
 
+import { stairScene } from './stairs-scene.js';
+
 export const CW = 1000; // main diagram width; gutters extend past 0 and CW
 export const CH = 1560;
 export const CANVAS = [-460, 0, 1460, 1560]; // x0, y0, x1, y1 incl. the left gutter
@@ -40,7 +42,7 @@ export const LIDS = {
 // pointing at the panel.
 export const BUBBLES = {
   persister: { box: [-440, 870, 420, 280], tail: [80, 1052], parent: 'persister', title: 'persisterLoop(), one cycle' },
-  merger: { box: [500, 1176, 440, 268], tail: [720, 1152], parent: 'merger', title: 'mergeplan.Plan(): the tier staircase' },
+  merger: { box: [500, 1176, 440, 300], tail: [720, 1152], parent: 'merger', title: 'mergeplan.Plan(): the tier staircase' },
 };
 
 // Named camera regions: [x0, y0, x1, y1] plus a "where am I" label.
@@ -57,7 +59,7 @@ export const CAMERAS = {
   persister: { rect: [40, 740, 560, 1170], label: 'scorch: the persister', section: 'scorch' },
   persisterDetail: { rect: [-450, 860, 490, 1170], label: 'scorch: inside the persister', section: 'scorch' },
   merger: { rect: [440, 740, 960, 1170], label: 'scorch: the merger', section: 'scorch' },
-  mergerDetail: { rect: [440, 770, 980, 1452], label: 'scorch: inside the merger', section: 'scorch' },
+  mergerDetail: { rect: [440, 720, 980, 1490], label: 'scorch: inside the merger', section: 'scorch' },
   lower: { rect: [20, 720, 980, 1552], label: 'scorch and disk', section: 'scorch' },
   disk: { rect: [30, 1220, 970, 1552], label: 'disk', section: 'disk' },
 };
@@ -95,6 +97,7 @@ export const ANCHORS = {
   mergerInside: { p: [536, 1032], needs: ['cbft', 'scorch', 'merger'] },
   mergerDetail: { p: [500, 1250], needs: ['cbft', 'scorch', 'merger'], bubble: 'merger' },
   writes: { p: [270, 1186], needs: [] },
+  ...stairAnchors(),
 
   disk: { p: [70, 1356], needs: ['disk'] },
   diskR: { p: [950, 1356], needs: ['disk'] },
@@ -111,6 +114,18 @@ export const CHART_IDS = ['dcpBuf', 'memUsed', 'segments', 'files'];
 export const SECTION_COLORS = ['kv', 'cbft', 'scorch', 'disk', 'neutral'];
 export const UI_MODES = ['minimal', 'full'];
 export const TOKEN_MODES = ['auto', 'file', 'hide'];
+
+// Anchors on the merger bubble's staircase, one per story phase.
+function stairAnchors() {
+  const out = {};
+  const name = { stairs: 'stairs', files: 'stairFiles', over: 'stairOver', pick: 'stairPick', merged: 'stairMerged' };
+  for (const ph of ['budget', 'files', 'over', 'pick', 'merged']) {
+    for (const [k, p] of Object.entries(stairScene(BUBBLES.merger.box, ph).anchors)) {
+      out[name[k]] = { p, needs: ['cbft', 'scorch', 'merger'], bubble: 'merger' };
+    }
+  }
+  return out;
+}
 
 export function isAnchorVisible(id, open, bubbles, dynamicNeeds) {
   const a = ANCHORS[id];

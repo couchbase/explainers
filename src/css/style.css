@@ -351,7 +351,11 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .diagram .back-title { font: 600 12px var(--font-display); letter-spacing: 0.04em; fill: var(--ink); }
 .back-fn { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
 .back-note { font-size: 10.5px; fill: var(--muted); }
-.tier-line { stroke: var(--muted); stroke-dasharray: 3 3; }
+.tier-line { stroke: var(--muted); stroke-dasharray: 3 3; stroke-opacity: 0.5; }
+.stair-slot { fill: color-mix(in srgb, var(--sec-scorch) 7%, var(--panel)); stroke: var(--sec-scorch); stroke-dasharray: 3 2; }
+.stair-over { fill: none; stroke: var(--stall); stroke-width: 1.8; }
+.stair-pick { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 1.8; }
+.tier-line.stair-end { stroke: var(--stall); stroke-dasharray: none; stroke-opacity: 1; stroke-width: 1.5; }
 
 /* lids sit inset inside their frame, so the colored border stays
    visible; the page sets their openness from the scroll position */

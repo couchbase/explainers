@@ -15,6 +15,9 @@ import { svgEl as el, svgText as txt, setText, setCls } from './util/dom.js';
 import { along, easeQuad } from './util/anim.js';
 import { GNode, procState, shortLabel } from './gnode.js';
 import { Slots } from './slots.js';
+import { Staircase } from './staircase.js';
+import { stairScene } from './stairs-scene.js';
+import { planInput } from '../sim/procs/merger.js';
 
 const SYMBOLS = `
 <symbol id="dg-file" viewBox="0 0 12 15"><path d="M0.5,0.5 H8 L11.5,4 V14.5 H0.5 Z" class="ficon-body"/><path d="M8,0.5 V4 H11.5" class="ficon-fold"/></symbol>
@@ -265,7 +268,7 @@ export class Diagram {
     txt(bg, x + 18, y + 28, B.title, 'bubble-title');
     const body = el('g', {}, bg);
     if (id === 'persister') this._persisterDetail(body, x + 14, y + 42);
-    else this._mergerDetail(body, x + 14, y + 42, w - 28);
+    else this.stairs = new Staircase(body);
     this.bubbles[id] = { g: bg, tail: [tx, ty] };
   }
 
@@ -284,23 +287,6 @@ export class Diagram {
       txt(b, x + 10, yy + 28, note, 'back-note');
       return r;
     });
-  }
-
-  _mergerDetail(b, x, y, w) {
-    this.tierText = txt(b, x + w, y + 4, '', 'back-note', 'end');
-    const base = y + 190;
-    this.tierBase = base;
-    this.tierBars = [];
-    for (let i = 0; i < 20; i++) {
-      this.tierBars.push(el('rect', { x: x + 4 + i * 19, y: base, width: 14, height: 0, rx: 2, class: 'fbar' }, b));
-    }
-    this.tierLines = [];
-    for (let i = 0; i < 3; i++) {
-      const l = el('line', { x1: x, x2: x + w, y1: 0, y2: 0, class: 'tier-line' }, b);
-      const t = txt(b, x + w, 0, '', 'back-note', 'end');
-      this.tierLines.push({ l, t });
-    }
-    txt(b, x, base + 20, 'file segments by live size (log scale); outlined: being merged', 'back-note');
   }
 
   // Documents flowing from KV down the DCP arrow, for a batch's birth.
@@ -677,28 +663,20 @@ export class Diagram {
 
     litRow(this.mRows, phaseRow(PHASES.merger, p ? p.label : ''));
 
-    // back: tier staircase of current file segments
-    const files = m.root.segs.filter((ss) => ss.seg.kind === 'file')
-      .map((ss) => ({ id: ss.seg.id, live: Math.floor(ss.seg.bytes * (ss.seg.docs - ss.deleted) / ss.seg.docs) }))
-      .sort((a, b) => b.live - a.live);
-    const merging = new Set(m.currentMerge ? m.currentMerge.srcs : []);
-    this.tierBars.forEach((b, i) => {
-      const f = files[i];
-      if (!f) { b.setAttribute('height', 0); return; }
-      const h = barHeight(f.live, 150);
-      b.setAttribute('y', (this.tierBase - h).toFixed(1)); b.setAttribute('height', h.toFixed(1));
-      setCls(b, merging.has(f.id) ? 'fbar merging' : 'fbar');
-    });
-    const floor = m.cfg.mergePlan.floorSegmentFileSize || 20 * 1024 * 1024;
-    this.tierLines.forEach((t, i) => {
-      const bytes = floor * Math.pow(m.cfg.mergePlan.tierGrowth, i);
-      const y = this.tierBase - barHeight(bytes, 150);
-      t.l.setAttribute('y1', y.toFixed(1)); t.l.setAttribute('y2', y.toFixed(1));
-      t.t.setAttribute('y', (y - 3).toFixed(1));
-      setText(t.t, `tier ${i + 1}: ${fmtBytes(bytes)}`);
-    });
-    const lp = m.lastMergePlan;
-    setText(this.tierText, lp ? `budget ${lp.budget} · ${lp.numSegs} segs · ${lp.tasks} task(s)` : '');
+    // The bubble's staircase, live: the root's file segments.
+    this.stairLive = {
+      files: planInput(m.root),
+      opts: m.cfg.mergePlan,
+      merging: new Set(m.currentMerge ? m.currentMerge.srcs : []),
+    };
+    this.stairLiveKey = `${m.root.epoch}|${m.currentMerge ? m.currentMerge.label : ''}`;
+  }
+
+  // The merger bubble's staircase, between story phases pa and pb.
+  setStairs(pa, pb, q) {
+    const box = BUBBLES.merger.box;
+    const scene = (ph) => stairScene(box, ph, this.stairLive);
+    this.stairs.draw(scene(pa), scene(pb), q, `${pa}|${pb}|${this.stairLiveKey}`);
   }
 
   _updateDisk(m) {

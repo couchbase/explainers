@@ -5,6 +5,18 @@ import { Chan } from '../des.js';
 import { plan as mergePlan } from '../mergeplan.js';
 import { fmtBytes, fmtMs } from '../fmt.js';
 
+// A snapshot's file segments, as mergeplan.Plan() sees them.
+export function planInput(snap) {
+  return snap.segs.filter((ss) => ss.seg.kind === 'file').map((ss) => ({
+    id: ss.seg.id,
+    ss,
+    fullSize: ss.seg.docs,
+    liveSize: ss.seg.docs - ss.deleted,
+    fileSize: ss.seg.bytes,
+    liveFileSize: ss.seg.docs > 0 ? Math.floor(ss.seg.bytes * (ss.seg.docs - ss.deleted) / ss.seg.docs) : 0,
+  }));
+}
+
 export class MergerProcs {
   // ---------------------------------------------------------------
   // Merger (merge.go)
@@ -33,15 +45,7 @@ export class MergerProcs {
 
   * _planMergeAtSnapshot(p, snap) {
     const k = this.k, cfg = this.cfg;
-    const fileSegs = snap.segs.filter((ss) => ss.seg.kind === 'file');
-    const input = fileSegs.map((ss) => ({
-      id: ss.seg.id,
-      ss,
-      fullSize: ss.seg.docs,
-      liveSize: ss.seg.docs - ss.deleted,
-      fileSize: ss.seg.bytes,
-      liveFileSize: ss.seg.docs > 0 ? Math.floor(ss.seg.bytes * (ss.seg.docs - ss.deleted) / ss.seg.docs) : 0,
-    }));
+    const input = planInput(snap);
     this.stats.TotFileMergePlan++;
     const pl = mergePlan(input, cfg.mergePlan);
     this.lastMergePlan = { epoch: snap.epoch, budget: pl.budget, numSegs: input.length, tasks: pl.tasks.length };
