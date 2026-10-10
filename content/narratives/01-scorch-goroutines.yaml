@@ -123,8 +123,8 @@ chapters:
         view: { target: ourBatch }
         expect: ["reached:worker"]
         text: |
-          [[Its batch worker]] takes the batch from the channel, and
-          moves to the front of the stack. If the slot had still been
+          [[Its batch worker]], worker 0 at the front of the stack,
+          takes the batch from the channel. If the slot had still been
           full, the DCP goroutine would have had to wait.
 
       - id: to-herder

@@ -589,8 +589,9 @@ export class Diagram {
 
     // cbft
     ns.dcp = st(procs.get('dcp'));
-    // The front panel shows our batch's worker while we follow it.
-    const front = tr && tr.worker != null && !m.reached('introduced') ? tr.worker : 0;
+    // The front panel is worker 0, which is also where the story's
+    // followed batch goes (Model.follow).
+    const front = 0;
     setText(this.nodes.worker.title, `batch worker ${front}`);
     ns.worker = st(procs.get(`batchWorker-${front}`));
     const others = [0, 1, 2, 3].filter((i) => i !== front);

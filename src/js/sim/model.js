@@ -109,10 +109,11 @@ export class Model {
     return id;
   }
 
-  // Tags the next batch the DCP goroutine starts, so we can follow it
-  // (and, later, the segments and files its docs end up in).
-  follow() {
-    this.followNext = true;
+  // Tags the next batch the DCP goroutine starts for a vbucket that
+  // goes to batch worker `worker`, so we can follow it (and, later, the
+  // segments and files its docs end up in).
+  follow({ worker = 0 } = {}) {
+    this.followNext = { worker };
     this.trace = null;
   }
 

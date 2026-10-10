@@ -76,7 +76,7 @@ export class CbftProcs {
 
   _newBatch(vb) {
     const b = { vb, ops: 0, inserts: 0, updates: 0, deletes: 0, bytes: 0 };
-    if (this.followNext) {
+    if (this.followNext && vb % this.workerChs.length === this.followNext.worker) {
       this.followNext = false;
       b.traced = true;
       this._trace('dcp', { vb });
