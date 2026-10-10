@@ -16,6 +16,9 @@ export class BatchProcs {
     // fireEvent(EventKindBatchIntroductionStart) -> herder checkAndBlockBatch
     yield* this._herderBlock(p, 'BatchIntroductionStart: over index quota', true);
     this.stats.TotBatches++;
+    // A zero-time step, so passing the herder and starting analysis are
+    // separate moments (a story step can stop between them).
+    if (batch.traced) yield k.work(0, 'Scorch.Batch()');
     if (batch.traced) this._trace('analysis');
 
     const numDocs = batch.inserts + batch.updates;

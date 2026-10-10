@@ -136,7 +136,17 @@ chapters:
           Before the batch may enter scorch, the worker passes
           [[the app herder]]. It checks process memory against the
           indexing quota (65% of the FTS memory quota). Right now we're
-          well under it, so our batch passes straight through.
+          well under it, so our batch may pass.
+
+      - id: into-bleve
+        sim: { until: analysis }
+        view: { target: ourBatch }
+        expect: ["reached:analysis"]
+        code: [cbft.execute]
+        text: |
+          Through the gate, the worker calls `bindex.Batch()`, and
+          [[our batch]] crosses from cbft's own code into the bleve
+          library, which runs in the same process.
 
   # ------------------------------------------------------------------
   - id: scorch
@@ -147,9 +157,8 @@ chapters:
       - id: step-back
         view: { camera: process, target: scorchLid }
         text: |
-          Step back for a moment. Our batch is about to cross from
-          cbft's own code into [[the bleve library]], which runs inside
-          the same process.
+          Step back for a moment. Our batch is now inside
+          [[bleve / scorch]], still a closed box for us.
 
       - id: scorch-open
         view: { open: [scorch], target: introducer }
@@ -166,9 +175,7 @@ chapters:
           indexing a batch.
 
       - id: analysis
-        sim: { until: analysis }
         view: { target: analysis }
-        expect: ["reached:analysis"]
         text: |
           It fans the docs out to [[the analysis queue]]: a pool of
           one analyzer per CPU, shared by all four workers. Analysis
