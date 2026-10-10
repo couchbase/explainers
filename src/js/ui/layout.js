@@ -126,15 +126,26 @@ export const STATIONS = {
   analysis: [372, 545], introducing: [332, 652], persisting: [60, 1067], merging: [940, 1067],
 };
 
-// The corridors between boxes that the marker travels along, the same
-// ways the arrows go, so it never cuts across a panel.
-export const CORRIDORS = {
-  spineLeft: 372, // x: just left of the main spine
-  intoBleve: 490, // y: between the herder gate and Scorch.Batch()
-  aboveIntroducer: 590, // y
-  aboveRoot: 722, // y
-  belowRoot: 930, // y: between the root and the persister/merger
-  betweenPanels: 500, // x: between the persister and the merger
-  aboveDisk: 1240, // y
-  fileBarY: 840, // y: the middle of the root's file bars
+// The boxes the batch marker must not cut through: [x, y, w, h]. When
+// it's inside one (a cell in the root snapshot, a file in the
+// directory), it leaves vertically; between boxes, it travels the gaps.
+export const BOXES = {
+  kvEngine: [390, 42, 220, 52],
+  dcp: [390, 228, 220, 50],
+  workers: [390, 310, 244, 78], // the stack, including the panels behind
+  batch: [390, 520, 220, 50],
+  analysis: [640, 520, 200, 50],
+  introducer: [350, 602, 300, 100],
+  root: [80, 742, 840, 170],
+  persister: [80, 952, 400, 200],
+  merger: [520, 952, 400, 200],
+  directory: [60, 1262, 560, 172],
+  bolt: [650, 1286, 280, 152],
 };
+
+// Gaps the marker can use to get around boxes: vertical (x) and
+// horizontal (y) lines that run between them.
+export const CORRIDOR_XS = [500, 60, 940, 372];
+export const CORRIDOR_YS = [300, 490, 590, 722, 930, 1240];
+// How far outside a box the marker travels when it goes around it.
+export const BOX_GAP = 10;
