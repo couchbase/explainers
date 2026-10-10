@@ -357,7 +357,7 @@ chapters:
         view: { camera: mergerDetail, target: merger }
         text: |
           How does [[the merger]] decide what to merge? Let's make room
-          to its right.
+          below it.
 
       - id: detail
         view: { bubble: [merger], target: mergerDetail }

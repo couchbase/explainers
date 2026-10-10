@@ -280,16 +280,60 @@ function inViewport([sx, sy]) {
 }
 
 // ---------------------------------------------------------------
-// The marker's route between two places: along the flow, not through
-// the middle of things. Places in the side gaps are reached sideways
-// first; everything else vertically first.
+// The marker's route between two stations, through the corridors
+// between boxes (the same ways the arrows go), so it never cuts across
+// a panel. Corridors: x=372 left of the spine, y=490 into bleve, y=590
+// above the introducer, y=722 above the root, y=930 between the root
+// and the persister/merger, the side gaps x=60 and x=940, x=500
+// between the persister and merger, and y=1240 above the disk.
+
+const VIA = {
+  'cell>bar': 'persisting', // a segment becomes a file via the persister
+  'bar>bar': 'merging', // a file becomes a bigger file via the merger
+  'cell>icon': 'bar',
+};
+
+const LEGS = {
+  'dcp>worker': (a, b) => [a, b],
+  'worker>herder': (a, b) => [a, [a[0], b[1]], b],
+  'herder>analysis': (a, b) => [a, [a[0], 490], [b[0], 490], b],
+  'worker>analysis': (a, b) => [a, [a[0], 490], b],
+  'analysis>introducing': (a, b) => [a, [a[0], 590], [b[0], 590], b],
+  'introducing>cell': (a, b) => [a, [a[0], 722], [b[0], 722], b],
+  'cell>persisting': (a, b) => [a, [b[0], a[1]], b],
+  'persisting>bar': (a, b) => [a, [a[0], 930], [b[0], 930], b],
+  'bar>merging': (a, b) => [a, [a[0], 930], [b[0], 930], b],
+  'merging>bar': (a, b) => [a, [a[0], 930], [b[0], 930], b],
+  'bar>icon': (a, b) => [a, [a[0], 930], [500, 930], [500, 1240], [b[0], 1240], b],
+};
+
+function leg(a, b) {
+  const k = `${a.st}>${b.st}`;
+  if (LEGS[k]) return LEGS[k](a.p, b.p);
+  const back = `${b.st}>${a.st}`;
+  if (LEGS[back]) return LEGS[back](b.p, a.p).reverse();
+  return null;
+}
 
 function route(a, b) {
+  if (a.st === b.st && a.key === b.key) return [a.p, b.p];
+  const direct = leg(a, b);
+  if (direct) return direct;
+  const via = VIA[`${a.st}>${b.st}`] || VIA[`${b.st}>${a.st}`];
+  if (via) {
+    const mid = { st: via, p: STATIONS[via] || null };
+    if (!mid.p && via === 'bar') mid.p = [a.p[0] + 20, 840];
+    const x = leg(a, mid), y = leg(mid, b);
+    if (x && y) return [...x, ...y.slice(1)];
+  }
+  // Fallback: vertical first, unless heading into a side gap.
   const [ax, ay] = a.p, [bx, by] = b.p;
   if (Math.abs(ax - bx) < 2 || Math.abs(ay - by) < 2) return [a.p, b.p];
   const outside = (x) => x < 80 || x > 920;
   return outside(bx) ? [a.p, [bx, ay], b.p] : [a.p, [ax, by], b.p];
 }
+
+const STATIONS = { persisting: [60, 1067], merging: [940, 1067] };
 
 function along(pts, t) {
   const segs = [];
@@ -318,7 +362,8 @@ function tokenFrame(i, p) {
   const e = ease(p);
   if (cur && prev) {
     const mid = e > 0.5 ? cur : prev;
-    return { t: { p: along(route(prev, cur), e), size: lerp(prev.size, cur.size, e), kind: mid.kind, label: mid.label }, o: 1 };
+    return { t: { p: along(route(prev, cur), e), size: lerp(prev.size, cur.size, e), kind: mid.kind, label: mid.label },
+      o: 1, dest: prev.st !== cur.st || prev.key !== cur.key ? cur : null, arrived: e >= 0.97 };
   }
   if (cur) return { t: cur, o: i > 0 && !ctl.tokenAt.has(i - 1) ? 1 : e };
   if (prev) return { t: prev, o: 1 - e };
@@ -366,6 +411,9 @@ function render() {
   for (const id of Object.keys(LIDS)) diagram.setLid(id, lerp(pv.open.has(id) ? 1 : 0, v.open.has(id) ? 1 : 0, t));
   for (const id of Object.keys(BUBBLES)) diagram.setBubble(id, lerp(pv.bubbles.has(id) ? 1 : 0, v.bubbles.has(id) ? 1 : 0, t));
   diagram.setToken(tf && tf.t, tf ? tf.o : 0);
+  // Our segment's slot stays faint until the marker arrives.
+  const dest = tf && tf.dest;
+  diagram.setArrival(dest || null, dest && !tf.arrived ? 0 : 1);
 
   if (chrome !== lastChrome) {
     lastChrome = chrome;

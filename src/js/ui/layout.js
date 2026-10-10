@@ -10,7 +10,7 @@
 
 export const CW = 1000; // main diagram width; gutters extend past 0 and CW
 export const CH = 1560;
-export const CANVAS = [-460, 0, 1460, 1560]; // x0, y0, x1, y1 incl. gutters
+export const CANVAS = [-460, 0, 1460, 1560]; // x0, y0, x1, y1 incl. the left gutter
 
 export const SECTIONS = {
   kv: { label: 'KV · separate process', frame: [300, 20, 400, 132], color: 'kv' },
@@ -36,10 +36,11 @@ export const LIDS = {
   merger: { title: 'merger', sub: 'compacts file segments', panel: 'merger', parent: 'scorch' },
 };
 
-// Detail bubbles: a box in a gutter, with a tail pointing at its panel.
+// Detail bubbles: a box beside or below its panel, with a tail
+// pointing at the panel.
 export const BUBBLES = {
   persister: { box: [-440, 870, 420, 280], tail: [80, 1052], parent: 'persister', title: 'persisterLoop(), one cycle' },
-  merger: { box: [1020, 870, 420, 280], tail: [920, 1052], parent: 'merger', title: 'mergeplan.Plan(): the tier staircase' },
+  merger: { box: [500, 1176, 440, 268], tail: [720, 1152], parent: 'merger', title: 'mergeplan.Plan(): the tier staircase' },
 };
 
 // Named camera regions: [x0, y0, x1, y1] plus a "where am I" label.
@@ -56,7 +57,7 @@ export const CAMERAS = {
   persister: { rect: [40, 740, 560, 1170], label: 'scorch: the persister', section: 'scorch' },
   persisterDetail: { rect: [-450, 860, 490, 1170], label: 'scorch: inside the persister', section: 'scorch' },
   merger: { rect: [440, 740, 960, 1170], label: 'scorch: the merger', section: 'scorch' },
-  mergerDetail: { rect: [510, 860, 1450, 1170], label: 'scorch: inside the merger', section: 'scorch' },
+  mergerDetail: { rect: [440, 770, 980, 1452], label: 'scorch: inside the merger', section: 'scorch' },
   lower: { rect: [20, 720, 980, 1552], label: 'scorch and disk', section: 'scorch' },
   disk: { rect: [30, 1220, 970, 1552], label: 'disk', section: 'disk' },
 };
@@ -91,7 +92,7 @@ export const ANCHORS = {
   persisterDetail: { p: [-440, 960], needs: ['cbft', 'scorch', 'persister'], bubble: 'persister' },
   merger: { p: [520, 1052], needs: ['cbft', 'scorch'] },
   mergerInside: { p: [536, 1032], needs: ['cbft', 'scorch', 'merger'] },
-  mergerDetail: { p: [1020, 960], needs: ['cbft', 'scorch', 'merger'], bubble: 'merger' },
+  mergerDetail: { p: [500, 1250], needs: ['cbft', 'scorch', 'merger'], bubble: 'merger' },
   writes: { p: [270, 1186], needs: [] },
 
   disk: { p: [70, 1356], needs: ['disk'] },

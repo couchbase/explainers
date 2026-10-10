@@ -312,10 +312,18 @@ export class Diagram {
     const [x, y, w, h] = B.box;
     const [tx, ty] = B.tail;
     const bg = el('g', { class: 'bubble', opacity: 0 }, g);
-    const edge = tx > x + w ? x + w : x; // which side the tail leaves from
-    el('path', { d: `M${edge},${ty - 34} L${tx + (tx > edge ? -4 : 4)},${ty} L${edge},${ty - 6} Z`, class: 'bubble-tail' }, bg);
-    el('rect', { x, y, width: w, height: h, rx: 10, class: 'bubble-box' }, bg);
-    el('path', { d: `M${edge},${ty - 33} L${edge},${ty - 7}`, class: 'bubble-seam' }, bg);
+    if (ty < y) {
+      // tail out of the top edge
+      el('path', { d: `M${tx - 18},${y} L${tx},${ty + 4} L${tx + 18},${y} Z`, class: 'bubble-tail' }, bg);
+      el('rect', { x, y, width: w, height: h, rx: 10, class: 'bubble-box' }, bg);
+      el('path', { d: `M${tx - 17},${y} L${tx + 17},${y}`, class: 'bubble-seam' }, bg);
+    } else {
+      // tail out of the side facing the panel
+      const edge = tx > x + w ? x + w : x;
+      el('path', { d: `M${edge},${ty - 34} L${tx + (tx > edge ? -4 : 4)},${ty} L${edge},${ty - 6} Z`, class: 'bubble-tail' }, bg);
+      el('rect', { x, y, width: w, height: h, rx: 10, class: 'bubble-box' }, bg);
+      el('path', { d: `M${edge},${ty - 33} L${edge},${ty - 7}`, class: 'bubble-seam' }, bg);
+    }
     txt(bg, x + 18, y + 28, B.title, 'bubble-title');
     const body = el('g', {}, bg);
     if (id === 'persister') this._persisterDetail(body, x + 14, y + 42);
@@ -483,7 +491,7 @@ export class Diagram {
       const i = this.dirSlots.get(tr.fileName);
       if (i !== undefined) {
         const ic = this.dirIcons[i];
-        return { p: [ic.x + 6, ic.y + 7.5], size: 18, kind: 'file', label: 'our file' };
+        return { p: [ic.x + 6, ic.y + 7.5], size: 18, kind: 'file', label: 'our file', st: 'icon', key: tr.fileName };
       }
     }
     const fixed = {
@@ -492,16 +500,33 @@ export class Diagram {
     }[tr.stage];
     if (fixed) {
       const kind = ['persisting', 'merging'].includes(tr.stage) ? (tr.stage === 'persisting' ? 'mem' : 'file') : 'batch';
-      return { p: fixed, size: 16, kind, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
+      const st = tr.stage === 'channel' ? 'worker' : tr.stage;
+      return { p: fixed, size: 16, kind, st, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
     }
     const seg = this.positions.ourSeg;
     if (seg) {
       const isFile = m.root.segs.some((ss) => ss.seg.id === tr.segId && ss.seg.kind === 'file');
       return isFile
-        ? { p: [seg.p[0] + 10, seg.p[1]], size: 18, kind: 'file', label: 'our file' }
-        : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment' };
+        ? { p: [seg.p[0] + 10, seg.p[1]], size: 18, kind: 'file', label: 'our file', st: 'bar', key: tr.segId }
+        : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment', st: 'cell', key: tr.segId };
     }
     return null;
+  }
+
+  // While the marker is still on its way, the slot it's heading for
+  // (our segment's cell or bar, or our file's icon) stays faint, so
+  // nothing appears before the marker gets there.
+  setArrival(tok, alpha) {
+    const els = [];
+    if (tok && tok.key !== undefined) {
+      if (tok.st === 'cell') { const i = this.memSlots.get(tok.key); if (i !== undefined) els.push(this.memCells[i]); }
+      if (tok.st === 'bar') { const i = this.fileSlots.get(tok.key); if (i !== undefined) els.push(this.fileBars[i].bar, this.fileBars[i].del); }
+      if (tok.st === 'icon') { const i = this.dirSlots.get(tok.key); if (i !== undefined) els.push(this.dirIcons[i].use); }
+    }
+    for (const e of this.arrivalEls || []) if (!els.includes(e)) e.style.opacity = '';
+    const o = alpha >= 1 ? '' : String(0.15 + 0.85 * alpha);
+    for (const e of els) e.style.opacity = o;
+    this.arrivalEls = els;
   }
 
   // Position of a named anchor (static or dynamic) and whether it's visible.
