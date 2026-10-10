@@ -28,7 +28,7 @@ export const CONFIG_DOCS = {
 
   // ---- scorch ----
   unsafeBatch: { group: 'scorch', unit: 'bool', doc: 'unsafe_batch: Batch() returns after introduction, not persistence.', bleve: false, cbft: true },
-  numCPUs: { group: 'scorch', unit: '', doc: 'Analysis queue workers (NumCPU).' },
+  numCPUs: { group: 'scorch', unit: '', doc: "bleve's analysis queue workers, shared by every index in the process (cbft: NumCPU, bleveAnalysisQueueSize)." },
   persisterNapMs: { group: 'scorch', unit: 'ms', doc: 'PersisterNapTimeMSec.', bleve: 0, cbft: 2000 },
   persisterNapUnderNumFiles: { group: 'scorch', unit: 'files', doc: 'PersisterNapUnderNumFiles: nap only under this many files; pause for merger at/over it.', bleve: 1000, cbft: 1000 },
   numPersisterWorkers: { group: 'scorch', unit: '', doc: 'NumPersisterWorkers for in-memory merge.', bleve: 1, cbft: 4 },

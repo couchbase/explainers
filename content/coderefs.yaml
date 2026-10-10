@@ -12,6 +12,38 @@
 
 # ---------------- bleve / scorch ----------------
 
+bleve.analysisQueue:
+  repo: bleve
+  path: config.go
+  anchor: "func (c *configuration) SetAnalysisQueueSize(n int) {"
+  extent: 15
+  title: bleve.Config — one analysis queue per process, 4 workers by default
+  highlight: ["analysisQueue"]
+
+scorch.batchAnalysis:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "if numUpdates > 0 {"
+  extent: 30
+  title: Scorch.Batch() — queue one analysis closure per doc, wait for all
+  highlight: ["s.analysisQueue.Queue", "resultChan"]
+
+scorch.analyze:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "func analyze(d index.Document, fn customAnalyzerPluginInitFunc) {"
+  extent: 10
+  title: analyze() — run each indexed field's analyzer
+  highlight: ["field.Analyze()"]
+
+cbft.analysisQueueSize:
+  repo: cbft
+  path: cmd/cbft/init_bleve.go
+  anchor: "initAnalysisQueue.Do(func() {"
+  extent: 23
+  title: cbft sizes bleve's analysis queue to NumCPU (bleveAnalysisQueueSize)
+  highlight: ["runtime.NumCPU()", "SetAnalysisQueueSize"]
+
 scorch.Batch:
   repo: bleve
   path: index/scorch/scorch.go

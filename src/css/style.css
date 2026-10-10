@@ -22,6 +22,7 @@
 
   --sec-kv: #2b7c84;
   --sec-cbft: #a07408;
+  --sec-bleve: #5b4fa8;
   --sec-scorch: #9c3f7c;
   --sec-disk: #7a5a3a;
   --sec-neutral: #5a6977;
@@ -51,7 +52,7 @@
     --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
     --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0;
     --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
-    --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
+    --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
     --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
     --code-bg: #11171c; --code-hl: #3a3218; --code-kw: #f07ab8; --code-str: #7fd29a; --code-com: #7c8a96; --code-fn: #8cb8ff; --code-num: #f0b35a;
     color-scheme: dark;
@@ -61,7 +62,7 @@
   --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
   --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0;
   --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
-  --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
+  --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
   --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
   --code-bg: #11171c; --code-hl: #3a3218; --code-kw: #f07ab8; --code-str: #7fd29a; --code-com: #7c8a96; --code-fn: #8cb8ff; --code-num: #f0b35a;
   color-scheme: dark;
@@ -77,6 +78,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 
 .sec-kv { --sec: var(--sec-kv); }
 .sec-cbft { --sec: var(--sec-cbft); }
+.sec-bleve { --sec: var(--sec-bleve); }
 .sec-scorch { --sec: var(--sec-scorch); }
 .sec-disk { --sec: var(--sec-disk); }
 .sec-neutral { --sec: var(--sec-neutral); }
@@ -351,6 +353,10 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .diagram .back-title { font: 600 12px var(--font-display); letter-spacing: 0.04em; fill: var(--ink); }
 .back-fn { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
 .back-note { font-size: 10.5px; fill: var(--muted); }
+.tok { fill: var(--panel-2); stroke: var(--line); }
+.tok.gone { fill: none; stroke-dasharray: 2 2; }
+.diagram .tok-text { font: 400 11px var(--font-mono); fill: var(--ink); }
+.diagram .tok-text.gone { fill: var(--muted); text-decoration: line-through; }
 .tier-line { stroke: var(--muted); stroke-dasharray: 3 3; stroke-opacity: 0.5; }
 .stair-slot { fill: color-mix(in srgb, var(--sec-scorch) 7%, var(--panel)); stroke: var(--sec-scorch); stroke-dasharray: 3 2; }
 .stair-over { fill: none; stroke: var(--stall); stroke-width: 1.8; }

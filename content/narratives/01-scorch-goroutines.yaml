@@ -152,37 +152,99 @@ chapters:
 
   # ------------------------------------------------------------------
   - id: scorch
-    title: "Into scorch"
+    title: "Into bleve and scorch"
     color: scorch
     steps:
 
       - id: step-back
-        view: { camera: process, target: scorchLid }
+        view: { camera: process, target: bleveLid }
         text: |
           Step back for a moment. Our batch is now inside
-          [[bleve / scorch]], still a closed box for us.
+          [[the bleve library]], still a closed box for us. bleve is
+          linked into cbft: same process, and the same batch worker
+          goroutine, running bleve's code now.
+
+      - id: bleve-open
+        view: { open: [bleve], target: bleveNote }
+        code: [cbft.execute]
+        text: |
+          bleve's top layer is [[what applications program against]]:
+          the index API, document mapping (which already ran, back in
+          the DCP goroutine's `batch.Index()`), and text analysis.
+          Underneath sits a pluggable index implementation. cbft uses
+          *scorch*, still closed here.
 
       - id: scorch-open
         view: { open: [scorch], target: introducer }
         text: |
-          Inside bleve's scorch index: `Scorch.Batch()` at the top, the
-          root snapshot in the middle, and three goroutines in their
-          own boxes: [[the introducer]], the persister and the merger.
+          Inside scorch: `Scorch.Batch()` at the top, the root snapshot
+          in the middle, and three goroutines in their own boxes:
+          [[the introducer]], the persister and the merger.
 
       - id: zoom-top
         view: { camera: scorchTop, target: batch }
         code: [scorch.Batch]
         text: |
-          The worker calls [[Scorch.Batch()]], bleve's entry point for
-          indexing a batch.
+          The worker's `bindex.Batch()` goes through bleve's
+          `index.Batch()` to [[Scorch.Batch()]], scorch's entry point.
+          The worker goroutine runs all of it itself, and doesn't
+          return until the batch has been introduced.
 
       - id: analysis
         view: { target: analysis }
+        code: [scorch.batchAnalysis, scorch.analyze]
         text: |
-          It fans the docs out to [[the analysis queue]]: a pool of
-          one analyzer per CPU, shared by all four workers. Analysis
-          tokenizes each field into terms. Then the results are
-          encoded into a new **in-memory zap segment**.
+          First comes analysis, and for that scorch reaches back up,
+          out of its own box, to [[bleve's analysis queue]]. `Batch()`
+          starts a goroutine that queues one closure per document,
+          then waits until every result has come back.
+
+      - id: queue
+        view: { target: analysis }
+        code: [bleve.analysisQueue, cbft.analysisQueueSize]
+        text: |
+          The queue is a pool of worker goroutines that bleve makes
+          once per process, in `bleve.Config`, and cbft sizes it to the
+          number of CPUs. Its channel is unbuffered, so `Queue()`
+          blocks until a worker is free.
+
+          Every index on the node shares [[this one pool]]: here, our
+          four batch workers; on a real node, every partition of every
+          index.
+
+      - id: make-room
+        view: { camera: analysisDetail, target: analysis }
+        text: |
+          What does [[an analyzer]] actually do? Let's make room beside
+          it.
+
+      - id: analyzer
+        view: { bubble: [analysis], target: analysisDetail }
+        code: [scorch.analyze]
+        text: |
+          For each indexed field, the mapping's analyzer runs
+          [[a pipeline]]: a tokenizer splits the text into tokens, then
+          token filters lowercase them, drop stop words and stem them.
+          What's left are terms with their positions, ready to become a
+          segment's dictionary and postings.
+
+          It's all CPU work, and usually the biggest share of the CPU
+          that indexing uses.
+
+      - id: analyzer-close
+        view: { unbubble: [analysis], target: analysis }
+        text: |
+          Because the pool is shared and sized to the CPUs, a burst of
+          ingest anywhere on the node can make [[the queue]] the
+          bottleneck. Batches wait their turn, their batch workers stay
+          blocked in `Batch()`, the DCP goroutine can't hand off its
+          next batch, and the pressure backs up toward KV.
+
+      - id: back
+        view: { camera: scorchTop, target: batch }
+        text: |
+          Back in scorch, [[Scorch.Batch()]] is waiting for our batch's
+          analysis results.
 
       - id: built
         sim: { until: introducing }

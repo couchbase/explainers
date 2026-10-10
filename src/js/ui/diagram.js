@@ -28,6 +28,7 @@ const SYMBOLS = `
 `;
 
 const MEM_COLS = 26, MEM_ROWS = 8, FILE_SLOTS = 20;
+const FILE_BASE = 990; // the root's file bars stand on this line
 const DIR_COLS = 32, DIR_ROWS = 6;
 
 export class Diagram {
@@ -63,11 +64,12 @@ export class Diagram {
 
     this._kv(el('g', {}, g));
     this._cbft(el('g', {}, g));
+    this._bleve(el('g', {}, g));
     this._scorch(el('g', {}, g));
     this._disk(el('g', {}, g));
 
     // Lids: nested ones first, so the outer ones sit on top.
-    const order = ['introducer', 'persister', 'merger', 'scorch', 'cbft', 'kv', 'disk'];
+    const order = ['introducer', 'persister', 'merger', 'scorch', 'bleve', 'cbft', 'kv', 'disk'];
     for (const id of order) this._lid(g, id);
     for (const id of Object.keys(BUBBLES)) this._bubble(g, id);
     this._docs(g);
@@ -96,20 +98,20 @@ export class Diagram {
     this._arrow(f, 'M500,134 V226');
     this._arrow(f, 'M500,278 V290');
     this._arrow(f, 'M500,304 V330');
-    this._arrow(f, 'M500,388 V518');
-    this._arrow(f, 'M500,570 V600');
-    this._arrow(f, 'M500,702 V740');
-    this._arrow(f, 'M280,912 V950');
-    this._arrow(f, 'M720,912 V950');
-    this._arrow(f, 'M80,1052 H64 Q52,1052 52,1040 V664 Q52,652 64,652 H348', true);
-    this._arrow(f, 'M920,1052 H936 Q948,1052 948,1040 V664 Q948,652 936,652 H652', true);
-    txt(f, 60, 690, 'introduce ↑', 'note');
-    txt(f, 940, 690, 'introduce ↑', 'note', 'end');
-    this._arrow(f, 'M280,1152 V1288');
-    this._arrow(f, 'M720,1152 V1288');
+    this._arrow(f, 'M500,388 V610');
+    this._arrow(f, 'M500,662 V700');
+    this._arrow(f, 'M500,802 V840');
+    this._arrow(f, 'M280,1012 V1050');
+    this._arrow(f, 'M720,1012 V1050');
+    this._arrow(f, 'M80,1152 H78 Q70,1152 70,1144 V760 Q70,752 78,752 H348', true);
+    this._arrow(f, 'M920,1152 H922 Q930,1152 930,1144 V760 Q930,752 922,752 H652', true);
+    txt(f, 76, 790, 'introduce ↑', 'note');
+    txt(f, 924, 790, 'introduce ↑', 'note', 'end');
+    this._arrow(f, 'M280,1252 V1388');
+    this._arrow(f, 'M720,1252 V1388');
     // Files being written, shown on the write arrows.
-    this.writeP = this._writeBadge(f, 290, 1172);
-    this.writeM = this._writeBadge(f, 730, 1172);
+    this.writeP = this._writeBadge(f, 290, 1268);
+    this.writeM = this._writeBadge(f, 730, 1268);
   }
 
   _writeBadge(parent, x, y) {
@@ -147,58 +149,70 @@ export class Diagram {
     this.memText = txt(g, 860, 464, '', 'note', 'end');
   }
 
-  _scorch(g) {
-    this.nodes.batch = new GNode(g, 390, 520, 220, 50, 'Scorch.Batch()', { sub: 'analyze → in-memory segment' });
-    el('line', { x1: 610, x2: 640, y1: 545, y2: 545, class: 'flow' }, g);
-    el('rect', { x: 640, y: 520, width: 200, height: 50, rx: 5, class: 'zone' }, g);
-    txt(g, 652, 538, 'analysis queue (CPUs)', 'note-in');
+  // bleve's own layer, above scorch: the shared analysis queue.
+  _bleve(g) {
+    txt(g, 62, 544, 'the index API, document mapping, analysis', 'note');
+    txt(g, 62, 560, 'scorch below is one index implementation', 'note');
+    el('rect', { x: 640, y: 514, width: 280, height: 58, rx: 5, class: 'zone' }, g);
+    txt(g, 652, 532, 'analysis queue, shared by all indexes', 'note-in');
     this.cpus = [];
-    for (let i = 0; i < 8; i++) this.cpus.push(el('rect', { x: 652 + i * 22, y: 546, width: 16, height: 14, rx: 2, class: 'cpu' }, g));
+    for (let i = 0; i < 8; i++) this.cpus.push(el('rect', { x: 652 + i * 22, y: 543, width: 16, height: 16, rx: 2, class: 'cpu' }, g));
+    txt(g, 908, 556, 'NumCPU', 'note-in', 'end');
+  }
+
+  _scorch(g) {
+    this.nodes.batch = new GNode(g, 390, 612, 220, 50, 'Scorch.Batch()', { sub: 'analyze → in-memory segment' });
+    // Scorch.Batch() reaches out of scorch to bleve's shared analysis
+    // queue, and waits for the results to come back.
+    // (They show once scorch's lid is open.)
+    this.queueArrows = el('g', {}, g);
+    this._arrow(this.queueArrows, 'M610,630 H770 V574');
+    this._arrow(this.queueArrows, 'M800,574 V644 H612');
 
     // introducer panel
     const ip = this._panel(g, 'introducer');
     const f = ip.front;
-    this.nodes.introducer = new GNode(f, 350, 602, 300, 100, 'introducer', { header: true });
-    txt(f, 366, 646, 'select {', 'code-in');
+    this.nodes.introducer = new GNode(f, 350, 702, 300, 100, 'introducer', { header: true });
+    txt(f, 366, 746, 'select {', 'code-in');
     this.chans = {};
     // Chips sized to their names, so they fit inside the panel.
     let cx = 366;
     for (const c of ['introductions', 'persists', 'merges', 'watchers']) {
       const w = 12 + c.length * 5.6;
-      const r = el('rect', { x: cx, y: 654, width: w, height: 18, rx: 3, class: 'chan' }, f);
-      txt(f, cx + w / 2, 667, c, 'chan-text', 'middle');
+      const r = el('rect', { x: cx, y: 754, width: w, height: 18, rx: 3, class: 'chan' }, f);
+      txt(f, cx + w / 2, 767, c, 'chan-text', 'middle');
       this.chans[c] = r;
       cx += w + 6;
     }
-    txt(f, 366, 690, '} → new root, epoch + 1', 'code-in');
+    txt(f, 366, 790, '} → new root, epoch + 1', 'code-in');
 
     // queries
     this.queryG = el('g', { opacity: 0 }, g);
-    el('rect', { x: 680, y: 714, width: 220, height: 22, rx: 11, class: 'query' }, this.queryG);
-    el('use', { href: '#dg-search', x: 690, y: 719, width: 12, height: 12 }, this.queryG);
-    this.queryText = txt(this.queryG, 708, 729, '', 'note-in');
-    this.queryPin = el('line', { x1: 790, x2: 790, y1: 736, y2: 742, class: 'pin' }, this.queryG);
+    el('rect', { x: 680, y: 814, width: 220, height: 22, rx: 11, class: 'query' }, this.queryG);
+    el('use', { href: '#dg-search', x: 690, y: 819, width: 12, height: 12 }, this.queryG);
+    this.queryText = txt(this.queryG, 708, 829, '', 'note-in');
+    this.queryPin = el('line', { x1: 790, x2: 790, y1: 836, y2: 842, class: 'pin' }, this.queryG);
 
     // root snapshot
-    el('rect', { x: 80, y: 742, width: 840, height: 170, rx: 6, class: 'zone strong' }, g);
-    this.rootTitle = txt(g, 96, 762, 'root snapshot', 'zone-title');
-    txt(g, 96, 780, 'in-memory segments', 'note-in');
-    txt(g, 520, 780, 'file segments (mmapped zap)', 'note-in');
+    el('rect', { x: 80, y: 842, width: 840, height: 170, rx: 6, class: 'zone strong' }, g);
+    this.rootTitle = txt(g, 96, 862, 'root snapshot', 'zone-title');
+    txt(g, 96, 880, 'in-memory segments', 'note-in');
+    txt(g, 520, 880, 'file segments (mmapped zap)', 'note-in');
     this.memCells = [];
     for (let i = 0; i < MEM_COLS * MEM_ROWS; i++) {
-      const x = 96 + (i % MEM_COLS) * 14, y = 788 + Math.floor(i / MEM_COLS) * 14;
+      const x = 96 + (i % MEM_COLS) * 14, y = 888 + Math.floor(i / MEM_COLS) * 14;
       this.memCells.push(el('rect', { x, y, width: 10, height: 10, rx: 2, class: 'cell' }, g));
     }
-    this.memMore = txt(g, 460, 906, '', 'note-in', 'end');
+    this.memMore = txt(g, 460, 1006, '', 'note-in', 'end');
     this.fileBars = [];
     for (let i = 0; i < FILE_SLOTS; i++) {
       const x = 520 + i * 18;
-      const bg = el('rect', { x, y: 790, width: 14, height: 100, rx: 2, class: 'cell' }, g);
-      const bar = el('rect', { x, y: 890, width: 14, height: 0, rx: 2, class: 'fbar' }, g);
-      const del = el('rect', { x, y: 890, width: 14, height: 0, class: 'fdel' }, g);
+      const bg = el('rect', { x, y: 890, width: 14, height: 100, rx: 2, class: 'cell' }, g);
+      const bar = el('rect', { x, y: FILE_BASE, width: 14, height: 0, rx: 2, class: 'fbar' }, g);
+      const del = el('rect', { x, y: FILE_BASE, width: 14, height: 0, class: 'fdel' }, g);
       this.fileBars.push({ bg, bar, del, x });
     }
-    this.fileMore = txt(g, 900, 906, '', 'note-in', 'end');
+    this.fileMore = txt(g, 900, 1006, '', 'note-in', 'end');
 
     this._persister(g);
     this._merger(g);
@@ -225,21 +239,21 @@ export class Diagram {
 
   _persister(g) {
     const p = this._panel(g, 'persister');
-    this.nodes.persister = new GNode(p.front, 80, 952, 400, 200, 'persister', { header: true });
-    this.pRows = this._rows(p.front, 96, 990, [
+    this.nodes.persister = new GNode(p.front, 80, 1052, 400, 200, 'persister', { header: true });
+    this.pRows = this._rows(p.front, 96, 1090, [
       '1 · nap ≤2s (skipped while the herder blocks)',
       '2 · cut in-memory segments into ~20MB flushables',
       '3 · merge → write zap → fsync',
       '4 · introduce ↑, then commit root.bolt + fsync',
     ]);
     this.pWorkers = [];
-    for (let i = 0; i < 4; i++) this.pWorkers.push(el('rect', { x: 372 + i * 22, y: 1063, width: 16, height: 16, rx: 3, class: 'pw s-wait' }, p.front));
+    for (let i = 0; i < 4; i++) this.pWorkers.push(el('rect', { x: 372 + i * 22, y: 1163, width: 16, height: 16, rx: 3, class: 'pw s-wait' }, p.front));
   }
 
   _merger(g) {
     const p = this._panel(g, 'merger');
-    this.nodes.merger = new GNode(p.front, 520, 952, 400, 200, 'merger', { header: true });
-    this.mRows = this._rows(p.front, 536, 990, [
+    this.nodes.merger = new GNode(p.front, 520, 1052, 400, 200, 'merger', { header: true });
+    this.mRows = this._rows(p.front, 536, 1090, [
       '1 · wait until a newer epoch is persisted',
       '2 · plan: tiers & budget, over file segments only',
       '3 · each task in turn: merge → write zap → fsync',
@@ -252,7 +266,7 @@ export class Diagram {
     const B = BUBBLES[id];
     const [x, y, w, h] = B.box;
     const [tx, ty] = B.tail;
-    const bg = el('g', { class: 'bubble', opacity: 0 }, g);
+    const bg = el('g', { class: 'bubble', 'data-bubble': id, opacity: 0 }, g);
     if (ty < y) {
       // tail out of the top edge
       el('path', { d: `M${tx - 18},${y} L${tx},${ty + 4} L${tx + 18},${y} Z`, class: 'bubble-tail' }, bg);
@@ -268,8 +282,35 @@ export class Diagram {
     txt(bg, x + 18, y + 28, B.title, 'bubble-title');
     const body = el('g', {}, bg);
     if (id === 'persister') this._persisterDetail(body, x + 14, y + 42);
+    else if (id === 'analysis') this._analysisDetail(body, x + 18, y + 52);
     else this.stairs = new Staircase(body);
     this.bubbles[id] = { g: bg, tail: [tx, ty] };
+  }
+
+  // What an analyzer does to one field of one doc: bleve's "en"
+  // analyzer, roughly. Struck-out tokens are dropped.
+  _analysisDetail(b, x, y) {
+    txt(b, x, y, 'field "desc": "The Quick Foxes Jumped"', 'back-fn');
+    const rows = [
+      ['unicode tokenizer', ['The', 'Quick', 'Foxes', 'Jumped']],
+      ['to_lower', ['the', 'quick', 'foxes', 'jumped']],
+      ['stop_en', ['-the', 'quick', 'foxes', 'jumped']],
+      ['stemmer_en_snowball', ['quick', 'fox', 'jump']],
+      ['terms @ positions', ['quick@2', 'fox@3', 'jump@4']],
+    ];
+    rows.forEach(([stage, toks], i) => {
+      const yy = y + 22 + i * 40;
+      txt(b, x, yy + 4, stage, 'back-note');
+      let cx = x;
+      for (const t of toks) {
+        const gone = t.startsWith('-'), s = gone ? t.slice(1) : t;
+        const w = 14 + s.length * 6.6;
+        el('rect', { x: cx, y: yy + 10, width: w, height: 18, rx: 3, class: gone ? 'tok gone' : 'tok' }, b);
+        txt(b, cx + w / 2, yy + 23, s, gone ? 'tok-text gone' : 'tok-text', 'middle');
+        cx += w + 6;
+      }
+    });
+    txt(b, x, y + 232, 'CPU work: every indexed field of every doc', 'back-note');
   }
 
   _persisterDetail(b, x, y) {
@@ -332,38 +373,38 @@ export class Diagram {
   }
 
   _disk(g) {
-    txt(g, 70, 1278, 'index directory', 'zone-title');
+    txt(g, 70, 1378, 'index directory', 'zone-title');
     this.dirIcons = [];
     for (let i = 0; i < DIR_COLS * DIR_ROWS; i++) {
-      const x = 70 + (i % DIR_COLS) * 17, y = 1290 + Math.floor(i / DIR_COLS) * 22;
+      const x = 70 + (i % DIR_COLS) * 17, y = 1390 + Math.floor(i / DIR_COLS) * 22;
       const ig = el('g', { opacity: 0 }, g);
       const use = el('use', { href: '#dg-file', x, y, width: 12, height: 15, class: 'ficon' }, ig);
       const del = el('use', { href: '#dg-del', x: x - 1, y: y + 1, width: 14, height: 14, opacity: 0 }, ig);
       this.dirIcons.push({ g: ig, use, del, x, y });
     }
-    this.dirMore = txt(g, 614, 1430, '', 'note-in', 'end');
-    txt(g, 650, 1278, 'root.bolt snapshots', 'zone-title');
+    this.dirMore = txt(g, 614, 1530, '', 'note-in', 'end');
+    txt(g, 650, 1378, 'root.bolt snapshots', 'zone-title');
     this.boltCards = [];
     for (let i = 0; i < 5; i++) {
-      const y = 1290 + i * 30;
+      const y = 1390 + i * 30;
       const r = el('rect', { x: 650, y, width: 280, height: 24, rx: 4, class: 'bolt' }, g);
       const t = txt(g, 660, y + 16, '', 'note-in');
       this.boltCards.push({ r, t });
     }
-    txt(g, 70, 1460, 'unlinked but still open:', 'note-in');
+    txt(g, 70, 1560, 'unlinked but still open:', 'note-in');
     this.zombieIcons = [];
     for (let i = 0; i < 12; i++) {
-      this.zombieIcons.push(el('use', { href: '#dg-file', x: 232 + i * 17, y: 1448, width: 12, height: 15, class: 'ficon ficon-zombie', opacity: 0 }, g));
+      this.zombieIcons.push(el('use', { href: '#dg-file', x: 232 + i * 17, y: 1548, width: 12, height: 15, class: 'ficon ficon-zombie', opacity: 0 }, g));
     }
-    this.zombieText = txt(g, 450, 1460, '', 'note-in');
-    el('use', { href: '#dg-del', x: 70, y: 1499, width: 14, height: 14 }, g);
-    txt(g, 90, 1510, 'removeOldData() deletes files no root.bolt snapshot lists (the persister runs it when idle)', 'note-in');
-    this.legendY = 1530;
+    this.zombieText = txt(g, 450, 1560, '', 'note-in');
+    el('use', { href: '#dg-del', x: 70, y: 1599, width: 14, height: 14 }, g);
+    txt(g, 90, 1610, 'removeOldData() deletes files no root.bolt snapshot lists (the persister runs it when idle)', 'note-in');
+    this.legendY = 1630;
     const legend = [['ficon-root', 'in the root'], ['ficon-new', 'new, not yet in root.bolt'], ['ficon-garbage', 'no longer in the root'], ['ficon-zombie', 'unlinked, still open']];
     let x = 70;
     for (const [cls, label] of legend) {
-      el('use', { href: '#dg-file', x, y: 1520, width: 10, height: 13, class: `ficon ${cls}` }, g);
-      txt(g, x + 14, 1531, label, 'note-in');
+      el('use', { href: '#dg-file', x, y: 1620, width: 10, height: 13, class: `ficon ${cls}` }, g);
+      txt(g, x + 14, 1631, label, 'note-in');
       x += 30 + label.length * 6.2;
     }
   }
@@ -467,6 +508,7 @@ export class Diagram {
     l.g.style.transform = `translateY(${(-12 * t).toFixed(2)}px)`;
     l.g.style.pointerEvents = t > 0.5 ? 'none' : '';
     l.g.style.visibility = t >= 0.999 ? 'hidden' : '';
+    if (id === 'scorch') this.queueArrows.setAttribute('opacity', t.toFixed(3));
     for (const [sid, L] of Object.entries(LIDS)) {
       if (L.parent === id && L.section && this.tabs[sid]) this.tabs[sid].setAttribute('opacity', t.toFixed(3));
     }
@@ -638,9 +680,9 @@ export class Diagram {
       const ss = byIdx.get(i);
       if (!ss) { b.bar.setAttribute('height', 0); b.del.setAttribute('height', 0); setCls(b.bg, 'cell'); return; }
       const h = barHeight(ss.seg.bytes, 100);
-      b.bar.setAttribute('y', (890 - h).toFixed(1)); b.bar.setAttribute('height', h.toFixed(1));
+      b.bar.setAttribute('y', (FILE_BASE - h).toFixed(1)); b.bar.setAttribute('height', h.toFixed(1));
       const dh = h * ss.deleted / ss.seg.docs;
-      b.del.setAttribute('y', (890 - h).toFixed(1)); b.del.setAttribute('height', dh.toFixed(1));
+      b.del.setAttribute('y', (FILE_BASE - h).toFixed(1)); b.del.setAttribute('height', dh.toFixed(1));
       setCls(b.bg, merging.has(ss.seg.id) ? 'cell merging' : 'cell');
     });
     setText(this.fileMore, fileOver ? `+${fileOver} more` : '');
@@ -740,6 +782,8 @@ export class Diagram {
     set('cbft', m.numEventsBlocking ? 'stall' : busy ? 'busy' : 'wait',
       m.numEventsBlocking ? 'blocked by the app herder' : `${busy} of 4 batch workers busy`);
     const mems = m.root.segs.filter((ss) => ss.seg.kind === 'mem').length;
+    const q = m.analysisQueue;
+    set('bleve', q.inUse ? 'busy' : 'wait', `analysis: ${q.inUse} of ${m.cfg.numCPUs} CPUs busy`);
     set('scorch', 'busy', `epoch ${s.CurRootEpoch} · ${mems} in-memory + ${m.root.segs.length - mems} file segments`);
     set('disk', 'busy', `${m.files.size} files · ${fmtBytes(m.diskBytes())}`);
     set('introducer', procState(procs.get('introducer')), `epoch ${s.CurRootEpoch}`);
@@ -759,16 +803,16 @@ export class Diagram {
       if (ss.seg.kind === 'mem') {
         const i = this.memSlots.get(id);
         if (i === undefined) return null;
-        const x = 96 + (i % MEM_COLS) * 14, y = 788 + Math.floor(i / MEM_COLS) * 14;
+        const x = 96 + (i % MEM_COLS) * 14, y = 888 + Math.floor(i / MEM_COLS) * 14;
         return [x - 3, y + 5];
       }
       const i = this.fileSlots.get(id);
       if (i === undefined) return null;
       const x = 520 + i * 18;
-      return [x - 3, 840];
+      return [x - 3, 940];
     };
     const seg = tr.segId != null ? segPos(tr.segId) : null;
-    if (seg) this.positions.ourSeg = { p: seg, needs: ['cbft', 'scorch'] };
+    if (seg) this.positions.ourSeg = { p: seg, needs: ['cbft', 'bleve', 'scorch'] };
     const dirPos = (name) => {
       const i = this.dirSlots.get(name);
       if (i === undefined) return null;
@@ -783,7 +827,7 @@ export class Diagram {
     }[tr.stage];
     // Callouts about our batch end at its marker.
     const tok = this.tokenTarget(m, 'auto');
-    const needs = at ? ANCHORS[at].needs : ['cbft', 'scorch'];
+    const needs = at ? ANCHORS[at].needs : ['cbft', 'bleve', 'scorch'];
     if (tok) this.positions.ourBatch = { p: [tok.p[0] - tok.size / 2 - 2, tok.p[1]], needs };
   }
 }

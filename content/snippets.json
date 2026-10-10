@@ -1,4 +1,58 @@
 {
+ "bleve.analysisQueue": {
+  "id": "bleve.analysisQueue",
+  "repo": "bleve",
+  "path": "config.go",
+  "title": "bleve.Config — one analysis queue per process, 4 workers by default",
+  "start": 42,
+  "end": 56,
+  "highlight": [
+   43
+  ],
+  "url": "https://github.com/blevesearch/bleve/blob/9d2da23a5c58/config.go#L42-L56",
+  "code": "func (c *configuration) SetAnalysisQueueSize(n int) {\n\tif c.analysisQueue != nil {\n\t\tc.analysisQueue.Close()\n\t}\n\tc.analysisQueue = index.NewAnalysisQueue(n)\n}\n\nfunc (c *configuration) Shutdown() {\n\tc.SetAnalysisQueueSize(0)\n}\n\nfunc newConfiguration() *configuration {\n\treturn &configuration{\n\t\tCache:         registry.NewCache(),\n\t\tanalysisQueue: index.NewAnalysisQueue(4),"
+ },
+ "scorch.batchAnalysis": {
+  "id": "scorch.batchAnalysis",
+  "repo": "bleve",
+  "path": "index/scorch/scorch.go",
+  "title": "Scorch.Batch() — queue one analysis closure per doc, wait for all",
+  "start": 538,
+  "end": 567,
+  "highlight": [
+   544,
+   546
+  ],
+  "url": "https://github.com/blevesearch/bleve/blob/9d2da23a5c58/index/scorch/scorch.go#L538-L567",
+  "code": "\tif numUpdates > 0 {\n\t\tgo func() {\n\t\t\tfor k := range batch.IndexOps {\n\t\t\t\tdoc := batch.IndexOps[k]\n\t\t\t\tif doc != nil {\n\t\t\t\t\t// put the work on the queue\n\t\t\t\t\ts.analysisQueue.Queue(func() {\n\t\t\t\t\t\tanalyze(doc, s.setSpatialAnalyzerPlugin)\n\t\t\t\t\t\tresultChan <- doc\n\t\t\t\t\t})\n\t\t\t\t}\n\t\t\t}\n\t\t}()\n\t}\n\n\t// wait for analysis result\n\tanalysisResults := make([]index.Document, int(numUpdates))\n\tvar itemsDeQueued uint64\n\tvar totalAnalysisSize int\n\tfor itemsDeQueued < numUpdates {\n\t\tresult := <-resultChan\n\t\tresultSize := result.Size()\n\t\t// check if the document is searchable by the index\n\t\tif result.Indexed() {\n\t\t\tatomic.AddUint64(&s.stats.TotMutationsFiltered, 1)\n\t\t}\n\t\tatomic.AddUint64(&s.iStats.analysisBytesAdded, uint64(resultSize))\n\t\ttotalAnalysisSize += resultSize\n\t\tanalysisResults[itemsDeQueued] = result\n\t\titemsDeQueued++"
+ },
+ "scorch.analyze": {
+  "id": "scorch.analyze",
+  "repo": "bleve",
+  "path": "index/scorch/scorch.go",
+  "title": "analyze() — run each indexed field's analyzer",
+  "start": 876,
+  "end": 885,
+  "highlight": [
+   883
+  ],
+  "url": "https://github.com/blevesearch/bleve/blob/9d2da23a5c58/index/scorch/scorch.go#L876-L885",
+  "code": "func analyze(d index.Document, fn customAnalyzerPluginInitFunc) {\n\td.VisitFields(func(field index.Field) {\n\t\tif field.Options().IsIndexed() {\n\t\t\tif fn != nil {\n\t\t\t\tfn(field)\n\t\t\t}\n\n\t\t\tfield.Analyze()\n\n\t\t\tif d.HasComposite() && field.Name() != \"_id\" {"
+ },
+ "cbft.analysisQueueSize": {
+  "id": "cbft.analysisQueueSize",
+  "repo": "cbft",
+  "path": "cmd/cbft/init_bleve.go",
+  "title": "cbft sizes bleve's analysis queue to NumCPU (bleveAnalysisQueueSize)",
+  "start": 78,
+  "end": 100,
+  "highlight": [
+   79,
+   99
+  ],
+  "url": "https://github.com/couchbase/cbft/blob/c467517403c82355b394b359550979601fe5a031/cmd/cbft/init_bleve.go#L78-L100",
+  "code": "\tinitAnalysisQueue.Do(func() {\n\t\tbleveAnalysisQueueSize := runtime.NumCPU()\n\n\t\tbleveAnalysisQueueSizeStr := options[\"bleveAnalysisQueueSize\"]\n\t\tif bleveAnalysisQueueSizeStr != \"\" {\n\t\t\tv, err = strconv.Atoi(bleveAnalysisQueueSizeStr)\n\t\t\tif err != nil {\n\t\t\t\treturn\n\t\t\t}\n\n\t\t\tif v > 0 {\n\t\t\t\tbleveAnalysisQueueSize = v\n\t\t\t} else {\n\t\t\t\tbleveAnalysisQueueSize = bleveAnalysisQueueSize - v\n\t\t\t}\n\t\t}\n\n\t\tif bleveAnalysisQueueSize < 1 {\n\t\t\tbleveAnalysisQueueSize = 1\n\t\t}\n\n\t\tbleve.Config.SetAnalysisQueueSize(bleveAnalysisQueueSize)\n\t})"
+ },
  "scorch.Batch": {
   "id": "scorch.Batch",
   "repo": "bleve",

@@ -18,9 +18,9 @@ const crosses = (p, q, b) => {
 // bars and directory icons (as the diagram positions them).
 const places = [
   ...Object.entries(STATIONS).map(([st, p]) => ({ st, p })),
-  { st: 'cell', key: 1, p: [101, 793] }, { st: 'cell', key: 2, p: [339, 849] }, { st: 'cell', key: 3, p: [451, 891] },
-  { st: 'bar', key: 4, p: [527, 840] }, { st: 'bar', key: 5, p: [869, 840] },
-  { st: 'icon', key: 'a', p: [76, 1297] }, { st: 'icon', key: 'b', p: [400, 1385] },
+  { st: 'cell', key: 1, p: [101, 893] }, { st: 'cell', key: 2, p: [339, 949] }, { st: 'cell', key: 3, p: [451, 991] },
+  { st: 'bar', key: 4, p: [527, 940] }, { st: 'bar', key: 5, p: [869, 940] },
+  { st: 'icon', key: 'a', p: [76, 1397] }, { st: 'icon', key: 'b', p: [400, 1485] },
 ];
 
 test('routes never cut through a box, and leave and enter boxes vertically', () => {
@@ -49,7 +49,7 @@ test('routes never cut through a box, and leave and enter boxes vertically', () 
 });
 
 test('our segment goes down out of the root snapshot, then left to the persister', () => {
-  const pts = route({ st: 'cell', key: 2, p: [339, 849] }, { st: 'persisting', p: STATIONS.persisting });
+  const pts = route({ st: 'cell', key: 2, p: [339, 949] }, { st: 'persisting', p: STATIONS.persisting });
   const [r] = [BOXES.root];
   assert.deepEqual(pts[1], [339, r[1] + r[3] + 10], 'first straight down, out of the root');
   assert.equal(pts[2][1], pts[1][1], 'then horizontally, in the gap');

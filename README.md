@@ -120,8 +120,8 @@ step to step:
 | key | meaning |
 |---|---|
 | `camera` | a named region (`overview`, `top`, `cbft`, `scorchTop`, `introducer`, `root`, `persister`, `merger`, `lower`, `disk`, ...) or `[x0, y0, x1, y1]` |
-| `open` / `close` | lids to open or close: `kv`, `cbft`, `scorch`, `disk`, and inside scorch `introducer`, `persister`, `merger` |
-| `bubble` / `unbubble` | pop a detail bubble out of a panel: `persister`, `merger` |
+| `open` / `close` | lids to open or close: `kv`, `cbft`, `bleve` (inside cbft), `scorch` (inside bleve), `disk`, and inside scorch `introducer`, `persister`, `merger` |
+| `bubble` / `unbubble` | pop a detail bubble out of a panel: `analysis`, `persister`, `merger` |
 | `plan` | what the merger bubble's tier staircase shows: an example index's `budget`, `files`, `over`, `pick`, `merged`; or `live`, the simulation's own files (the default) |
 | `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
 

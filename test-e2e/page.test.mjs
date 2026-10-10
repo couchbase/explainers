@@ -80,12 +80,12 @@ test('a deep-linked step shows its lids, bubble and one callout', async () => {
   const state = await page.evaluate(() => ({
     step: window.bleveExplainer.steps[window.bleveExplainer.ctl.current].id,
     openLids: [...document.querySelectorAll('.lid')].filter((l) => l.style.visibility === 'hidden').length,
-    bubble: Number(document.querySelector('.bubble').getAttribute('opacity')),
+    bubble: Number(document.querySelector('.bubble[data-bubble=persister]').getAttribute('opacity')),
     callouts: document.querySelectorAll('.overlay .callout').length,
     trace: window.bleveExplainer.ctl.model.trace.stage,
   }));
   assert.equal(state.step, 'detail');
-  assert.equal(state.openLids, 5); // kv, cbft, scorch, introducer, persister
+  assert.equal(state.openLids, 6); // kv, cbft, bleve, scorch, introducer, persister
   assert.ok(state.bubble > 0.99, `bubble opacity ${state.bubble}`);
   assert.equal(state.callouts, 1);
   assert.equal(state.trace, 'persisting');
