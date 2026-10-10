@@ -1,0 +1,581 @@
+# The first explainer: scorch's goroutines and backpressure, as driven
+# by cbft. See README.md for the schema; `npm test` validates it.
+
+id: scorch-goroutines
+title: "Inside scorch: introducer, persister, merger"
+subtitle: >-
+  How a Couchbase FTS index turns a stream of DCP mutations into
+  searchable, durable segments — and what pushes back when things get slow.
+audience: Couchbase engineers and support
+
+# Base simulation for every step; steps can reset with overrides.
+sim:
+  seed: 7
+  config: {}
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: steady
+    title: "1 · A steady stream"
+    steps:
+
+      - id: cast
+        expect: [herderIdle, kvFlowing, fileSegsAtRoot]
+        sim:
+          reset: true
+          minTimeMs: 8000
+          speed: 1
+        view:
+          focus: []
+        text: |
+          On the right is a **live simulation** of one cbft index
+          partition (a *pindex*) on one node, taking a steady 8,000
+          mutations/sec from KV.
+
+          It isn't a recording: it's a small discrete-event model whose
+          "goroutines" follow the real control flow of
+          [cbft](https://github.com/couchbase/cbft) and bleve's
+          [scorch](https://github.com/blevesearch/bleve/tree/master/index/scorch)
+          index, with the same channel capacities and the same default
+          knobs. Timings and sizes are modeled, not measured.
+
+          Each box is a goroutine, colored by its state:
+
+          - <span class="st st-busy">busy</span>: doing CPU or I/O work;
+          - <span class="st st-sleep">napping</span>: deliberately idle on a timer;
+          - <span class="st st-wait">waiting</span>: idle, waiting for work;
+          - <span class="st st-stall">stalled</span>: blocked by backpressure.
+
+          The text in each box says what the goroutine is doing or
+          waiting for, and how long it has been doing it.
+
+          Scroll down, and we'll follow a mutation through.
+
+      - id: dcp
+        sim:
+          speed: 0.1
+        view:
+          focus: [kv, dcp]
+        code: [cbft.dataUpdate, bleve.BatchIndex, cbft.updateSeq, cbgt.dcpBuffer]
+        text: |
+          **KV → DCP.** KV streams mutations over DCP as *snapshots*:
+          runs of mutations for a single vbucket. gocbcore calls cbft's
+          `DataUpdate()` for each mutation, **synchronously, on the DCP
+          connection's goroutine**.
+
+          `dataUpdate()` calls `batch.Index()` on that vbucket's
+          `bleve.Batch`, which runs the index mapping (`MapDocument`)
+          right there. Text analysis happens later.
+
+          The batch is handed off when the DCP snapshot ends, or when
+          it hits `BleveMaxOpsPerBatch` (200), whichever is first.
+
+          DCP has flow control: KV stops sending once ~20MB is
+          unacknowledged. Remember that 20MB buffer gauge. We'll see it
+          fill up later.
+
+      - id: workers
+        sim:
+          speed: 0.1
+        view:
+          focus: [workers]
+        code: [cbft.submitAsync, cbft.runBatchWorker, cbft.batchDefaults]
+        text: |
+          **Batch workers.** Each pindex has 4 batch workers. A
+          vbucket's batch always goes to worker `vb % 4`, so per-vbucket
+          ordering holds. Each worker has a **channel of capacity 1**:
+          the small slot to its left.
+
+          A worker merges incoming batches into one bigger batch, and
+          executes it at 200 ops or when its 100ms ticker fires.
+          Compare `tot_batches_flushed_on_maxops` with
+          `tot_batches_flushed_on_timer` to see which trigger dominates.
+
+          If a worker is still busy executing and its slot is already
+          full, the next send **blocks the DCP goroutine**. That's the
+          first link in the backpressure chain.
+
+      - id: batch
+        sim:
+          speed: 0.1
+        view:
+          focus: [workers, analysis]
+        code: [scorch.Batch]
+        text: |
+          **`Scorch.Batch()`.** Executing a batch means calling
+          `bindex.Batch()`, which in scorch:
+
+          1. fires `EventKindBatchIntroductionStart`. cbft hooks this
+             event, and we'll come back to it.
+          2. fans the docs out to the **analysis queue**, a pool of
+             NumCPU workers shared by all batches (the CPU bar);
+          3. encodes the analyzed docs into a new **in-memory zap
+             segment** (`SegmentBase`), all on the worker's goroutine.
+
+          Nothing has touched disk yet.
+
+      - id: introducer
+        sim:
+          speed: 0.1
+        view:
+          focus: [introducer, root]
+        code: [introducer.loop, introducer.introduceSegment, scorch.prepareSegment]
+        text: |
+          **The introducer** is a single goroutine, and the only one
+          that changes the index's *root*: an immutable
+          `IndexSnapshot` listing segments and their deleted-doc
+          bitmaps.
+
+          To introduce a batch's segment, it builds a new snapshot with
+          the new segment appended (<span class="seg-mem">■</span>
+          in-memory segments are orange) and with deletion bits set in
+          older segments for any docs the batch updated or deleted.
+          Then it swaps the root and bumps the **epoch**.
+
+          Searches started from now on can see the batch.
+
+      - id: unsafe
+        sim:
+          speed: 0.25
+        view:
+          focus: [workers, introducer]
+        code: [cbft.kvConfig, cbft.execute]
+        text: |
+          **`unsafe_batch: true`.** By default, scorch's `Batch()`
+          waits until the segment is persisted. cbft turns that off, so
+          `Batch()` returns as soon as the introducer applies it.
+
+          That's also when cbft advances `seqMaxBatch`, and when
+          `at_plus` consistency waiters are released. **"Consistent"
+          in FTS means introduced (searchable), not durable.**
+
+          Durability is the persister's job, and it happens in the
+          background.
+
+      - id: nap
+        expect: [napBroken]
+        sim:
+          speed: 0.5
+        view:
+          focus: [persister, root]
+        code: [persister.pause, cbft.napDefaults, persister.defaults]
+        text: |
+          **The persister naps.** cbft sets
+          `PersisterNapTimeMSec = 2000` (bleve's default is 0). While
+          there are fewer than `PersisterNapUnderNumFiles` (1000) files
+          on disk, the persister sleeps up to 2s at the top of each
+          loop, so in-memory segments pile up and can be persisted
+          together.
+
+          But watch the persister. It rarely finishes a nap. The
+          **merger wakes it**: every time the merger finishes a plan,
+          it hands the persister an "epoch watcher" on
+          `persisterNotifier`, and that ends the nap
+          (`num_persister_nap_merger_break`). Under steady ingest, that
+          happens often.
+
+      - id: persist
+        expect: [memMergesDone]
+        sim:
+          speed: 0.5
+        view:
+          focus: [persister, disk, root]
+        code: [persister.loop, persister.maybeMerge, merger.memMerge, zapx.persist, persister.direct]
+        text: |
+          **Persisting.** The persister grabs the current root (only
+          the latest root; intermediate epochs are skipped, which acts
+          as a group commit) and:
+
+          1. cuts the in-memory segments into *flushables* of about
+             `maxSizeInMemoryMergePerWorker` (cbft: 20MB);
+          2. merges each flushable into one new zap file, using up to
+             `numPersisterWorkers` (cbft: 4) in parallel. Each file is
+             written, **fsync'ed**, mmapped, and introduced as a merge,
+             replacing its in-memory segments with one
+             <span class="seg-file">■</span> file segment;
+          3. commits a snapshot record to `root.bolt` and fsyncs that.
+
+          Only after the bolt commit does a zap file "count" for crash
+          recovery.
+
+      - id: merger
+        expect: [mergesDone]
+        sim:
+          speed: 1
+        view:
+          focus: [merger, root, disk]
+        code: [merger.loop, mergeplan.plan, mergeplan.CalcBudget, mergeplan.ScoreSegments, cbft.persisterDefaults]
+        text: |
+          **The merger** compacts *file* segments only. It runs bleve's
+          tiered merge policy (a cousin of Lucene's
+          TieredMergePolicy) over the root's file segments:
+
+          - a *budget* of segments is a staircase of tiers: up to 10 per
+            tier, each tier 10× bigger. cbft's
+            `floorSegmentFileSize = 20MB` makes the budget count bytes
+            rather than docs;
+          - while over budget, pick the best-scoring run of up to 10
+            segments, favoring similar sizes and reclaiming deletes.
+
+          Merges run one task at a time, and each result is introduced
+          like everything else. Then the merger **waits for the
+          persister** to persist a newer epoch. So the merger is paced
+          by the persister, and (as we'll see) the persister is paced
+          by the merger.
+
+      - id: cleanup
+        expect: [garbageFilesOnDisk]
+        sim:
+          speed: 1
+        view:
+          focus: [disk, bolt, root]
+        code: [snapshot.refcount, persister.removeOldData, persister.protected, persister.removeOldZapFiles]
+        text: |
+          **Cleanup.** Snapshots are refcounted. When the last ref to an
+          old snapshot goes away, its epoch becomes *eligible for
+          removal*.
+
+          But files aren't deleted by refcount. `removeOldData()` first
+          drops bolt snapshot records that are eligible and not
+          protected as **rollback points**. cbft keeps
+          `numSnapshotsToKeep: 3`, spaced by
+          `rollbackSamplingInterval: 10m`. Then it deletes any `.zap`
+          file that no remaining bolt record lists.
+
+          `removeOldData()` only runs when the persister is idle (or
+          over the file threshold). Under sustained ingest it's rarely
+          idle, so the directory carries extra, already-merged files
+          for a while (gray). `num_files_on_disk` and
+          `num_bytes_used_disk` include them.
+
+  # ------------------------------------------------------------------
+  - id: slowio
+    title: "2 · A slow I/O hiccup"
+    steps:
+
+      - id: hiccup
+        sim:
+          reset: { config: { memQuotaBytes: 536870912 } }
+          minTimeMs: 6000
+          set: { diskWriteMBps: 4, fsyncMs: 2500 }
+          speed: 1
+        view:
+          focus: [persister, disk]
+          chart: memUsed
+        code: [zapx.persist, persister.direct]
+        text: |
+          Now the disk gets slow: say a noisy neighbor, an EBS burst
+          budget running out, or a long fsync stall. Each fsync now
+          takes 2.5s and writes crawl at 4MB/s.
+
+          The persister is stuck in writes and fsyncs. But **ingest
+          carries on at full speed**: with `unsafe_batch`, `Batch()`
+          never waits for the persister.
+
+          So in-memory segments pile up in the root, and **memory
+          climbs**. Scorch itself has no cap on in-memory segments.
+
+      - id: herder
+        expect: [overHalfQuota, memSegsPilingUp]
+        sim:
+          minTimeMs: 18000
+          speed: 1
+        view:
+          focus: [herder, workers]
+          chart: memUsed
+        code: [herder.onScorchEvent, herder.checkAndBlockBatch, herder.overQuota]
+        text: |
+          **The app herder** is cbft's memory backpressure. It handles
+          scorch's events, and on `EventKindBatchIntroductionStart` it
+          checks process memory (plus batch bytes not yet executed)
+          against the **indexing quota**: 65% of the FTS memory quota.
+
+          Over quota, `checkAndBlockBatch()` parks the batch worker on a
+          condition variable, *inside* `Scorch.Batch()`. Waiters wake on
+          `PersisterProgress` and `MergerProgress` events, when a query
+          finishes, and when memory drops.
+
+          (If everything is persisted and merged, the herder lets
+          batches through anyway. That's the MB-29504 escape hatch.)
+
+      - id: nonap
+        expect: [herderBlocking]
+        sim:
+          minTimeMs: 22000
+          speed: 1
+        view:
+          focus: [persister, herder]
+        code: [scorch.fireEvent, persister.pause]
+        text: |
+          While the herder is blocking, scorch notices: the blocked
+          callback counts toward `NumEventsBlocking()`.
+
+          The persister checks that before napping, and **skips its
+          nap** while anything is blocked, so it flushes as fast as it
+          can. With a disk this slow, that still isn't fast.
+
+          Also note when memory is actually freed: an in-memory segment
+          stays reachable from the persister's own snapshot until the
+          whole persist cycle completes.
+
+      - id: dcpblock
+        expect: [herderBlocking, kvPaused]
+        sim:
+          minTimeMs: 27000
+          speed: 1
+        view:
+          focus: [dcp, kv, workers]
+          chart: dcpBuf
+        code: [herder.checkAndBlockIndex, cbft.submitAsync, cbgt.dcpBuffer]
+        text: |
+          **The chain reaches KV.** Blocked workers stop draining their
+          capacity-1 channels, so the DCP goroutine blocks on its next
+          send. And since `batch.Index()` fires `EventKindIndexStart`,
+          the herder also blocks the DCP goroutine directly
+          (`checkAndBlockIndex`).
+
+          A blocked DCP goroutine stops acking, so the 20MB flow-control
+          buffer fills, and **KV stops sending**. That shows up as a
+          growing `num_mutations_to_index`, with
+          `curr_batches_blocked_by_herder` > 0.
+
+          Nothing is lost: KV's DCP stream resumes from where it paused.
+
+      - id: recover
+        sim:
+          minTimeMs: 36000
+          set: { diskWriteMBps: 400, fsyncMs: 4 }
+          speed: 1
+        view:
+          focus: [persister, herder, dcp]
+          chart: memUsed
+        text: |
+          **The disk recovers.** The persister drains the backlog of
+          in-memory segments with large parallel in-memory merges.
+          Memory falls under the quota, the herder wakes its waiters,
+          and DCP flows again.
+
+          The backlog becomes a burst of files for the merger to
+          compact over the next while.
+
+      - id: safebatch
+        expect: [safeBatchesSlow]
+        sim:
+          reset: { config: { unsafeBatch: false } }
+          minTimeMs: 6000
+          speed: 0.25
+        view:
+          focus: [workers, persister]
+        code: [scorch.prepareSegment, persister.defaults]
+        text: |
+          **Aside: what if `unsafe_batch` were false** (bleve's own
+          default)? Then `Batch()` waits on `introduction.persisted`,
+          and every batch's latency includes a persist cycle: the nap,
+          the writes, and two fsyncs.
+
+          The workers spend most of their time
+          <span class="st st-blocked">blocked</span> waiting for
+          persistence. Concurrent batches share one persist cycle
+          (a group commit), but throughput is now tied to disk latency,
+          and slow I/O would push back on DCP right away.
+
+          The 2s nap makes it much worse: every batch waits out the
+          nap. That's why bleve's own default nap is 0, and why the
+          code comment advises "unsafe batch users" to raise it. cbft
+          opts for introduce-then-persist, with the herder as the
+          safety net.
+
+  # ------------------------------------------------------------------
+  - id: ingest
+    title: "3 · A huge ingest"
+    steps:
+
+      - id: build
+        expect: [kvPaused]
+        sim:
+          reset: { config: { ingestDocsPerSec: 60000, dcpSnapshotMeanDocs: 2000, updateFraction: 0 } }
+          minTimeMs: 4000
+          speed: 1
+        view:
+          focus: [analysis, workers]
+          chart: memUsed
+        text: |
+          **An initial index build, or a rebalance.** DCP backfill
+          delivers huge snapshots, so batches always fill to 200 ops,
+          and the rate jumps to 60,000 docs/sec.
+
+          The bottleneck moves to the **analysis queue**: all 4 batch
+          workers compete for NumCPU analyzers. Workers spend time
+          blocked waiting for CPU, which slows `Batch()`, which
+          backpressures DCP through the capacity-1 channels. Nothing
+          is wrong here; it's just CPU-bound.
+
+      - id: files
+        expect: [analysisSaturated, mergesDone]
+        sim:
+          minTimeMs: 15000
+          speed: 2
+        view:
+          focus: [disk, merger, root]
+          chart: files
+        code: [mergeplan.plan, mergeplan.CalcBudget]
+        text: |
+          The persister now emits a 20MB-ish file every cycle per
+          worker, and the merger works through the tiers: small files
+          merge into bigger ones, which later merge again.
+
+          Every byte is rewritten several times
+          (`total_compaction_written_bytes`); that's the price of
+          keeping the segment count low for queries. Segments over
+          2.5M live docs (`MaxSegmentSize/2`) stop being merge
+          candidates.
+
+      - id: slowmerger
+        expect: [persisterPausedForMerger, memSegsPilingUp, herderBlocking]
+        sim:
+          reset: { config: { ingestDocsPerSec: 30000, dcpSnapshotMeanDocs: 2000, updateFraction: 0, persisterNapUnderNumFiles: 40, fileMergeMBps: 6, memQuotaBytes: 805306368 } }
+          minTimeMs: 20000
+          speed: 2
+        view:
+          focus: [merger, persister, disk]
+          chart: files
+        code: [persister.pause]
+        text: |
+          **When the merger can't keep up.** If file merges are slower
+          than flushes, the file count climbs.
+
+          At `PersisterNapUnderNumFiles` files (1000 in production;
+          **scaled down to 40 here** so you don't have to wait), the
+          persister first tries `removeOldData()`. Then, if the merger
+          is behind (`lastMergedEpoch < lastPersistedEpoch`), it
+          **pauses** until the merger reports progress
+          (`TotPersisterSlowMergerPause`).
+
+          A paused persister means in-memory segments pile up again,
+          memory climbs, and we're back to the herder and DCP chain
+          from chapter 2, this time caused by compaction, not the disk.
+
+  # ------------------------------------------------------------------
+  - id: query
+    title: "4 · A slow query"
+    steps:
+
+      - id: pin
+        expect: [queryRunning]
+        sim:
+          reset: { config: { rollbackSamplingIntervalMs: 0, numSnapshotsToKeep: 1 } }
+          minTimeMs: 6000
+          query: { durationMs: 45000, timeoutMs: 60000, label: "slow query" }
+          speed: 1
+        view:
+          focus: [queries, root]
+        code: [bleve.SearchInContext, scorch.currentSnapshot]
+        text: |
+          A query starts. `SearchInContext()` opens a reader, which
+          `AddRef`s **the current root snapshot**, and holds it until
+          the search returns.
+
+          That's what makes queries consistent: whatever the introducer,
+          persister and merger do in the meantime, the query sees one
+          immutable set of segments.
+
+          This one will be slow. Imagine a huge regex or wildcard, or a
+          large `size`/`from`. Watch what it keeps alive.
+
+          (Rollback points are turned off here, `numSnapshotsToKeep: 1`,
+          so the effect is easier to see.)
+
+      - id: pinned
+        expect: [queryRunning, zombies]
+        sim:
+          minTimeMs: 16000
+          speed: 2
+        view:
+          focus: [queries, disk]
+          chart: disk
+        code: [snapshot.refcount, zapx.closeActual]
+        text: |
+          The root moves on: segments get persisted and merged away. The
+          query's snapshot still references the old ones:
+
+          - its **in-memory segments** can't be garbage collected, so
+            they count against the memory the herder sees;
+          - its **file segments** stay open and mmapped. Their refcount
+            only drops to zero when the query's snapshot is released.
+
+      - id: zombies
+        expect: [queryRunning, zombies]
+        sim:
+          minTimeMs: 26000
+          speed: 2
+        view:
+          focus: [disk, queries]
+          chart: disk
+        code: [persister.removeOldZapFiles]
+        text: |
+          Here's the subtle part. `removeOldZapFiles()` decides what to
+          delete by **which files root.bolt still lists**, not by
+          refcounts. Once the old files are merged away and no retained
+          bolt snapshot lists them, they're `os.Remove()`d, even though
+          the query still has them mmapped.
+
+          On Linux, the name disappears but the blocks stay allocated
+          until the last mapping goes away. These
+          <span class="seg-zombie">■</span> **unlinked-but-open** files
+          don't show up in `num_bytes_used_disk` (scorch measures disk
+          by listing the directory), but they show up in `df`. That can
+          explain a gap between the two during long queries.
+
+          (This is our reading of the code, reproduced in the model.
+          Verify it on a real system before relying on it.)
+
+      - id: release
+        expect: [noQueries, noZombies]
+        sim:
+          minTimeMs: 53000
+          speed: 4
+        view:
+          focus: [queries, disk]
+          chart: disk
+        code: [scorch.currentSnapshot]
+        text: |
+          When the query finally finishes, it releases its snapshot.
+          The refcounts drop, the files are unmapped and closed, and
+          the space is really freed.
+
+          cbft's default query timeout (`ctl.timeout`, 10s) bounds how
+          long this normally lasts. A request can ask for a much longer
+          timeout. The query supervisor (`/api/query`) lists
+          long-running queries, and `/api/query/{id}/cancel` can kill
+          one.
+
+  # ------------------------------------------------------------------
+  - id: sandbox
+    title: "5 · Your turn"
+    steps:
+      - id: sandbox
+        sandbox: true
+        sim:
+          reset: true
+          minTimeMs: 3000
+          speed: 1
+        view:
+          focus: []
+        text: |
+          Use the **knobs** button above the simulation to change the
+          workload, cbft's and scorch's settings, and the modeled costs.
+          Start a slow query, or make the disk sick, and watch what
+          pushes back.
+
+          Things to try:
+
+          - Set `persisterNapMs` to 0 (bleve's default): more, smaller
+            files and more merging.
+          - Set `numPersisterWorkers` to 1 and
+            `maxSizeInMemoryMergePerWorker` to 0 (bleve's legacy
+            flush): one big in-memory merge per persist cycle.
+          - Set `deleteFraction` high: watch `ReclaimDeletesWeight`
+            steer the merger toward segments with many deletes.
+          - Set `herderEnabled` off, then make the disk slow: memory
+            just keeps growing.

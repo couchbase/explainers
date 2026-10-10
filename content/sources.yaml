@@ -1,0 +1,30 @@
+# Source repos the explainers link into. Versions are pinned to what
+# cbft master depends on, so links and snippets match one consistent
+# snapshot of the code. `local` lists candidate checkouts used by
+# `npm run snippets`; the first that exists wins ($HOME and env vars
+# are expanded; set BLEVE_EXPLAINER_CB_SRC to point at a different
+# couchbase-server repo-sync tree).
+bleve:
+  github: https://github.com/blevesearch/bleve
+  commit: 9d2da23a5c58
+  version: v2.6.1-0.20260807085028-9d2da23a5c58
+  local:
+    - $HOME/go/pkg/mod/github.com/blevesearch/bleve/v2@v2.6.1-0.20260807085028-9d2da23a5c58
+zapx:
+  github: https://github.com/blevesearch/zapx
+  commit: 6594f3d6bd0d
+  version: v17.2.2-0.20260806075952-6594f3d6bd0d
+  local:
+    - $HOME/go/pkg/mod/github.com/blevesearch/zapx/v17@v17.2.2-0.20260806075952-6594f3d6bd0d
+cbft:
+  github: https://github.com/couchbase/cbft
+  commit: c467517403c82355b394b359550979601fe5a031
+  local:
+    - $BLEVE_EXPLAINER_CB_SRC/cbft
+    - ../couchbase-server.master/cbft
+cbgt:
+  github: https://github.com/couchbase/cbgt
+  commit: d0afea68bde6f1a1dca67847499a588777076db7
+  local:
+    - $BLEVE_EXPLAINER_CB_SRC/cbgt
+    - ../couchbase-server.master/cbgt

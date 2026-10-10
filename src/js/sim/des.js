@@ -378,6 +378,7 @@ export class Sem {
     this.permits = permits;
     this.inUse = 0;
     this.waiters = [];
+    this.totWaited = 0;
   }
   acquire(label) {
     return {
@@ -388,6 +389,7 @@ export class Sem {
         } else {
           p.setState('blocked', label || `acquire ${this.name}`);
           this.waiters.push(p);
+          this.totWaited++;
         }
       },
     };
