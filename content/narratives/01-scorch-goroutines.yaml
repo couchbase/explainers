@@ -51,15 +51,6 @@ chapters:
           They end up as segment files in the index's directory, on
           [[disk]].
 
-      - id: lids
-        view: { target: cbftLid }
-        text: |
-          Each box is closed for now. A closed box shows only its name,
-          its job, and a one-line summary of what it's doing, like how
-          many of [[cbft]]'s batch workers are busy.
-
-          We'll open the boxes one at a time.
-
   # ------------------------------------------------------------------
   - id: cbft
     title: "Into cbft"

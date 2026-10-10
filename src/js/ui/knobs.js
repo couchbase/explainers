@@ -2,19 +2,8 @@
 // model immediately; scrolling to another step rebuilds it from the
 // narrative, so changes last only while you stay on this step.
 
-const MB = 1024 * 1024;
-
-const h = (tag, attrs = {}, ...kids) => {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === 'class') el.className = v;
-    else if (k === 'text') el.textContent = v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v);
-  }
-  for (const kid of kids) if (kid) el.append(kid);
-  return el;
-};
+import { h } from './util/dom.js';
+import { MB } from '../sim/config.js';
 
 const GROUPS = [
   ['workload', 'Workload (modeled)'],

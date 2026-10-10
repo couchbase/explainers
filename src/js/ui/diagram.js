@@ -10,7 +10,7 @@
 // them to the scroll position.
 
 import { SECTIONS, PANELS, LIDS, BUBBLES, ANCHORS, CANVAS, isAnchorVisible } from './layout.js';
-import { fmtBytes, fmtMs } from '../sim/model.js';
+import { fmtBytes, fmtMs, fmtNum } from '../sim/fmt.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 function el(tag, attrs = {}, parent = null) {
@@ -781,7 +781,9 @@ export class Diagram {
     const rate = ratePerSec(m);
     const ns = {};
     const st = (p, label) => ({ state: procState(p), label: label ?? (p ? shortLabel(p.label) : ''), since: p && now - p.since >= 100 && this.live ? fmtMs(now - p.since) : '' });
-    ns.kv = st(procs.get('kv'), m.kvPausedSince !== null ? 'paused: DCP buffer full' : `sending ${fmtNum(rate)} docs/s`);
+    // A rate only means something while the simulation is running.
+    ns.kv = st(procs.get('kv'), m.kvPausedSince !== null ? 'paused: DCP buffer full'
+      : this.live ? `sending ${fmtNum(rate)} docs/s` : 'sending mutations');
     const frac = Math.min(1, m.dcpBufUsed / m.cfg.dcpBufferBytes);
     this.dcpFill.setAttribute('width', (140 * frac).toFixed(1));
     setCls(this.dcpFill, frac > 0.8 ? 'gauge-fill warn' : 'gauge-fill');
@@ -965,10 +967,11 @@ export class Diagram {
     const set = (id, state, status) => {
       const l = this.lids[id];
       setCls(l.dot, `gdot dot-${state}`);
+      l.dot.setAttribute('opacity', status ? 1 : 0);
       setText(l.status, status);
       l.g.classList.toggle('stalled', state === 'stall');
     };
-    set('kv', m.kvPausedSince !== null ? 'stall' : 'busy', m.kvPausedSince !== null ? 'paused by DCP flow control' : `streaming ${fmtNum(rate)} docs/s`);
+    set('kv', m.kvPausedSince !== null ? 'stall' : 'busy', m.kvPausedSince !== null ? 'paused by DCP flow control' : '');
     const busy = [0, 1, 2, 3].filter((i) => procState(procs.get(`batchWorker-${i}`)) === 'busy').length;
     set('cbft', m.numEventsBlocking ? 'stall' : busy ? 'busy' : 'wait',
       m.numEventsBlocking ? 'blocked by the app herder' : `${busy} of 4 batch workers busy`);
@@ -1039,11 +1042,6 @@ function barHeight(bytes, max) {
   return Math.max(3, Math.min(1, v) * max);
 }
 
-function fmtNum(n) {
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'k';
-  return String(Math.round(n));
-}
 
 function ratePerSec(m) {
   const s = m.series;

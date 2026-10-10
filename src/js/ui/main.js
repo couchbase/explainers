@@ -16,7 +16,7 @@ import { KnobsDrawer } from './knobs.js';
 import { sparkline } from './charts.js';
 import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../story/timeline.js';
 import { checkInvariants } from '../sim/invariants.js';
-import { fmtBytes } from '../sim/model.js';
+import { fmtBytes } from '../sim/fmt.js';
 
 const data = JSON.parse(document.getElementById('bx-data').textContent);
 const { narrative, snippets, sources } = data;
