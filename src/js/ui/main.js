@@ -156,6 +156,8 @@ const ctl = {
   lastTs: null, lastSim: 0, dirty: true, scrolled: false, autoKnobs: false,
   tokenAt: new Map(), // step index -> marker target at that step
   stateAt: new Map(), // step index -> goroutine box states at that step
+  slotsAt: new Map(), // step index -> what the slot grids showed at that step
+  blending: false,
   user: { dx: 0, dy: 0, z: 1 }, // the reader's own pan/zoom
   relaxUser: false,
 };
@@ -178,6 +180,7 @@ function enter(i, { rebuild = false } = {}) {
   diagram.update(ctl.model);
   ctl.tokenAt.set(i, diagram.tokenTarget(ctl.model, view.token));
   ctl.stateAt.set(i, diagram.nodeStates);
+  ctl.slotsAt.set(i, diagram.captureSlots());
   const cam = typeof view.camera === 'string' ? CAMERAS[view.camera] : { label: 'detail', section: null };
   crumbDot.className = `crumb-dot sec-${cam.section || 'neutral'}`;
   crumbText.textContent = cam.label || '';
@@ -402,22 +405,23 @@ function tokenFrame(i, p) {
   return null;
 }
 
-// Goroutine box states for step i at progress p. On paused steps, boxes
-// whose state differs from the previous step change one at a time, in
-// the order data meets them, spread across the transition; scrolling
-// back undoes them in reverse. Running live, they just follow the sim.
-function nodeFrame(i, p) {
+// Goroutine boxes for step i at scroll progress p, as {a, b, q} per
+// box. Boxes whose state differs from the previous step's change one at
+// a time, in the order data meets them, each within its own slice of
+// the transition; scrolling back undoes them in reverse.
+function nodeFrames(i, p) {
   const cur = ctl.stateAt.get(i) || diagram.nodeStates;
   const prev = i > 0 ? ctl.stateAt.get(i - 1) : null;
-  if (ctl.playing || !prev || p >= 1) return cur;
-  const order = Diagram.NODE_ORDER.filter((k) => prev[k] && cur[k] &&
+  const out = {};
+  for (const k of Diagram.NODE_ORDER) if (cur[k]) out[k] = { a: cur[k], b: cur[k], q: 1 };
+  if (!prev || p >= 1) return out;
+  const changed = Diagram.NODE_ORDER.filter((k) => prev[k] && cur[k] &&
     (prev[k].state !== cur[k].state || prev[k].label !== cur[k].label));
-  if (order.length === 0) return cur;
   const t = ease(p);
-  const out = { ...cur };
-  order.forEach((k, n) => {
-    const at = 0.15 + 0.7 * (n + 0.5) / order.length;
-    out[k] = t >= at ? cur[k] : prev[k];
+  const w = Math.min(0.3, 0.7 / Math.max(1, changed.length));
+  changed.forEach((k, n) => {
+    const center = 0.15 + 0.7 * (n + 0.5) / changed.length;
+    out[k] = { a: prev[k], b: cur[k], q: clamp01((t - (center - w / 2)) / w) };
   });
   return out;
 }
@@ -463,7 +467,19 @@ function render() {
   for (const id of Object.keys(LIDS)) diagram.setLid(id, lerp(pv.open.has(id) ? 1 : 0, v.open.has(id) ? 1 : 0, t));
   for (const id of Object.keys(BUBBLES)) diagram.setBubble(id, lerp(pv.bubbles.has(id) ? 1 : 0, v.bubbles.has(id) ? 1 : 0, t));
   diagram.setToken(tf && tf.t, tf ? tf.o : 0);
-  diagram.applyNodes(nodeFrame(i, p), performance.now(), ctl.playing ? 450 : 0);
+  // Who owns time: the clock while the simulation plays, otherwise the
+  // scroll. On paused steps, the slot grids blend from the previous
+  // step's contents to this step's as the reader scrolls.
+  if (ctl.playing) diagram.liveNodes(diagram.nodeStates, performance.now(), 450);
+  else diagram.scrubNodes(nodeFrames(i, p));
+  const sa = ctl.slotsAt.get(i - 1), sb = ctl.slotsAt.get(i);
+  if (!ctl.playing && sa && sb && p < 1) {
+    diagram.blendSlots(sa, sb, clamp01((t - 0.1) / 0.8));
+    ctl.blending = true;
+  } else if (ctl.blending && sb && !ctl.playing) {
+    diagram.blendSlots(sb, sb, 1);
+    ctl.blending = false;
+  }
   diagram.setDocs(tf && tf.birth !== undefined ? tf.birth : -1, tf && tf.t);
   // Our segment's slot stays faint until the marker arrives.
   const dest = tf && tf.dest;

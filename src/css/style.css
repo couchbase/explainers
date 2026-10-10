@@ -281,24 +281,21 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .diagram .zone-title { font: 600 12px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; fill: var(--muted); }
 
 .gbox { fill: var(--panel); stroke: var(--wait); stroke-width: 1.2; stroke-dasharray: 4 3; }
-.gnode.s-busy .gbox { stroke: var(--busy); stroke-dasharray: none; }
-.gnode.s-nap .gbox { stroke: var(--nap); stroke-dasharray: none; }
-.gnode.s-stall .gbox { stroke: var(--stall); stroke-dasharray: none; stroke-width: 2; }
+.gbox.s-busy { stroke: var(--busy); stroke-dasharray: none; }
+.gbox.s-nap { stroke: var(--nap); stroke-dasharray: none; }
+.gbox.s-stall { stroke: var(--stall); stroke-dasharray: none; stroke-width: 2; }
+.gbox-header { fill: none; }
 .gbox.behind { stroke-dasharray: none; stroke: var(--line); }
-.gnode .gbox-header { fill: none; }
 .gbox.behind.s-busy { stroke: color-mix(in srgb, var(--busy) 45%, var(--line)); }
 .gbox.behind.s-stall { stroke: color-mix(in srgb, var(--stall) 60%, var(--line)); }
 .gdot { fill: none; stroke: var(--wait); stroke-width: 1.5; }
-.s-busy .gdot, .gdot.dot-busy { fill: var(--busy); stroke: none; }
-.s-nap .gdot, .gdot.dot-nap { fill: var(--nap); stroke: none; }
-.s-stall .gdot, .gdot.dot-stall { fill: var(--stall); stroke: none; }
+.gdot.s-busy, .gdot.dot-busy { fill: var(--busy); stroke: none; }
+.gdot.s-nap, .gdot.dot-nap { fill: var(--nap); stroke: none; }
+.gdot.s-stall, .gdot.dot-stall { fill: var(--stall); stroke: none; }
 .gtitle { font-size: 13px; font-weight: 600; fill: var(--ink); }
-.glabel { font-size: 11px; fill: var(--muted); transition: transform 0.4s ease, opacity 0.4s ease; transform-box: fill-box; }
+.glabel { font-size: 11px; fill: var(--muted); }
 .glabel.small { font-size: 10px; }
-.glabel.enter { transform: translateX(22px); opacity: 0; transition: none; }
-.glabel.leave { transform: translateX(-22px); opacity: 0; }
-.gbox, .gdot { transition: stroke 0.45s ease, fill 0.45s ease; }
-.s-stall .glabel { fill: var(--stall); }
+.glabel.s-stall { fill: var(--stall); }
 .gsince { font-size: 10px; fill: var(--muted); font-variant-numeric: tabular-nums; }
 .badge { fill: var(--ink); }
 .badge-text { font-size: 10.5px; font-weight: 600; fill: var(--panel); }
@@ -315,7 +312,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .cpu.busy { fill: var(--busy); stroke: var(--busy); }
 .chan { fill: var(--bg); stroke: var(--line); }
 .chan.lit { fill: color-mix(in srgb, var(--busy) 18%, var(--panel)); stroke: var(--busy); }
-.chan-text { font-size: 9.5px; fill: var(--ink); }
+.chan-text { font-size: 9px; fill: var(--ink); }
 
 .cell { fill: none; stroke: var(--faint); }
 .cell.mem { fill: var(--seg-mem); stroke: none; }

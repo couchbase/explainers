@@ -44,58 +44,95 @@ export function procState(p) {
 // With `header: true`, it's the title row of a bigger panel: the
 // activity goes on the same line, after the name.
 //
-// State changes are animated: the border and dot colors cross-fade
-// (CSS), and the new activity label slides in from the right while
-// the old one slides out to the left. A box holds each state for at
-// least `dwell` ms of wall time, so a fast simulation doesn't flicker.
+// A box draws a change from one state to another at a progress q in
+// 0..1: the old and new borders and dots cross-fade (two overlaid
+// copies), and the old label slides out to the left as the new one
+// slides in from the right. Who drives q depends on who owns time:
+// scrolling (scrub) on paused story steps, or the clock (live) when the
+// reader has pressed Play.
+const SLIDE = 22;
+const gist = (l) => l.replace(/[\d.,]+/g, '#'); // a changed number isn't a new activity
+
 class GNode {
   constructor(parent, x, y, w, h, title, { sub, header } = {}) {
-    this.g = el('g', { class: 'gnode s-wait' }, parent);
-    el('rect', { x, y, width: w, height: h, rx: 5, class: header ? 'gbox gbox-header' : 'gbox' }, this.g);
-    el('circle', { cx: x + 14, cy: y + 17, r: 4.5, class: 'gdot' }, this.g);
+    this.g = el('g', { class: 'gnode' }, parent);
+    this.boxCls = header ? 'gbox gbox-header' : 'gbox';
+    this.boxes = [0, 1].map(() => el('rect', { x, y, width: w, height: h, rx: 5, class: `${this.boxCls} s-wait` }, this.g));
+    this.dots = [0, 1].map(() => el('circle', { cx: x + 14, cy: y + 17, r: 4.5, class: 'gdot s-wait' }, this.g));
     this.title = txt(this.g, x + 26, y + 21, title, 'gtitle');
     const lx = header ? x + 34 + title.length * 8.2 : x + 14;
     const ly = header ? y + 21 : y + h - 11;
-    this.labels = [txt(this.g, lx, ly, sub || '', 'glabel'), txt(this.g, lx, ly, '', 'glabel leave')];
-    this.active = 0;
+    this.labels = [txt(this.g, lx, ly, '', 'glabel'), txt(this.g, lx, ly, '', 'glabel')];
     // characters that fit at the normal and the small label size
     const room = w - (lx - x) - (header ? 46 : 12);
     this.fit = [Math.floor(room / 6.7), Math.floor(room / 6.0)];
     this.since = txt(this.g, x + w - 10, y + 20, '', 'gsince', 'end');
-    this.shown = { state: 'wait', label: sub || '' };
+    this.cur = { state: 'wait', label: sub || '' };
+    this.tween = null;
     this.lastChange = -Infinity;
+    this.drawn = '';
+    this.draw(this.cur, this.cur, 1);
   }
 
-  // Shows {state, label, since?}, animating if it changed and the box
-  // has held its current state for at least `dwell` ms.
-  show(want, wallNow, dwell) {
+  _label(t, st, x, o) {
+    const small = st.label.length > this.fit[0];
+    setText(t, clip(st.label, small ? this.fit[1] : this.fit[0]));
+    setCls(t, `glabel s-${st.state}${small ? ' small' : ''}`);
+    t.setAttribute('transform', x ? `translate(${x.toFixed(1)} 0)` : '');
+    t.setAttribute('opacity', o.toFixed(3));
+  }
+
+  // Draws the change from state a to state b at progress q.
+  draw(a, b, q) {
+    const key = `${a.state}|${a.label}|${b.state}|${b.label}|${q.toFixed(3)}`;
+    if (key === this.drawn) return;
+    this.drawn = key;
+    const sameState = a.state === b.state;
+    setCls(this.boxes[0], `${this.boxCls} s-${a.state}`);
+    setCls(this.boxes[1], `${this.boxCls} s-${b.state}`);
+    setCls(this.dots[0], `gdot s-${a.state}`);
+    setCls(this.dots[1], `gdot s-${b.state}`);
+    this.boxes[0].setAttribute('opacity', sameState ? 0 : (1 - q).toFixed(3));
+    this.boxes[1].setAttribute('opacity', sameState ? 1 : q.toFixed(3));
+    this.dots[0].setAttribute('opacity', sameState ? 0 : (1 - q).toFixed(3));
+    this.dots[1].setAttribute('opacity', sameState ? 1 : q.toFixed(3));
+    if (gist(a.label) === gist(b.label)) {
+      this._label(this.labels[0], { state: b.state, label: b.label }, 0, 1);
+      this.labels[1].setAttribute('opacity', 0);
+    } else {
+      this._label(this.labels[0], a, -SLIDE * q, 1 - q);
+      this._label(this.labels[1], b, SLIDE * (1 - q), q);
+    }
+  }
+
+  // Scroll-driven: the page says exactly where between a and b we are.
+  scrub(a, b, q) {
+    this.tween = null;
+    this.cur = b;
+    setText(this.since, '');
+    this.draw(a, b, q);
+  }
+
+  // Clock-driven, for when the simulation is playing: tween to `want`,
+  // holding each state for at least `dwell` ms so nothing flickers.
+  live(want, wallNow, dwell) {
     setText(this.since, want.since || '');
-    const sh = this.shown;
-    if (want.state === sh.state && want.label === sh.label) return;
-    // A changed number (an epoch, a count) isn't a new activity: update
-    // it in place, without the slide.
-    const gist = (l) => l.replace(/[\d.,]+/g, '#');
-    if (want.state === sh.state && gist(want.label) === gist(sh.label)) {
-      const cur = this.labels[this.active];
-      cur.textContent = clip(want.label, cur.classList.contains('small') ? this.fit[1] : this.fit[0]);
-      this.shown = { state: want.state, label: want.label };
+    if (this.tween) {
+      const q = (wallNow - this.tween.t0) / 400;
+      if (q < 1) { this.draw(this.tween.a, this.tween.b, q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2); return; }
+      this.cur = this.tween.b;
+      this.tween = null;
+    }
+    const c = this.cur;
+    if (want.state === c.state && gist(want.label) === gist(c.label)) {
+      this.cur = want;
+      this.draw(want, want, 1);
       return;
     }
-    if (wallNow - this.lastChange < dwell) return;
+    if (wallNow - this.lastChange < dwell) { this.draw(c, c, 1); return; }
     this.lastChange = wallNow;
-    if (want.state !== sh.state) setCls(this.g, `gnode s-${want.state}`);
-    if (want.label !== sh.label) {
-      const out = this.labels[this.active];
-      this.active = 1 - this.active;
-      const inc = this.labels[this.active];
-      const small = want.label.length > this.fit[0];
-      inc.textContent = clip(want.label, small ? this.fit[1] : this.fit[0]);
-      inc.setAttribute('class', `glabel enter${small ? ' small' : ''}`);
-      void inc.getBoundingClientRect(); // commit the start position
-      inc.setAttribute('class', `glabel${small ? ' small' : ''}`);
-      out.setAttribute('class', `glabel leave${out.classList.contains('small') ? ' small' : ''}`);
-    }
-    this.shown = { state: want.state, label: want.label };
+    this.tween = { a: c, b: want, t0: wallNow };
+    this.draw(c, want, 0);
   }
 }
 
@@ -275,7 +312,7 @@ export class Diagram {
   _cbft(g) {
     this.nodes.dcp = new GNode(g, 390, 228, 220, 50, 'DCP goroutine');
     this.slot = el('rect', { x: 494, y: 292, width: 12, height: 12, rx: 2, class: 'slot' }, g);
-    txt(g, 486, 302, 'capacity-1 channel', 'note', 'end');
+    txt(g, 514, 302, 'capacity-1 channel', 'note');
     // Stacked worker panels: the front one is drawn fully.
     this.workerBack = [];
     for (let i = 3; i >= 1; i--) {
@@ -306,11 +343,15 @@ export class Diagram {
     this.nodes.introducer = new GNode(f, 350, 602, 300, 100, 'introducer', { header: true });
     txt(f, 366, 646, 'select {', 'code-in');
     this.chans = {};
-    ['introductions', 'persists', 'merges', 'watchers'].forEach((c, i) => {
-      const r = el('rect', { x: 366 + i * 70, y: 654, width: 64, height: 18, rx: 3, class: 'chan' }, f);
-      txt(f, 398 + i * 70, 667, c, 'chan-text', 'middle');
+    // Chips sized to their names, so they fit inside the panel.
+    let cx = 366;
+    for (const c of ['introductions', 'persists', 'merges', 'watchers']) {
+      const w = 12 + c.length * 5.6;
+      const r = el('rect', { x: cx, y: 654, width: w, height: 18, rx: 3, class: 'chan' }, f);
+      txt(f, cx + w / 2, 667, c, 'chan-text', 'middle');
       this.chans[c] = r;
-    });
+      cx += w + 6;
+    }
     txt(f, 366, 690, '} → new root, epoch + 1', 'code-in');
 
     // queries
@@ -568,10 +609,62 @@ export class Diagram {
   // The goroutine boxes, in the order data meets them.
   static NODE_ORDER = ['kv', 'dcp', 'worker', 'batch', 'introducer', 'persister', 'merger'];
 
-  // Shows node states (from nodeStates, possibly mixed across steps by
-  // the page), animating changes.
-  applyNodes(states, wallNow, dwell) {
-    for (const k of Diagram.NODE_ORDER) if (states[k]) this.nodes[k].show(states[k], wallNow, dwell);
+  // Records what the slot grids (in-memory cells, file bars, directory
+  // icons) show right now, so the page can blend between two steps.
+  captureSlots() {
+    return {
+      mem: this.memCells.map((c) => c.getAttribute('class')),
+      bars: this.fileBars.map((b) => ({
+        y: +b.bar.getAttribute('y'), h: +b.bar.getAttribute('height'),
+        dy: +b.del.getAttribute('y'), dh: +b.del.getAttribute('height'), bg: b.bg.getAttribute('class'),
+      })),
+      dir: this.dirIcons.map((ic) => ({ o: ic.g.getAttribute('opacity'), cls: ic.use.getAttribute('class'), del: ic.del.getAttribute('opacity') })),
+    };
+  }
+
+  // Shows the slot grids partway (q) from snapshot A to snapshot B:
+  // things that appear fade in, things that go fade out, bars that
+  // change size grow or shrink.
+  blendSlots(A, B, q) {
+    const fade = (e, o) => { if (o >= 1) e.removeAttribute('opacity'); else e.setAttribute('opacity', o.toFixed(3)); };
+    this.memCells.forEach((c, i) => {
+      const a = A.mem[i], b = B.mem[i];
+      const aOn = a !== 'cell', bOn = b !== 'cell';
+      if (a === b) { setCls(c, b); fade(c, 1); } else if (bOn && !aOn) { setCls(c, b); fade(c, q); } else if (aOn && !bOn) { setCls(c, a); fade(c, 1 - q); } else { setCls(c, q < 0.5 ? a : b); fade(c, 1); }
+    });
+    this.fileBars.forEach((bar, i) => {
+      const a = A.bars[i], b = B.bars[i];
+      let s = b, o = 1;
+      if (a.h === 0 && b.h > 0) o = q;
+      else if (a.h > 0 && b.h === 0) { s = a; o = 1 - q; } else if (a.h !== b.h || a.dh !== b.dh) {
+        const l = (x, y) => x + (y - x) * q;
+        s = { y: l(a.y, b.y), h: l(a.h, b.h), dy: l(a.dy, b.dy), dh: l(a.dh, b.dh), bg: b.bg };
+      }
+      bar.bar.setAttribute('y', s.y.toFixed(1)); bar.bar.setAttribute('height', s.h.toFixed(1));
+      bar.del.setAttribute('y', s.dy.toFixed(1)); bar.del.setAttribute('height', s.dh.toFixed(1));
+      setCls(bar.bg, s.bg);
+      fade(bar.bar, o); fade(bar.del, o);
+    });
+    this.dirIcons.forEach((ic, i) => {
+      const a = A.dir[i], b = B.dir[i];
+      const aOn = a.o === '1', bOn = b.o === '1';
+      let s = b, o = bOn ? 1 : 0;
+      if (bOn && !aOn) o = q;
+      else if (aOn && !bOn) { s = a; o = 1 - q; } else if (aOn && bOn && a.cls !== b.cls) s = q < 0.5 ? a : b;
+      ic.g.setAttribute('opacity', o.toFixed(3));
+      setCls(ic.use, s.cls);
+      ic.del.setAttribute('opacity', s.del);
+    });
+  }
+
+  // Scroll-driven: frames[k] = {a, b, q} for each box.
+  scrubNodes(frames) {
+    for (const k of Diagram.NODE_ORDER) if (frames[k]) this.nodes[k].scrub(frames[k].a, frames[k].b, frames[k].q);
+  }
+
+  // Clock-driven, while the simulation plays.
+  liveNodes(states, wallNow, dwell) {
+    for (const k of Diagram.NODE_ORDER) if (states[k]) this.nodes[k].live(states[k], wallNow, dwell);
   }
 
   // The logical view, for anchor visibility.

@@ -68,6 +68,28 @@ around.
 
 Research notes with file:line references live in `docs/research/`.
 
+## Design principles
+
+These came out of reviewing early drafts, and they guide both the
+narratives and the code:
+
+- **The reader's scroll is the timeline.** Anything that changes
+  between steps is driven by scroll position, not by a clock, so
+  scrolling halfway leaves a change halfway done, and scrolling back
+  reverses it. This covers the camera, lids, bubbles, callout fades, the
+  batch marker, goroutine state changes and slot contents. The only
+  exception is when the reader presses Play and the simulation runs on
+  its own clock.
+- **Change one thing at a time.** Each step changes one of camera,
+  lids, bubbles, UI or simulation (the build enforces this). Within a
+  step, simultaneous changes are spread out in flow order across the
+  step's scroll range.
+- **Nothing teleports.** Our batch's marker travels along the corridors
+  between boxes; destinations wait for it to arrive.
+- **Keep the subject in view.** The camera follows the marker, the
+  charts and controls stay out of the way until they're needed, and the
+  story and chart columns are transparent around their cards.
+
 ## Writing narratives
 
 Narratives are YAML files in `content/narratives/`. Each one builds to
