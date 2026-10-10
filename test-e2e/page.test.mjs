@@ -5,40 +5,19 @@
 // Needs `npm run build` first, and Chrome (or set CHROME_PATH).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-import { chromium } from 'playwright-core';
+import { launch, openPage, scrollToStep, viewBox, stepCount } from './helpers.mjs';
 
-const file = fileURLToPath(new URL('../dist/index.html', import.meta.url));
 let browser;
-
-before(async () => {
-  assert.ok(existsSync(file), 'run `npm run build` first');
-  browser = process.env.CHROME_PATH
-    ? await chromium.launch({ executablePath: process.env.CHROME_PATH })
-    : await chromium.launch({ channel: 'chrome' });
-});
+before(async () => { browser = await launch(); });
 after(async () => { await browser?.close(); });
-
-async function open(viewport, scheme = 'light') {
-  const page = await browser.newPage({ viewport, colorScheme: scheme });
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto('file://' + file + '?debug=1');
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
-  return { page, errors };
-}
+const open = (viewport, scheme) => openPage(browser, { viewport, scheme });
 
 test('desktop: scrolling activates every step without errors', async () => {
   const { page, errors } = await open({ width: 1440, height: 900 });
-  const n = await page.evaluate(() => window.bleveExplainer.steps.length);
+  const n = await stepCount(page);
   const seen = [];
   for (let i = 0; i < n; i++) {
-    await page.evaluate((i) => {
-      const el = document.querySelector(`.step[data-index="${i}"]`);
-      window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.4);
-    }, i);
+    await scrollToStep(page, i, 1.05, 0);
     await page.waitForFunction((i) => window.bleveExplainer.ctl.current === i, i, { timeout: 5000 });
     await page.waitForTimeout(150);
     seen.push(i);
@@ -71,8 +50,7 @@ test('code drawer shows highlighted, linked source', async () => {
 test('knobs change the live simulation', async () => {
   const { page, errors } = await open({ width: 1440, height: 900 });
   // The controls appear once the story brings them in.
-  await page.evaluate(() => document.getElementById('together--running').scrollIntoView());
-  await page.waitForTimeout(600);
+  await scrollToStep(page, 'together--running', 1.2, 600);
   await page.getByRole('button', { name: 'Knobs' }).click();
   await page.fill('#knob-ingestDocsPerSec', '1234');
   await page.dispatchEvent('#knob-ingestDocsPerSec', 'change');
@@ -97,11 +75,7 @@ for (const scheme of ['light', 'dark']) {
 }
 
 test('a deep-linked step shows its lids, bubble and one callout', async () => {
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + file + '#persister--detail');
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  const { page, errors } = await openPage(browser, { hash: 'persister--detail' });
   await page.waitForTimeout(800);
   const state = await page.evaluate(() => ({
     step: window.bleveExplainer.steps[window.bleveExplainer.ctl.current].id,
@@ -120,20 +94,9 @@ test('a deep-linked step shows its lids, bubble and one callout', async () => {
 });
 
 test('the view changes continuously with scrolling, not in jumps', async () => {
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  await page.goto('file://' + file);
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  const { page } = await openPage(browser);
   // cbft/zoom moves the camera from the overview to the top.
-  const vbAt = async (frac) => {
-    await page.evaluate((frac) => {
-      const el = document.getElementById('cbft--zoom');
-      const H = innerHeight, enterY = H * 0.82, settleY = H * 0.42;
-      const top = enterY - frac * (enterY - settleY);
-      window.scrollTo(0, el.getBoundingClientRect().top + scrollY - top);
-    }, frac);
-    await page.waitForTimeout(150);
-    return page.evaluate(() => document.querySelector('.diagram').getAttribute('viewBox').split(' ').map(Number));
-  };
+  const vbAt = async (p) => { await scrollToStep(page, 'cbft--zoom', p); return viewBox(page); };
   const a = await vbAt(0.02), m = await vbAt(0.5), b = await vbAt(0.98);
   assert.ok(m[3] < a[3] && m[3] > b[3], `height should shrink smoothly: ${a[3]} > ${m[3]} > ${b[3]}`);
   const tokenOpacity = await page.evaluate(() => Number(document.querySelector('.token').getAttribute('opacity')));
@@ -142,19 +105,12 @@ test('the view changes continuously with scrolling, not in jumps', async () => {
 });
 
 test('our batch\'s marker stays in view at every step that shows it', async () => {
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  await page.goto('file://' + file);
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
-  const n = await page.evaluate(() => window.bleveExplainer.steps.length);
+  const { page } = await openPage(browser);
+  const n = await stepCount(page);
   let checked = 0;
   for (let i = 0; i < n; i++) {
     for (const frac of [0.5, 1.2]) {
-      await page.evaluate(([i, frac]) => {
-        const el = document.querySelector(`.step[data-index="${i}"]`);
-        const H = innerHeight, enterY = H * 0.82, settleY = H * 0.42;
-        window.scrollTo(0, el.getBoundingClientRect().top + scrollY - (enterY - frac * (enterY - settleY)));
-      }, [i, frac]);
-      await page.waitForTimeout(60);
+      await scrollToStep(page, i, frac, 60);
       const r = await page.evaluate(() => {
         const tok = document.querySelector('.token');
         if (Number(tok.getAttribute('opacity')) < 0.5) return null;
@@ -173,13 +129,10 @@ test('our batch\'s marker stays in view at every step that shows it', async () =
 });
 
 test('the charts column takes no room until the controls appear', async () => {
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  await page.goto('file://' + file);
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  const { page } = await openPage(browser);
   await page.waitForTimeout(200);
   const before = await page.evaluate(() => document.querySelector('.charts').getBoundingClientRect().width);
-  await page.evaluate(() => document.getElementById('together--running').scrollIntoView());
-  await page.waitForTimeout(300);
+  await scrollToStep(page, 'together--running', 1.2, 300);
   const after = await page.evaluate(() => document.querySelector('.charts').getBoundingClientRect().width);
   assert.ok(before < 1, `charts column is ${before}px wide while hidden`);
   assert.ok(after > 200, `charts column is only ${after}px wide when shown`);
@@ -187,11 +140,9 @@ test('the charts column takes no room until the controls appear', async () => {
 });
 
 test('map-style gestures zoom and pan the diagram', async () => {
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  await page.goto('file://' + file + '#scorch--our-segment');
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  const { page } = await openPage(browser, { hash: 'scorch--our-segment' });
   await page.waitForTimeout(600);
-  const vb = () => page.evaluate(() => document.querySelector('.diagram').getAttribute('viewBox').split(' ').map(Number));
+  const vb = () => viewBox(page);
   const box = await page.locator('.viewport').boundingBox();
   const cx = box.x + box.width * 0.75, cy = box.y + box.height * 0.5;
   const w0 = (await vb())[2];
@@ -228,14 +179,11 @@ test('map-style gestures zoom and pan the diagram', async () => {
 });
 
 test('goroutine labels fit without clipping', async () => {
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  await page.goto('file://' + file);
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  const { page } = await openPage(browser);
   const clipped = new Set();
   for (const id of ['cbft--cbft-open', 'cbft--to-worker', 'scorch--built', 'persister--persisting', 'merger--merged', 'together--running', 'slowdisk--herder']) {
-    await page.evaluate((id) => { const el = document.getElementById(id); window.scrollTo(0, el.getBoundingClientRect().top + scrollY - innerHeight * 0.35); }, id);
-    await page.waitForTimeout(700);
-    for (const t of await page.evaluate(() => [...document.querySelectorAll('.glabel:not(.leave)')].map((e) => e.textContent))) {
+    await scrollToStep(page, id, 1.2, 700);
+    for (const t of await page.evaluate(() => [...document.querySelectorAll('.glabel')].map((e) => e.textContent))) {
       if (t.includes('…')) clipped.add(t);
     }
   }

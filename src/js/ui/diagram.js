@@ -9,197 +9,12 @@
 // page as continuous values (0..1, or a point), so the page can tie
 // them to the scroll position.
 
-import { SECTIONS, PANELS, LIDS, BUBBLES, ANCHORS, CANVAS, isAnchorVisible } from './layout.js';
+import { SECTIONS, PANELS, LIDS, BUBBLES, ANCHORS, CANVAS, STATIONS, isAnchorVisible } from './layout.js';
 import { fmtBytes, fmtMs, fmtNum } from '../sim/fmt.js';
-
-const NS = 'http://www.w3.org/2000/svg';
-function el(tag, attrs = {}, parent = null) {
-  const e = document.createElementNS(NS, tag);
-  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
-  if (parent) parent.append(e);
-  return e;
-}
-function txt(parent, x, y, s, cls, anchor) {
-  const t = el('text', { x, y, class: cls || '' }, parent);
-  if (anchor) t.setAttribute('text-anchor', anchor);
-  t.textContent = s;
-  return t;
-}
-const setText = (t, s) => { if (t.textContent !== s) t.textContent = s; };
-const setCls = (e, cls) => { if (e.getAttribute('class') !== cls) e.setAttribute('class', cls); };
-const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
-
-// Classifies a goroutine's state. "stall" means blocked by
-// backpressure, as opposed to idly waiting for work.
-const STALL = /herder|flow control|worker busy|paused|persistence \(safe/;
-export function procState(p) {
-  if (!p) return 'wait';
-  if (p.state === 'busy' || p.state === 'running') return 'busy';
-  if (p.state === 'sleep') return 'nap';
-  if (p.state === 'blocked' && STALL.test(p.label)) return 'stall';
-  return 'wait';
-}
-
-// A goroutine box: state dot, name, one line of live activity.
-// With `header: true`, it's the title row of a bigger panel: the
-// activity goes on the same line, after the name.
-//
-// A box draws a change from one state to another at a progress q in
-// 0..1: the old and new borders and dots cross-fade (two overlaid
-// copies), and the old label slides out to the left as the new one
-// slides in from the right. Who drives q depends on who owns time:
-// scrolling (scrub) on paused story steps, or the clock (live) when the
-// reader has pressed Play.
-const SLIDE = 22;
-const gist = (l) => l.replace(/[\d.,]+/g, '#'); // a changed number isn't a new activity
-
-class GNode {
-  constructor(parent, x, y, w, h, title, { sub, header } = {}) {
-    this.g = el('g', { class: 'gnode' }, parent);
-    this.boxCls = header ? 'gbox gbox-header' : 'gbox';
-    this.boxes = [0, 1].map(() => el('rect', { x, y, width: w, height: h, rx: 5, class: `${this.boxCls} s-wait` }, this.g));
-    this.dots = [0, 1].map(() => el('circle', { cx: x + 14, cy: y + 17, r: 4.5, class: 'gdot s-wait' }, this.g));
-    this.title = txt(this.g, x + 26, y + 21, title, 'gtitle');
-    const lx = header ? x + 34 + title.length * 8.2 : x + 14;
-    const ly = header ? y + 21 : y + h - 11;
-    this.labels = [txt(this.g, lx, ly, '', 'glabel'), txt(this.g, lx, ly, '', 'glabel')];
-    // characters that fit at the normal and the small label size
-    const room = w - (lx - x) - (header ? 46 : 12);
-    this.fit = [Math.floor(room / 6.7), Math.floor(room / 6.0)];
-    this.since = txt(this.g, x + w - 10, y + 20, '', 'gsince', 'end');
-    this.cur = { state: 'wait', label: sub || '' };
-    this.tween = null;
-    this.lastChange = -Infinity;
-    this.drawn = '';
-    this.draw(this.cur, this.cur, 1);
-  }
-
-  _label(t, st, x, o) {
-    const small = st.label.length > this.fit[0];
-    setText(t, clip(st.label, small ? this.fit[1] : this.fit[0]));
-    setCls(t, `glabel s-${st.state}${small ? ' small' : ''}`);
-    t.setAttribute('transform', x ? `translate(${x.toFixed(1)} 0)` : '');
-    t.setAttribute('opacity', o.toFixed(3));
-  }
-
-  // Draws the change from state a to state b at progress q.
-  draw(a, b, q) {
-    const key = `${a.state}|${a.label}|${b.state}|${b.label}|${q.toFixed(3)}`;
-    if (key === this.drawn) return;
-    this.drawn = key;
-    const sameState = a.state === b.state;
-    setCls(this.boxes[0], `${this.boxCls} s-${a.state}`);
-    setCls(this.boxes[1], `${this.boxCls} s-${b.state}`);
-    setCls(this.dots[0], `gdot s-${a.state}`);
-    setCls(this.dots[1], `gdot s-${b.state}`);
-    this.boxes[0].setAttribute('opacity', sameState ? 0 : (1 - q).toFixed(3));
-    this.boxes[1].setAttribute('opacity', sameState ? 1 : q.toFixed(3));
-    this.dots[0].setAttribute('opacity', sameState ? 0 : (1 - q).toFixed(3));
-    this.dots[1].setAttribute('opacity', sameState ? 1 : q.toFixed(3));
-    if (gist(a.label) === gist(b.label)) {
-      this._label(this.labels[0], { state: b.state, label: b.label }, 0, 1);
-      this.labels[1].setAttribute('opacity', 0);
-    } else {
-      this._label(this.labels[0], a, -SLIDE * q, 1 - q);
-      this._label(this.labels[1], b, SLIDE * (1 - q), q);
-    }
-  }
-
-  // Scroll-driven: the page says exactly where between a and b we are.
-  scrub(a, b, q) {
-    this.tween = null;
-    this.cur = b;
-    setText(this.since, '');
-    this.draw(a, b, q);
-  }
-
-  // Clock-driven, for when the simulation is playing: tween to `want`,
-  // holding each state for at least `dwell` ms so nothing flickers.
-  live(want, wallNow, dwell) {
-    setText(this.since, want.since || '');
-    if (this.tween) {
-      const q = (wallNow - this.tween.t0) / 400;
-      if (q < 1) { this.draw(this.tween.a, this.tween.b, q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2); return; }
-      this.cur = this.tween.b;
-      this.tween = null;
-    }
-    const c = this.cur;
-    if (want.state === c.state && gist(want.label) === gist(c.label)) {
-      this.cur = want;
-      this.draw(want, want, 1);
-      return;
-    }
-    if (wallNow - this.lastChange < dwell) { this.draw(c, c, 1); return; }
-    this.lastChange = wallNow;
-    this.tween = { a: c, b: want, t0: wallNow };
-    this.draw(c, want, 0);
-  }
-}
-
-// Short, plain activity labels for each goroutine box, so they fit
-// without clipping. Raw labels come from the simulation's processes.
-const SHORT = [
-  [/^waiting for DCP mutations/, 'idle: waiting for DCP'],
-  [/^batch\.Index/, 'batch.Index(): mapping docs'],
-  [/^batchCh-(\d) <- batch/, 'stalled: worker $1 is busy'],
-  [/^herder: IndexStart/, 'stalled by the app herder'],
-  [/^herder: BatchIntroductionStart/, 'stalled by the app herder'],
-  [/^waiting for batches/, 'idle: waiting for batches'],
-  [/^waiting for analysis/, 'waiting for analysis'],
-  [/^NewUsing/, 'building in-memory segment'],
-  [/^prepareSegment/, 'computing obsoletes'],
-  [/^introductions <- segment/, 'handing segment over'],
-  [/^waiting for introduction to be applied/, 'waiting for the introducer'],
-  [/^waiting for persistence/, 'stalled: waiting for persist'],
-  [/^select: introductions/, 'idle'],
-  [/^introduceSegment/, 'introducing a segment'],
-  [/^introducePersist/, 'swapping in files'],
-  [/^introduceMerge/, 'introducing a merge'],
-  [/^nap /, 'napping (≤2s)'],
-  [/^waiting for (\d+) in-memory merge/, 'waiting on $1 workers'],
-  [/^writing (\S+)/, 'writing $1'],
-  [/^fsync (\S+\.zap)/, 'fsync $1'],
-  [/^root\.bolt: commit/, 'committing root.bolt'],
-  [/^root\.bolt: fsync/, 'fsync root.bolt'],
-  [/^root\.bolt: removed/, 'removing old snapshots'],
-  [/^introducerNotifier <- watcher/, 'idle'],
-  [/^waiting for a new root epoch/, 'idle: waiting for a new epoch'],
-  [/^paused: /, 'paused: waiting for the merger'],
-  [/^persists <- new files/, 'introducing new files'],
-  [/^waiting for persist introduction/, 'waiting for the introducer'],
-  [/^waiting for persister/, 'waiting for the persister'],
-  [/^persisterNotifier <- watcher/, 'notifying the persister'],
-  [/^MergeUsing: merging (\d+) files/, 'merging $1 files'],
-  [/^MergeUsing: (\d+) mem segs/, 'merging $1 segments'],
-  [/^merges <- /, 'handing result over'],
-  [/^waiting for merge introduction/, 'waiting for the introducer'],
-  [/^analyzing/, 'analyzing'],
-];
-export function shortLabel(label) {
-  for (const [re, out] of SHORT) {
-    const mm = label.match(re);
-    if (mm) return out.replace(/\$(\d)/g, (_, n) => mm[Number(n)]);
-  }
-  return label;
-}
-
-// Assigns stable slots to keys, so items don't shift as others come and go.
-class Slots {
-  constructor(n) { this.n = n; this.byKey = new Map(); this.free = [...Array(n).keys()]; }
-  sync(keys) {
-    const want = new Set(keys);
-    for (const [k, i] of this.byKey) if (!want.has(k)) { this.byKey.delete(k); this.free.push(i); }
-    this.free.sort((a, b) => a - b);
-    let overflow = 0;
-    for (const k of keys) {
-      if (this.byKey.has(k)) continue;
-      if (this.free.length === 0) { overflow++; continue; }
-      this.byKey.set(k, this.free.shift());
-    }
-    return overflow;
-  }
-  get(k) { return this.byKey.get(k); }
-}
+import { svgEl as el, svgText as txt, setText, setCls } from './util/dom.js';
+import { along, easeQuad } from './util/anim.js';
+import { GNode, procState, shortLabel } from './gnode.js';
+import { Slots } from './slots.js';
 
 const SYMBOLS = `
 <symbol id="dg-file" viewBox="0 0 12 15"><path d="M0.5,0.5 H8 L11.5,4 V14.5 H0.5 Z" class="ficon-body"/><path d="M8,0.5 V4 H11.5" class="ficon-fold"/></symbol>
@@ -511,25 +326,11 @@ export class Diagram {
     this.docsShown = true;
     const [tx, ty] = tok.p;
     const pts = [[500, 96], [500, 214], [tx, 214], [tx, ty]];
-    const lens = [];
-    let total = 0;
-    for (let k = 1; k < pts.length; k++) { const d = Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]); lens.push(d); total += d; }
-    const at = (q) => {
-      let want = q * total;
-      for (let k = 0; k < lens.length; k++) {
-        if (want <= lens[k] || k === lens.length - 1) {
-          const f = Math.min(1, want / lens[k]);
-          return [pts[k][0] + (pts[k + 1][0] - pts[k][0]) * f, pts[k][1] + (pts[k + 1][1] - pts[k][1]) * f];
-        }
-        want -= lens[k];
-      }
-      return pts[pts.length - 1];
-    };
     this.docs.forEach((d, i) => {
       const start = i * 0.065;
       const q = Math.max(0, Math.min(1, (t - start) / 0.4));
       if (q <= 0 || q >= 1) { d.setAttribute('opacity', 0); return; }
-      const [x, y] = at(q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2);
+      const [x, y] = along(pts, easeQuad(q));
       const sc = q > 0.85 ? 1 - (q - 0.85) / 0.15 * 0.7 : 1;
       d.setAttribute('opacity', q > 0.9 ? ((1 - q) / 0.1).toFixed(3) : 1);
       d.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${sc.toFixed(3)})`);
@@ -726,10 +527,7 @@ export class Diagram {
         return { p: [ic.x + 6, ic.y + 7.5], size: 18, kind: 'file', label: 'our file', st: 'icon', key: tr.fileName };
       }
     }
-    const fixed = {
-      dcp: [372, 253], channel: [500, 298], worker: [372, 361], herder: [478, 432],
-      analysis: [372, 545], introducing: [332, 652], persisting: [60, 1067], merging: [940, 1067],
-    }[tr.stage];
+    const fixed = STATIONS[tr.stage];
     if (fixed) {
       const kind = ['persisting', 'merging'].includes(tr.stage) ? (tr.stage === 'persisting' ? 'mem' : 'file') : 'batch';
       const st = tr.stage;
@@ -866,30 +664,17 @@ export class Diagram {
 
     const label = p ? p.label : '';
     const workers = [...procs.values()].filter((x) => x.name.startsWith('persisterWorker-'));
-    let row = -1;
-    if (/nap|paused/.test(label)) row = 0;
-    else if (workers.length > 0) row = 2;
-    else if (/root\.bolt|persists <-|persist introduction|writing|fsync/.test(label)) row = /writing|fsync/.test(label) ? 2 : 3;
-    this.pRows.forEach((r, i) => setCls(r, i === row ? (/paused/.test(label) && i === 0 ? 'row lit stall' : 'row lit') : 'row'));
+    // While in-memory merge workers run, the persister is in its merge phase.
+    const busyWorkers = workers.length > 0;
+    litRow(this.pRows, busyWorkers && !/nap|paused/.test(label) ? 2 : phaseRow(PHASES.persister, label), /paused/.test(label));
     this.pWorkers.forEach((w, i) => setCls(w, `pw s-${workers[i] ? procState(workers[i]) : 'wait'}`));
-    let brow = -1;
-    if (/nap|paused/.test(label)) brow = 0;
-    else if (workers.length > 0) brow = 3;
-    else if (/root\.bolt: commit|root\.bolt: fsync/.test(label)) brow = 4;
-    else if (/writing|fsync|persists <-|persist introduction/.test(label)) brow = 4;
-    else if (/root\.bolt: removed/.test(label)) brow = 5;
-    this.pBack.forEach((r, i) => setCls(r, i === brow ? 'row lit' : 'row'));
+    litRow(this.pBack, busyWorkers && !/nap|paused/.test(label) ? 3 : phaseRow(PHASES.persisterCode, label));
   }
 
   _updateMerger(m, procs) {
     const p = procs.get('merger');
 
-    const label = p ? p.label : '';
-    let row = -1;
-    if (/waiting for persister|persisterNotifier/.test(label)) row = 0;
-    else if (/MergeUsing|writing|fsync/.test(label)) row = 2;
-    else if (/merge introduction|merges <-/.test(label)) row = 3;
-    this.mRows.forEach((r, i) => setCls(r, i === row ? 'row lit' : 'row'));
+    litRow(this.mRows, phaseRow(PHASES.merger, p ? p.label : ''));
 
     // back: tier staircase of current file segments
     const files = m.root.segs.filter((ss) => ss.seg.kind === 'file')
@@ -1022,6 +807,21 @@ export class Diagram {
     const needs = at ? ANCHORS[at].needs : ['cbft', 'scorch'];
     if (tok) this.positions.ourBatch = { p: [tok.p[0] - tok.size / 2 - 2, tok.p[1]], needs };
   }
+}
+
+// Which row of a panel's phase list (or its bubble's code list) is
+// active, from the goroutine's raw activity label: first match wins.
+const PHASES = {
+  persister: [[/nap|paused/, 0], [/writing|fsync/, 2], [/root\.bolt|persists <-|persist introduction/, 3]],
+  persisterCode: [[/nap|paused/, 0], [/root\.bolt: removed/, 5], [/root\.bolt|writing|fsync|persists <-|persist introduction/, 4]],
+  merger: [[/waiting for persister|persisterNotifier/, 0], [/MergeUsing|writing|fsync/, 2], [/merge introduction|merges <-/, 3]],
+};
+function phaseRow(table, label) {
+  for (const [re, row] of table) if (re.test(label)) return row;
+  return -1;
+}
+function litRow(rows, lit, stalled = false) {
+  rows.forEach((r, i) => setCls(r, i === lit ? (stalled && i === 0 ? 'row lit stall' : 'row lit') : 'row'));
 }
 
 function summarize(p) {

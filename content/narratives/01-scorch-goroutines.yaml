@@ -58,9 +58,9 @@ chapters:
     steps:
 
       - id: zoom
-        view: { camera: top, target: cbftLid }
+        view: { camera: top, target: kvLid }
         text: |
-          Let's start at the top, with KV and [[cbft]].
+          Let's start at the top, with [[KV]] and cbft.
 
       - id: kv-open
         view: { open: [kv], target: buffer }

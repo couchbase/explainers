@@ -119,3 +119,22 @@ export function isAnchorVisible(id, open, bubbles, dynamicNeeds) {
   if (a && a.bubble && !bubbles.has(a.bubble)) return false;
   return true;
 }
+
+// Where our batch's marker rests at each stage of its trip.
+export const STATIONS = {
+  dcp: [372, 253], channel: [500, 298], worker: [372, 361], herder: [478, 432],
+  analysis: [372, 545], introducing: [332, 652], persisting: [60, 1067], merging: [940, 1067],
+};
+
+// The corridors between boxes that the marker travels along, the same
+// ways the arrows go, so it never cuts across a panel.
+export const CORRIDORS = {
+  spineLeft: 372, // x: just left of the main spine
+  intoBleve: 490, // y: between the herder gate and Scorch.Batch()
+  aboveIntroducer: 590, // y
+  aboveRoot: 722, // y
+  belowRoot: 930, // y: between the root and the persister/merger
+  betweenPanels: 500, // x: between the persister and the merger
+  aboveDisk: 1240, // y
+  fileBarY: 840, // y: the middle of the root's file bars
+};
