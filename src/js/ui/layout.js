@@ -13,7 +13,7 @@ export const CH = 1560;
 export const CANVAS = [-460, 0, 1460, 1560]; // x0, y0, x1, y1 incl. the left gutter
 
 export const SECTIONS = {
-  kv: { label: 'KV · separate process', frame: [300, 20, 400, 132], color: 'kv' },
+  kv: { label: 'KV process', frame: [20, 20, 960, 132], color: 'kv' },
   cbft: { label: 'cbft process', frame: [20, 206, 960, 1012], color: 'cbft' },
   scorch: { label: 'bleve / scorch', frame: [40, 498, 920, 700], color: 'scorch' },
   disk: { label: 'disk', frame: [50, 1250, 900, 292], color: 'disk' },
@@ -47,7 +47,7 @@ export const BUBBLES = {
 export const CAMERAS = {
   overview: { rect: [0, 0, CW, CH], label: '', section: null },
   top: { rect: [80, 0, 920, 490], label: 'KV and cbft', section: 'cbft' },
-  kv: { rect: [260, 0, 740, 190], label: 'KV', section: 'kv' },
+  kv: { rect: [0, 0, 1000, 190], label: 'KV', section: 'kv' },
   cbft: { rect: [100, 190, 900, 480], label: 'cbft', section: 'cbft' },
   process: { rect: [0, 180, CW, 1240], label: 'the cbft process', section: 'cbft' },
   scorch: { rect: [20, 490, 980, 1222], label: 'bleve / scorch', section: 'scorch' },
@@ -65,7 +65,7 @@ export const CAMERAS = {
 // Named anchor points for story callouts and chart leaders. `needs`
 // lists lids that must be open; `bubble` names a bubble that must show.
 export const ANCHORS = {
-  kvLid: { p: [306, 70], needs: [] },
+  kvLid: { p: [26, 70], needs: [] },
   cbftLid: { p: [26, 400], needs: [] },
   scorchLid: { p: [46, 820], needs: ['cbft'] },
   diskLid: { p: [56, 1360], needs: [] },
