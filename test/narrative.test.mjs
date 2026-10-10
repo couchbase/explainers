@@ -6,7 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import yaml from 'js-yaml';
 import { validateNarrative } from '../build/schema.mjs';
 import { resolveAll, findLocal } from '../build/snippets.mjs';
-import { flattenSteps, modelAtStep, EXPECTATIONS } from '../src/js/story/timeline.js';
+import { flattenSteps, modelAtStep, checkExpectation } from '../src/js/story/timeline.js';
 import { checkInvariants } from '../src/js/sim/invariants.js';
 
 const dir = new URL('../content/narratives/', import.meta.url);
@@ -41,7 +41,7 @@ for (const f of files) {
       const m = modelAtStep(n, steps, i);
       assert.deepEqual(checkInvariants(m), []);
       for (const e of st.expect || []) {
-        assert.ok(EXPECTATIONS[e](m), `expected "${e}" at t=${m.now}ms`);
+        assert.ok(checkExpectation(e, m), `expected "${e}" at t=${m.now}ms`);
       }
     });
   });
@@ -50,13 +50,36 @@ for (const f of files) {
 test('schema rejects common mistakes', () => {
   const bad = {
     id: 'x', title: 'x',
-    chapters: [{ id: 'c', title: 'c', steps: [
-      { id: 's', text: 'hi', sim: { set: { nope: 1 } }, view: { focus: ['nowhere'] }, code: ['missing.ref'], typo: 1 },
+    chapters: [{ id: 'c', title: 'c', color: 'plaid', steps: [
+      { id: 's', text: 'hi [[a]] and [[b]]', sim: { set: { nope: 1 }, until: 'nowhere' }, view: { camera: 'moon', open: ['lid9'], target: 'zzz' }, code: ['missing.ref'], typo: 1 },
     ] }],
   };
-  const errs = validateNarrative(bad, { coderefs });
-  const joined = errs.join('\n');
-  for (const frag of ['unknown key "typo"', 'unknown sim config key: nope', 'unknown focus "nowhere"', 'unknown code ref "missing.ref"', 'first step must have sim.reset']) {
+  const joined = validateNarrative(bad, { coderefs }).join('\n');
+  for (const frag of ['unknown key "typo"', 'unknown sim config key: nope', 'unknown camera "moon"', 'unknown lid "lid9"',
+    'unknown target "zzz"', 'unknown code ref "missing.ref"', 'first step must have sim.reset', 'at most one [[callout]]',
+    'unknown color "plaid"', 'unknown sim.until stage "nowhere"']) {
     assert.ok(joined.includes(frag), `missing error: ${frag}\n${joined}`);
   }
+});
+
+test('schema enforces one change per step, and lid visibility', () => {
+  const n = (steps) => ({ id: 'x', title: 'x', chapters: [{ id: 'c', title: 'c', steps }] });
+  const two = n([
+    { id: 'a', text: 'a', sim: { reset: true } },
+    { id: 'b', text: 'b', view: { camera: 'cbft', open: ['kv'] } },
+  ]);
+  assert.match(validateNarrative(two, { coderefs }).join('\n'), /changes camera and lids at once/);
+  const ok = n([
+    { id: 'a', text: 'a', sim: { reset: true } },
+    { id: 'b', text: 'b', view: { camera: 'cbft', open: ['kv'] }, multi: true },
+  ]);
+  assert.deepEqual(validateNarrative(ok, { coderefs }), []);
+  const hidden = n([
+    { id: 'a', text: 'see [[it]]', sim: { reset: true }, view: { target: 'dcp' } },
+  ]);
+  assert.match(validateNarrative(hidden, { coderefs }).join('\n'), /hidden under a closed lid/);
+  const orphan = n([
+    { id: 'a', text: 'a', sim: { reset: true }, view: { open: ['persister'] } },
+  ]);
+  assert.match(validateNarrative(orphan, { coderefs }).join('\n'), /parent "scorch" isn't/);
 });

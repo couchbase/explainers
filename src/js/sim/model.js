@@ -125,6 +125,11 @@ export class Model {
     this.events = []; // recent notable events for the log
     this.series = []; // sampled time series
     this.flags = {}; // misc. scenario/visual flags
+    this.trace = null; // the batch we follow through the system, if any
+    this.followNext = false;
+    this.writing = new Map(); // file name -> {by, seg, since}
+    this.recentDeletes = []; // [{name, bytes, t}]
+    this.introLast = null; // {kind, t}: the introducer's last message
 
     this._buildProcs();
   }
@@ -148,6 +153,24 @@ export class Model {
     const m = this;
     this.k.spawn(`query-${id}`, function* (p) { yield* m._queryProc(p, id, durationMs, timeoutMs, label); }, { group: 'query', queryId: id });
     return id;
+  }
+
+  // Tags the next batch the DCP goroutine starts, so we can follow it
+  // (and, later, the segments and files its docs end up in).
+  follow() {
+    this.followNext = true;
+    this.trace = null;
+  }
+
+  reached(stage) {
+    return !!(this.trace && this.trace.history.some((h) => h.stage === stage));
+  }
+
+  _trace(stage, extra) {
+    if (!this.trace) this.trace = { history: [], oldFiles: [] };
+    Object.assign(this.trace, extra, { stage });
+    this.trace.history.push({ stage, t: this.k.now });
+    this.log('trace', `our batch: ${stage}`);
   }
 
   log(kind, msg) {
@@ -306,7 +329,15 @@ export class Model {
     }
   }
 
-  _newBatch(vb) { return { vb, ops: 0, inserts: 0, updates: 0, deletes: 0, bytes: 0 }; }
+  _newBatch(vb) {
+    const b = { vb, ops: 0, inserts: 0, updates: 0, deletes: 0, bytes: 0 };
+    if (this.followNext) {
+      this.followNext = false;
+      b.traced = true;
+      this._trace('dcp', { vb });
+    }
+    return b;
+  }
 
   _addToBatch(batch, n) {
     const rng = this.k.rng;
@@ -326,7 +357,9 @@ export class Model {
   // submitAsyncBatchRequestLOCKED: send to worker vb % N; blocks while
   // that worker's capacity-1 channel is full.
   * _submitBatch(batch) {
-    const ch = this.workerChs[batch.vb % this.workerChs.length];
+    const w = batch.vb % this.workerChs.length;
+    const ch = this.workerChs[w];
+    if (batch.traced) this._trace('channel', { worker: w });
     yield ch.send(batch, `${ch.name} <- batch (cap 1, worker busy)`);
   }
 
@@ -350,12 +383,14 @@ export class Model {
         continue;
       }
       const b = r.value;
+      if (b.traced) this._trace('worker', { worker: i });
       if (!target) {
         target = b;
         this.stats.TotBatchesNew++;
       } else {
         target.ops += b.ops; target.inserts += b.inserts; target.updates += b.updates;
         target.deletes += b.deletes; target.bytes += b.bytes;
+        target.traced ||= b.traced;
         this.stats.TotBatchesMerged++;
       }
       if (target.ops >= this.cfg.maxOpsPerBatch) {
@@ -399,9 +434,11 @@ export class Model {
   * _scorchBatch(p, batch) {
     const k = this.k, cfg = this.cfg;
     const t0 = k.now;
+    if (batch.traced) this._trace('herder');
     // fireEvent(EventKindBatchIntroductionStart) -> herder checkAndBlockBatch
     yield* this._herderBlock(p, 'BatchIntroductionStart: over index quota', true);
     this.stats.TotBatches++;
+    if (batch.traced) this._trace('analysis');
 
     const numDocs = batch.inserts + batch.updates;
     let seg = null;
@@ -415,6 +452,7 @@ export class Model {
       this.analysisBytes -= abytes;
       seg = new Segment(this, { kind: 'mem', docs: numDocs, bytes: numDocs * cfg.memBytesPerDoc, origin: 'batch' });
       this.inflightMemBytes += seg.bytes;
+      if (batch.traced) this._trace('introducing', { segId: seg.id });
     } else {
       this.stats.TotBatchesEmpty++;
     }
@@ -430,6 +468,7 @@ export class Model {
     };
     yield this.introductions.send(intro, 'introductions <- segment');
     yield intro.applied.recv('waiting for introduction to be applied');
+    if (batch.traced && seg) this._trace('introduced', { segId: seg.id });
     if (seg) this.inflightMemBytes -= seg.bytes;
     if (intro.persisted) yield intro.persisted.recv('waiting for persistence (safe batch)');
     const dt = k.now - t0;
@@ -468,6 +507,7 @@ export class Model {
         this.introductions.recvCase(),
         this.persists.recvCase(),
       ], { label: 'select: introductions / persists / merges' });
+      this.introLast = { kind: ['watchers', 'merges', 'introductions', 'persists'][r.index], t: this.k.now };
       switch (r.index) {
         case 0: watchers.push(r.value); break;
         case 1: yield* this._introduceMerge(p, r.value); break;
@@ -731,8 +771,10 @@ export class Model {
         const fileBytes = liveDocs * cfg.fileBytesPerDoc;
         const seg = new Segment(m, { kind: 'file', docs: liveDocs, bytes: fileBytes, origin: 'memmerge', sources: flushable.map((ss) => ss.seg.id) });
         m.ineligibleForRemoval.add(seg.fileName);
+        const ours = m.trace && flushable.some((ss) => ss.seg.id === m.trace.segId);
+        if (ours) m._trace('persisting', { pworker: wi });
         yield k.work((inBytes + fileBytes) / MB / cfg.memMergeMBps * 1000, `MergeUsing: ${flushable.length} mem segs → ${seg.fileName}`);
-        yield* m._writeFile(wp, seg);
+        yield* m._writeFile(wp, seg, 'persister');
         m.stats.TotMemMergeDone++;
         m.stats.TotMemMergeSegments += flushable.length;
         const notifyCh = new Chan(k, 'mergeNotify', 1);
@@ -742,6 +784,7 @@ export class Model {
         yield notifyCh.recv('waiting for merge introduction');
         if (mergeMsg.introduced) newFiles.push(seg);
         else skipped = true;
+        if (ours && mergeMsg.introduced) m._trace('file', { segId: seg.id, fileName: seg.fileName });
         sem.release();
         wg.done();
       }, { group: 'scorch', persisterWorker: wi });
@@ -772,7 +815,8 @@ export class Model {
       f.id = ss.seg.id;
       f.fileName = zapFileName(f.id);
       this.ineligibleForRemoval.add(f.fileName);
-      yield* this._writeFile(p, f);
+      if (this.trace && this.trace.segId === ss.seg.id && this.trace.stage === 'introduced') this._trace('persisting', { pworker: null });
+      yield* this._writeFile(p, f, 'persister');
       persisted.set(ss.seg.id, f);
       this.stats.TotPersistedItems += f.docs;
       this.stats.TotPersistedSegments++;
@@ -782,6 +826,10 @@ export class Model {
       yield this.persists.send(persist, 'persists <- new files');
       yield persist.applied.recv('waiting for persist introduction');
       for (const f of persisted.values()) if (!persist.used.has(f)) f.decRef();
+      const ourFile = this.trace && persisted.get(this.trace.segId);
+      if (ourFile && persist.used.has(ourFile) && this.trace.stage === 'persisting') {
+        this._trace('file', { segId: ourFile.id, fileName: ourFile.fileName });
+      }
     }
     const names = new Set();
     for (const ss of snap.segs) names.add(ss.seg.kind === 'file' ? ss.seg.fileName : zapFileName(ss.seg.id));
@@ -789,15 +837,17 @@ export class Model {
   }
 
   // zapx PersistSegmentBase / merge output: write, fsync, then mmap.
-  * _writeFile(p, seg) {
+  * _writeFile(p, seg, by) {
     const k = this.k, cfg = this.cfg;
     this.diskActiveWriters++;
+    this.writing.set(seg.fileName, { by, seg, since: k.now });
     const share = cfg.diskWriteMBps / this.diskActiveWriters;
     this.files.set(seg.fileName, { name: seg.fileName, bytes: 0, seg, createdAt: k.now });
     yield k.work(seg.bytes / MB / share * 1000, `writing ${seg.fileName} (${fmtBytes(seg.bytes)})`);
     this.files.get(seg.fileName).bytes = seg.bytes;
     yield k.work(cfg.fsyncMs, `fsync ${seg.fileName}`);
     this.diskActiveWriters--;
+    this.writing.delete(seg.fileName);
   }
 
   * _boltCommit(p, epoch, names) {
@@ -886,6 +936,9 @@ export class Model {
       if (live.has(name) || this.ineligibleForRemoval.has(name)) continue;
       this.files.delete(name);
       this.stats.TotFilesRemoved++;
+      this.recentDeletes.push({ name, bytes: f.bytes, t: this.k.now });
+      if (this.recentDeletes.length > 60) this.recentDeletes.shift();
+      if (this.trace && this.trace.oldFiles.includes(name)) this._trace('oldFileDeleted', { deletedFile: name });
       if (f.seg.open) {
         // os.Remove() on a file that's still mmapped by some snapshot:
         // the name is gone, the blocks aren't.
@@ -952,6 +1005,8 @@ export class Model {
       const inBytes = srcs.reduce((a, ss) => a + ss.seg.bytes, 0);
       let newSeg = null;
       const label = `merging ${srcs.length} files (${fmtBytes(inBytes)})`;
+      const ours = this.trace && srcs.find((ss) => ss.seg.id === this.trace.segId);
+      if (ours) this._trace('merging');
       this.currentMerge = { srcs: srcs.map((ss) => ss.seg.id), label };
       if (liveDocs > 0) {
         const bytes = liveDocs * cfg.fileBytesPerDoc;
@@ -959,14 +1014,19 @@ export class Model {
         this.currentMerge.out = newSeg.id;
         this.ineligibleForRemoval.add(newSeg.fileName);
         yield k.work((inBytes + bytes) / MB / cfg.fileMergeMBps * 1000, `MergeUsing: ${label} → ${newSeg.fileName}`);
-        yield* this._writeFile(p, newSeg);
+        yield* this._writeFile(p, newSeg, 'merger');
         this.stats.TotFileMergeWrittenBytes += bytes;
       }
       this.stats.TotFileMergeSegments += srcs.length;
       const notifyCh = new Chan(k, 'mergeNotify', 1);
       const old = new Map(srcs.map((ss) => [ss.seg.id, { seg: ss.seg, deleted: ss.deleted }]));
-      yield this.merges.send({ old, newSeg, fileMerge: true, notifyCh }, 'merges <- file merge result');
+      const mergeMsg = { old, newSeg, fileMerge: true, notifyCh, introduced: false };
+      yield this.merges.send(mergeMsg, 'merges <- file merge result');
       yield notifyCh.recv('waiting for merge introduction');
+      if (ours && mergeMsg.introduced) {
+        this.trace.oldFiles.push(ours.seg.fileName);
+        this._trace('merged', { segId: newSeg.id, fileName: newSeg.fileName });
+      }
       this.currentMerge = null;
       this.log('merge', `merger: ${srcs.length} files → ${newSeg ? newSeg.fileName : '(nothing live)'}`);
     }

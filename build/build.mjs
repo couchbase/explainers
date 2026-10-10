@@ -49,7 +49,8 @@ function renderSnippet(s) {
 marked.use({ gfm: true, breaks: false });
 
 function renderMarkdown(md) {
-  const html = marked.parse(md);
+  // [[phrase]] marks the one phrase a step's callout line starts from.
+  const html = marked.parse(md.replace(/\[\[(.+?)\]\]/g, '<span class="hl">$1</span>'));
   // External links open in a new tab.
   return html.replace(/<a href="(https?:[^"]+)"/g, '<a href="$1" target="_blank" rel="noopener"');
 }

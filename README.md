@@ -29,7 +29,11 @@ system fonts when offline.
 ## How it works
 
 The visuals are driven by a **live simulation**, not by canned
-animations.
+animations. The diagram (`src/js/ui/diagram.js`, geometry in
+`layout.js`) is one large canvas that the story zooms around. Sections
+start covered by lids and open as the story reaches them. Everything
+sits in fixed slots, so the diagram updates in place without moving
+around.
 
 - `src/js/sim/des.js` is a tiny deterministic discrete-event kernel.
   Goroutines are JS generator functions that `yield` Go-like ops:
@@ -59,39 +63,69 @@ Research notes with file:line references live in `docs/research/`.
 ## Writing narratives
 
 Narratives are YAML files in `content/narratives/`. Each one builds to
-its own HTML file. A step looks like this:
+its own HTML file. Chapters have a `color` (`kv`, `cbft`, `scorch`,
+`disk` or `neutral`), which ties the story's headings to the diagram
+section they're about. A step looks like this:
 
 ```yaml
-- id: dcpblock                 # slug, unique within the chapter
-  expect: [herderBlocking, kvPaused]   # checked by `npm test`
-  sim:
-    minTimeMs: 27000           # fast-forward to this sim time (since the last reset)
-    set: { fsyncMs: 2500 }     # change config on entering this step
-    query: { durationMs: 45000, timeoutMs: 60000, label: "slow query" }
-    reset: { config: { ... } } # or `true`: start a fresh simulation
-    speed: 1                   # playback speed (sim ms per wall ms)
-  view:
-    focus: [dcp, kv, workers]  # highlight these parts of the panel
-    chart: dcpBuf              # emphasize this chart
-  code: [herder.checkAndBlockIndex, cbgt.dcpBuffer]   # ids from content/coderefs.yaml
+- id: persisting                    # slug, unique within the chapter
+  sim: { until: persisting }        # simulation directives (see below)
+  view: { target: ourBatch }        # what the callout points at, etc.
+  expect: ["reached:persisting"]    # checked by `npm test`
+  code: [persister.maybeMerge]      # ids from content/coderefs.yaml
   text: |
-    Markdown. Inline HTML like <span class="st st-stall">stalled</span> is allowed.
+    Markdown. [[A persister worker]] is merging them into one zap file.
 ```
 
-To build the state for step N, the explainer takes the most recent
-`reset` at or before N. Then, for each step from there through N, it
-fast-forwards to that step's `minTimeMs` and applies its `set` and
-`query`. This means a step looks the same however the reader got
-there, including by scrolling back up or following a deep link
+**The callout.** `[[phrase]]` marks the one phrase per step that the
+callout line starts from. `view.target` names what it points at. That
+can be a fixed anchor (`dcp`, `workers`, `gate`, `introducer`, `root`,
+`persister`, `bolt`, ... see `ANCHORS` in `src/js/ui/layout.js`) or a
+live one that follows the simulation: `ourBatch`, `ourSeg`, `ourFile`
+or `deletedFile`.
+
+**View directives** say only what changes; the state carries over from
+step to step:
+
+| key | meaning |
+|---|---|
+| `camera` | a named region (`overview`, `top`, `cbft`, `scorchTop`, `introducer`, `root`, `persister`, `merger`, `lower`, `disk`, ...) or `[x0, y0, x1, y1]` |
+| `open` / `close` | lids to open or close: `kv`, `cbft`, `scorch`, `disk`, and inside scorch `introducer`, `persister`, `merger` |
+| `flip` / `unflip` | turn a panel over to its detailed back side: `persister`, `merger` |
+| `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
+
+**Simulation directives:**
+
+| key | meaning |
+|---|---|
+| `reset: true` or `reset: { seed, config }` | start a fresh simulation |
+| `minTimeMs` | fast-forward to this sim time (since the last reset) |
+| `set: { ... }` | change config (keys from `src/js/sim/config.js`) |
+| `query: { durationMs, timeoutMs, label }` | start a query that pins a snapshot |
+| `follow: true` | tag the next batch, to follow it through the system |
+| `until: <stage>` | run event by event until the followed batch reaches a stage: `dcp`, `channel`, `worker`, `herder`, `analysis`, `introducing`, `introduced`, `persisting`, `file`, `merging`, `merged`, `oldFileDeleted` |
+| `speed` | playback speed (sim ms per wall ms; `0` means paused) |
+
+To build the state for step N, the explainer starts from the most
+recent `reset` at or before N. For each step from there through N, it
+fast-forwards to that step's `minTimeMs`, then applies its directives.
+This means a step looks the same however the reader got there,
+including by scrolling back up or following a deep link
 (`#chapter--step`). See `src/js/story/timeline.js`.
 
-`expect` names predicates from `EXPECTATIONS` in `timeline.js`. The
-tests check them, so the prose and the simulation can't silently drift
-apart.
+**One change per step.** The build rejects a step that changes more
+than one of camera, lids, flips and simulation. If you need to, say
+`multi: true`. To move from one section to another, use three steps:
+zoom out, open the next lid, then zoom in.
 
-Focus ids: `kv dcp workers herder analysis introducer root persister
-merger disk bolt queries`. Charts: `memUsed files dcpBuf disk`. The
-build validates all of this (`build/schema.mjs`) with specific errors.
+The build also checks that:
+- every camera, lid, anchor and chart name exists;
+- a callout's target isn't hidden under a closed lid;
+- nested lids only open inside open parents.
+
+`expect` names predicates from `EXPECTATIONS` in `timeline.js`, plus
+`reached:<stage>`. The tests check them, so the prose and the
+simulation can't silently drift apart.
 
 ### Code references
 
@@ -146,7 +180,7 @@ content/            narratives (YAML), code refs, pinned sources, snippets.json
 docs/research/      how scorch and cbft work, with file:line refs
 src/js/sim/         the simulator (no DOM; runs in Node and the browser)
 src/js/story/       narrative timeline semantics (shared with tests)
-src/js/ui/          the page: instrument panel, scrolling, code + knobs drawers
+src/js/ui/          the page: diagram + layout, camera, callouts, code + knobs drawers
 src/css/style.css
 build/              build.mjs, snippets.mjs, schema.mjs
 test/, test-e2e/

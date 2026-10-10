@@ -1,14 +1,16 @@
 // Validates narrative YAML. Hand-rolled (no schema library) so errors
 // can say exactly which step is wrong, in terms an author understands.
+// Also enforces the storytelling rule: each step changes at most one
+// thing (camera, lids, flips, or the simulation) unless it says
+// `multi: true`.
 
-import { DEFAULT_CONFIG, applyConfig, makeConfig } from '../src/js/sim/config.js';
-import { EXPECTATIONS } from '../src/js/story/timeline.js';
-
-export const FOCUS_IDS = ['kv', 'dcp', 'workers', 'herder', 'analysis', 'introducer', 'root',
-  'persister', 'merger', 'disk', 'bolt', 'queries'];
-export const CHART_IDS = ['memUsed', 'files', 'dcpBuf', 'disk'];
+import { applyConfig, makeConfig } from '../src/js/sim/config.js';
+import { isKnownExpectation, flattenSteps, resolveViews, changesAt } from '../src/js/story/timeline.js';
+import { CAMERAS, LIDS, FLIPPABLE, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, isAnchorVisible } from '../src/js/ui/layout.js';
+import { TRACE_STAGES } from '../src/js/story/timeline.js';
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
+const CALLOUT = /\[\[(.+?)\]\]/g;
 
 export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {}) {
   const errs = [];
@@ -21,6 +23,11 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
     if (cfg === undefined) return;
     if (!isObj(cfg)) return err(where, 'config must be a mapping');
     try { applyConfig(makeConfig(), cfg); } catch (e) { err(where, e.message); }
+  };
+  const checkIds = (list, known, where, what) => {
+    if (list === undefined) return;
+    if (!Array.isArray(list)) return err(where, `${what} must be a list`);
+    for (const id of list) if (!known.includes(id)) err(where, `unknown ${what} "${id}" (known: ${known.join(', ')})`);
   };
 
   if (!isObj(n)) return [`${file}: not a mapping`];
@@ -37,25 +44,30 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
   }
   const ids = new Set();
   let first = true;
+  const where = [];
   n.chapters.forEach((ch, ci) => {
     const cw = `chapter[${ci}]${ch && ch.id ? ' ' + ch.id : ''}`;
     if (!isObj(ch)) return err(cw, 'must be a mapping');
-    keys(ch, ['id', 'title', 'steps'], cw);
+    keys(ch, ['id', 'title', 'color', 'steps'], cw);
     if (typeof ch.id !== 'string' || !SLUG.test(ch.id)) err(cw, 'id must be a slug');
     if (typeof ch.title !== 'string') err(cw, 'title is required');
+    if (ch.color !== undefined && !SECTION_COLORS.includes(ch.color)) err(cw, `unknown color "${ch.color}" (known: ${SECTION_COLORS.join(', ')})`);
     if (!Array.isArray(ch.steps) || ch.steps.length === 0) return err(cw, 'steps must be a non-empty list');
     ch.steps.forEach((st, si) => {
       const sw = `${cw} step[${si}]${st && st.id ? ' ' + st.id : ''}`;
+      where.push(sw);
       if (!isObj(st)) return err(sw, 'must be a mapping');
-      keys(st, ['id', 'text', 'sim', 'view', 'code', 'expect', 'sandbox'], sw);
+      keys(st, ['id', 'text', 'sim', 'view', 'code', 'expect', 'sandbox', 'multi'], sw);
       const full = `${ch.id}/${st.id}`;
       if (typeof st.id !== 'string' || !SLUG.test(st.id)) err(sw, 'id must be a slug');
       else if (ids.has(full)) err(sw, `duplicate id ${full}`);
       ids.add(full);
       if (typeof st.text !== 'string' || !st.text.trim()) err(sw, 'text is required');
+      const callouts = typeof st.text === 'string' ? [...st.text.matchAll(CALLOUT)].length : 0;
+      if (callouts > 1) err(sw, 'at most one [[callout]] phrase per step');
       if (st.sim !== undefined) {
         if (!isObj(st.sim)) err(sw, 'sim must be a mapping');
-        keys(st.sim, ['reset', 'minTimeMs', 'set', 'query', 'speed'], `${sw} sim`);
+        keys(st.sim, ['reset', 'minTimeMs', 'set', 'query', 'speed', 'follow', 'until'], `${sw} sim`);
         const r = st.sim.reset;
         if (r !== undefined && r !== true) {
           if (!isObj(r)) err(sw, 'sim.reset must be true or a mapping');
@@ -72,19 +84,55 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         for (const k of ['minTimeMs', 'speed']) {
           if (st.sim[k] !== undefined && !(typeof st.sim[k] === 'number' && st.sim[k] >= 0)) err(sw, `sim.${k} must be a number >= 0`);
         }
+        if (st.sim.follow !== undefined && st.sim.follow !== true) err(sw, 'sim.follow must be true');
+        if (st.sim.until !== undefined && !TRACE_STAGES.includes(st.sim.until)) err(sw, `unknown sim.until stage "${st.sim.until}" (known: ${TRACE_STAGES.join(', ')})`);
       }
       if (first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');
       first = false;
       if (st.view !== undefined) {
-        keys(st.view, ['focus', 'chart'], `${sw} view`);
-        for (const f of st.view.focus || []) if (!FOCUS_IDS.includes(f)) err(sw, `unknown focus "${f}" (known: ${FOCUS_IDS.join(', ')})`);
-        if (st.view.chart !== undefined && !CHART_IDS.includes(st.view.chart)) err(sw, `unknown chart "${st.view.chart}" (known: ${CHART_IDS.join(', ')})`);
+        keys(st.view, ['camera', 'open', 'close', 'flip', 'unflip', 'target', 'chart'], `${sw} view`);
+        const v = st.view;
+        if (v.camera !== undefined && !(typeof v.camera === 'string' && CAMERAS[v.camera]) &&
+          !(Array.isArray(v.camera) && v.camera.length === 4 && v.camera.every((x) => typeof x === 'number'))) {
+          err(sw, `unknown camera "${v.camera}" (known: ${Object.keys(CAMERAS).join(', ')}, or [x0, y0, x1, y1])`);
+        }
+        checkIds(v.open, Object.keys(LIDS), sw, 'lid');
+        checkIds(v.close, Object.keys(LIDS), sw, 'lid');
+        checkIds(v.flip, FLIPPABLE, sw, 'flippable panel');
+        checkIds(v.unflip, FLIPPABLE, sw, 'flippable panel');
+        if (v.target !== undefined && !(v.target in ANCHORS) && !DYNAMIC_ANCHORS.includes(v.target)) {
+          err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(ANCHORS), ...DYNAMIC_ANCHORS].join(', ')})`);
+        }
+        if (v.target && callouts === 0) err(sw, 'a view.target needs a [[callout]] phrase in the text');
+        if (v.chart !== undefined && !CHART_IDS.includes(v.chart)) err(sw, `unknown chart "${v.chart}" (known: ${CHART_IDS.join(', ')})`);
       }
+      if (callouts === 1 && !(st.view && st.view.target)) err(sw, 'a [[callout]] phrase needs a view.target');
       for (const c of st.code || []) if (!(c in coderefs)) err(sw, `unknown code ref "${c}" (see content/coderefs.yaml)`);
-      for (const e of st.expect || []) if (!(e in EXPECTATIONS)) err(sw, `unknown expectation "${e}"`);
+      for (const e of st.expect || []) if (!isKnownExpectation(e)) err(sw, `unknown expectation "${e}"`);
     });
+  });
+  if (errs.length) return errs;
+
+  // Cross-step checks on the resolved views.
+  const steps = flattenSteps(n);
+  const views = resolveViews(steps);
+  steps.forEach((st, i) => {
+    const sw = where[i];
+    const v = views[i];
+    for (const id of v.open) {
+      const parent = LIDS[id].parent;
+      if (parent && !v.open.has(parent)) err(sw, `lid "${id}" is open but its parent "${parent}" isn't`);
+    }
+    for (const id of v.flipped) if (!v.open.has(id)) err(sw, `panel "${id}" is flipped but its lid isn't open`);
+    if (v.target && ANCHORS[v.target] && !isAnchorVisible(v.target, v.open, v.flipped)) {
+      err(sw, `target "${v.target}" is hidden under a closed lid (or an unflipped panel) at this step`);
+    }
+    const changes = changesAt(steps, views, i);
+    if (changes.length > 1 && !st.multi) {
+      err(sw, `changes ${changes.join(' and ')} at once; split it into steps, one change each (or set multi: true)`);
+    }
   });
   return errs;
 }
 
-export { DEFAULT_CONFIG };
+export { CHART_IDS };

@@ -54,9 +54,9 @@ test('desktop: scrolling activates every step without errors', async () => {
 
 test('code drawer shows highlighted, linked source', async () => {
   const { page, errors } = await open({ width: 1440, height: 900 });
-  await page.evaluate(() => document.getElementById('steady--persist').scrollIntoView());
+  await page.evaluate(() => document.getElementById('persister--open').scrollIntoView());
   await page.waitForTimeout(300);
-  await page.locator('#steady--persist .code-chip').first().click();
+  await page.locator('#persister--open .code-chip').first().click();
   const drawer = page.locator('.drawer:not(.knobs)');
   await page.waitForFunction(() => document.querySelector('.drawer:not(.knobs)').classList.contains('open'));
   const href = await drawer.locator('.where a').getAttribute('href');
@@ -82,7 +82,7 @@ test('knobs change the live simulation', async () => {
 for (const scheme of ['light', 'dark']) {
   test(`phone width (${scheme}): no horizontal overflow`, async () => {
     const { page, errors } = await open({ width: 400, height: 860 }, scheme);
-    for (const id of ['steady--cast', 'slowio--dcpblock', 'query--zombies']) {
+    for (const id of ['picture--layers', 'slowdisk--kv', 'query--zombies']) {
       await page.evaluate((id) => document.getElementById(id).scrollIntoView(), id);
       await page.waitForTimeout(400);
       const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -92,3 +92,24 @@ for (const scheme of ['light', 'dark']) {
     await page.close();
   });
 }
+
+test('a deep-linked step shows its lids, flips and one callout', async () => {
+  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('file://' + file + '#persister--flip');
+  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  await page.waitForTimeout(1500);
+  const state = await page.evaluate(() => ({
+    flipped: document.querySelectorAll('.panel.flipped').length,
+    openLids: document.querySelectorAll('.lid.open').length,
+    callouts: document.querySelectorAll('.overlay .callout').length,
+    trace: window.bleveExplainer.ctl.model.trace.stage,
+  }));
+  assert.equal(state.flipped, 1);
+  assert.equal(state.openLids, 5); // kv, cbft, scorch, introducer, persister
+  assert.equal(state.callouts, 1);
+  assert.equal(state.trace, 'persisting');
+  assert.deepEqual(errors, []);
+  await page.close();
+});
