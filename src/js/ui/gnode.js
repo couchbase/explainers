@@ -126,7 +126,9 @@ const SHORT = [
   [/^waiting for analysis/, 'waiting for analysis'],
   [/^Scorch\.Batch\(\)/, 'calling Scorch.Batch()'],
   [/^NewUsing/, 'building in-memory segment'],
-  [/^prepareSegment/, 'computing obsoletes'],
+  // prepareSegment() also computes obsoletes (deletion bitmaps for
+  // older segments); the story doesn't cover those yet.
+  [/^prepareSegment/, 'handing segment over'],
   [/^introductions <- segment/, 'handing segment over'],
   [/^waiting for introduction to be applied/, 'waiting for the introducer'],
   [/^waiting for persistence/, 'stalled: waiting for persist'],
