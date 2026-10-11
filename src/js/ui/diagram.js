@@ -602,9 +602,12 @@ export class Diagram {
     this._blendCells(A, B, clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), drop);
 
     // Its epoch: a copy of the old one, then "+1" and it rolls over.
-    this._drawEpoch(A.epoch, B.epoch, clamp01((ep - 0.35) / 0.45), 1, copy, true);
+    this._drawEpoch(A.epoch, B.epoch, clamp01((ep - 0.25) / 0.3), 1, copy, true);
     const one = B.epoch === A.epoch + 1;
-    this.epochPlus.setAttribute('opacity', one ? (Math.min(1, ep / 0.3) * (1 - clamp01((ep - 0.8) / 0.2))).toFixed(3) : 0);
+    const fadeOut = clamp01((ep - 0.82) / 0.18);
+    this.epochPlus.setAttribute('opacity', one ? (Math.min(1, ep / 0.3) * (1 - fadeOut)).toFixed(3) : 0);
+    // The new number stays red, like its "+1", then both fade together.
+    this.epochNew.style.fill = ep > 0 && ep < 1 ? `color-mix(in srgb, var(--accent) ${(100 * (1 - fadeOut)).toFixed(0)}%, var(--muted))` : '';
 
     // The introducer's lid names the root's epoch: the new one once
     // it's swapped in.
@@ -619,6 +622,11 @@ export class Diagram {
     this._blendDir(A, B, s / 8);
   }
 
+  // Whether a swap from A to B has anything for its 'drop' phase.
+  static swapDrops(A, B) {
+    return A.mem.some((a, i) => a !== 'cell' && B.mem[i] === 'cell') || A.bars.some((a, i) => a.h > 0 && B.bars[i].h === 0);
+  }
+
   // Undoes drawSwap's changes to the front sheet.
   _clearSwap() {
     if (!this.swapShift) return;
@@ -629,6 +637,7 @@ export class Diagram {
     this.rootRect.removeAttribute('fill-opacity');
     this.rootContent.removeAttribute('opacity');
     this.epochPlus.setAttribute('opacity', 0);
+    this.epochNew.style.fill = '';
     this._drawGhost(null, 0, 0);
   }
 

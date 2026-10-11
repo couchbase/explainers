@@ -117,6 +117,7 @@ function record(i, m) {
 // on each), or played within one step's scroll whenever the root changes.
 
 const SOLID = SWAP_PHASES.indexOf('solid');
+const DROP = SWAP_PHASES.indexOf('drop');
 const phaseNum = (v) => (v.swap ? SWAP_PHASES.indexOf(v.swap) + 1 : 0);
 
 // The step before the told swap that step i is part of, or null.
@@ -137,7 +138,10 @@ function swapAt(i, p, t) {
     // In the step where the new root goes solid, it does so in the
     // first half; the boxes catch up in the second (see boxProgress).
     const tt = crossesSolid(i) ? clamp01(t / 0.5) : t;
-    return { A, B, base, s: lerp(phaseNum(views[i - 1]), phaseNum(views[i]), tt) };
+    // An empty 'drop' phase (nothing replaced) passes in no scroll.
+    let from = phaseNum(views[i - 1]);
+    if (from === DROP && phaseNum(views[i]) > DROP + 1 && !Diagram.swapDrops(A, B)) from = DROP + 1;
+    return { A, B, base, s: lerp(from, phaseNum(views[i]), tt) };
   }
   const A = ctl.slotsAt.get(i - 1), B = ctl.slotsAt.get(i);
   if (p < 1 && Diagram.isSwap(A, B)) return { A, B, base: i - 1, s: SWAP_PHASES.length * clamp01((t - 0.1) / 0.8) };
