@@ -61,8 +61,8 @@ export function enterStep(model, step) {
   if (model.now < target) model.advance(target - model.now);
   if (sim.set) model.set(sim.set);
   if (sim.query) model.startQuery(sim.query);
-  if (sim.follow) model.follow();
-  model.advance(0); // let just-spawned processes start
+  if (sim.follow) model.follow({ alone: sim.follow === 'alone' });
+  if (sim.set || sim.query || sim.follow) model.advance(0); // let just-spawned processes start
   if (sim.until) {
     if (!advanceUntil(model, () => model.reached(sim.until))) {
       model.log('trace', `(our batch didn't reach "${sim.until}" in time)`);

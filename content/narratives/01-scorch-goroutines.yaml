@@ -94,7 +94,7 @@ chapters:
           <span class="st st-stall">stalled by backpressure</span>.
 
       - id: follow
-        sim: { follow: true, until: dcp }
+        sim: { follow: alone, until: dcp }
         view: { target: ourBatch }
         expect: ["reached:dcp"]
         text: |
@@ -104,8 +104,15 @@ chapters:
 
           Our batch is being built right now by [[the DCP goroutine]].
 
+          To keep the story simple, we let the batches already in
+          flight finish, then had KV send just the mutations for our
+          batch and pause. So our batch travels alone, and nothing
+          else changes the index while we follow it. In a real system
+          batches keep coming, many at once; we'll turn them back on
+          later.
+
       - id: to-channel
-        sim: { set: { ingestDocsPerSec: 0 }, until: channel }
+        sim: { until: channel }
         view: { target: ourBatch }
         expect: ["reached:channel"]
         code: [cbft.submitAsync]
@@ -114,12 +121,6 @@ chapters:
           [[a worker's channel]], a slot that holds just one batch.
           Which worker is fixed by the vbucket number, so each
           vbucket's batches stay in order.
-
-          To keep the story simple, we've now paused new mutations
-          from KV, so our batch is the last one for a while and
-          nothing else changes the index while we follow it. In a
-          real system batches keep coming, all at once; we'll turn
-          them back on later.
 
       - id: to-worker
         sim: { until: worker }
@@ -715,7 +716,7 @@ chapters:
           still holds [[the one it started from]].
 
       - id: group-commit
-        sim: { minTimeMs: 10800 }
+        sim: { minTimeMs: 10080 }
         view: { target: persister }
         expect: [persisterHoldsOlderRoot]
         code: [persister.loop]

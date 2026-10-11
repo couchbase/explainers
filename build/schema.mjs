@@ -86,7 +86,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         for (const k of ['minTimeMs', 'speed']) {
           if (st.sim[k] !== undefined && !(typeof st.sim[k] === 'number' && st.sim[k] >= 0)) err(sw, `sim.${k} must be a number >= 0`);
         }
-        if (st.sim.follow !== undefined && st.sim.follow !== true) err(sw, 'sim.follow must be true');
+        if (st.sim.follow !== undefined && st.sim.follow !== true && st.sim.follow !== 'alone') err(sw, "sim.follow must be true or 'alone'");
         if (st.sim.until !== undefined && !TRACE_STAGES.includes(st.sim.until)) err(sw, `unknown sim.until stage "${st.sim.until}" (known: ${TRACE_STAGES.join(', ')})`);
       }
       if (first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');

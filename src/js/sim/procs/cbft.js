@@ -14,6 +14,10 @@ export class CbftProcs {
   * _kvProducer(p) {
     const k = this.k;
     for (;;) {
+      if (this.kvOneShot) {
+        yield* this._kvOneShot(p);
+        continue;
+      }
       const rate = this.cfg.ingestDocsPerSec;
       if (rate <= 0) {
         yield k.sleep(100, 'idle: no mutations');
@@ -36,6 +40,27 @@ export class CbftProcs {
       this.dcpReady.broadcast();
       yield k.work(n / rate * 1000, 'sending mutations');
     }
+  }
+
+  // For the story, not the real system: let everything in flight
+  // drain, then send one last snapshot, for a vbucket that goes to
+  // worker `kvOneShot.worker`, and stop sending. The batch made from it
+  // then travels through the system alone.
+  * _kvOneShot(p) {
+    const k = this.k;
+    while (!(this.dcpQueue.length === 0 && this.pendingBatchBytes === 0)) {
+      yield k.sleep(5, 'idle: letting batches in flight drain');
+    }
+    const N = this.workerChs.length, w = this.kvOneShot.worker;
+    this.kvOneShot = null;
+    const vb = Math.floor(k.rng() * Math.floor(this.cfg.numVBuckets / N)) * N + w;
+    const n = Math.max(1, Math.round(-Math.log(1 - k.rng()) * Math.max(1, this.cfg.dcpSnapshotMeanDocs)));
+    const bytes = n * this.cfg.docBytes;
+    this.dcpBufUsed += bytes;
+    this.dcpQueue.push({ vb, n, bytes });
+    this.dcpReady.broadcast();
+    yield k.work(n / Math.max(1, this.cfg.ingestDocsPerSec) * 1000, 'sending mutations');
+    this.set({ ingestDocsPerSec: 0 });
   }
 
   // gocbcore's DCP callback goroutine calling cbgt Dest ->

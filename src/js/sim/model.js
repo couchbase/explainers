@@ -81,6 +81,7 @@ export class Model {
     this.flags = {}; // misc. scenario/visual flags
     this.trace = null; // the batch we follow through the system, if any
     this.followNext = false;
+    this.kvOneShot = null; // see _kvOneShot
     this.writing = new Map(); // file name -> {by, seg, since}
     this.recentDeletes = []; // [{name, bytes, t}]
     this.introLast = null; // {kind, t}: the introducer's last message
@@ -111,10 +112,12 @@ export class Model {
 
   // Tags the next batch the DCP goroutine starts for a vbucket that
   // goes to batch worker `worker`, so we can follow it (and, later, the
-  // segments and files its docs end up in).
-  follow({ worker = 0 } = {}) {
+  // segments and files its docs end up in). alone: KV lets what's in
+  // flight drain, sends just that batch's snapshot, then stops.
+  follow({ worker = 0, alone = false } = {}) {
     this.followNext = { worker };
     this.trace = null;
+    if (alone) this.kvOneShot = { worker };
   }
 
   reached(stage) {
