@@ -109,7 +109,7 @@ export function resolveViews(steps) {
     if (v.ui !== undefined) ui = v.ui;
     if (v.token !== undefined) token = v.token;
     if (v.plan !== undefined) plan = v.plan;
-    return { camera, open, bubbles, ui, token, plan, target: v.target || null, chart: v.chart || null };
+    return { camera, open, bubbles, ui, token, plan, swap: v.swap || null, target: v.target || null, chart: v.chart || null };
   });
 }
 
@@ -129,6 +129,9 @@ export function changesAt(steps, views, i) {
   const stairs = (v) => v.bubbles.has('merger');
   if (views[i - 1].plan !== views[i].plan && stairs(views[i - 1]) && stairs(views[i])) out.push('plan');
   if (steps[i].sim && SIM_CHANGES.some((k) => steps[i].sim[k] !== undefined)) out.push('simulation');
+  // A root swap told step by step: its first step is the simulation's
+  // change, shown one phase at a time.
+  else if (views[i].swap && views[i].swap !== views[i - 1].swap) out.push('swap');
   return out;
 }
 

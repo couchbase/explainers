@@ -12,13 +12,13 @@
 import { SECTIONS, PANELS, LIDS, BUBBLES, ANCHORS, CANVAS, STATIONS, isAnchorVisible } from './layout.js';
 import { fmtBytes, fmtMs, fmtNum } from '../sim/fmt.js';
 import { svgEl as el, svgText as txt, setText, setCls } from './util/dom.js';
-import { along, easeQuad } from './util/anim.js';
+import { along, clamp01, easeQuad, lerp } from './util/anim.js';
 import { GNode, procState, shortLabel } from './gnode.js';
 import { Slots } from './slots.js';
 import { Staircase } from './staircase.js';
 import { stairScene } from './stairs-scene.js';
 import { planInput } from '../sim/procs/merger.js';
-import { stackOf, stackFrame, stackKey, SHEET_DX, SHEET_DY, MAX_BACK } from './snapstack.js';
+import { stackOf, stackFrame, stackKey, MAX_BACK, SHEET_DX, SHEET_DY, swapPart, swapShift, ADD_TRAVEL } from './snapstack.js';
 
 const SYMBOLS = `
 <symbol id="dg-file" viewBox="0 0 12 15"><path d="M0.5,0.5 H8 L11.5,4 V14.5 H0.5 Z" class="ficon-body"/><path d="M8,0.5 V4 H11.5" class="ficon-fold"/></symbol>
@@ -35,6 +35,7 @@ const STACK_POOL = 6; // sheet elements, enough for a blend between two stacks
 const STACK_TWEEN_MS = 350;
 const EPOCH_X = 246; // where the root title's epoch number starts
 const DIR_COLS = 32, DIR_ROWS = 6;
+const ON_ROOT = ['root', 'rootR', 'rootEpoch', 'rootMem', 'ourSeg']; // anchors on the front sheet
 
 export class Diagram {
   constructor(svg) {
@@ -207,12 +208,16 @@ export class Diagram {
     }
     for (let i = 0; i < STACK_POOL; i++) this.sheetTags.push(txt(sg, 0, 0, '', 'note sheet-tag'));
 
+    // The old root while a new one is swapped in over it (drawSwap).
+    this.ghost = this._rootFace(el('g', { opacity: 0 }, g));
+
     // root snapshot: the front sheet
     this.rootG = el('g', {}, g);
     const face = this._rootFace(this.rootG);
     this.memCells = face.cells;
     this.fileBars = face.bars;
     this.rootContent = face.content;
+    this.rootRect = face.rect;
     setText(face.title, 'root snapshot · epoch');
     // The epoch number on its own, so a change can roll over (old one
     // up and out, new one up and in) as the reader scrolls.
@@ -222,14 +227,6 @@ export class Diagram {
     this.epochPlus.setAttribute('opacity', 0);
     this.memMore = txt(face.content, 460, 1006, '', 'note-in', 'end');
     this.fileMore = txt(face.content, ROOT[0] + ROOT[2] - 10, 1006, '', 'note-in', 'end');
-
-    // The old root on its way back when a new one is swapped in: it
-    // slides down and to the right into the stack, leaving the front
-    // empty for the new root.
-    this.ghost = this._rootFace(el('g', { opacity: 0 }, g));
-    // A copy of the old root's epoch, flying from its tag in the stack
-    // up into the new root's title, where it becomes epoch + 1.
-    this.epochFly = txt(g, 0, 0, '', 'zone-title epoch-num lit', 'start');
 
     // The persister and merger don't receive from the root: each takes
     // a ref on a root snapshot, reads its segments, then lets go.
@@ -249,12 +246,12 @@ export class Diagram {
   // One root snapshot sheet: its box, title, in-memory cells and file
   // bars, drawn into parent.
   _rootFace(parent) {
-    el('rect', { x: ROOT[0], y: ROOT[1], width: ROOT[2], height: ROOT[3], rx: 6, class: 'zone strong' }, parent);
+    const rect = el('rect', { x: ROOT[0], y: ROOT[1], width: ROOT[2], height: ROOT[3], rx: 6, class: 'zone strong' }, parent);
     const title = txt(parent, 96, 862, '', 'zone-title');
-    txt(parent, 96, 880, 'in-memory segments', 'note-in');
-    txt(parent, 520, 880, 'file segments (mmapped zap)', 'note-in');
     const content = el('g', {}, parent);
     parent = content;
+    txt(parent, 96, 880, 'in-memory segments', 'note-in');
+    txt(parent, 520, 880, 'file segments (mmapped zap)', 'note-in');
     const cells = [];
     for (let i = 0; i < MEM_COLS * MEM_ROWS; i++) {
       const x = 96 + (i % MEM_COLS) * 14, y = 888 + Math.floor(i / MEM_COLS) * 14;
@@ -267,7 +264,7 @@ export class Diagram {
       const del = el('rect', { x, y: FILE_BASE, width: 14, height: 0, class: 'fdel' }, parent);
       bars.push({ bar, del, x });
     }
-    return { g: parent.parentNode, title, cells, bars, content };
+    return { g: parent.parentNode, rect, title, cells, bars, content };
   }
 
   // The old front sheet (captured slots S), k sheets deep, at opacity o.
@@ -530,71 +527,102 @@ export class Diagram {
     };
   }
 
-  // Shows the slot grids partway (q) from snapshot A to snapshot B:
-  // things that appear fade in, things that go fade out, bars that
-  // change size grow or shrink.
-  // Whether going from slots A to B swaps the root (see blendSlots).
+  // Whether going from slots A to B swaps the root (see drawSwap).
   static isSwap(A, B) {
     return !!(A && B && A.epoch !== undefined && B.epoch !== undefined && A.epoch !== B.epoch && A.stack && B.stack);
   }
 
-  // When the root changed, in order, as the introducer builds it:
-  //   1. the old root slides down and right, leaving a copy (dashed,
-  //      epoch N′) in its place;
-  //   2. the old root settles into its place in the stack, behind;
-  //   3. the copy becomes the new root: contents, then epoch N + 1.
-  blendSlots(A, B, qq) {
-    const part = (a, b) => Math.min(1, Math.max(0, (qq - a) / (b - a)));
-    const swap = Diagram.isSwap(A, B);
-    const q = swap ? 1 : qq;
-    // One thing at a time; the marker then gets the end (SWAP_MARKER).
-    const fly = part(0.28, 0.42), roll = part(0.45, 0.56), fill = part(0.59, 0.7);
-    if (swap) {
-      const depth = B.stack.epochs.indexOf(A.epoch);
-      const rest = depth > 0 && depth <= MAX_BACK ? depth : 1;
-      const out = easeQuad(part(0, 0.12)), back = easeQuad(part(0.12, 0.26));
-      const k = 3 * out + (rest - 3) * back; // out to 3 sheets deep, then back to its place
-      this._drawGhost(A, k, 1 - back);
-      // The epoch's copy: from the old root's tag to the new title.
-      const from = [ROOT[0] + ROOT[2] + SHEET_DX * rest + 7, 866 + SHEET_DY * rest];
-      const f = easeQuad(fly);
-      setText(this.epochFly, String(A.epoch));
-      this.epochFly.setAttribute('x', (from[0] + (EPOCH_X - from[0]) * f).toFixed(1));
-      this.epochFly.setAttribute('y', (from[1] + (862 - from[1]) * f).toFixed(1));
-      this.epochFly.setAttribute('opacity', fly > 0 && fly < 1 ? 1 : 0);
-    } else {
-      this._drawGhost(A, 0, 0);
-      this.epochFly.setAttribute('opacity', 0);
-    }
-    // The front is an empty, dashed root until it becomes the new one.
-    const empty = swap && qq > 0.02 && roll < 1;
-    setCls(this.rootG, empty ? 'root-empty' : '');
-    this.rootContent.setAttribute('opacity', swap && qq > 0.02 ? fill.toFixed(3) : 1);
+  // Shows the slot grids partway (q) from snapshot A to snapshot B, for
+  // steps that don't swap the root: things that appear fade in, things
+  // that go fade out, bars that change size grow or shrink.
+  blendSlots(A, B, q) {
+    this._clearSwap();
+    this._blendCells(A, B, q, q);
+    if (A.epoch !== undefined && B.epoch !== undefined) this._drawEpoch(A.epoch, B.epoch, q);
+    if (A.stack && B.stack) this._drawStack(stackFrame(A.stack, B.stack, q));
+    this._blendDir(A, B, q);
+  }
+
+  // The introducer swapping in a new root (slots B) over the old one
+  // (slots A), at s through SWAP_PHASES (0..8), one change at a time:
+  // the new root X starts as a see-through, dashed copy laid over the
+  // old one and lifts off the stack; it gets the old root's contents
+  // and epoch, epoch + 1, the new segment, loses what that replaces;
+  // then it's solid (swapped in) and the stack shifts back under it.
+  drawSwap(A, B, s) {
+    const part = (n) => swapPart(s, n);
+    const cover = part('cover'), copy = part('copy'), ep = part('epoch');
+    const add = part('add'), drop = part('drop'), solid = part('solid'), settle = easeQuad(part('settle'));
+
+    // X, the new root, in the front sheet's elements.
+    const [dx, dy] = swapShift(s);
+    this.swapShift = [dx, dy];
+    this.rootG.setAttribute('transform', `translate(${dx.toFixed(1)} ${dy.toFixed(1)})`);
+    this.rootG.setAttribute('opacity', cover.toFixed(3));
+    setCls(this.rootG, solid < 0.5 ? 'root-draft' : '');
+    // See-through while empty; mostly hides the old root once it has
+    // its own copy of the contents, so they don't read doubled.
+    this.rootRect.setAttribute('fill-opacity', lerp(lerp(0.72, 0.94, copy), 1, solid).toFixed(3));
+    // Its contents start as a faint copy, and firm up when it's solid.
+    this.rootContent.setAttribute('opacity', (0.5 * copy + 0.5 * solid).toFixed(3));
+    // Contents change only once the marker has brought the new segment.
+    this._blendCells(A, B, clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), drop);
+
+    // Its epoch: a copy of the old one, then "+1" and it rolls over.
+    this._drawEpoch(A.epoch, B.epoch, clamp01((ep - 0.35) / 0.45), 1, copy);
+    const one = B.epoch === A.epoch + 1;
+    this.epochPlus.setAttribute('opacity', one ? (Math.min(1, ep / 0.3) * (1 - clamp01((ep - 0.8) / 0.2))).toFixed(3) : 0);
+
+    // The old root, under X, then back into the stack (or gone, if
+    // nothing holds it any more).
+    const depth = B.stack.epochs.indexOf(A.epoch);
+    const kept = depth > 0 && depth <= MAX_BACK;
+    this._drawGhost(A, settle * (kept ? depth : 1), kept ? 1 : 1 - settle);
+    this._drawStack(stackFrame(A.stack, B.stack, settle));
+    this._blendDir(A, B, s / 8);
+  }
+
+  // Undoes drawSwap's changes to the front sheet.
+  _clearSwap() {
+    if (!this.swapShift) return;
+    this.swapShift = null;
+    this.rootG.removeAttribute('transform');
+    this.rootG.removeAttribute('opacity');
+    setCls(this.rootG, '');
+    this.rootRect.removeAttribute('fill-opacity');
+    this.rootContent.removeAttribute('opacity');
+    this.epochPlus.setAttribute('opacity', 0);
+    this._drawGhost(null, 0, 0);
+  }
+
+  // The front sheet's cells and bars partway from A to B: qIn for what
+  // appears or changes, qOut for what goes.
+  _blendCells(A, B, qIn, qOut) {
     const fade = (e, o) => { if (o >= 1) e.removeAttribute('opacity'); else e.setAttribute('opacity', o.toFixed(3)); };
     // In-memory segments that leave the root while a new file bar
     // appears were merged into it: they fly into that bar as they fade.
     const nb = A.bars.findIndex((a, i) => a.h === 0 && B.bars[i].h > 0);
     const into = nb >= 0 ? [this.fileBars[nb].x + 7, FILE_BASE - B.bars[nb].h / 2] : null;
-    const k = easeQuad(q);
+    const k = easeQuad(qOut);
     this.memCells.forEach((c, i) => {
       const a = A.mem[i], b = B.mem[i];
       const aOn = a !== 'cell', bOn = b !== 'cell';
       c.removeAttribute('transform');
-      if (a === b) { setCls(c, b); fade(c, 1); } else if (bOn && !aOn) { setCls(c, b); fade(c, q); } else if (aOn && !bOn) {
+      if (a === b) { setCls(c, b); fade(c, 1); } else if (bOn && !aOn) { setCls(c, b); fade(c, qIn); } else if (aOn && !bOn) {
         setCls(c, a);
-        if (into && q < 1) {
+        if (into && qOut < 1) {
           const dx = into[0] - (+c.getAttribute('x') + 5), dy = into[1] - (+c.getAttribute('y') + 5);
           c.setAttribute('transform', `translate(${(dx * k).toFixed(1)} ${(dy * k).toFixed(1)})`);
           fade(c, 1 - k * k);
-        } else fade(c, 1 - q);
-      } else { setCls(c, q < 0.5 ? a : b); fade(c, 1); }
+        } else fade(c, 1 - qOut);
+      } else { setCls(c, qIn < 0.5 ? a : b); fade(c, 1); }
     });
     this.fileBars.forEach((bar, i) => {
       const a = A.bars[i], b = B.bars[i];
       let s = b, o = 1;
-      if (a.h === 0 && b.h > 0) o = q;
-      else if (a.h > 0 && b.h === 0) { s = a; o = 1 - q; } else if (a.h !== b.h || a.dh !== b.dh) {
-        const l = (x, y) => x + (y - x) * q;
+      if (a.h === 0 && b.h > 0) o = qIn;
+      else if (a.h > 0 && b.h === 0) { s = a; o = 1 - qOut; } else if (a.h !== b.h || a.dh !== b.dh) {
+        const l = (x, y) => x + (y - x) * qIn;
         s = { y: l(a.y, b.y), h: l(a.h, b.h), dy: l(a.dy, b.dy), dh: l(a.dh, b.dh), cls: b.cls };
       }
       bar.bar.setAttribute('y', s.y.toFixed(1)); bar.bar.setAttribute('height', s.h.toFixed(1));
@@ -602,10 +630,9 @@ export class Diagram {
       setCls(bar.bar, s.cls);
       fade(bar.bar, o); fade(bar.del, o);
     });
-    if (A.epoch !== undefined && B.epoch !== undefined) {
-      this._drawEpoch(A.epoch, B.epoch, swap ? roll : qq, qq, swap && qq > 0.02 && fly < 1 ? 0 : 1);
-    }
-    if (A.stack && B.stack) this._drawStack(stackFrame(A.stack, B.stack, swap ? part(0.12, 0.26) : qq));
+  }
+
+  _blendDir(A, B, q) {
     this.dirIcons.forEach((ic, i) => {
       const a = A.dir[i], b = B.dir[i];
       const aOn = a.o === '1', bOn = b.o === '1';
@@ -787,12 +814,13 @@ export class Diagram {
   }
 
   // Position of a named anchor (static or dynamic) and whether it's visible.
+  // Anchors on the front sheet move with it while a new root lifts off.
   anchor(id) {
     const open = this.open || new Set(), bubbles = this.shownBubbles || new Set();
-    if (ANCHORS[id]) return { p: ANCHORS[id].p, visible: isAnchorVisible(id, open, bubbles) };
-    const d = this.positions[id];
+    const d = ANCHORS[id] || this.positions[id];
     if (!d) return null;
-    return { p: d.p, visible: isAnchorVisible(id, open, bubbles, d.needs) };
+    const sh = this.swapShift && ON_ROOT.includes(id) ? this.swapShift : [0, 0];
+    return { p: [d.p[0] + sh[0], d.p[1] + sh[1]], visible: isAnchorVisible(id, open, bubbles, ANCHORS[id] ? undefined : d.needs) };
   }
 
   // ---------------------------------------------------------------
@@ -864,11 +892,8 @@ export class Diagram {
   _updateRoot(m) {
     const segs = m.root.segs;
     this.rootEpochNow = m.root.epoch;
+    this._clearSwap();
     this._drawEpoch(m.root.epoch, m.root.epoch, 1);
-    this._drawGhost(null, 0, 0);
-    setCls(this.rootG, '');
-    this.rootContent.removeAttribute('opacity');
-    this.epochFly.setAttribute('opacity', 0);
     const mems = segs.filter((ss) => ss.seg.kind === 'mem');
     const files = segs.filter((ss) => ss.seg.kind === 'file');
     const memOver = this.memSlots.sync(mems.map((ss) => ss.seg.id));

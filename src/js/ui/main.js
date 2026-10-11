@@ -20,8 +20,9 @@ import { Camera } from './camera.js';
 import { bindGestures } from './gestures.js';
 import { Overlay } from './overlay.js';
 import { scrollState, scrollYFor } from './scroll.js';
-import { markerFrame, boxFrames, toggleAt } from './transitions.js';
-import { clamp01, ease } from './util/anim.js';
+import { markerFrame, swapMarker, boxFrames, toggleAt } from './transitions.js';
+import { SWAP_PHASES } from './snapstack.js';
+import { clamp01, ease, lerp } from './util/anim.js';
 import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../story/timeline.js';
 import { checkInvariants } from '../sim/invariants.js';
 
@@ -76,10 +77,13 @@ function enter(i, { rebuild = false } = {}) {
 
   diagram.setView(view.open, view.bubbles);
   diagram.live = ctl.playing;
-  diagram.update(ctl.model);
-  ctl.tokenAt.set(i, diagram.tokenTarget(ctl.model, view.token));
-  ctl.stateAt.set(i, diagram.nodeStates);
-  ctl.slotsAt.set(i, diagram.captureSlots());
+  // A root swap told over several steps starts from the step before
+  // it, so that one's needed too (e.g. after a deep link).
+  const base = swapBase(i);
+  if (base !== null && !ctl.slotsAt.has(base)) record(base, modelAtStep(narrative, steps, base));
+  record(i, ctl.model);
+  // The boxes stay as they were until the new root is swapped in.
+  if (base !== null && SWAP_PHASES.indexOf(view.swap) < SOLID) ctl.stateAt.set(i, ctl.stateAt.get(base));
 
   const cam = typeof view.camera === 'string' ? CAMERAS[view.camera] : { label: 'detail', section: null };
   ui.crumbDot.className = `crumb-dot sec-${cam.section || 'neutral'}`;
@@ -97,6 +101,47 @@ function enter(i, { rebuild = false } = {}) {
   ctl.dirty = true;
 }
 
+// What the diagram shows at step i, for transitions.
+function record(i, m) {
+  diagram.update(m);
+  ctl.tokenAt.set(i, diagram.tokenTarget(m, views[i].token));
+  ctl.stateAt.set(i, diagram.nodeStates);
+  ctl.slotsAt.set(i, diagram.captureSlots());
+}
+
+// ---------------------------------------------------------------
+// Root swaps (see SWAP_PHASES): told over several steps (`swap: <phase>`
+// on each), or played within one step's scroll whenever the root changes.
+
+const SOLID = SWAP_PHASES.indexOf('solid');
+const phaseNum = (v) => (v.swap ? SWAP_PHASES.indexOf(v.swap) + 1 : 0);
+
+// The step before the told swap that step i is part of, or null.
+function swapBase(i) {
+  if (!views[i].swap) return null;
+  let j = i;
+  while (j > 0 && views[j - 1].swap) j--;
+  return j - 1;
+}
+
+// The swap shown at step i, progress p (t = ease(p)): {A, B, base, s},
+// with s from 0 to SWAP_PHASES.length; or null.
+function swapAt(i, p, t) {
+  const base = swapBase(i);
+  if (base !== null) {
+    const A = ctl.slotsAt.get(base), B = ctl.slotsAt.get(i);
+    if (!A || !B) return null;
+    // The new root goes solid in the first half of its step; the boxes
+    // catch up in the second (see boxProgress).
+    const to = phaseNum(views[i]), tt = to === SOLID + 1 ? clamp01(t / 0.5) : t;
+    return { A, B, base, s: lerp(phaseNum(views[i - 1]), to, tt) };
+  }
+  const A = ctl.slotsAt.get(i - 1), B = ctl.slotsAt.get(i);
+  if (p < 1 && Diagram.isSwap(A, B)) return { A, B, base: i - 1, s: SWAP_PHASES.length * clamp01((t - 0.1) / 0.8) };
+  return null;
+}
+const boxProgress = (i, p) => (views[i].swap === 'solid' ? clamp01((p - 0.5) / 0.5) : p);
+
 function effectiveSpeed() {
   if (ui.speedSel.value !== 'auto') return Number(ui.speedSel.value);
   return ctl.speed > 0 ? ctl.speed : 0.25;
@@ -109,7 +154,7 @@ function effectiveSpeed() {
 function drawCallout(i, view, opacity) {
   if (!view.target || window.innerWidth <= 900) return;
   const a = ANCHORS[view.target]
-    ? { p: ANCHORS[view.target].p, visible: isAnchorVisible(view.target, view.open, view.bubbles) }
+    ? { ...diagram.anchor(view.target), visible: isAnchorVisible(view.target, view.open, view.bubbles) }
     : diagram.anchor(view.target);
   const hl = stepEls[i].querySelector('.hl');
   if (!a || !a.visible || !hl) return;
@@ -144,9 +189,9 @@ function render() {
 
   setChrome(toggleAt(pv.ui === 'full', v.ui === 'full', p));
 
-  // When the root is swapped, the marker moves last (see blendSlots).
-  const swapping = !ctl.playing && Diagram.isSwap(ctl.slotsAt.get(i - 1), ctl.slotsAt.get(i));
-  const mf = markerFrame(views, ctl.tokenAt, i, p, swapping ? [0.69, 0.9] : undefined);
+  // While the root is swapped, the marker waits for its turn.
+  const swap = ctl.playing ? null : swapAt(i, p, t);
+  const mf = (swap && swapMarker(views, ctl.tokenAt, i, swap.base, swap.s)) || markerFrame(views, ctl.tokenAt, i, p);
   const markerPt = mf && mf.t && mf.o > 0.01 ? mf.t.p : null;
   camera.show(camera.follow(camera.between(i > 0 ? pv.camera : null, v.camera, p), markerPt));
 
@@ -162,9 +207,12 @@ function render() {
   if (ctl.playing) {
     diagram.liveNodes(diagram.nodeStates, performance.now(), 450);
   } else {
-    diagram.scrubNodes(boxFrames(ctl.stateAt, Diagram.NODE_ORDER, i, p, diagram.nodeStates));
+    diagram.scrubNodes(boxFrames(ctl.stateAt, Diagram.NODE_ORDER, i, boxProgress(i, p), diagram.nodeStates));
     const sa = ctl.slotsAt.get(i - 1), sb = ctl.slotsAt.get(i);
-    if (sa && sb && p < 1) {
+    if (swap) {
+      diagram.drawSwap(swap.A, swap.B, swap.s);
+      ctl.blending = true;
+    } else if (sa && sb && p < 1) {
       diagram.blendSlots(sa, sb, clamp01((t - 0.1) / 0.8));
       ctl.blending = true;
     } else if (ctl.blending && sb) {

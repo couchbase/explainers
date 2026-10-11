@@ -392,49 +392,77 @@ chapters:
       - id: watch
         view: { camera: swap, target: root }
         text: |
-          Now watch [[the root snapshot]], and the stack behind it, as
-          the introducer swaps in a new root. One thing moves at a
-          time as you scroll.
+          Now watch [[the root snapshot]], epoch 355, as the
+          introducer swaps in a new one. It goes one change at a
+          time, as you scroll.
 
       - id: file
         sim: { until: file }
-        view: { target: ourSeg }
+        view: { swap: cover, target: root }
         expect: ["reached:file", ourSegIsFile]
+        code: [introducer.mergeSwap]
         text: |
-          Done: [[our file]] is in the root. The introducer built a
-          new root snapshot with it, and swapped it in.
+          The introducer starts [[a new root snapshot]]: empty for
+          now, drawn dashed and see-through over the old one. Nobody
+          else can see it yet. Queries, the persister and the merger
+          all find the root through `s.root`, which still points at
+          epoch 355.
+
+      - id: peel
+        view: { swap: peel, target: root }
+        text: |
+          Let's lift [[the new root]] off the stack, so we can watch it
+          being built while the old one stays put underneath.
+
+      - id: copy
+        view: { swap: copy, target: rootMem }
+        code: [introducer.mergeSwap]
+        text: |
+          It gets a copy of [[the old root's segment list]]. Only the
+          list: the segments themselves are shared, and each one's
+          refcount goes up by one. No docs are copied.
+
+      - id: epoch-up
+        view: { swap: epoch, target: rootEpoch }
+        expect: ["rootEpoch:356"]
+        text: |
+          It gets the next epoch: [[355 + 1 = 356]]. The introducer
+          hands out epochs in order, one for every root it swaps in,
+          whether that root adds a batch's segment, a persister's file,
+          or a merger's result.
+
+      - id: add
+        view: { swap: add, target: ourSeg }
+        text: |
+          In goes [[our file]], as a file segment.
+
+      - id: mem-gone
+        view: { swap: drop, target: rootMem }
+        expect: [noMemSegsAtRoot]
+        text: |
+          Out go [[the in-memory segments]] it replaces. All of them,
+          ours included, were merged into that one file: same docs,
+          now in a zap file on disk, mmapped.
+
+      - id: swapped
+        view: { swap: solid, target: root }
+        code: [introducer.mergeSwap]
+        text: |
+          Now the introducer [[swaps it in]]: one pointer assignment,
+          `s.root = newSnapshot`, under a lock. It's solid now. From
+          here on, queries, the persister and the merger see epoch 356.
 
       - id: old-root
-        view: { camera: root, target: olderEpoch }
+        view: { swap: settle, target: olderEpoch }
         expect: [persisterHoldsOlderRoot, "rootEpoch:356"]
         code: [snapshot.refcount]
         text: |
-          Watch the stack as you scroll. First, the old root,
-          [[epoch 355]], stepped back. It's still alive, because the
-          persister still holds a ref on it. Root snapshots aren't
-          linked to each other: each is an immutable, refcounted list
-          of segments, freed when its last ref goes.
-
-      - id: epoch-up
-        view: { target: rootEpoch }
-        expect: ["rootEpoch:356"]
-        code: [introducer.introduceMerge]
-        text: |
-          In front of it is the new root, which the introducer built
-          from a copy of the old one's segment list. It took the old
-          root's epoch and added one: [[355 + 1 = 356]]. Every root the
-          introducer swaps in gets the next epoch, whether it adds a
-          batch's segment, a persister's file, or a merger's result.
-
-      - id: mem-gone
-        view: { target: rootMem }
-        expect: [noMemSegsAtRoot]
-        text: |
-          In that copy, [[the in-memory segments]] are gone: all of
-          them, ours included, were replaced by the one blue file
-          segment they were merged into. Same docs, now in a zap file
-          on disk, mmapped. Next, the persister commits `root.bolt` and
-          fsyncs it.
+          The stack shifts back, with the new root in front. Behind
+          it, [[epoch 355]] is still alive: the introducer let go of
+          its ref, but the persister still holds one. Root snapshots
+          aren't linked to each other. Each is an immutable, refcounted
+          list of segments, freed when its last ref goes. Next, the
+          persister commits `root.bolt` and fsyncs it.
 
       - id: committed
         sim: { until: committed }

@@ -5,6 +5,7 @@
 
 import { STATIONS, BOXES, CORRIDOR_XS, CORRIDOR_YS, BOX_GAP } from './layout.js';
 import { along, clamp01, ease, lerp } from './util/anim.js';
+import { swapShift, swapTravel } from './snapstack.js';
 
 // ---- the batch marker's route ----
 //
@@ -97,10 +98,10 @@ export function route(a, b) {
 }
 
 // Hops that follow a drawn arrow instead of the general rule: our new
-// file rides the persister's "introduce ↑" arrow to the introducer and
-// lands on its 'merges' channel.
+// file rides the persister's "introduce ↑" arrow to the introducer,
+// straight on across to its 'merges' channel, then drops just below it.
 const HOPS = {
-  'written>fileIntroducing': () => [STATIONS.introducing, [STATIONS.introducing[0], STATIONS.fileIntroducing[1]]],
+  'written>fileIntroducing': () => [STATIONS.introducing, [STATIONS.fileIntroducing[0], STATIONS.introducing[1]]],
 };
 
 function hop(sa, pa, sb, pb) {
@@ -123,16 +124,7 @@ export function markerFrame(views, tokenAt, i, p, win = [0, 1]) {
   const cur = views[i].token === 'hide' ? null : tokenAt.get(i) || null;
   const prev = i > 0 && views[i - 1].token !== 'hide' ? tokenAt.get(i - 1) || null : null;
   const e = clamp01((ease(p) - win[0]) / (win[1] - win[0]));
-  if (cur && prev) {
-    const moving = prev.st !== cur.st || prev.key !== cur.key;
-    const shown = e > 0.5 ? cur : prev;
-    return {
-      t: { p: along(route(prev, cur), e), size: lerp(prev.size, cur.size, e), kind: shown.kind, label: shown.label, sub: (cur.snap ? cur : prev).sub,
-        snapO: lerp(prev.snap ? 1 : 0, cur.snap ? 1 : 0, e),
-        sideMix: lerp(prev.side === 'right' ? 1 : 0, cur.side === 'right' ? 1 : 0, e) },
-      o: 1, dest: moving ? cur : null, arrived: e >= 0.97,
-    };
-  }
+  if (cur && prev) return between(prev, cur, e);
   // A batch is born at the DCP goroutine: docs flow in from KV and
   // condense into the marker.
   if (cur && cur.st === 'dcp' && i > 0 && tokenAt.has(i - 1)) {
@@ -142,6 +134,34 @@ export function markerFrame(views, tokenAt, i, p, win = [0, 1]) {
   if (cur) return { t: withSnap(cur), o: i > 0 && !tokenAt.has(i - 1) ? 1 : e };
   if (prev) return { t: withSnap(prev), o: 1 - e };
   return null;
+}
+
+// The marker partway (e) from place prev to place cur.
+function between(prev, cur, e) {
+  const moving = prev.st !== cur.st || prev.key !== cur.key;
+  const shown = e > 0.5 ? cur : prev;
+  return {
+    t: { p: along(route(prev, cur), e), size: lerp(prev.size, cur.size, e), kind: shown.kind, label: shown.label, sub: (cur.snap ? cur : prev).sub,
+      snapO: lerp(prev.snap ? 1 : 0, cur.snap ? 1 : 0, e),
+      sideMix: lerp(prev.side === 'right' ? 1 : 0, cur.side === 'right' ? 1 : 0, e) },
+    o: 1, dest: moving ? cur : null, arrived: e >= 0.97,
+  };
+}
+
+// The marker while the introducer swaps in a new root (see
+// SWAP_PHASES), from its place at step `base` (before the swap) to its
+// place at step i: it waits for the 'add' phase, travels then, and a
+// place on the root moves with the new root as it lifts and settles.
+// Null if the marker isn't shown at both ends.
+export function swapMarker(views, tokenAt, i, base, s) {
+  const cur = views[i].token === 'hide' ? null : tokenAt.get(i) || null;
+  const prev = views[base].token === 'hide' ? null : tokenAt.get(base) || null;
+  if (!cur || !prev) return null;
+  const [dx, dy] = swapShift(s);
+  const onRoot = (t) => t.st === 'cell' || t.st === 'bar';
+  const dest = onRoot(cur) ? { ...cur, p: [cur.p[0] + dx, cur.p[1] + dy] } : cur;
+  const from = onRoot(prev) ? { ...prev, p: [prev.p[0] + dx, prev.p[1] + dy] } : prev;
+  return between(from, dest, swapTravel(s));
 }
 
 // ---- goroutine boxes ----

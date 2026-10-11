@@ -6,6 +6,7 @@
 
 import { applyConfig, makeConfig } from '../src/js/sim/config.js';
 import { PLAN_PHASES } from '../src/js/ui/stairs-scene.js';
+import { SWAP_PHASES } from '../src/js/ui/snapstack.js';
 import { isKnownExpectation, flattenSteps, resolveViews, changesAt } from '../src/js/story/timeline.js';
 import { CAMERAS, LIDS, BUBBLES, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, UI_MODES, TOKEN_MODES, isAnchorVisible } from '../src/js/ui/layout.js';
 import { TRACE_STAGES } from '../src/js/story/timeline.js';
@@ -91,7 +92,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
       if (first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');
       first = false;
       if (st.view !== undefined) {
-        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'plan', 'target', 'chart'], `${sw} view`);
+        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'plan', 'swap', 'target', 'chart'], `${sw} view`);
         const v = st.view;
         if (v.camera !== undefined && !(typeof v.camera === 'string' && CAMERAS[v.camera]) &&
           !(Array.isArray(v.camera) && v.camera.length === 4 && v.camera.every((x) => typeof x === 'number'))) {
@@ -104,6 +105,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         if (v.ui !== undefined && !UI_MODES.includes(v.ui)) err(sw, `unknown ui "${v.ui}" (known: ${UI_MODES.join(', ')})`);
         if (v.token !== undefined && !TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${TOKEN_MODES.join(', ')})`);
         if (v.plan !== undefined && !PLAN_PHASES.includes(v.plan)) err(sw, `unknown plan "${v.plan}" (known: ${PLAN_PHASES.join(', ')})`);
+        if (v.swap !== undefined && !SWAP_PHASES.includes(v.swap)) err(sw, `unknown swap "${v.swap}" (known: ${SWAP_PHASES.join(', ')})`);
         if (v.target !== undefined && !(v.target in ANCHORS) && !DYNAMIC_ANCHORS.includes(v.target)) {
           err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(ANCHORS), ...DYNAMIC_ANCHORS].join(', ')})`);
         }
@@ -128,6 +130,13 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
       if (parent && !v.open.has(parent)) err(sw, `lid "${id}" is open but its parent "${parent}" isn't`);
     }
     for (const id of v.bubbles) if (!v.open.has(BUBBLES[id].parent)) err(sw, `bubble "${id}" shows, but its panel's lid isn't open`);
+    // A root swap told over several steps: its phases in order, and its
+    // first step is the one that changes the simulation.
+    if (v.swap) {
+      const pv = i > 0 ? views[i - 1] : null;
+      if (pv && pv.swap && SWAP_PHASES.indexOf(v.swap) <= SWAP_PHASES.indexOf(pv.swap)) err(sw, `swap "${v.swap}" must come after "${pv.swap}"`);
+      if (!(pv && pv.swap) && !(st.sim && st.sim.until)) err(sw, 'the first step of a swap needs sim.until (the step that swaps the root)');
+    }
     if (v.target && ANCHORS[v.target] && !isAnchorVisible(v.target, v.open, v.bubbles)) {
       err(sw, `target "${v.target}" is hidden under a closed lid (or needs its bubble) at this step`);
     }

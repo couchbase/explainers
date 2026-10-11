@@ -122,6 +122,14 @@ introducer.introduceMerge:
   title: introduceMerge() — remap deletes that happened during the merge
   highlight: ["AndNot(", "oldNewDocIDs"]
 
+introducer.mergeSwap:
+  repo: bleve
+  path: index/scorch/introducer.go
+  anchor: "func (s *Scorch) introduceMerge(nextMerge *segmentMerge) {"
+  extent: func
+  title: introduceMerge() — a new root from the old one's list, then the swap
+  highlight: ["newSnapshot := &IndexSnapshot{", "for i := range root.segment {", "root.segment[i].segment.AddRef()", "newSnapshot.epoch = s.nextSnapshotEpoch", "s.root = newSnapshot", "rootPrev.DecRef()"]
+
 persister.defaults:
   repo: bleve
   path: index/scorch/persister.go

@@ -62,4 +62,7 @@ test('our new file rides the introduce arrow into the introducer, onto its merge
   const pts = route({ st: 'written', p: STATIONS.written }, { st: 'fileIntroducing', p: STATIONS.fileIntroducing });
   assert.ok(pts.some(([x, y]) => x === STATIONS.introducing[0] && y === STATIONS.introducing[1]), 'via the end of the introduce arrow');
   assert.deepEqual(pts[pts.length - 1], STATIONS.fileIntroducing);
+  // then straight across to the channel and down: no jink at the box's edge
+  const k = pts.findIndex(([x, y]) => x === STATIONS.introducing[0] && y === STATIONS.introducing[1]);
+  assert.deepEqual(pts.slice(k + 1), [[STATIONS.fileIntroducing[0], STATIONS.introducing[1]], STATIONS.fileIntroducing]);
 });

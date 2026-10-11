@@ -123,6 +123,7 @@ step to step:
 | `open` / `close` | lids to open or close: `kv`, `cbft`, `bleve` (inside cbft), `scorch` (inside bleve), `disk`, and inside scorch `introducer`, `persister`, `merger` |
 | `bubble` / `unbubble` | pop a detail bubble out of a panel: `analysis`, `persister`, `merger` |
 | `plan` | what the merger bubble's tier staircase shows: an example index's `budget`, `files`, `over`, `pick`, `merged`; or `live`, the simulation's own files (the default) |
+| `swap` | tell a root swap one phase per step: `cover`, `peel`, `copy`, `epoch`, `add`, `drop`, `solid`, `settle` (see `SWAP_PHASES` in `src/js/ui/snapstack.js`). The run's first step has the `sim.until` that swaps the root. Swaps that aren't told this way play every phase within one step's scroll |
 | `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
 
 **Simulation directives:**

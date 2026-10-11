@@ -62,3 +62,31 @@ export function stackFrame(A, B, q) {
 }
 
 export const stackKey = (S) => `${S.epochs.join(',')}|${S.persister}|${S.merger}|${S.query}`;
+
+// How the introducer swaps in a new root, one change at a time. A
+// story can stop at any phase (view `swap: <phase>`); otherwise a swap
+// plays every phase within one step's scroll.
+//   cover:  a new, empty root (dashed, see-through) over the old one
+//   peel:   it lifts off the stack, up and to the left
+//   copy:   it gets a copy of the old root's segment list (and epoch)
+//   epoch:  its epoch goes up by one
+//   add:    the new segment goes in
+//   drop:   segments it replaces drop out
+//   solid:  it's swapped in: now it's the root
+//   settle: the whole stack shifts back, the new root in front
+export const SWAP_PHASES = ['cover', 'peel', 'copy', 'epoch', 'add', 'drop', 'solid', 'settle'];
+
+const clamp01 = (x) => Math.max(0, Math.min(1, x));
+const easeQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+
+// How far through phase `name` a swap at s (0..SWAP_PHASES.length) is.
+export const swapPart = (s, name) => clamp01(s - SWAP_PHASES.indexOf(name));
+
+// Where the new root sits, in sheets (negative: lifted up and left).
+export const swapLift = (s) => easeQuad(swapPart(s, 'settle')) - easeQuad(swapPart(s, 'peel'));
+export const swapShift = (s) => [SHEET_DX * swapLift(s), SHEET_DY * swapLift(s)];
+
+// The marker's share of the 'add' phase: it travels, then the segment
+// it carries appears.
+export const ADD_TRAVEL = 0.55;
+export const swapTravel = (s) => clamp01(swapPart(s, 'add') / ADD_TRAVEL);
