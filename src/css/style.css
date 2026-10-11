@@ -344,6 +344,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .bolt.protected { stroke: var(--muted); stroke-width: 2.5; }
 .diagram .root-draft > rect.zone { stroke-dasharray: 6 4; }
 .diagram .epoch-num.lit { fill: var(--accent); }
+.diagram .copy-label { font-style: italic; }
 .bolt.ours { stroke: var(--accent); stroke-width: 2; }
 
 .panel-frame { fill: var(--panel); stroke: color-mix(in srgb, var(--sec-scorch) 55%, var(--line)); stroke-width: 1.3; }

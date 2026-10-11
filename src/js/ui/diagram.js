@@ -218,7 +218,10 @@ export class Diagram {
     this.fileBars = face.bars;
     this.rootContent = face.content;
     this.rootRect = face.rect;
-    setText(face.title, 'root snapshot · epoch');
+    setText(face.title, 'root snapshot · ');
+    // "epoch" on its own, so "epoch N (copy)" can be set in italics
+    this.epochWord = el('tspan', {}, face.title);
+    this.epochWord.textContent = 'epoch';
     // The epoch number on its own, so a change can roll over (old one
     // up and out, new one up and in) as the reader scrolls.
     this.epochOld = txt(this.rootG, EPOCH_X, 862, '', 'zone-title epoch-num', 'start');
@@ -700,6 +703,10 @@ export class Diagram {
     // "+1" while a one-epoch step is shown, until the scroll settles.
     this.epochPlus.setAttribute('opacity', b === a + 1 && whole < 1 && shown ? Math.min(1, q * 3).toFixed(3) : 0);
     setText(this.epochOld, a === b ? '' : copy ? `${a} (copy)` : String(a));
+    // the copy's label in italics, while it shows
+    const italic = copy && a !== b && r < 0.5 && shown > 0;
+    this.epochWord.setAttribute('class', italic ? 'copy-label' : '');
+    this.epochOld.classList.toggle('copy-label', copy);
     // "+1" just after the old number
     const w = this.epochOld.textContent && this.epochOld.getComputedTextLength ? this.epochOld.getComputedTextLength() : 24;
     this.epochPlus.setAttribute('x', (EPOCH_X + (w || 24) + 8).toFixed(1));
