@@ -414,8 +414,8 @@ chapters:
         code: [introducer.introduceMerge]
         text: |
           In front of it, the introducer built the new root from a
-          copy of the old one's segment list, so its epoch is
-          [[355 + 1 = 356]]. Every root the introducer swaps in gets
+          copy of the old one's segment list (the dashed 355′ you saw
+          as you scrolled), so its epoch is [[355 + 1 = 356]]. Every root the introducer swaps in gets
           the next epoch, whether it adds a batch's segment, a
           persister's file, or a merger's result.
 

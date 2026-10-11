@@ -157,7 +157,7 @@ export const STATIONS = {
   analysis: [372, 637], introducing: [332, 752], persisting: [68, 1171], merging: [932, 1167],
   // our new file: written (by the persister's 'introduce' row), then
   // handed up the introduce arrow to the introducer.
-  written: [68, 1205], fileIntroducing: [332, 752],
+  written: [68, 1205], fileIntroducing: [542, 763], // on the 'merges' chip
 };
 
 // The boxes the batch marker must not cut through: [x, y, w, h]. When

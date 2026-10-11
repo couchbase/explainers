@@ -3,7 +3,7 @@
 // cut through a box on the way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { route } from '../src/js/ui/transitions.js';
+import { route, usesArrowHop } from '../src/js/ui/transitions.js';
 import { STATIONS, BOXES } from '../src/js/ui/layout.js';
 
 const boxes = Object.values(BOXES);
@@ -30,6 +30,9 @@ test('routes never cut through a box, and leave and enter boxes vertically', () 
       if (a === b) continue;
       const pts = route(a, b);
       const ends = boxes.filter((bx) => inside(bx, a.p) || inside(bx, b.p));
+      // A hop along a drawn arrow may enter the introducer from the side.
+      const arrow = usesArrowHop(a, b);
+      if (arrow) ends.push(BOXES.introducer);
       for (let k = 1; k < pts.length; k++) {
         const [p, q] = [pts[k - 1], pts[k]];
         assert.ok(p[0] === q[0] || p[1] === q[1], `${a.st}>${b.st}: segment ${k} isn't horizontal or vertical`);
@@ -39,8 +42,8 @@ test('routes never cut through a box, and leave and enter boxes vertically', () 
         }
       }
       for (const bx of boxes) {
-        if (inside(bx, a.p) && !inside(bx, b.p)) assert.equal(pts[1][0], a.p[0], `${a.st}>${b.st}: leaves its box sideways`);
-        if (inside(bx, b.p) && !inside(bx, a.p)) assert.equal(pts[pts.length - 2][0], b.p[0], `${a.st}>${b.st}: enters its box sideways`);
+        if (inside(bx, a.p) && !inside(bx, b.p) && !(arrow && bx === BOXES.introducer)) assert.equal(pts[1][0], a.p[0], `${a.st}>${b.st}: leaves its box sideways`);
+        if (inside(bx, b.p) && !inside(bx, a.p) && !(arrow && bx === BOXES.introducer)) assert.equal(pts[pts.length - 2][0], b.p[0], `${a.st}>${b.st}: enters its box sideways`);
       }
       checked++;
     }
@@ -53,4 +56,10 @@ test('our segment goes down out of the root snapshot, then left to the persister
   const [r] = [BOXES.root];
   assert.deepEqual(pts[1], [339, r[1] + r[3] + 10], 'first straight down, out of the root');
   assert.equal(pts[2][1], pts[1][1], 'then horizontally, in the gap');
+});
+
+test('our new file rides the introduce arrow into the introducer, onto its merges channel', () => {
+  const pts = route({ st: 'written', p: STATIONS.written }, { st: 'fileIntroducing', p: STATIONS.fileIntroducing });
+  assert.ok(pts.some(([x, y]) => x === STATIONS.introducing[0] && y === STATIONS.introducing[1]), 'via the end of the introduce arrow');
+  assert.deepEqual(pts[pts.length - 1], STATIONS.fileIntroducing);
 });

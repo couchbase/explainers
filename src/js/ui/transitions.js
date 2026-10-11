@@ -77,13 +77,40 @@ const VIA = {
 };
 
 // The marker's path from place a to place b ({st, p, key}).
+const viaOf = (a, b) => VIA[`${a.st}>${b.st}`] || (VIA[`${b.st}>${a.st}`] || []).slice().reverse();
+
+// Whether the route from a to b includes a hop along a drawn arrow
+// (which may enter a box from the side, as the arrow does).
+export function usesArrowHop(a, b) {
+  const names = [a.st, ...viaOf(a, b), b.st];
+  return names.some((n, i) => i > 0 && (HOPS[`${names[i - 1]}>${n}`] || HOPS[`${n}>${names[i - 1]}`]));
+}
+
 export function route(a, b) {
   if (a.st === b.st && a.key === b.key) return [a.p, b.p];
-  const via = VIA[`${a.st}>${b.st}`] || (VIA[`${b.st}>${a.st}`] || []).slice().reverse();
+  const via = viaOf(a, b);
+  const names = [a.st, ...via, b.st];
   const pts = [a.p, ...via.map((v) => STATIONS[v]), b.p];
   let out = [a.p];
-  for (let i = 1; i < pts.length; i++) out = [...out, ...leg(pts[i - 1], pts[i]).slice(1)];
+  for (let i = 1; i < pts.length; i++) out = [...out, ...hop(names[i - 1], pts[i - 1], names[i], pts[i]).slice(1)];
   return out;
+}
+
+// Hops that follow a drawn arrow instead of the general rule: our new
+// file rides the persister's "introduce ↑" arrow to the introducer and
+// lands on its 'merges' channel.
+const HOPS = {
+  'written>fileIntroducing': () => [STATIONS.introducing, [STATIONS.introducing[0], STATIONS.fileIntroducing[1]]],
+};
+
+function hop(sa, pa, sb, pb) {
+  const fwd = HOPS[`${sa}>${sb}`];
+  if (fwd) {
+    const [first, ...rest] = fwd();
+    return [...leg(pa, first), ...rest, pb];
+  }
+  if (HOPS[`${sb}>${sa}`]) return hop(sb, pb, sa, pa).reverse();
+  return leg(pa, pb);
 }
 
 // The marker at step i, progress p. `tokenAt` maps step index to the

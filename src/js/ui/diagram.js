@@ -207,10 +207,6 @@ export class Diagram {
     }
     for (let i = 0; i < STACK_POOL; i++) this.sheetTags.push(txt(sg, 0, 0, '', 'note sheet-tag'));
 
-    // The old root on its way back when a new one is swapped in: a copy
-    // of the front sheet as it was, which slides down and to the right.
-    this.ghost = this._rootFace(el('g', { opacity: 0 }, g));
-
     // root snapshot: the front sheet
     this.rootG = el('g', {}, g);
     const face = this._rootFace(this.rootG);
@@ -225,6 +221,10 @@ export class Diagram {
     this.epochPlus.setAttribute('opacity', 0);
     this.memMore = txt(this.rootG, 460, 1006, '', 'note-in', 'end');
     this.fileMore = txt(this.rootG, ROOT[0] + ROOT[2] - 10, 1006, '', 'note-in', 'end');
+
+    // The old root on its way back when a new one is swapped in: it
+    // slides down and to the right off the front, leaving a copy behind.
+    this.ghost = this._rootFace(el('g', { opacity: 0 }, g));
 
     // The persister and merger don't receive from the root: each takes
     // a ref on a root snapshot, reads its segments, then lets go.
@@ -526,26 +526,26 @@ export class Diagram {
   // Shows the slot grids partway (q) from snapshot A to snapshot B:
   // things that appear fade in, things that go fade out, bars that
   // change size grow or shrink.
-  // When the root changed, in order: the old root steps back into the
-  // stack, a copy of it comes up in front, and that copy turns into the
-  // new root (contents, then epoch + 1), as the introducer builds it.
+  // When the root changed, in order, as the introducer builds it:
+  //   1. the old root slides down and right, leaving a copy (dashed,
+  //      epoch N′) in its place;
+  //   2. the old root settles into its place in the stack, behind;
+  //   3. the copy becomes the new root: contents, then epoch N + 1.
   blendSlots(A, B, qq) {
     const part = (a, b) => Math.min(1, Math.max(0, (qq - a) / (b - a)));
     const swap = A.epoch !== undefined && B.epoch !== undefined && A.epoch !== B.epoch && A.stack && B.stack;
-    const q = swap ? part(0.55, 0.85) : qq;
+    const q = swap ? part(0.55, 0.8) : qq;
     if (swap) {
       const depth = B.stack.epochs.indexOf(A.epoch);
-      const held = depth > 0 && depth <= MAX_BACK;
-      // It steps well back to make room, then the stack tightens up
-      // once the new root is in front of it.
-      const reach = 1 + 2 * easeQuad(part(0, 0.35)) * (1 - easeQuad(part(0.45, 0.8)));
-      const k = (held ? depth : 1) * easeQuad(part(0, 0.35)) * reach;
-      this._drawGhost(A, k, held ? 1 - part(0.85, 1) : 1 - part(0.35, 0.85));
-      this.rootG.setAttribute('opacity', part(0.38, 0.45).toFixed(3));
+      const rest = depth > 0 && depth <= MAX_BACK ? depth : 1;
+      const out = easeQuad(part(0, 0.3)), back = easeQuad(part(0.3, 0.5));
+      const k = 3 * out + (rest - 3) * back; // out to 3 sheets deep, then back to its place
+      this._drawGhost(A, k, 1 - back);
     } else {
       this._drawGhost(A, 0, 0);
-      this.rootG.removeAttribute('opacity');
     }
+    const copying = swap && qq > 0.02 && part(0.8, 0.9) < 0.5;
+    setCls(this.rootG, copying ? 'root-copy' : '');
     const fade = (e, o) => { if (o >= 1) e.removeAttribute('opacity'); else e.setAttribute('opacity', o.toFixed(3)); };
     // In-memory segments that leave the root while a new file bar
     // appears were merged into it: they fly into that bar as they fade.
@@ -578,8 +578,8 @@ export class Diagram {
       setCls(bar.bar, s.cls);
       fade(bar.bar, o); fade(bar.del, o);
     });
-    if (A.epoch !== undefined && B.epoch !== undefined) this._drawEpoch(A.epoch, B.epoch, swap ? part(0.65, 0.9) : qq, qq);
-    if (A.stack && B.stack) this._drawStack(stackFrame(A.stack, B.stack, swap ? part(0, 0.35) : qq));
+    if (A.epoch !== undefined && B.epoch !== undefined) this._drawEpoch(A.epoch, B.epoch, swap ? part(0.75, 0.95) : qq, qq, copying);
+    if (A.stack && B.stack) this._drawStack(stackFrame(A.stack, B.stack, swap ? part(0.3, 0.5) : qq));
     this.dirIcons.forEach((ic, i) => {
       const a = A.dir[i], b = B.dir[i];
       const aOn = a.o === '1', bOn = b.o === '1';
@@ -606,11 +606,11 @@ export class Diagram {
 
   // The root's epoch number, partway (q) from a to b: the old number
   // rolls up and out as the new one rolls in, lit while it changes.
-  _drawEpoch(a, b, q, whole = q) {
+  _drawEpoch(a, b, q, whole = q, copy = false) {
     const r = a === b ? 1 : q;
     // "+1" while a one-epoch step is shown, until the scroll settles.
     this.epochPlus.setAttribute('opacity', b === a + 1 && whole < 1 ? Math.min(1, q * 3).toFixed(3) : 0);
-    setText(this.epochOld, a === b ? '' : String(a));
+    setText(this.epochOld, a === b ? '' : `${a}${copy ? '′' : ''}`);
     setText(this.epochNew, String(b));
     this.epochOld.setAttribute('y', (862 - 12 * r).toFixed(1));
     this.epochOld.setAttribute('opacity', (1 - r).toFixed(3));
@@ -833,7 +833,7 @@ export class Diagram {
     this.rootEpochNow = m.root.epoch;
     this._drawEpoch(m.root.epoch, m.root.epoch, 1);
     this._drawGhost(null, 0, 0);
-    this.rootG.removeAttribute('opacity');
+    setCls(this.rootG, '');
     const mems = segs.filter((ss) => ss.seg.kind === 'mem');
     const files = segs.filter((ss) => ss.seg.kind === 'file');
     const memOver = this.memSlots.sync(mems.map((ss) => ss.seg.id));
