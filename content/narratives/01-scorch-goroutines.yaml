@@ -537,16 +537,36 @@ chapters:
           list of segments, freed when its last ref goes. Next, the
           persister commits `root.bolt` and fsyncs it.
 
+      - id: to-bolt
+        view: { camera: persisterBolt, target: bolt }
+        text: |
+          Let's watch [[root.bolt]], on the disk, while the persister
+          commits.
+
       - id: committed
         sim: { until: committed }
-        view: { target: persister }
+        view: { commit: bolt, target: bolt }
         expect: ["reached:committed"]
-        code: [persister.loop]
+        code: [persister.direct, persister.loop]
         text: |
-          [[The persister]] committed `root.bolt`, fsynced it, and let
-          go of its ref. Nothing else held that old snapshot, so it's
-          freed. Its next cycle takes a ref on whatever the root is by
-          then: it never holds more than one.
+          The persister wrote [[a new record]] into `root.bolt` and
+          fsynced it. It's filed under epoch 354, the root the
+          persister started from, and it lists our new zap file.
+
+      - id: listed
+        view: { commit: listed, target: ourFile }
+        text: |
+          Now that a record lists it, [[our zap file]] turns solid:
+          after a crash, scorch would reopen it from `root.bolt`.
+
+      - id: released
+        view: { commit: release, target: persister }
+        code: [snapshot.refcount]
+        text: |
+          Finally, [[the persister]] lets go of its ref on epoch 354.
+          Nothing else held that snapshot, so it's freed. Its next
+          cycle takes a ref on whatever the root is by then: it never
+          holds more than one.
 
   # ------------------------------------------------------------------
   - id: disk

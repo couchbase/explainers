@@ -73,6 +73,7 @@ export const CAMERAS = {
   mergerDetail: { rect: [440, 820, 980, 1590], label: 'scorch: inside the merger', section: 'scorch' },
   lower: { rect: [20, 820, 980, 1652], label: 'scorch and disk', section: 'scorch' },
   disk: { rect: [30, 1320, 970, 1652], label: 'disk', section: 'disk' },
+  persisterBolt: { rect: [60, 840, 960, 1545], label: 'scorch and disk: committing root.bolt', section: 'scorch' },
   diskDir: { rect: [30, 1350, 330, 1470], label: 'disk: the index directory', section: 'disk' },
 };
 

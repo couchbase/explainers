@@ -87,6 +87,11 @@ export const swapPart = (s, name) => clamp01(s - SWAP_PHASES.indexOf(name));
 export const swapLift = (s) => easeQuad(swapPart(s, 'settle')) - easeQuad(swapPart(s, 'peel'));
 export const swapShift = (s) => [SHEET_DX * swapLift(s), SHEET_DY * swapLift(s)];
 
+// How the persister's commit shows, one change at a time (view
+// `commit: <phase>`): a new root.bolt record slides in on top; our zap
+// file, now listed, turns solid; the persister lets go of its root.
+export const COMMIT_PHASES = ['bolt', 'listed', 'release'];
+
 // The marker's share of the 'add' phase: it travels, then the segment
 // it carries appears.
 export const ADD_TRAVEL = 0.55;

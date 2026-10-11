@@ -18,7 +18,7 @@ import { Slots } from './slots.js';
 import { Staircase } from './staircase.js';
 import { stairScene } from './stairs-scene.js';
 import { planInput } from '../sim/procs/merger.js';
-import { stackOf, stackFrame, stackKey, MAX_BACK, SHEET_DX, SHEET_DY, swapPart, swapShift, ADD_TRAVEL } from './snapstack.js';
+import { stackOf, stackFrame, stackKey, MAX_BACK, SHEET_DX, SHEET_DY, swapPart, swapShift, ADD_TRAVEL, COMMIT_PHASES } from './snapstack.js';
 
 const SYMBOLS = `
 <symbol id="dg-file" viewBox="0 0 12 15"><path d="M0.5,0.5 H8 L11.5,4 V14.5 H0.5 Z" class="ficon-body"/><path d="M8,0.5 V4 H11.5" class="ficon-fold"/></symbol>
@@ -588,6 +588,7 @@ export class Diagram {
       stack: this.stackNow,
       epoch: this.rootEpochNow,
       introLid: this.lids.introducer.status.textContent,
+      bolt: this.boltCards.map((c) => ({ text: c.t.textContent, cls: c.r.getAttribute('class'), o: c.r.getAttribute('opacity') })),
       dir: this.dirIcons.map((ic) => ({ o: ic.g.getAttribute('opacity'), cls: ic.use.getAttribute('class'), del: ic.del.getAttribute('opacity') })),
     };
   }
@@ -653,6 +654,35 @@ export class Diagram {
     this._drawGhost(A, settle * (kept ? depth : 1), kept ? 1 : 1 - settle);
     this._drawStack(stackFrame(A.stack, B.stack, settle));
     this._blendDir(A, B, s / 8);
+  }
+
+  // The persister's commit (slots A before, B after), at s through
+  // COMMIT_PHASES (0..3): a new root.bolt record slides in on top and
+  // the others move down; then our zap file's icon turns solid; then
+  // the persister lets go of its root snapshot.
+  drawCommit(A, B, s) {
+    const part = (n) => clamp01(s - COMMIT_PHASES.indexOf(n));
+    // The older records move down first; then the new one appears.
+    const shift = easeQuad(clamp01(part('bolt') / 0.5)), appear = clamp01((part('bolt') - 0.5) / 0.5);
+    const listed = part('listed'), release = easeQuad(part('release'));
+    this._clearSwap();
+    this._blendCells(B, B, 1, 1);
+    this._drawEpoch(B.epoch, B.epoch, 1);
+    const added = B.bolt[0].text && B.bolt[0].text !== A.bolt[0].text;
+    this.boltCards.forEach((c, i) => {
+      const b = B.bolt[i], a = added ? A.bolt[i - 1] : A.bolt[i];
+      const y1 = 1390 + i * 30, y0 = added && i > 0 ? y1 - 30 : y1;
+      const y = lerp(y0, y1, shift);
+      const shown = added && i === 0 ? b : shift < 0.5 && a ? a : b;
+      c.r.setAttribute('y', y.toFixed(1));
+      c.t.setAttribute('y', (y + 16).toFixed(1));
+      setCls(c.r, shown.cls);
+      setText(c.t, shown.text);
+      c.r.setAttribute('opacity', added && i === 0 ? (appear * +b.o).toFixed(3) : shown.o);
+      c.t.setAttribute('opacity', added && i === 0 ? appear.toFixed(3) : 1);
+    });
+    this._blendDir(A, B, listed);
+    this._drawStack(stackFrame(A.stack, B.stack, release));
   }
 
   // Whether a swap from A to B has anything for its 'drop' phase.
@@ -1100,6 +1130,9 @@ export class Diagram {
     const prot = m.protected || new Set();
     this.boltCards.forEach((c, i) => {
       const b = m.bolt[i];
+      c.r.setAttribute('y', 1390 + i * 30);
+      c.t.setAttribute('y', 1390 + i * 30 + 16);
+      c.t.setAttribute('opacity', 1);
       c.r.setAttribute('opacity', b ? 1 : 0.25);
       // The records that list our file get its outline.
       const hasOurs = b && ours && b.files.has(ours) ? ' ours' : '';

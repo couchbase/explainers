@@ -21,7 +21,7 @@ import { bindGestures } from './gestures.js';
 import { Overlay } from './overlay.js';
 import { scrollState, scrollYFor } from './scroll.js';
 import { markerFrame, swapMarker, boxFrames, toggleAt } from './transitions.js';
-import { SWAP_PHASES } from './snapstack.js';
+import { SWAP_PHASES, COMMIT_PHASES } from './snapstack.js';
 import { clamp01, ease, lerp } from './util/anim.js';
 import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../story/timeline.js';
 import { checkInvariants } from '../sim/invariants.js';
@@ -82,11 +82,14 @@ function enter(i, { rebuild = false } = {}) {
   diagram.live = ctl.playing;
   // A root swap told over several steps starts from the step before
   // it, so that one's needed too (e.g. after a deep link).
-  const base = swapBase(i);
+  const base = swapBase(i) ?? commitBase(i);
   if (base !== null && !ctl.slotsAt.has(base)) record(base, modelAtStep(narrative, steps, base));
   record(i, ctl.model);
-  // The boxes stay as they were until the new root is swapped in.
-  if (base !== null && SWAP_PHASES.indexOf(view.swap) < SOLID) ctl.stateAt.set(i, ctl.stateAt.get(base));
+  // The boxes stay as they were until the new root is swapped in (or
+  // the persister lets go of its root).
+  if (base !== null && (view.swap ? SWAP_PHASES.indexOf(view.swap) < SOLID : view.commit !== 'release')) {
+    ctl.stateAt.set(i, ctl.stateAt.get(base));
+  }
 
   const cam = typeof view.camera === 'string' ? CAMERAS[view.camera] : { label: 'detail', section: null };
   ui.crumbDot.className = `crumb-dot sec-${cam.section || 'neutral'}`;
@@ -150,8 +153,28 @@ function swapAt(i, p, t) {
   if (p < 1 && Diagram.isSwap(A, B)) return { A, B, base: i - 1, s: SWAP_PHASES.length * clamp01((t - 0.1) / 0.8) };
   return null;
 }
+// The persister's commit, told over steps (`commit: <phase>`), the
+// same way: {A, B, s} with s from 0 to COMMIT_PHASES.length, or null.
+const commitNum = (v) => (v.commit ? COMMIT_PHASES.indexOf(v.commit) + 1 : 0);
+function commitBase(i) {
+  if (!views[i].commit) return null;
+  let j = i;
+  while (j > 0 && views[j - 1].commit) j--;
+  return j - 1;
+}
+const releases = (i) => views[i].commit === 'release';
+function commitAt(i, p) {
+  const base = commitBase(i);
+  if (base === null) return null;
+  const A = ctl.slotsAt.get(base), B = ctl.slotsAt.get(i);
+  if (!A || !B || !A.bolt || !B.bolt) return null;
+  // Letting go takes the first half; the boxes follow in the second.
+  const tt = releases(i) ? clamp01(p / 0.5) : p;
+  return { A, B, s: lerp(commitNum(views[i - 1]), commitNum(views[i]), tt) };
+}
+
 const crossesSolid = (i) => !!views[i].swap && phaseNum(views[i - 1]) <= SOLID && phaseNum(views[i]) > SOLID;
-const boxProgress = (i, p) => (crossesSolid(i) ? clamp01((p - 0.5) / 0.5) : p);
+const boxProgress = (i, p) => (crossesSolid(i) || releases(i) ? clamp01((p - 0.5) / 0.5) : p);
 
 function effectiveSpeed() {
   if (ui.speedSel.value !== 'auto') return Number(ui.speedSel.value);
@@ -228,8 +251,12 @@ function render() {
   } else {
     diagram.scrubNodes(boxFrames(ctl.stateAt, Diagram.NODE_ORDER, i, boxProgress(i, p), diagram.nodeStates));
     const sa = ctl.slotsAt.get(i - 1), sb = ctl.slotsAt.get(i);
+    const commit = swap ? null : commitAt(i, p);
     if (swap) {
       diagram.drawSwap(swap.A, swap.B, swap.s);
+      ctl.blending = true;
+    } else if (commit) {
+      diagram.drawCommit(commit.A, commit.B, commit.s);
       ctl.blending = true;
     } else if (sa && sb && p < 1) {
       diagram.blendSlots(sa, sb, clamp01((t - 0.1) / 0.8));

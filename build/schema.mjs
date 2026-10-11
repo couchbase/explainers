@@ -6,7 +6,7 @@
 
 import { applyConfig, makeConfig } from '../src/js/sim/config.js';
 import { PLAN_PHASES } from '../src/js/ui/stairs-scene.js';
-import { SWAP_PHASES } from '../src/js/ui/snapstack.js';
+import { SWAP_PHASES, COMMIT_PHASES } from '../src/js/ui/snapstack.js';
 import { isKnownExpectation, flattenSteps, resolveViews, changesAt } from '../src/js/story/timeline.js';
 import { CAMERAS, LIDS, BUBBLES, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, UI_MODES, TOKEN_MODES, isAnchorVisible } from '../src/js/ui/layout.js';
 import { TRACE_STAGES } from '../src/js/story/timeline.js';
@@ -92,7 +92,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
       if (first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');
       first = false;
       if (st.view !== undefined) {
-        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'plan', 'swap', 'flow', 'target', 'chart'], `${sw} view`);
+        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'plan', 'swap', 'commit', 'flow', 'target', 'chart'], `${sw} view`);
         const v = st.view;
         if (v.camera !== undefined && !(typeof v.camera === 'string' && CAMERAS[v.camera]) &&
           !(Array.isArray(v.camera) && v.camera.length === 4 && v.camera.every((x) => typeof x === 'number'))) {
@@ -106,6 +106,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         if (v.token !== undefined && !TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${TOKEN_MODES.join(', ')})`);
         if (v.plan !== undefined && !PLAN_PHASES.includes(v.plan)) err(sw, `unknown plan "${v.plan}" (known: ${PLAN_PHASES.join(', ')})`);
         if (v.flow !== undefined && !['analysis', 'write'].includes(v.flow)) err(sw, `unknown flow "${v.flow}" (known: analysis, write)`);
+        if (v.commit !== undefined && !COMMIT_PHASES.includes(v.commit)) err(sw, `unknown commit "${v.commit}" (known: ${COMMIT_PHASES.join(', ')})`);
         if (v.swap !== undefined && !SWAP_PHASES.includes(v.swap)) err(sw, `unknown swap "${v.swap}" (known: ${SWAP_PHASES.join(', ')})`);
         if (v.target !== undefined && !(v.target in ANCHORS) && !DYNAMIC_ANCHORS.includes(v.target)) {
           err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(ANCHORS), ...DYNAMIC_ANCHORS].join(', ')})`);

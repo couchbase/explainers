@@ -109,7 +109,7 @@ export function resolveViews(steps) {
     if (v.ui !== undefined) ui = v.ui;
     if (v.token !== undefined) token = v.token;
     if (v.plan !== undefined) plan = v.plan;
-    return { camera, open, bubbles, ui, token, plan, swap: v.swap || null, flow: v.flow || null, target: v.target || null, chart: v.chart || null };
+    return { camera, open, bubbles, ui, token, plan, swap: v.swap || null, commit: v.commit || null, flow: v.flow || null, target: v.target || null, chart: v.chart || null };
   });
 }
 
@@ -132,6 +132,7 @@ export function changesAt(steps, views, i) {
   // A root swap told step by step: its first step is the simulation's
   // change, shown one phase at a time.
   else if (views[i].swap && views[i].swap !== views[i - 1].swap) out.push('swap');
+  else if (views[i].commit && views[i].commit !== views[i - 1].commit) out.push('commit');
   return out;
 }
 
