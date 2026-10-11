@@ -228,6 +228,7 @@ src/js/ui/               the page
   diagram.js             the diagram canvas (with gnode.js and slots.js)
   transitions.js         what's shown partway between steps (marker route, boxes)
   stairs-scene.js        the merger bubble's tier staircase, as data (staircase.js draws it)
+  snapstack.js           the stack of live root snapshots, and who holds a ref on which
   camera.js, gestures.js the camera, the reader's pan/zoom, map-style gestures
   scroll.js              scroll position -> (step, progress)
   overlay.js, charts.js  callout and leader lines; the charts column

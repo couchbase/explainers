@@ -271,6 +271,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .diagram .tab-text { font: 600 11.5px var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; fill: var(--panel); }
 .flow { stroke: var(--flow); stroke-width: 1.4; fill: none; }
 .flow-up { stroke: var(--up); stroke-width: 1.4; fill: none; stroke-dasharray: 5 3; }
+.flow-read { stroke: var(--flow); stroke-width: 1.2; fill: none; stroke-dasharray: 1.5 3; stroke-linecap: round; }
 .arrowhead { fill: var(--flow); }
 .arrowhead-up { fill: var(--up); }
 .boundary { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 6 4; }
@@ -316,9 +317,8 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .chan.lit { fill: color-mix(in srgb, var(--busy) 18%, var(--panel)); stroke: var(--busy); }
 .chan-text { font-size: 9px; fill: var(--ink); }
 
-.cell { fill: none; stroke: var(--faint); }
+.cell { fill: none; stroke: none; }
 .cell.mem { fill: var(--seg-mem); stroke: none; }
-.cell.merging { stroke: var(--ink); stroke-width: 1.5; }
 .fbar { fill: var(--seg-file); }
 .fbar.merging { stroke: var(--ink); stroke-width: 1.5; }
 .fdel { fill: var(--panel); fill-opacity: 0.6; }

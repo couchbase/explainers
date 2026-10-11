@@ -150,6 +150,7 @@ export const EXPECTATIONS = {
   napBroken: (m) => m.stats.TotPersisterMergerNapBreak > 0,
   persisterPausedForMerger: (m) => m.stats.TotPersisterSlowMergerPause > 0,
   queryRunning: (m) => m.queries.size > 0,
+  persisterHoldsOlderRoot: (m) => !!m.persisterSnapshot && m.persisterSnapshot !== m.root,
   noQueries: (m) => m.queries.size === 0,
   zombies: (m) => m.zombieBytes() > 0,
   filesWithinBudget: (m) => mergePlan(planInput(m.root), m.cfg.mergePlan).tasks.length === 0,

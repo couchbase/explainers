@@ -370,6 +370,17 @@ chapters:
           Done. Our docs now live in [[a file segment]], in blue: a
           zap file, mmapped, and listed in `root.bolt`.
 
+      - id: older-root
+        view: { camera: root, target: olderRoots }
+        expect: [persisterHoldsOlderRoot]
+        code: [snapshot.refcount]
+        text: |
+          While the persister worked, the root moved on. The snapshot
+          it started from is still alive, [[behind the current one]],
+          because the persister holds a ref on it. Root snapshots
+          aren't linked to each other: each is an immutable,
+          refcounted list of segments, freed when its last ref goes.
+
   # ------------------------------------------------------------------
   - id: disk
     title: "Down to disk"
@@ -715,12 +726,12 @@ chapters:
 
       - id: pinned
         sim: { minTimeMs: 16000 }
-        view: { target: root }
+        view: { target: olderRoots }
         expect: [queryRunning, zombies]
         code: [snapshot.refcount, zapx.closeActual]
         text: |
-          [[The root]] moves on, but the query's snapshot still
-          references the old segments. Their memory can't be freed,
+          The root moves on, but [[the query's snapshot]] stays alive
+          behind it, and still references the old segments. Their memory can't be freed,
           and their files stay open and mmapped.
 
       - id: zombies

@@ -18,6 +18,7 @@ import { Slots } from './slots.js';
 import { Staircase } from './staircase.js';
 import { stairScene } from './stairs-scene.js';
 import { planInput } from '../sim/procs/merger.js';
+import { stackOf, stackFrame, stackKey, SHEET_DX, SHEET_DY } from './snapstack.js';
 
 const SYMBOLS = `
 <symbol id="dg-file" viewBox="0 0 12 15"><path d="M0.5,0.5 H8 L11.5,4 V14.5 H0.5 Z" class="ficon-body"/><path d="M8,0.5 V4 H11.5" class="ficon-fold"/></symbol>
@@ -29,6 +30,9 @@ const SYMBOLS = `
 
 const MEM_COLS = 26, MEM_ROWS = 8, FILE_SLOTS = 20;
 const FILE_BASE = 990; // the root's file bars stand on this line
+const ROOT = [80, 842, 810, 170]; // the front sheet: the current root snapshot
+const STACK_POOL = 6; // sheet elements, enough for a blend between two stacks
+const STACK_TWEEN_MS = 350;
 const DIR_COLS = 32, DIR_ROWS = 6;
 
 export class Diagram {
@@ -100,8 +104,7 @@ export class Diagram {
     this._arrow(f, 'M500,388 V610');
     this._arrow(f, 'M500,662 V700');
     this._arrow(f, 'M500,802 V840');
-    this._arrow(f, 'M280,1012 V1050');
-    this._arrow(f, 'M720,1012 V1050');
+    txt(f, 492, 826, 'swaps in a new root snapshot', 'note', 'end');
     this._arrow(f, 'M80,1152 H78 Q70,1152 70,1144 V760 Q70,752 78,752 H348', true);
     this._arrow(f, 'M920,1152 H922 Q930,1152 930,1144 V760 Q930,752 922,752 H652', true);
     txt(f, 76, 790, 'introduce ↑', 'note');
@@ -189,13 +192,29 @@ export class Diagram {
 
     // queries
     this.queryG = el('g', { opacity: 0 }, g);
-    el('rect', { x: 680, y: 814, width: 220, height: 22, rx: 11, class: 'query' }, this.queryG);
-    el('use', { href: '#dg-search', x: 690, y: 819, width: 12, height: 12 }, this.queryG);
-    this.queryText = txt(this.queryG, 708, 829, '', 'note-in');
-    this.queryPin = el('line', { x1: 790, x2: 790, y1: 836, y2: 842, class: 'pin' }, this.queryG);
+    el('rect', { x: 600, y: 814, width: 280, height: 22, rx: 11, class: 'query' }, this.queryG);
+    el('use', { href: '#dg-search', x: 610, y: 819, width: 12, height: 12 }, this.queryG);
+    this.queryText = txt(this.queryG, 628, 829, '', 'note-in');
 
-    // root snapshot
-    el('rect', { x: 80, y: 842, width: 840, height: 170, rx: 6, class: 'zone strong' }, g);
+    // Older root snapshots that are still held, behind the current one.
+    this.sheets = [];
+    const sg = el('g', {}, g);
+    for (let i = 0; i < STACK_POOL; i++) {
+      this.sheets.push(el('rect', { x: ROOT[0], y: ROOT[1], width: ROOT[2], height: ROOT[3], rx: 6, class: 'zone strong sheet', opacity: 0 }, sg));
+    }
+    // The persister and merger don't receive from the root: each takes
+    // a ref on a root snapshot, reads its segments, then lets go.
+    this.readers = {};
+    // A query pins one too: its chip points at the sheet it holds.
+    for (const [who, x] of [['persister', 280], ['merger', 720], ['query', 0]]) {
+      const rg = el('g', { opacity: 0 }, g);
+      const path = el('path', { d: '', class: 'flow-read', 'marker-end': 'url(#dg-arrow)' }, rg);
+      const label = who === 'query' ? null : txt(rg, x + 8, 1047, '', 'note');
+      this.readers[who] = { g: rg, path, label, x };
+    }
+
+    // root snapshot: the front sheet
+    el('rect', { x: ROOT[0], y: ROOT[1], width: ROOT[2], height: ROOT[3], rx: 6, class: 'zone strong' }, g);
     this.rootTitle = txt(g, 96, 862, 'root snapshot', 'zone-title');
     txt(g, 96, 880, 'in-memory segments', 'note-in');
     txt(g, 520, 880, 'file segments (mmapped zap)', 'note-in');
@@ -208,12 +227,11 @@ export class Diagram {
     this.fileBars = [];
     for (let i = 0; i < FILE_SLOTS; i++) {
       const x = 520 + i * 18;
-      const bg = el('rect', { x, y: 890, width: 14, height: 100, rx: 2, class: 'cell' }, g);
       const bar = el('rect', { x, y: FILE_BASE, width: 14, height: 0, rx: 2, class: 'fbar' }, g);
       const del = el('rect', { x, y: FILE_BASE, width: 14, height: 0, class: 'fdel' }, g);
-      this.fileBars.push({ bg, bar, del, x });
+      this.fileBars.push({ bar, del, x });
     }
-    this.fileMore = txt(g, 900, 1006, '', 'note-in', 'end');
+    this.fileMore = txt(g, ROOT[0] + ROOT[2] - 10, 1006, '', 'note-in', 'end');
 
     this._persister(g);
     this._merger(g);
@@ -446,8 +464,9 @@ export class Diagram {
       mem: this.memCells.map((c) => c.getAttribute('class')),
       bars: this.fileBars.map((b) => ({
         y: +b.bar.getAttribute('y'), h: +b.bar.getAttribute('height'),
-        dy: +b.del.getAttribute('y'), dh: +b.del.getAttribute('height'), bg: b.bg.getAttribute('class'),
+        dy: +b.del.getAttribute('y'), dh: +b.del.getAttribute('height'), cls: b.bar.getAttribute('class'),
       })),
+      stack: this.stackNow,
       dir: this.dirIcons.map((ic) => ({ o: ic.g.getAttribute('opacity'), cls: ic.use.getAttribute('class'), del: ic.del.getAttribute('opacity') })),
     };
   }
@@ -468,13 +487,14 @@ export class Diagram {
       if (a.h === 0 && b.h > 0) o = q;
       else if (a.h > 0 && b.h === 0) { s = a; o = 1 - q; } else if (a.h !== b.h || a.dh !== b.dh) {
         const l = (x, y) => x + (y - x) * q;
-        s = { y: l(a.y, b.y), h: l(a.h, b.h), dy: l(a.dy, b.dy), dh: l(a.dh, b.dh), bg: b.bg };
+        s = { y: l(a.y, b.y), h: l(a.h, b.h), dy: l(a.dy, b.dy), dh: l(a.dh, b.dh), cls: b.cls };
       }
       bar.bar.setAttribute('y', s.y.toFixed(1)); bar.bar.setAttribute('height', s.h.toFixed(1));
       bar.del.setAttribute('y', s.dy.toFixed(1)); bar.del.setAttribute('height', s.dh.toFixed(1));
-      setCls(bar.bg, s.bg);
+      setCls(bar.bar, s.cls);
       fade(bar.bar, o); fade(bar.del, o);
     });
+    if (A.stack && B.stack) this._drawStack(stackFrame(A.stack, B.stack, q));
     this.dirIcons.forEach((ic, i) => {
       const a = A.dir[i], b = B.dir[i];
       const aOn = a.o === '1', bOn = b.o === '1';
@@ -495,6 +515,34 @@ export class Diagram {
   // Clock-driven, while the simulation plays.
   liveNodes(states, wallNow, dwell) {
     for (const k of Diagram.NODE_ORDER) if (states[k]) this.nodes[k].live(states[k], wallNow, dwell);
+    const st = this.stackTween;
+    if (st) this._drawStack(stackFrame(st.a, st.b, easeQuad(Math.min(1, (wallNow - st.t0) / STACK_TWEEN_MS))));
+  }
+
+  // Places the older sheets and the persister's and merger's ref arrows.
+  _drawStack({ sheets, readers }) {
+    this.sheets.forEach((r, i) => {
+      const sh = sheets[i];
+      if (!sh) { r.setAttribute('opacity', 0); return; }
+      r.setAttribute('x', (ROOT[0] + SHEET_DX * sh.k).toFixed(1));
+      r.setAttribute('y', (ROOT[1] + SHEET_DY * sh.k).toFixed(1));
+      r.setAttribute('opacity', sh.o.toFixed(3));
+    });
+    const bottom = ROOT[1] + ROOT[3];
+    for (const [who, r] of Object.entries(this.readers)) {
+      const rd = readers[who];
+      r.g.setAttribute('opacity', rd.o.toFixed(3));
+      if (who === 'query') {
+        // From the chip's end to the sheet's top edge or, for an older
+        // sheet, the part of it that peeks out on the right.
+        const ex = ROOT[0] + ROOT[2] - 6 + SHEET_DX * rd.k;
+        const ey = ROOT[1] + SHEET_DY * rd.k + 10 * Math.min(rd.k, 1);
+        r.path.setAttribute('d', `M880,825 H${ex.toFixed(1)} V${(ey - 1).toFixed(1)}`);
+        continue;
+      }
+      r.path.setAttribute('d', `M${r.x},1050 V${(bottom + SHEET_DY * rd.k + 1).toFixed(1)}`);
+      setText(r.label, rd.epoch !== null ? `holds a ref on epoch ${rd.epoch}` : '');
+    }
   }
 
   // The logical view, for anchor visibility.
@@ -680,14 +728,26 @@ export class Diagram {
     const merging = new Set(m.currentMerge ? m.currentMerge.srcs : []);
     this.fileBars.forEach((b, i) => {
       const ss = byIdx.get(i);
-      if (!ss) { b.bar.setAttribute('height', 0); b.del.setAttribute('height', 0); setCls(b.bg, 'cell'); return; }
+      if (!ss) { b.bar.setAttribute('height', 0); b.del.setAttribute('height', 0); setCls(b.bar, 'fbar'); return; }
       const h = barHeight(ss.seg.bytes, 100);
       b.bar.setAttribute('y', (FILE_BASE - h).toFixed(1)); b.bar.setAttribute('height', h.toFixed(1));
       const dh = h * ss.deleted / ss.seg.docs;
       b.del.setAttribute('y', (FILE_BASE - h).toFixed(1)); b.del.setAttribute('height', dh.toFixed(1));
-      setCls(b.bg, merging.has(ss.seg.id) ? 'cell merging' : 'cell');
+      setCls(b.bar, merging.has(ss.seg.id) ? 'fbar merging' : 'fbar');
     });
     setText(this.fileMore, fileOver ? `+${fileOver} more` : '');
+
+    // While the simulation plays, the stack eases to its new shape;
+    // otherwise it's drawn as is (and the page blends between steps).
+    const S = stackOf(m);
+    const prev = this.stackNow;
+    this.stackNow = S;
+    if (!this.live) { this.stackTween = null; this._drawStack(stackFrame(S, S, 1)); } else if (!prev || stackKey(prev) !== stackKey(S)) {
+      const now = performance.now();
+      const st = this.stackTween;
+      const done = !st || now - st.t0 >= STACK_TWEEN_MS;
+      this.stackTween = { a: done ? (prev || S) : st.b, b: S, t0: now };
+    }
   }
 
   _updatePersister(m, procs) {
