@@ -330,6 +330,10 @@ chapters:
           neighbors. [[A persister worker]] is merging them into one
           new zap file, which it then writes and fsyncs.
 
+          Nothing was handed to the persister: it took a ref on the
+          root snapshot and found our segment in it. Our segment stays
+          in the root meanwhile, still searchable.
+
       - id: make-room
         view: { camera: persisterDetail, target: persister }
         text: |

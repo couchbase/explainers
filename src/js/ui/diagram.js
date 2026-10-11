@@ -386,8 +386,17 @@ export class Diagram {
   // The marker for "our batch": a ringed chip that becomes our segment.
   _token(g) {
     const tg = el('g', { class: 'token', opacity: 0 }, g);
+    // In the persister or merger, our segment (or file) is reached
+    // through the root snapshot they hold a ref on: the marker wears a
+    // little snapshot sheet around it, with other segments beside it.
+    this.tokenSheet = el('g', { opacity: 0 }, tg);
+    el('rect', { x: -18, y: -11, width: 40, height: 26, rx: 3, class: 'token-sheet' }, this.tokenSheet);
+    el('rect', { x: -22, y: -14, width: 40, height: 26, rx: 3, class: 'token-sheet' }, this.tokenSheet);
+    el('rect', { x: -17, y: -3, width: 6, height: 6, rx: 1, class: 'token-other' }, this.tokenSheet);
+    el('rect', { x: 9, y: -3, width: 6, height: 6, rx: 1, class: 'token-other' }, this.tokenSheet);
     this.tokenRect = el('rect', { x: -8, y: -8, width: 16, height: 16, rx: 3, class: 'token-chip' }, tg);
     this.tokenLabel = txt(tg, 0, -14, 'our batch', 'token-label', 'middle');
+    this.tokenSub = txt(tg, 0, -14, '', 'token-sub', 'middle');
     this.token = tg;
   }
 
@@ -589,8 +598,15 @@ export class Diagram {
     this.tokenRect.setAttribute('x', -z / 2); this.tokenRect.setAttribute('y', -z / 2);
     this.tokenRect.setAttribute('width', z); this.tokenRect.setAttribute('height', z);
     setCls(this.tokenRect, `token-chip kind-${t.kind}`);
+    const so = t.snapO || 0;
+    this.tokenSheet.setAttribute('opacity', so.toFixed(3));
+    this.tokenSheet.setAttribute('transform', `scale(${(0.3 + 0.7 * so).toFixed(3)})`);
+    const top = -Math.max(z / 2, 14 * so) - 5;
     setText(this.tokenLabel, t.label);
-    this.tokenLabel.setAttribute('y', (-z / 2 - 5).toFixed(1));
+    setText(this.tokenSub, t.sub || '');
+    this.tokenSub.setAttribute('opacity', so.toFixed(3));
+    this.tokenSub.setAttribute('y', top.toFixed(1));
+    this.tokenLabel.setAttribute('y', (top - 12 * so).toFixed(1));
   }
 
   // Where the marker belongs for the current model state. mode 'file'
@@ -609,6 +625,10 @@ export class Diagram {
     if (fixed) {
       const kind = ['persisting', 'merging'].includes(tr.stage) ? (tr.stage === 'persisting' ? 'mem' : 'file') : 'batch';
       const st = tr.stage;
+      const held = st === 'persisting' ? m.persisterSnapshot : st === 'merging' ? m.mergerSnapshot : null;
+      if (held) {
+        return { p: fixed, size: 10, kind, st, snap: true, label: kind === 'mem' ? 'our segment' : 'our file', sub: `in epoch ${held.epoch}` };
+      }
       return { p: fixed, size: st === 'channel' ? 14 : 16, kind, st, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
     }
     const seg = this.positions.ourSeg;

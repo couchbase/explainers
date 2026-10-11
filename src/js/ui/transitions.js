@@ -98,7 +98,8 @@ export function markerFrame(views, tokenAt, i, p) {
     const moving = prev.st !== cur.st || prev.key !== cur.key;
     const shown = e > 0.5 ? cur : prev;
     return {
-      t: { p: along(route(prev, cur), e), size: lerp(prev.size, cur.size, e), kind: shown.kind, label: shown.label },
+      t: { p: along(route(prev, cur), e), size: lerp(prev.size, cur.size, e), kind: shown.kind, label: shown.label, sub: (cur.snap ? cur : prev).sub,
+        snapO: lerp(prev.snap ? 1 : 0, cur.snap ? 1 : 0, e) },
       o: 1, dest: moving ? cur : null, arrived: e >= 0.97,
     };
   }
@@ -107,8 +108,9 @@ export function markerFrame(views, tokenAt, i, p) {
   if (cur && cur.st === 'dcp' && i > 0 && tokenAt.has(i - 1)) {
     return { t: cur, o: clamp01((e - 0.72) / 0.25), birth: e };
   }
-  if (cur) return { t: cur, o: i > 0 && !tokenAt.has(i - 1) ? 1 : e };
-  if (prev) return { t: prev, o: 1 - e };
+  const withSnap = (t) => ({ ...t, snapO: t.snap ? 1 : 0 });
+  if (cur) return { t: withSnap(cur), o: i > 0 && !tokenAt.has(i - 1) ? 1 : e };
+  if (prev) return { t: withSnap(prev), o: 1 - e };
   return null;
 }
 
