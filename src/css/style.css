@@ -186,6 +186,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
   padding-block: 2rem;
   max-width: 62ch;
 }
+.step.step-long { min-height: 170vh; }
 .step .card { opacity: 0.55; transition: opacity 0.4s ease; }
 .step.active .card { opacity: 1; }
 .step p { margin: 0 0 0.9em; }

@@ -1,7 +1,9 @@
 // Scroll position -> (active step, progress through its transition).
 //
 // A step becomes active when its top crosses the enter line; its
-// transition runs until its top reaches the settle line.
+// transition runs until its top reaches the settle line. `u` is the
+// progress through the whole time it's active, until the next step
+// enters, for things that play out over a step's full length.
 
 const LINES = { wide: { enter: 0.82, settle: 0.42 }, narrow: { enter: 0.92, settle: 0.66 } };
 const lines = () => {
@@ -17,7 +19,10 @@ export function scrollState(stepEls, reduceMotion) {
   }
   const top = stepEls[i].getBoundingClientRect().top;
   const p = i === 0 ? 1 : Math.max(0, Math.min(1, (enterY - top) / (enterY - settleY)));
-  return { i, p: reduceMotion ? 1 : p };
+  const next = stepEls[i + 1];
+  const span = next ? next.getBoundingClientRect().top - top : stepEls[i].getBoundingClientRect().height;
+  const u = Math.max(0, Math.min(1, (enterY - top) / Math.max(1, span)));
+  return { i, p: reduceMotion ? 1 : p, u: reduceMotion ? 1 : u };
 }
 
 // The window.scrollY at which `stepEl` is at progress p of its transition.

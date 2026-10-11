@@ -60,6 +60,9 @@ const ctl = {
   slotsAt: new Map(), // the slot grids' contents
 };
 
+// A step with a flow plays it over its whole length: give it room.
+views.forEach((v, i) => { if (v.flow) stepEls[i].classList.add('step-long'); });
+
 const knobs = new KnobsDrawer(document.body, data, { onReset: () => enter(ctl.current, { rebuild: true }) });
 
 function enter(i, { rebuild = false } = {}) {
@@ -184,7 +187,7 @@ function setChrome(chrome) {
 
 function render() {
   if (ctl.current < 0) return;
-  const { i, p } = scrollState(stepEls, reduceMotion);
+  const { i, p, u } = scrollState(stepEls, reduceMotion);
   const v = views[i], pv = i > 0 ? views[i - 1] : v;
   const t = ease(p);
 
@@ -201,7 +204,7 @@ function render() {
   if (pv.bubbles.has('merger') || v.bubbles.has('merger')) diagram.setStairs(pv.plan, v.plan, t);
   diagram.setToken(mf && mf.t, mf ? mf.o : 0);
   diagram.setDocs(mf && mf.birth !== undefined ? mf.birth : -1, mf && mf.t);
-  diagram.setQueueDocs(v.flow === 'analysis' && p < 1 ? t : -1);
+  diagram.setQueueDocs(v.flow === 'analysis' && u < 1 ? u : -1);
   // Our segment's slot stays faint until the marker arrives.
   diagram.setArrival(mf && mf.dest, mf && mf.dest && !mf.arrived ? 0 : 1);
 

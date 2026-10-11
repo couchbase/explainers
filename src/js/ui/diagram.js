@@ -407,12 +407,12 @@ export class Diagram {
     for (let i = 0; i < 9; i++) this.docs.push(doc());
     // Our batch's docs, off to the analysis queue and back.
     this.queueDocs = [];
-    for (let i = 0; i < 8; i++) this.queueDocs.push(doc());
+    for (let i = 0; i < 24; i++) this.queueDocs.push(doc());
   }
 
-  // t in 0..1 (<0 hides them): our batch's docs, one after another, go
-  // from Scorch.Batch() across to the analysis queue, are analyzed
-  // there, and come back.
+  // t in 0..1 (<0 hides them), over the step's whole length: our
+  // batch's docs, one after another, go from Scorch.Batch() across to
+  // the analysis queue, are analyzed there, and come back.
   setQueueDocs(t) {
     if (t < 0) {
       if (this.queueDocsShown) for (const d of this.queueDocs) d.setAttribute('opacity', 0);
@@ -422,7 +422,8 @@ export class Diagram {
     this.queueDocsShown = true;
     const [x0, x1] = [STATIONS.analysis[0] + 14, 706];
     this.queueDocs.forEach((d, i) => {
-      const q = clamp01((t - i * 0.07) / 0.5);
+      const n = this.queueDocs.length, trip = 0.3;
+      const q = clamp01((t - 0.03 - i * (0.92 - trip) / (n - 1)) / trip);
       // out along the upper arrow, a pause in the queue, back along the lower
       const out = q < 0.4, back = q > 0.6;
       if (q <= 0 || q >= 1 || !(out || back)) { d.setAttribute('opacity', 0); return; }
@@ -598,7 +599,7 @@ export class Diagram {
     this._blendCells(A, B, clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), drop);
 
     // Its epoch: a copy of the old one, then "+1" and it rolls over.
-    this._drawEpoch(A.epoch, B.epoch, clamp01((ep - 0.35) / 0.45), 1, copy);
+    this._drawEpoch(A.epoch, B.epoch, clamp01((ep - 0.35) / 0.45), 1, copy, true);
     const one = B.epoch === A.epoch + 1;
     this.epochPlus.setAttribute('opacity', one ? (Math.min(1, ep / 0.3) * (1 - clamp01((ep - 0.8) / 0.2))).toFixed(3) : 0);
 
@@ -693,11 +694,15 @@ export class Diagram {
   // The root's epoch number, partway (q) from a to b: the old number
   // rolls up and out as the new one rolls in, lit while it changes.
   // shown: 0 hides the number (an empty root, before its epoch lands).
-  _drawEpoch(a, b, q, whole = q, shown = 1) {
+  // copy: the old number is a new root's copy of it, labeled so.
+  _drawEpoch(a, b, q, whole = q, shown = 1, copy = false) {
     const r = a === b ? 1 : q;
     // "+1" while a one-epoch step is shown, until the scroll settles.
     this.epochPlus.setAttribute('opacity', b === a + 1 && whole < 1 && shown ? Math.min(1, q * 3).toFixed(3) : 0);
-    setText(this.epochOld, a === b ? '' : String(a));
+    setText(this.epochOld, a === b ? '' : copy ? `${a} (copy)` : String(a));
+    // "+1" just after the old number
+    const w = this.epochOld.textContent && this.epochOld.getComputedTextLength ? this.epochOld.getComputedTextLength() : 24;
+    this.epochPlus.setAttribute('x', (EPOCH_X + (w || 24) + 8).toFixed(1));
     setText(this.epochNew, String(b));
     this.epochOld.setAttribute('y', (862 - 12 * r).toFixed(1));
     this.epochOld.setAttribute('opacity', ((1 - r) * shown).toFixed(3));
