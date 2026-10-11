@@ -53,8 +53,7 @@ export class Diagram {
     const g = this.root;
     // Section frames (always visible) with color tabs.
     for (const [id, s] of Object.entries(SECTIONS)) {
-      const [x, y, w, h] = s.frame;
-      el('rect', { x, y, width: w, height: h, rx: 10, class: `frame sec-${s.color}` }, g);
+      el('path', { d: framePath(s.frame, 10, s.notch), class: `frame sec-${s.color}` }, g);
     }
     // KV is a separate process, one network hop away.
     el('line', { x1: 120, x2: 880, y1: 179, y2: 179, class: 'network' }, g);
@@ -149,25 +148,27 @@ export class Diagram {
     this.memText = txt(g, 860, 464, '', 'note', 'end');
   }
 
-  // bleve's own layer, above scorch: the shared analysis queue.
+  // bleve's own parts: its API layer above scorch, and the shared
+  // analysis queue in the notch beside Scorch.Batch().
   _bleve(g) {
     txt(g, 62, 544, 'the index API, document mapping, analysis', 'note');
     txt(g, 62, 560, 'scorch below is one index implementation', 'note');
-    el('rect', { x: 640, y: 514, width: 280, height: 58, rx: 5, class: 'zone' }, g);
-    txt(g, 652, 532, 'analysis queue, shared by all indexes', 'note-in');
+    el('rect', { x: 700, y: 600, width: 240, height: 80, rx: 5, class: 'zone' }, g);
+    txt(g, 712, 618, 'analysis queue', 'note-in');
+    txt(g, 712, 634, 'shared by all indexes', 'note-in');
     this.cpus = [];
-    for (let i = 0; i < 8; i++) this.cpus.push(el('rect', { x: 652 + i * 22, y: 543, width: 16, height: 16, rx: 2, class: 'cpu' }, g));
-    txt(g, 908, 556, 'NumCPU', 'note-in', 'end');
+    for (let i = 0; i < 8; i++) this.cpus.push(el('rect', { x: 712 + i * 22, y: 650, width: 16, height: 16, rx: 2, class: 'cpu' }, g));
+    txt(g, 930, 663, 'NumCPU', 'note-in', 'end');
   }
 
   _scorch(g) {
     this.nodes.batch = new GNode(g, 390, 612, 220, 50, 'Scorch.Batch()', { sub: 'analyze → in-memory segment' });
-    // Scorch.Batch() reaches out of scorch to bleve's shared analysis
-    // queue, and waits for the results to come back.
-    // (They show once scorch's lid is open.)
+    // Scorch.Batch() calls across to bleve's shared analysis queue, and
+    // waits for the results to come back. (The arrows show once
+    // scorch's lid is open.)
     this.queueArrows = el('g', {}, g);
-    this._arrow(this.queueArrows, 'M610,630 H770 V574');
-    this._arrow(this.queueArrows, 'M800,574 V644 H612');
+    this._arrow(this.queueArrows, 'M610,628 H698');
+    this._arrow(this.queueArrows, 'M700,646 H612');
 
     // introducer panel
     const ip = this._panel(g, 'introducer');
@@ -424,7 +425,8 @@ export class Diagram {
       big = false;
     }
     const lg = el('g', { class: `lid sec-${color}` }, g);
-    el('rect', { x, y, width: w, height: h, rx: big ? 7 : 5, class: 'lid-bg' }, lg);
+    const notch = L.section && SECTIONS[L.section].notch;
+    el('path', { d: framePath([x, y, w, h], big ? 7 : 5, notch && [notch[0] - 5, notch[1] + 5]), class: 'lid-bg' }, lg);
     const ty = big ? y + Math.min(h / 2 - 6, 60) : y + 30;
     txt(lg, x + 22, ty, L.title, big ? 'lid-title' : 'lid-title-small');
     txt(lg, x + 22, ty + (big ? 30 : 20), L.sub, big ? 'lid-sub' : 'lid-sub-small');
@@ -871,4 +873,14 @@ function ratePerSec(m) {
   if (s.length < 11) return m.cfg.ingestDocsPerSec;
   const a = s[s.length - 11], b = s[s.length - 1];
   return (b.mutations - a.mutations) / ((b.t - a.t) / 1000);
+}
+
+// A rounded rect [x, y, w, h] as a path, optionally with its top-right
+// corner cut away beyond notch [nx, ny].
+export function framePath([x, y, w, h], r, notch) {
+  const x1 = x + w, y1 = y + h;
+  const top = notch
+    ? `H${notch[0] - r} Q${notch[0]},${y} ${notch[0]},${y + r} V${notch[1] - r} Q${notch[0]},${notch[1]} ${notch[0] + r},${notch[1]} H${x1 - r} Q${x1},${notch[1]} ${x1},${notch[1] + r}`
+    : `H${x1 - r} Q${x1},${y} ${x1},${y + r}`;
+  return `M${x + r},${y} ${top} V${y1 - r} Q${x1},${y1} ${x1 - r},${y1} H${x + r} Q${x},${y1} ${x},${y1 - r} V${y + r} Q${x},${y} ${x + r},${y} Z`;
 }

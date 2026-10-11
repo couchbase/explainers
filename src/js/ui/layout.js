@@ -6,6 +6,9 @@
 // network hop; the cbft process contains the bleve library, whose
 // scorch index has three goroutine panels; disk sits outside both.
 // Lids cover frame and panel insides until the story opens them.
+// Scorch's frame has a notch cut from its top-right corner, where
+// bleve's analysis queue sits beside Scorch.Batch(): a utility that
+// bleve offers its index implementations, not a layer above them.
 // Detail bubbles pop out of a panel into the gutters on either side.
 
 import { stairScene } from './stairs-scene.js';
@@ -18,7 +21,8 @@ export const SECTIONS = {
   kv: { label: 'KV process', frame: [20, 20, 960, 132], color: 'kv' },
   cbft: { label: 'cbft process', frame: [20, 206, 960, 1112], color: 'cbft' },
   bleve: { label: 'bleve library', frame: [40, 498, 920, 800], color: 'bleve' },
-  scorch: { label: 'scorch index', frame: [60, 592, 880, 690], color: 'scorch' },
+  // notch: [x, y], the top-right corner beyond x and above y is cut away.
+  scorch: { label: 'scorch index', frame: [60, 592, 880, 690], color: 'scorch', notch: [680, 692] },
   disk: { label: 'disk', frame: [50, 1350, 900, 292], color: 'disk' },
 };
 
@@ -43,7 +47,7 @@ export const LIDS = {
 // Detail bubbles: a box beside or below its panel, with a tail
 // pointing at the panel.
 export const BUBBLES = {
-  analysis: { box: [960, 390, 350, 300], tail: [920, 543], parent: 'bleve', title: 'analysis: one field, through an analyzer' },
+  analysis: { box: [960, 490, 350, 300], tail: [940, 640], parent: 'bleve', title: 'analysis: one field, through an analyzer' },
   persister: { box: [-440, 970, 420, 280], tail: [80, 1152], parent: 'persister', title: 'persisterLoop(), one cycle' },
   merger: { box: [500, 1276, 440, 300], tail: [720, 1252], parent: 'merger', title: 'mergeplan.Plan(): the tier staircase' },
 };
@@ -57,8 +61,8 @@ export const CAMERAS = {
   process: { rect: [0, 180, CW, 1340], label: 'the cbft process', section: 'cbft' },
   bleve: { rect: [20, 470, 980, 1320], label: 'bleve', section: 'bleve' },
   scorch: { rect: [40, 580, 960, 1300], label: 'scorch index', section: 'scorch' },
-  scorchTop: { rect: [280, 480, 940, 830], label: 'bleve: Batch() and analysis', section: 'bleve' },
-  analysisDetail: { rect: [290, 370, 1330, 710], label: 'bleve: analysis', section: 'bleve' },
+  scorchTop: { rect: [280, 480, 960, 830], label: 'bleve: Batch() and analysis', section: 'bleve' },
+  analysisDetail: { rect: [290, 470, 1330, 810], label: 'bleve: analysis', section: 'bleve' },
   introducer: { rect: [300, 680, 700, 820], label: 'scorch: the introducer', section: 'scorch' },
   root: { rect: [60, 800, 940, 1030], label: 'scorch: the root snapshot', section: 'scorch' },
   persister: { rect: [40, 840, 560, 1270], label: 'scorch: the persister', section: 'scorch' },
@@ -90,8 +94,8 @@ export const ANCHORS = {
   memGaugeR: { p: [860, 446], needs: ['cbft'] },
 
   bleveNote: { p: [62, 548], needs: ['cbft', 'bleve'] },
-  analysis: { p: [640, 543], needs: ['cbft', 'bleve'] },
-  analysisDetail: { p: [970, 460], needs: ['cbft', 'bleve'], bubble: 'analysis' },
+  analysis: { p: [700, 640], needs: ['cbft', 'bleve'] },
+  analysisDetail: { p: [970, 560], needs: ['cbft', 'bleve'], bubble: 'analysis' },
   batch: { p: [390, 637], needs: ['cbft', 'bleve', 'scorch'] },
   introducer: { p: [350, 752], needs: ['cbft', 'bleve', 'scorch'] },
   select: { p: [366, 752], needs: ['cbft', 'bleve', 'scorch', 'introducer'] },
@@ -156,7 +160,7 @@ export const BOXES = {
   kvEngine: [390, 42, 220, 52],
   dcp: [390, 228, 220, 50],
   workers: [390, 310, 244, 78], // the stack, including the panels behind
-  analysis: [640, 514, 280, 58],
+  analysis: [700, 600, 240, 80],
   batch: [390, 612, 220, 50],
   introducer: [350, 702, 300, 100],
   root: [80, 842, 840, 170],

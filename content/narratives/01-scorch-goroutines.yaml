@@ -191,8 +191,9 @@ chapters:
         view: { target: analysis }
         code: [scorch.batchAnalysis, scorch.analyze]
         text: |
-          First comes analysis, and for that scorch calls back up,
-          to [[bleve's analysis queue]]. `Batch()`
+          First comes analysis. For that, scorch calls across to a
+          utility that bleve provides to its index implementations:
+          [[bleve's analysis queue]]. `Batch()`
           starts a goroutine that queues one closure per document,
           then waits until every result has come back.
 
