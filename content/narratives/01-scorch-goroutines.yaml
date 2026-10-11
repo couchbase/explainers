@@ -7,7 +7,7 @@ id: scorch-goroutines
 title: "Inside bleve / scorch: introducer, persister, merger"
 subtitle: >-
   How a Couchbase FTS index turns a stream of DCP mutations into
-  searchable, durable segments, and what pushes back when things get slow.
+  searchable, durable segments.
 audience: Couchbase engineers and support
 
 sim:
@@ -27,22 +27,19 @@ chapters:
         view: { camera: overview, target: cbftLid }
         expect: [kvFlowing, herderIdle]
         text: |
-          This is one FTS index partition (a *pindex*) on one node.
-          Data flows from top to bottom. The big box in the middle is
-          [[the cbft process]], the search service. Inside it, though
-          still closed for now, is the bleve library and its scorch
-          index.
+          Consider a single FTS index partition (a *pindex*) on a single node.
+          In this diagram, data flows from top to bottom. The big box in the middle is
+          [[the cbft process]], the search service of Couchbase Server.
 
-          The diagram is a **simulation**, not a recording. Its
-          goroutines follow the control flow of the real cbft and bleve
-          code, with the same channel capacities and default settings.
-          Timings and sizes are modeled, not measured. It's paused
-          while we look around.
+          The diagram is a **simulation**. We'll follow
+          goroutines and the control flow of cbft and bleve
+          code.
 
       - id: kv
         view: { target: kvLid }
         text: |
-          Mutations start in [[KV]], a separate process. They reach
+          Mutations start in [[KV]], a separate process, that is the "key-value"
+          server of Couchbase Server. These mutations are transmitted to
           cbft over the network, as a DCP stream.
 
       - id: disk
@@ -60,21 +57,21 @@ chapters:
       - id: zoom
         view: { camera: top, target: kvLid }
         text: |
-          Let's start at the top, with [[KV]] and cbft.
+          Let's drill down into the hop between [[KV]] and cbft.
 
       - id: kv-open
         view: { open: [kv], target: buffer }
         code: [cbgt.dcpBuffer]
         text: |
           KV sends DCP *snapshots*: runs of mutations for one vbucket.
-          They wait in a 20MB [[flow-control buffer]] until cbft acks
-          them. When that buffer fills, KV stops sending.
+          These wait in a 20MB [[flow-control buffer]] until cbft acks
+          them. When that buffer fills, KV pauses sending until cbft drains it.
 
       - id: cbft-open
         view: { open: [cbft], target: dcp }
         code: [cbft.dataUpdate, bleve.BatchIndex, cbft.updateSeq]
         text: |
-          gocbcore calls cbft's `DataUpdate()` for every mutation,
+          gocbcore calls cbft's `DataUpdate()` for every received mutation,
           synchronously, on [[the DCP goroutine]]. It maps the document
           (`batch.Index()`) into that vbucket's `bleve.Batch`.
 
@@ -85,8 +82,8 @@ chapters:
         view: { target: workers }
         code: [cbft.submitAsync, cbft.runBatchWorker, cbft.batchDefaults]
         text: |
-          Batches go to one of [[4 batch workers]], stacked here with
-          worker 0 in front. Each worker has a channel of capacity 1.
+          Batches go to one of [[4 batch workers]], shown stacked here with
+          batch worker 0 in front. Each worker has a channel of capacity 1.
           It merges what arrives into one bigger batch, and executes it
           at 200 ops or when its 100ms ticker fires.
 
@@ -101,8 +98,8 @@ chapters:
         view: { target: ourBatch }
         expect: ["reached:dcp"]
         text: |
-          Now let's **follow one batch**. Its marker, the small chip
-          with the orange outline, will travel through the diagram as
+          Now let's **follow one batch**, depicted as a small chip
+          with the orange outline, which will travel through the diagram as
           you scroll.
 
           Our batch is being built right now by [[the DCP goroutine]].
@@ -123,7 +120,7 @@ chapters:
         view: { target: ourBatch }
         expect: ["reached:worker"]
         text: |
-          [[Its batch worker]], worker 0 at the front of the stack,
+          [[Its batch worker]], worker 0,
           takes the batch from the channel and holds it, merging in any
           more that arrive, until it reaches 200 ops or the ticker
           fires. If the slot had still been full, the DCP goroutine
@@ -135,10 +132,10 @@ chapters:
         expect: ["reached:herder"]
         code: [herder.onScorchEvent, herder.checkAndBlockBatch, herder.overQuota]
         text: |
-          Before the batch may enter scorch, the worker passes
-          [[the app herder]]. It checks process memory against the
+          Before the batch may enter bleve, the worker checks with
+          [[the app herder]]. This checks process memory against the
           indexing quota (65% of the FTS memory quota). Right now we're
-          well under it, so our batch may pass.
+          well under it, so our batch is not paused and may continue.
 
       - id: into-bleve
         sim: { until: analysis }
@@ -159,25 +156,25 @@ chapters:
       - id: step-back
         view: { camera: process, target: bleveLid }
         text: |
-          Step back for a moment. Our batch is now inside
-          [[the bleve library]], still a closed box for us. bleve is
-          linked into cbft: same process, and the same batch worker
-          goroutine, running bleve's code now.
+          Step back for a moment. Our batch is now being processed by
+          [[the bleve library]]. bleve is
+          linked into the cbft process, and we're still on the same batch worker
+          goroutine from cbft.
 
       - id: bleve-open
         view: { open: [bleve], target: bleveNote }
         code: [cbft.execute]
         text: |
           bleve's top layer is [[what applications program against]]:
-          the index API, document mapping (which already ran, back in
+          bleve's index API, document mapping (which already ran, back in
           the DCP goroutine's `batch.Index()`), and text analysis.
-          Underneath sits a pluggable index implementation. cbft uses
-          *scorch*, still closed here.
+          Underneath sits a pluggable index implementation. cbft uses the
+          *scorch* implementation.
 
       - id: scorch-open
         view: { open: [scorch], target: introducer }
         text: |
-          Inside scorch: `Scorch.Batch()` at the top, the root snapshot
+          Inside scorch we see: `Scorch.Batch()`, the root snapshot
           in the middle, and three goroutines in their own boxes:
           [[the introducer]], the persister and the merger.
 
@@ -187,15 +184,15 @@ chapters:
         text: |
           The worker's `bindex.Batch()` goes through bleve's
           `index.Batch()` to [[Scorch.Batch()]], scorch's entry point.
-          The worker goroutine runs all of it itself, and doesn't
-          return until the batch has been introduced.
+          all running on cbft's worker goroutine, and it doesn't
+          return until the batch has been fully 'introduced'.
 
       - id: analysis
         view: { target: analysis }
         code: [scorch.batchAnalysis, scorch.analyze]
         text: |
-          First comes analysis, and for that scorch reaches back up,
-          out of its own box, to [[bleve's analysis queue]]. `Batch()`
+          First comes analysis, and for that scorch calls back up,
+          to [[bleve's analysis queue]]. `Batch()`
           starts a goroutine that queues one closure per document,
           then waits until every result has come back.
 
@@ -203,14 +200,12 @@ chapters:
         view: { target: analysis }
         code: [bleve.analysisQueue, cbft.analysisQueueSize]
         text: |
-          The queue is a pool of worker goroutines that bleve makes
-          once per process, in `bleve.Config`, and cbft sizes it to the
+          The analysis queue is a pool of worker goroutines that bleve initializes
+          once per process, controlled via `bleve.Config`, where cbft sizes this to the
           number of CPUs. Its channel is unbuffered, so `Queue()`
-          blocks until a worker is free.
+          blocks until an analysis queue worker is free.
 
-          Every index on the node shares [[this one pool]]: here, our
-          four batch workers; on a real node, every partition of every
-          index.
+          Every FTS index in the cbft node shares [[this one pool]] of analysis queue workers.
 
       - id: make-room
         view: { camera: analysisDetail, target: analysis }
@@ -222,8 +217,9 @@ chapters:
         view: { bubble: [analysis], target: analysisDetail }
         code: [scorch.analyze]
         text: |
-          For each indexed field, the mapping's analyzer runs
-          [[a pipeline]]: a tokenizer splits the text into tokens, then
+          Following the index definition, for each indexed field, there's
+          an index mapping analyzer which runs
+          [[an analysis pipeline]]: a tokenizer splits the text into tokens, then
           token filters lowercase them, drop stop words and stem them.
           What's left are terms with their positions, ready to become a
           segment's dictionary and postings.
