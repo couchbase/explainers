@@ -702,7 +702,10 @@ export class Diagram {
     setText(this.tokenSub, t.sub || '');
     this.tokenSub.setAttribute('opacity', so.toFixed(3));
     this.tokenSub.setAttribute('y', top.toFixed(1));
-    this.tokenLabel.setAttribute('y', (top - 12 * so).toFixed(1));
+    // The label sits above the marker, or (sideMix 1) to its right.
+    const sm = t.sideMix || 0, w = t.label.length * 6.6;
+    this.tokenLabel.setAttribute('x', (sm * (z / 2 + 6 + w / 2)).toFixed(1));
+    this.tokenLabel.setAttribute('y', ((1 - sm) * (top - 12 * so) + sm * 4).toFixed(1));
   }
 
   // Where the marker belongs for the current model state. mode 'file'
@@ -725,7 +728,10 @@ export class Diagram {
       if (held) {
         return { p: fixed, size: 10, kind, st, snap: true, label: kind === 'mem' ? 'our segment' : 'our file', sub: `in epoch ${held.epoch}` };
       }
-      return { p: fixed, size: st === 'channel' ? 14 : 16, kind, st, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
+      // Under the introducer's 'merges' chip, the label goes to the
+      // right, clear of the channel chips above.
+      const side = st === 'fileIntroducing' ? 'right' : undefined;
+      return { p: fixed, size: st === 'channel' || side ? 14 : 16, kind, st, side, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
     }
     const seg = this.positions.ourSeg;
     if (seg) {
