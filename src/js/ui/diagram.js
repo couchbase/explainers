@@ -905,7 +905,9 @@ export class Diagram {
     const q = m.analysisQueue;
     this.cpus.forEach((c, i) => setCls(c, i < q.inUse ? 'cpu busy' : 'cpu'));
     ns.introducer = st(procs.get('introducer'), `epoch ${s.CurRootEpoch}`);
-    for (const [k, r] of Object.entries(this.chans)) setCls(r, m.introLast && m.introLast.kind === k ? 'chan lit' : 'chan');
+    // A channel lights only while the introducer handles what came on it.
+    const handling = procState(procs.get('introducer')) === 'busy' && m.introLast ? m.introLast.kind : null;
+    for (const [k, r] of Object.entries(this.chans)) setCls(r, k === handling ? 'chan lit' : 'chan');
 
     // queries
     const qs = [...m.queries.values()];
