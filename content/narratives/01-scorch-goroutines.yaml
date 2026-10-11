@@ -397,35 +397,37 @@ chapters:
           Done: [[our file]] is in the root. The introducer built a
           new root snapshot with it, and swapped it in.
 
+      - id: old-root
+        view: { camera: root, target: olderEpoch }
+        expect: [persisterHoldsOlderRoot, "rootEpoch:356"]
+        code: [snapshot.refcount]
+        text: |
+          Watch the stack as you scroll. First, the old root,
+          [[epoch 355]], stepped back. It's still alive, because the
+          persister still holds a ref on it. Root snapshots aren't
+          linked to each other: each is an immutable, refcounted list
+          of segments, freed when its last ref goes.
+
       - id: epoch-up
-        view: { camera: root, target: rootEpoch }
+        view: { target: rootEpoch }
         expect: ["rootEpoch:356"]
         code: [introducer.introduceMerge]
         text: |
-          Look at [[the root's epoch]]: 355 became 356. Every root the
-          introducer swaps in gets the next epoch, whether it adds a
-          batch's segment, a persister's file, or a merger's result.
+          In front of it, the introducer built the new root from a
+          copy of the old one's segment list, so its epoch is
+          [[355 + 1 = 356]]. Every root the introducer swaps in gets
+          the next epoch, whether it adds a batch's segment, a
+          persister's file, or a merger's result.
 
       - id: mem-gone
         view: { target: rootMem }
         expect: [noMemSegsAtRoot]
         text: |
-          And [[the in-memory segments]] are gone from this root: all
-          of them, ours included, were merged into that one blue file
-          segment. Same docs, now in a zap file on disk, mmapped.
-          Next, the persister commits `root.bolt` and fsyncs it.
-
-      - id: older-root
-        view: { camera: root, target: olderRoots }
-        expect: [persisterHoldsOlderRoot]
-        code: [snapshot.refcount]
-        text: |
-          That swap made a new root, one epoch on. But the snapshot
-          the persister started from is still alive,
-          [[behind the current one]], because the persister still
-          holds a ref on it. Root snapshots aren't linked to each
-          other: each is an immutable, refcounted list of segments,
-          freed when its last ref goes.
+          In that copy, [[the in-memory segments]] are gone: all of
+          them, ours included, were replaced by the one blue file
+          segment they were merged into. Same docs, now in a zap file
+          on disk, mmapped. Next, the persister commits `root.bolt` and
+          fsyncs it.
 
       - id: committed
         sim: { until: committed }
