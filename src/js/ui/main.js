@@ -207,6 +207,10 @@ function render() {
   diagram.setQueueDocs(v.flow === 'analysis' && u < 1 ? u : -1);
   // Our segment's slot stays faint until the marker arrives.
   diagram.setArrival(mf && mf.dest, mf && mf.dest && !mf.arrived ? 0 : 1);
+  // Our file's channel lights as the marker reaches it.
+  if (mf && mf.dest && mf.dest.st === 'fileIntroducing' && !ctl.playing) {
+    diagram.setChanLit('merges', diagram.reachedChan('merges', mf.t.p, mf.t.size));
+  }
 
   // Who owns time: the clock while the simulation plays, otherwise the scroll.
   if (ctl.playing) {

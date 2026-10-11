@@ -346,23 +346,32 @@ chapters:
           in-memory segments pile up. Then it merges them into ~20MB
           files with up to 4 workers, and commits.
 
-      - id: persisting
-        sim: { set: { ingestDocsPerSec: 0 }, until: persisting }
-        view: { target: ourBatch }
-        expect: ["reached:persisting"]
-        code: [persister.maybeMerge, merger.memMerge]
+      - id: cut
+        sim: { set: { ingestDocsPerSec: 0 }, until: flushables }
+        view: { target: persisterInside }
+        expect: ["reached:flushables"]
+        code: [persister.maybeMerge]
         text: |
-          Our segment has been cut into a *flushable* with its
-          neighbors. [[A persister worker]] is merging them into one
-          new zap file, which it then writes and fsyncs.
-
-          Nothing was handed to the persister: it took a ref on the
-          root snapshot and found our segment in it. Our segment stays
-          in the root meanwhile, still searchable.
+          The persister woke up and took a ref on the root snapshot.
+          Nothing was handed to it: it found our segment in that root.
+          It [[cut the root's in-memory segments]] into *flushables*:
+          runs of neighbors, up to ~20MB each, one per worker. Ours is
+          in one of them.
 
           To keep this simple, we've paused new mutations from KV for
           now, so nothing else changes the root while we watch. We'll
           turn them back on later.
+
+      - id: persisting
+        sim: { until: persisting }
+        view: { target: ourBatch }
+        expect: ["reached:persisting"]
+        code: [persister.maybeMerge, merger.memMerge]
+        text: |
+          [[A persister worker]] is merging our flushable, our segment
+          and its neighbors, into one new zap file, which it then
+          writes and fsyncs. Our segment stays in the root meanwhile,
+          still searchable.
 
       - id: make-room
         view: { camera: persisterDetail, target: persister }

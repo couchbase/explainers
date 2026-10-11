@@ -842,6 +842,19 @@ export class Diagram {
     return null;
   }
 
+  // Lights a channel chip, or not, overriding the simulation's view of
+  // it: our file's channel lights only once the marker gets there.
+  setChanLit(name, lit) {
+    setCls(this.chans[name], lit ? 'chan lit' : 'chan');
+  }
+
+  // Whether the marker at point pt has reached a channel chip (it
+  // comes along the chip row from the left, then drops below it).
+  reachedChan(name, pt, size) {
+    const x = +this.chans[name].getAttribute('x');
+    return pt[0] + size / 2 >= x && pt[1] >= 745;
+  }
+
   // While the marker is still on its way, the slot it's heading for
   // (our segment's cell or bar, or our file's icon) stays faint, so
   // nothing appears before the marker gets there.
@@ -982,12 +995,14 @@ export class Diagram {
 
     const label = p ? p.label : '';
     const workers = [...procs.values()].filter((x) => x.name.startsWith('persisterWorker-'));
-    // While in-memory merge workers run, the persister is in its merge phase.
-    const busyWorkers = workers.length > 0;
+    // While in-memory merge workers run, the persister is in its merge
+    // phase; just before they start, it has cut the flushables.
+    const busyWorkers = workers.some((w) => w.label);
+    const cut = workers.length > 0 && !busyWorkers;
     // A worker handing its file to the introducer is in phase 4.
     const introducing = workers.some((w) => /merges <-|merge introduction/.test(w.label));
-    litRow(this.pRows, busyWorkers && !/nap|paused/.test(label) ? (introducing ? 3 : 2) : phaseRow(PHASES.persister, label), /paused/.test(label));
-    this.pWorkers.forEach((w, i) => setCls(w, `pw s-${workers[i] ? procState(workers[i]) : 'wait'}`));
+    litRow(this.pRows, cut ? 1 : busyWorkers && !/nap|paused/.test(label) ? (introducing ? 3 : 2) : phaseRow(PHASES.persister, label), /paused/.test(label));
+    this.pWorkers.forEach((w, i) => setCls(w, `pw s-${workers[i] && !cut ? procState(workers[i]) : 'wait'}`));
     litRow(this.pBack, busyWorkers && !/nap|paused/.test(label) ? 3 : phaseRow(PHASES.persisterCode, label));
   }
 

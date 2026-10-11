@@ -134,6 +134,10 @@ export class PersisterProcs {
       }
       if (cur.length > 0) flushSet.push(cur);
     }
+    // (Instant in the real code too: just slicing a list.)
+    if (this.trace && flushSet.some((f) => f.some((ss) => ss.seg.id === this.trace.segId))) {
+      this._trace('flushables', { flushables: flushSet.length });
+    }
 
     // mergeAndPersistInMemorySegments: up to NumPersisterWorkers at once.
     const m = this;
