@@ -136,9 +136,11 @@ function swapAt(i, p, t) {
   if (base !== null) {
     const A = ctl.slotsAt.get(base), B = ctl.slotsAt.get(i);
     if (!A || !B) return null;
-    // In the step where the new root goes solid, it does so in the
-    // first half; the boxes catch up in the second (see boxProgress).
-    const tt = crossesSolid(i) ? clamp01(t / 0.5) : t;
+    // Phases follow the scroll evenly (not eased), so each gets its
+    // fair share. In the step where the new root goes solid, it does
+    // so in the first half; the boxes catch up in the second (see
+    // boxProgress).
+    const tt = crossesSolid(i) ? clamp01(p / 0.5) : p;
     // An empty 'drop' phase (nothing replaced) passes in no scroll.
     let from = phaseNum(views[i - 1]);
     if (from === DROP && phaseNum(views[i]) > DROP + 1 && !Diagram.swapDrops(A, B)) from = DROP + 1;

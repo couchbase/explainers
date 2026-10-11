@@ -410,10 +410,11 @@ chapters:
         expect: ["reached:written", ourSegInMemory]
         code: [zapx.persist]
         text: |
-          The worker wrote our new file down to disk and fsynced it,
-          then mmapped it. So [[our file]] is on disk now. But it's
-          not in the root yet: queries still find our docs in the
-          in-memory segment.
+          The worker wrote a new zap file down to disk and fsynced it.
+          Then it opened that file, mmapped, as [[our file segment]]:
+          the in-memory handle on the file that goroutines pass
+          around, and that a root can list. It's not in the root yet:
+          queries still find our docs in the in-memory segment.
 
       - id: to-introducer
         sim: { until: fileIntroducing }
@@ -421,7 +422,7 @@ chapters:
         expect: ["reached:fileIntroducing"]
         code: [introducer.introduceMerge]
         text: |
-          So the persister hands the new file up to
+          So the persister hands the new file segment up to
           [[the introducer]], over the same `merges` channel the
           merger uses. Only the introducer may change the root.
 
@@ -461,7 +462,7 @@ chapters:
       - id: add
         view: { swap: add, target: ourSeg }
         text: |
-          In goes [[our file]], as a new file segment.
+          In goes [[our file segment]].
 
       - id: mem-gone
         view: { swap: drop, target: rootMem }
@@ -527,7 +528,7 @@ chapters:
       - id: open
         view: { open: [disk], target: ourFile, token: file }
         text: |
-          There's [[our file]] in the index directory. Blue files are
+          There's [[our zap file]] in the index directory. Blue files are
           in the current root. Gray ones are no longer in the root, but
           are still on disk.
 

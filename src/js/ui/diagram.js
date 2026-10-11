@@ -225,6 +225,9 @@ export class Diagram {
     // The epoch number on its own, so a change can roll over (old one
     // up and out, new one up and in) as the reader scrolls.
     this.epochOld = txt(this.rootG, EPOCH_X, 862, '', 'zone-title epoch-num', 'start');
+    this.epochOldNum = el('tspan', {}, this.epochOld);
+    this.epochCopy = el('tspan', { 'fill-opacity': 0 }, this.epochOld);
+    this.epochCopy.textContent = ' (copy)';
     this.epochNew = txt(this.rootG, EPOCH_X, 862, '', 'zone-title epoch-num', 'start');
     this.epochPlus = txt(this.rootG, EPOCH_X + 32, 862, '+1', 'zone-title epoch-num lit', 'start');
     this.epochPlus.setAttribute('opacity', 0);
@@ -251,6 +254,8 @@ export class Diagram {
   _rootFace(parent) {
     const rect = el('rect', { x: ROOT[0], y: ROOT[1], width: ROOT[2], height: ROOT[3], rx: 6, class: 'zone strong' }, parent);
     const title = txt(parent, 96, 862, '', 'zone-title');
+    // the epoch number, placed as on the front sheet
+    const num = txt(parent, EPOCH_X, 862, '', 'zone-title epoch-num', 'start');
     const content = el('g', {}, parent);
     parent = content;
     txt(parent, 96, 880, 'in-memory segments', 'note-in');
@@ -267,7 +272,7 @@ export class Diagram {
       const del = el('rect', { x, y: FILE_BASE, width: 14, height: 0, class: 'fdel' }, parent);
       bars.push({ bar, del, x });
     }
-    return { g: parent.parentNode, rect, title, cells, bars, content };
+    return { g: parent.parentNode, rect, title, num, cells, bars, content };
   }
 
   // The old front sheet (captured slots S), k sheets deep, at opacity o.
@@ -276,7 +281,8 @@ export class Diagram {
     gh.g.setAttribute('opacity', o.toFixed(3));
     if (o <= 0.001) return;
     gh.g.setAttribute('transform', `translate(${(SHEET_DX * k).toFixed(1)} ${(SHEET_DY * k).toFixed(1)})`);
-    setText(gh.title, `root snapshot · epoch ${S.epoch}`);
+    setText(gh.title, 'root snapshot · epoch');
+    setText(gh.num, String(S.epoch));
     gh.cells.forEach((c, i) => setCls(c, S.mem[i]));
     gh.bars.forEach((b, i) => {
       const s = S.bars[i];
@@ -411,7 +417,7 @@ export class Diagram {
     // Our new file, down the persister's write arrow to disk.
     this.writeFly = el('g', { opacity: 0 }, g);
     el('use', { href: '#dg-file', x: -7, y: -9, width: 14, height: 18, class: 'ficon ficon-new ficon-ours' }, this.writeFly);
-    txt(this.writeFly, 12, 4, 'our file', 'token-label');
+    txt(this.writeFly, 12, 4, 'our zap file', 'token-label');
     // Our batch's docs, off to the analysis queue and back.
     this.queueDocs = [];
     for (let i = 0; i < 24; i++) this.queueDocs.push(doc());
@@ -597,7 +603,7 @@ export class Diagram {
   // + 1; then it's solid (swapped in) and the stack shifts back under it.
   drawSwap(A, B, s) {
     const part = (n) => swapPart(s, n);
-    const cover = part('cover'), copy = part('copy'), ep = part('epoch');
+    const cover = part('cover'), peel = part('peel'), copy = part('copy'), ep = part('epoch');
     const add = part('add'), drop = part('drop'), solid = part('solid'), settle = easeQuad(part('settle'));
 
     // X, the new root, in the front sheet's elements.
@@ -614,10 +620,11 @@ export class Diagram {
     // Contents change only once the marker has brought the new segment.
     this._blendCells(A, B, clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), drop);
 
-    // Its epoch: a copy of the old one, then "+1" and it rolls over.
-    this._drawEpoch(A.epoch, B.epoch, clamp01((ep - 0.25) / 0.3), 1, copy, true);
+    // Its epoch: the old one's, labeled "(copy)" as it lifts off, then
+    // "+1" and it rolls over.
+    this._drawEpoch(A.epoch, B.epoch, clamp01((ep - 0.2) / 0.25), 1, 1, peel);
     const one = B.epoch === A.epoch + 1;
-    const fadeOut = clamp01((ep - 0.82) / 0.18);
+    const fadeOut = clamp01((ep - 0.9) / 0.1);
     this.epochPlus.setAttribute('opacity', one ? (Math.min(1, ep / 0.3) * (1 - fadeOut)).toFixed(3) : 0);
     // The new number stays red, like its "+1", then both fade together.
     this.epochNew.style.fill = ep > 0 && ep < 1 ? `color-mix(in srgb, var(--accent) ${(100 * (1 - fadeOut)).toFixed(0)}%, var(--muted))` : '';
@@ -719,17 +726,19 @@ export class Diagram {
   // The root's epoch number, partway (q) from a to b: the old number
   // rolls up and out as the new one rolls in, lit while it changes.
   // shown: 0 hides the number (an empty root, before its epoch lands).
-  // copy: the old number is a new root's copy of it, labeled so.
-  _drawEpoch(a, b, q, whole = q, shown = 1, copy = false) {
+  // copy (0..1): the old number is a new root's copy of it, and the
+  // label "(copy)" fades in, in italics.
+  _drawEpoch(a, b, q, whole = q, shown = 1, copy = 0) {
     const r = a === b ? 1 : q;
     // "+1" while a one-epoch step is shown, until the scroll settles.
     this.epochPlus.setAttribute('opacity', b === a + 1 && whole < 1 && shown ? Math.min(1, q * 3).toFixed(3) : 0);
-    setText(this.epochOld, a === b ? '' : copy ? `${a} (copy)` : String(a));
-    // the copy's label in italics, while it shows
-    const italic = copy && a !== b && r < 0.5 && shown > 0;
+    this.epochOldNum.textContent = a === b ? '' : String(a);
+    this.epochCopy.textContent = a === b || !copy ? '' : ' (copy)';
+    this.epochCopy.setAttribute('fill-opacity', copy.toFixed(3));
+    const italic = copy > 0 && a !== b && r < 0.5 && shown > 0;
     this.epochWord.setAttribute('class', italic ? 'copy-label' : '');
-    this.epochOld.classList.toggle('copy-label', copy);
-    // "+1" just after the old number
+    this.epochOld.classList.toggle('copy-label', copy > 0);
+    // "+1" just after the old number and its label
     const w = this.epochOld.textContent && this.epochOld.getComputedTextLength ? this.epochOld.getComputedTextLength() : 24;
     this.epochPlus.setAttribute('x', (EPOCH_X + (w || 24) + 8).toFixed(1));
     setText(this.epochNew, String(b));
@@ -838,7 +847,7 @@ export class Diagram {
       const i = this.dirSlots.get(tr.fileName);
       if (i !== undefined) {
         const ic = this.dirIcons[i];
-        return { p: [ic.x + 6, ic.y + 7.5], size: 18, kind: 'file', label: 'our file', st: 'icon', key: tr.fileName };
+        return { p: [ic.x + 6, ic.y + 7.5], size: 18, kind: 'file', label: 'our zap file', st: 'icon', key: tr.fileName };
       }
     }
     const fixed = STATIONS[tr.stage];
@@ -847,18 +856,18 @@ export class Diagram {
       const st = tr.stage;
       const held = st === 'persisting' ? m.persisterSnapshot : st === 'merging' ? m.mergerSnapshot : null;
       if (held) {
-        return { p: fixed, size: 10, kind, st, snap: true, label: kind === 'mem' ? 'our segment' : 'our file', sub: `in epoch ${held.epoch}` };
+        return { p: fixed, size: 10, kind, st, snap: true, label: kind === 'mem' ? 'our segment' : 'our file segment', sub: `in epoch ${held.epoch}` };
       }
       // Under the introducer's 'merges' chip, the label goes to the
       // right, clear of the channel chips above.
       const side = st === 'fileIntroducing' ? 'right' : undefined;
-      return { p: fixed, size: st === 'channel' || side ? 14 : 16, kind, st, side, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file' };
+      return { p: fixed, size: st === 'channel' || side ? 14 : 16, kind, st, side, label: kind === 'batch' ? 'our batch' : kind === 'mem' ? 'our segment' : 'our file segment' };
     }
     const seg = this.positions.ourSeg;
     if (seg) {
       const isFile = m.root.segs.some((ss) => ss.seg.id === tr.segId && ss.seg.kind === 'file');
       return isFile
-        ? { p: [seg.p[0] + 10, seg.p[1]], size: 18, kind: 'file', label: 'our file', st: 'bar', key: tr.segId }
+        ? { p: [seg.p[0] + 10, seg.p[1]], size: 18, kind: 'file', label: 'our file segment', st: 'bar', key: tr.segId }
         : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment', st: 'cell', key: tr.segId };
     }
     return null;
