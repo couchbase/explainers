@@ -67,12 +67,13 @@ export const CAMERAS = {
   root: { rect: [60, 800, 940, 1062], label: 'scorch: the root snapshot', section: 'scorch' },
   swap: { rect: [60, 690, 950, 1062], label: 'scorch: swapping in a new root', section: 'scorch' },
   persister: { rect: [40, 840, 560, 1270], label: 'scorch: the persister', section: 'scorch' },
-  persisterDisk: { rect: [40, 860, 560, 1410], label: 'scorch: the persister, down to disk', section: 'scorch' },
+  persisterDisk: { rect: [40, 880, 660, 1550], label: 'scorch: the persister, down to disk', section: 'scorch' },
   persisterDetail: { rect: [-450, 960, 490, 1270], label: 'scorch: inside the persister', section: 'scorch' },
   merger: { rect: [440, 840, 960, 1270], label: 'scorch: the merger', section: 'scorch' },
   mergerDetail: { rect: [440, 820, 980, 1590], label: 'scorch: inside the merger', section: 'scorch' },
   lower: { rect: [20, 820, 980, 1652], label: 'scorch and disk', section: 'scorch' },
   disk: { rect: [30, 1320, 970, 1652], label: 'disk', section: 'disk' },
+  diskDir: { rect: [30, 1350, 330, 1470], label: 'disk: the index directory', section: 'disk' },
 };
 
 // Named anchor points for story callouts and chart leaders. `needs`

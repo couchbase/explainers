@@ -425,11 +425,23 @@ export class Diagram {
 
   // q in 0..1 (<0 hides it): our file going down the persister's
   // write arrow into the disk.
+  // It lands on its icon in the index directory, which stays hidden
+  // until it gets there.
   setWriteFly(q) {
-    if (q < 0 || q >= 1) { this.writeFly.setAttribute('opacity', 0); return; }
-    const y = lerp(1262, 1384, easeQuad(q));
-    this.writeFly.setAttribute('opacity', Math.min(1, q / 0.1, (1 - q) / 0.15).toFixed(3));
-    this.writeFly.setAttribute('transform', `translate(280 ${y.toFixed(1)})`);
+    const ic = this.writeIcon;
+    if (this.writeHidden && this.writeHidden !== ic) this.writeHidden.g.style.visibility = '';
+    if (q < 0 || q >= 1) {
+      this.writeFly.setAttribute('opacity', 0);
+      if (this.writeHidden) this.writeHidden.g.style.visibility = '';
+      this.writeHidden = null;
+      return;
+    }
+    const end = ic ? [ic.x + 6, ic.y + 7.5] : [280, 1384];
+    const pts = [[280, 1262], [280, 1378], [end[0], 1378], end];
+    const [x, y] = along(pts, easeQuad(q));
+    this.writeFly.setAttribute('opacity', Math.min(1, q / 0.08).toFixed(3));
+    this.writeFly.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${lerp(1, 0.86, q).toFixed(3)})`);
+    if (ic) { ic.g.style.visibility = 'hidden'; this.writeHidden = ic; }
   }
 
   // t in 0..1 (<0 hides them), over the step's whole length: our
@@ -1069,7 +1081,7 @@ export class Diagram {
     const shown = new Map();
     for (const name of m.files.keys()) shown.set(this.dirSlots.get(name), { name, kind: 'file' });
     for (const d of recent) if (!m.files.has(d.name)) shown.set(this.dirSlots.get(d.name), { name: d.name, kind: 'deleted' });
-    const ours = m.trace ? m.trace.fileName : null;
+    const ours = m.trace ? m.trace.fileName || m.trace.newFileName : null;
     this.dirIcons.forEach((ic, i) => {
       const s = shown.get(i);
       if (!s) { ic.g.setAttribute('opacity', 0); return; }
@@ -1158,7 +1170,11 @@ export class Diagram {
       const ic = this.dirIcons[i];
       return [ic.x - 2, ic.y + 8];
     };
-    if (tr.fileName) { const p = dirPos(tr.fileName); if (p) this.positions.ourFile = { p, needs: ['disk'] }; }
+    const ourName = tr.fileName || tr.newFileName;
+    if (ourName) { const p = dirPos(ourName); if (p) this.positions.ourFile = { p, needs: ['disk'] }; }
+    // Where our new zap file lands in the directory, once written.
+    const wi = tr.newFileName ? this.dirSlots.get(tr.newFileName) : undefined;
+    this.writeIcon = wi !== undefined ? this.dirIcons[wi] : null;
     if (tr.deletedFile) { const p = dirPos(tr.deletedFile); if (p) this.positions.deletedFile = { p, needs: ['disk'] }; }
     const at = {
       dcp: 'dcp', channel: 'slot', worker: 'workers', herder: 'gate',

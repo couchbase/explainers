@@ -406,6 +406,12 @@ chapters:
         text: |
           Back to [[our segment]], still being written.
 
+      - id: open-disk
+        view: { open: [disk], target: diskLid }
+        text: |
+          Let's open up [[the disk]] below, to see where the
+          persister's writes go.
+
       - id: written
         sim: { until: written }
         view: { target: ourBatch, flow: write }
@@ -417,6 +423,20 @@ chapters:
           the in-memory handle on the file that goroutines pass
           around, and that a root can list. It's not in the root yet:
           queries still find our docs in the in-memory segment.
+
+      - id: landed
+        view: { camera: diskDir, target: ourFile, token: hide }
+        text: |
+          On disk, [[our zap file]] is a new file in the index's
+          directory, beside the files already there. It's drawn
+          dashed because nothing lists it yet: not the root, and not
+          `root.bolt`. Until a `root.bolt` record does, it wouldn't
+          count after a crash.
+
+      - id: back-up
+        view: { camera: persisterDisk, target: ourBatch, token: auto }
+        text: |
+          Back up to [[our file segment]], beside the persister.
 
       - id: to-introducer
         sim: { until: fileIntroducing }
@@ -528,9 +548,10 @@ chapters:
           persister wrote it, a few steps back.
 
       - id: open
-        view: { open: [disk], target: ourFile, token: file }
+        view: { target: ourFile, token: file }
         text: |
-          There's [[our zap file]] in the index directory. Blue files are
+          There's [[our zap file]] in the index directory again, now
+          solid blue. Blue files are
           in the current root. Gray ones are no longer in the root, but
           are still on disk.
 

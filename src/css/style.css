@@ -329,14 +329,14 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .pin { stroke: var(--busy); stroke-dasharray: 2 2; }
 .search-ring, .search-handle { fill: none; stroke: var(--busy); stroke-width: 1.6; }
 
-.ficon-body { fill: var(--seg-file); stroke: var(--seg-file); stroke-width: 1; }
-.ficon-fold { fill: none; stroke: var(--panel); stroke-width: 1; }
-.ficon-garbage .ficon-body { fill: var(--seg-garbage); stroke: var(--seg-garbage); }
-.ficon-new .ficon-body { fill: var(--panel); stroke: var(--seg-file); stroke-dasharray: 2 1.5; }
-.ficon-new .ficon-fold { stroke: var(--seg-file); }
-.ficon-zombie .ficon-body { fill: var(--panel); stroke: var(--seg-zombie); stroke-width: 1.4; }
-.ficon-zombie .ficon-fold { stroke: var(--seg-zombie); }
-.ficon-ours .ficon-body { stroke: var(--accent); stroke-width: 2; }
+/* File icons are <use>s of one symbol: their look comes in through
+   custom properties, which (unlike descendant selectors) reach inside. */
+.ficon-body { fill: var(--fi-fill, var(--seg-file)); stroke: var(--fi-stroke, var(--seg-file)); stroke-width: var(--fi-sw, 1); stroke-dasharray: var(--fi-dash, none); }
+.ficon-fold { fill: none; stroke: var(--fi-fold, var(--panel)); stroke-width: 1; }
+.ficon-garbage { --fi-fill: var(--seg-garbage); --fi-stroke: var(--seg-garbage); }
+.ficon-new { --fi-fill: var(--panel); --fi-dash: 2 1.5; --fi-fold: var(--seg-file); }
+.ficon-zombie { --fi-fill: var(--panel); --fi-stroke: var(--seg-zombie); --fi-sw: 1.4; --fi-fold: var(--seg-zombie); }
+.ficon-ours { --fi-stroke: var(--accent); --fi-sw: 2; }
 .del-ring { fill: var(--panel); fill-opacity: 0.5; stroke: var(--stall); stroke-width: 1.8; }
 .del-slash { stroke: var(--stall); stroke-width: 1.8; }
 .bolt { fill: var(--panel); stroke: var(--line); }
