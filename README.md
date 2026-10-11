@@ -124,7 +124,7 @@ step to step:
 | `bubble` / `unbubble` | pop a detail bubble out of a panel: `analysis`, `persister`, `merger` |
 | `plan` | what the merger bubble's tier staircase shows: an example index's `budget`, `files`, `over`, `pick`, `merged`; or `live`, the simulation's own files (the default) |
 | `swap` | tell a root swap one phase per step: `cover`, `peel`, `copy`, `add`, `drop`, `epoch`, `solid`, `settle` (see `SWAP_PHASES` in `src/js/ui/snapstack.js`). The run's first step has the `sim.until` that swaps the root. Swaps that aren't told this way play every phase within one step's scroll |
-| `flow` | `analysis`: our batch's docs go across to the analysis queue and back during this step's scroll |
+| `flow` | `analysis`: our batch's docs go across to the analysis queue and back during this step's scroll; `write`: our file goes down the persister's write arrow to disk, then the marker moves |
 | `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
 
 **Simulation directives:**

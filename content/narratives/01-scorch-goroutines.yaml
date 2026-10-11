@@ -400,19 +400,20 @@ chapters:
           (`num_persister_nap_merger_break`).
 
       - id: back
-        view: { camera: persister, target: ourBatch }
+        view: { camera: persisterDisk, target: ourBatch }
         text: |
           Back to [[our segment]], still being written.
 
       - id: written
         sim: { until: written }
-        view: { target: ourBatch }
+        view: { target: ourBatch, flow: write }
         expect: ["reached:written", ourSegInMemory]
         code: [zapx.persist]
         text: |
-          [[Our new file]] is written and fsynced, and mmapped. But
-          it's not in the root yet: queries still find our docs in
-          the in-memory segment.
+          The worker wrote our new file down to disk and fsynced it,
+          then mmapped it. So [[our file]] is on disk now. But it's
+          not in the root yet: queries still find our docs in the
+          in-memory segment.
 
       - id: to-introducer
         sim: { until: fileIntroducing }
@@ -520,8 +521,8 @@ chapters:
       - id: step-back
         view: { camera: overview, target: diskLid }
         text: |
-          Step back again. Our segment's file was written to
-          [[disk]].
+          Step back again. Our file has been on [[disk]] since the
+          persister wrote it, a few steps back.
 
       - id: open
         view: { open: [disk], target: ourFile, token: file }

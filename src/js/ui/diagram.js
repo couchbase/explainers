@@ -408,9 +408,22 @@ export class Diagram {
     };
     this.docs = [];
     for (let i = 0; i < 9; i++) this.docs.push(doc());
+    // Our new file, down the persister's write arrow to disk.
+    this.writeFly = el('g', { opacity: 0 }, g);
+    el('use', { href: '#dg-file', x: -7, y: -9, width: 14, height: 18, class: 'ficon ficon-new ficon-ours' }, this.writeFly);
+    txt(this.writeFly, 12, 4, 'our file', 'token-label');
     // Our batch's docs, off to the analysis queue and back.
     this.queueDocs = [];
     for (let i = 0; i < 24; i++) this.queueDocs.push(doc());
+  }
+
+  // q in 0..1 (<0 hides it): our file going down the persister's
+  // write arrow into the disk.
+  setWriteFly(q) {
+    if (q < 0 || q >= 1) { this.writeFly.setAttribute('opacity', 0); return; }
+    const y = lerp(1262, 1384, easeQuad(q));
+    this.writeFly.setAttribute('opacity', Math.min(1, q / 0.1, (1 - q) / 0.15).toFixed(3));
+    this.writeFly.setAttribute('transform', `translate(280 ${y.toFixed(1)})`);
   }
 
   // t in 0..1 (<0 hides them), over the step's whole length: our

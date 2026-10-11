@@ -105,7 +105,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         if (v.ui !== undefined && !UI_MODES.includes(v.ui)) err(sw, `unknown ui "${v.ui}" (known: ${UI_MODES.join(', ')})`);
         if (v.token !== undefined && !TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${TOKEN_MODES.join(', ')})`);
         if (v.plan !== undefined && !PLAN_PHASES.includes(v.plan)) err(sw, `unknown plan "${v.plan}" (known: ${PLAN_PHASES.join(', ')})`);
-        if (v.flow !== undefined && v.flow !== 'analysis') err(sw, `unknown flow "${v.flow}" (known: analysis)`);
+        if (v.flow !== undefined && !['analysis', 'write'].includes(v.flow)) err(sw, `unknown flow "${v.flow}" (known: analysis, write)`);
         if (v.swap !== undefined && !SWAP_PHASES.includes(v.swap)) err(sw, `unknown swap "${v.swap}" (known: ${SWAP_PHASES.join(', ')})`);
         if (v.target !== undefined && !(v.target in ANCHORS) && !DYNAMIC_ANCHORS.includes(v.target)) {
           err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(ANCHORS), ...DYNAMIC_ANCHORS].join(', ')})`);

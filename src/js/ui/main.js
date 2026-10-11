@@ -116,6 +116,7 @@ function record(i, m) {
 // Root swaps (see SWAP_PHASES): told over several steps (`swap: <phase>`
 // on each), or played within one step's scroll whenever the root changes.
 
+const WRITE_SHARE = 0.6; // of a `flow: write` step, before the marker moves
 const SOLID = SWAP_PHASES.indexOf('solid');
 const DROP = SWAP_PHASES.indexOf('drop');
 const phaseNum = (v) => (v.swap ? SWAP_PHASES.indexOf(v.swap) + 1 : 0);
@@ -199,7 +200,9 @@ function render() {
 
   // While the root is swapped, the marker waits for its turn.
   const swap = ctl.playing ? null : swapAt(i, p, t);
-  const mf = (swap && swapMarker(views, ctl.tokenAt, i, swap.base, swap.s)) || markerFrame(views, ctl.tokenAt, i, p);
+  // ...and while our file goes down to disk.
+  const win = v.flow === 'write' ? [WRITE_SHARE, 1] : undefined;
+  const mf = (swap && swapMarker(views, ctl.tokenAt, i, swap.base, swap.s)) || markerFrame(views, ctl.tokenAt, i, p, win);
   const markerPt = mf && mf.t && mf.o > 0.01 ? mf.t.p : null;
   camera.show(camera.follow(camera.between(i > 0 ? pv.camera : null, v.camera, p), markerPt));
 
@@ -209,6 +212,7 @@ function render() {
   diagram.setToken(mf && mf.t, mf ? mf.o : 0);
   diagram.setDocs(mf && mf.birth !== undefined ? mf.birth : -1, mf && mf.t);
   diagram.setQueueDocs(v.flow === 'analysis' && u < 1 ? u : -1);
+  diagram.setWriteFly(v.flow === 'write' && p < 1 ? clamp01(t / WRITE_SHARE) : -1);
   // Our segment's slot stays faint until the marker arrives.
   diagram.setArrival(mf && mf.dest, mf && mf.dest && !mf.arrived ? 0 : 1);
   // Our file's channel lights as the marker reaches it.
