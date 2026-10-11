@@ -165,7 +165,12 @@ export class PersisterProcs {
         if (seg) {
           m.stats.TotMemMergeDone++;
           m.stats.TotMemMergeSegments += flushable.length;
-          if (ours) m._trace('written', { newFileName: seg.fileName });
+          if (ours) {
+            m._trace('written', { newFileName: seg.fileName });
+            // zap's Open(): mmap the new file (instant here); the story
+            // stops on it, still in phase 3, before the introduction.
+            yield k.work(0, `opening ${seg.fileName} (mmap)`);
+          }
         }
         const introduced = yield* m._introduceMergeResult(flushable, seg, false, ours && !!seg);
         if (introduced) newFiles.push(seg);
