@@ -397,13 +397,41 @@ export class Diagram {
 
   // Documents flowing from KV down the DCP arrow, for a batch's birth.
   _docs(g) {
-    this.docs = [];
-    for (let i = 0; i < 9; i++) {
+    const doc = () => {
       const dg = el('g', { class: 'doc', opacity: 0 }, g);
       el('path', { d: 'M-5,-6.5 H2 L5,-3.5 V6.5 H-5 Z', class: 'doc-body' }, dg);
       el('path', { d: 'M-3,-2 H3 M-3,1 H3 M-3,4 H1', class: 'doc-lines' }, dg);
-      this.docs.push(dg);
+      return dg;
+    };
+    this.docs = [];
+    for (let i = 0; i < 9; i++) this.docs.push(doc());
+    // Our batch's docs, off to the analysis queue and back.
+    this.queueDocs = [];
+    for (let i = 0; i < 8; i++) this.queueDocs.push(doc());
+  }
+
+  // t in 0..1 (<0 hides them): our batch's docs, one after another, go
+  // from Scorch.Batch() across to the analysis queue, are analyzed
+  // there, and come back.
+  setQueueDocs(t) {
+    if (t < 0) {
+      if (this.queueDocsShown) for (const d of this.queueDocs) d.setAttribute('opacity', 0);
+      this.queueDocsShown = false;
+      return;
     }
+    this.queueDocsShown = true;
+    const [x0, x1] = [STATIONS.analysis[0] + 14, 706];
+    this.queueDocs.forEach((d, i) => {
+      const q = clamp01((t - i * 0.07) / 0.5);
+      // out along the upper arrow, a pause in the queue, back along the lower
+      const out = q < 0.4, back = q > 0.6;
+      if (q <= 0 || q >= 1 || !(out || back)) { d.setAttribute('opacity', 0); return; }
+      const f = out ? easeQuad(q / 0.4) : easeQuad((q - 0.6) / 0.4);
+      const x = out ? lerp(x0, x1, f) : lerp(x1, x0, f), y = out ? 628 : 646;
+      const edge = Math.min(f, 1 - f) / 0.1; // fade at either end
+      d.setAttribute('opacity', Math.min(1, edge).toFixed(3));
+      d.setAttribute('transform', `translate(${x.toFixed(1)} ${y}) scale(0.8)`);
+    });
   }
 
   // t in 0..1 is the birth's progress (<0 hides the docs). Each doc
@@ -523,6 +551,7 @@ export class Diagram {
       })),
       stack: this.stackNow,
       epoch: this.rootEpochNow,
+      introLid: this.lids.introducer.status.textContent,
       dir: this.dirIcons.map((ic) => ({ o: ic.g.getAttribute('opacity'), cls: ic.use.getAttribute('class'), del: ic.del.getAttribute('opacity') })),
     };
   }
@@ -547,8 +576,8 @@ export class Diagram {
   // (slots A), at s through SWAP_PHASES (0..8), one change at a time:
   // the new root X starts as a see-through, dashed copy laid over the
   // old one and lifts off the stack; it gets the old root's contents
-  // and epoch, epoch + 1, the new segment, loses what that replaces;
-  // then it's solid (swapped in) and the stack shifts back under it.
+  // and epoch, the new segment, loses what that replaces, then epoch
+  // + 1; then it's solid (swapped in) and the stack shifts back under it.
   drawSwap(A, B, s) {
     const part = (n) => swapPart(s, n);
     const cover = part('cover'), copy = part('copy'), ep = part('epoch');
@@ -572,6 +601,10 @@ export class Diagram {
     this._drawEpoch(A.epoch, B.epoch, clamp01((ep - 0.35) / 0.45), 1, copy);
     const one = B.epoch === A.epoch + 1;
     this.epochPlus.setAttribute('opacity', one ? (Math.min(1, ep / 0.3) * (1 - clamp01((ep - 0.8) / 0.2))).toFixed(3) : 0);
+
+    // The introducer's lid names the root's epoch: the new one once
+    // it's swapped in.
+    setText(this.lids.introducer.status, solid < 0.5 ? A.introLid : B.introLid);
 
     // The old root, under X, then back into the stack (or gone, if
     // nothing holds it any more).

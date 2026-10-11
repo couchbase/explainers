@@ -188,7 +188,7 @@ chapters:
           return until the batch has been fully 'introduced'.
 
       - id: analysis
-        view: { target: analysis }
+        view: { target: analysis, flow: analysis }
         code: [scorch.batchAnalysis, scorch.analyze]
         text: |
           First comes analysis. For that, scorch calls across to a
@@ -252,16 +252,42 @@ chapters:
           segment. It now hands the segment to the introducer and
           waits.
 
+      - id: follow
+        view: { camera: swap, target: introducer }
+        text: |
+          Let's follow our segment into [[the introducer]].
+
       - id: introduced
         sim: { until: introduced }
-        view: { target: introducer }
+        view: { swap: copy, target: root }
         expect: ["reached:introduced", ourSegInMemory]
-        code: [introducer.introduceSegment, scorch.prepareSegment]
+        code: [introducer.introduceSegment]
         text: |
-          [[The introducer]] is the only goroutine that may change the
+          The introducer is the only goroutine that may change the
           index's *root*: an immutable snapshot listing the segments
-          and their deleted docs. It built a new root with our segment
-          appended, swapped it in, and bumped the epoch.
+          and their deleted docs. It never edits the root in place.
+          It starts [[a new root]] from a copy of the current one's
+          segment list.
+
+      - id: appended
+        view: { swap: add, target: ourSeg }
+        code: [scorch.prepareSegment]
+        text: |
+          It appends [[our segment]] to that list.
+
+      - id: next-epoch
+        view: { swap: epoch, target: rootEpoch }
+        code: [introducer.introduceSegment]
+        text: |
+          It gives the new root [[the next epoch]].
+
+      - id: swapped-in
+        view: { swap: settle, target: root }
+        expect: [onlyRootLive]
+        text: |
+          Then it swaps [[the new root]] in, and lets go of its ref on
+          the old one. Nothing else holds the old root right now, so
+          it's freed.
 
       - id: our-segment
         view: { camera: root, target: ourSeg }
@@ -418,23 +444,14 @@ chapters:
         view: { swap: copy, target: rootMem }
         code: [introducer.mergeSwap]
         text: |
-          It gets a copy of [[the old root's segment list]]. Only the
-          list: the segments themselves are shared, and each one's
+          It starts from a copy of [[the old root's segment list]]
+          (and, for now, its epoch). Only the list: the segments themselves are shared, and each one's
           refcount goes up by one. No docs are copied.
-
-      - id: epoch-up
-        view: { swap: epoch, target: rootEpoch }
-        expect: ["rootEpoch:356"]
-        text: |
-          It gets the next epoch: [[355 + 1 = 356]]. The introducer
-          hands out epochs in order, one for every root it swaps in,
-          whether that root adds a batch's segment, a persister's file,
-          or a merger's result.
 
       - id: add
         view: { swap: add, target: ourSeg }
         text: |
-          In goes [[our file]], as a file segment.
+          In goes [[our file]], as a new file segment.
 
       - id: mem-gone
         view: { swap: drop, target: rootMem }
@@ -443,6 +460,16 @@ chapters:
           Out go [[the in-memory segments]] it replaces. All of them,
           ours included, were merged into that one file: same docs,
           now in a zap file on disk, mmapped.
+
+      - id: epoch-up
+        view: { swap: epoch, target: rootEpoch }
+        expect: ["rootEpoch:356"]
+        text: |
+          Last, just before the swap, it gets the next epoch:
+          [[355 + 1 = 356]]. The introducer hands out epochs in order,
+          one for every root it swaps in,
+          whether that root adds a batch's segment, a persister's file,
+          or a merger's result.
 
       - id: swapped
         view: { swap: solid, target: root }

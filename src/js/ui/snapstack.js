@@ -63,18 +63,19 @@ export function stackFrame(A, B, q) {
 
 export const stackKey = (S) => `${S.epochs.join(',')}|${S.persister}|${S.merger}|${S.query}`;
 
-// How the introducer swaps in a new root, one change at a time. A
-// story can stop at any phase (view `swap: <phase>`); otherwise a swap
-// plays every phase within one step's scroll.
+// How the introducer swaps in a new root, one change at a time, in the
+// order introduceSegment() and introduceMerge() do it. A story can stop
+// at any phase (view `swap: <phase>`); otherwise a swap plays every
+// phase within one step's scroll.
 //   cover:  a new, empty root (dashed, see-through) over the old one
 //   peel:   it lifts off the stack, up and to the left
 //   copy:   it gets a copy of the old root's segment list (and epoch)
-//   epoch:  its epoch goes up by one
 //   add:    the new segment goes in
 //   drop:   segments it replaces drop out
+//   epoch:  just before the swap, it gets the next epoch
 //   solid:  it's swapped in: now it's the root
 //   settle: the whole stack shifts back, the new root in front
-export const SWAP_PHASES = ['cover', 'peel', 'copy', 'epoch', 'add', 'drop', 'solid', 'settle'];
+export const SWAP_PHASES = ['cover', 'peel', 'copy', 'add', 'drop', 'epoch', 'solid', 'settle'];
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 const easeQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);

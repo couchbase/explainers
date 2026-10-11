@@ -131,16 +131,17 @@ function swapAt(i, p, t) {
   if (base !== null) {
     const A = ctl.slotsAt.get(base), B = ctl.slotsAt.get(i);
     if (!A || !B) return null;
-    // The new root goes solid in the first half of its step; the boxes
-    // catch up in the second (see boxProgress).
-    const to = phaseNum(views[i]), tt = to === SOLID + 1 ? clamp01(t / 0.5) : t;
-    return { A, B, base, s: lerp(phaseNum(views[i - 1]), to, tt) };
+    // In the step where the new root goes solid, it does so in the
+    // first half; the boxes catch up in the second (see boxProgress).
+    const tt = crossesSolid(i) ? clamp01(t / 0.5) : t;
+    return { A, B, base, s: lerp(phaseNum(views[i - 1]), phaseNum(views[i]), tt) };
   }
   const A = ctl.slotsAt.get(i - 1), B = ctl.slotsAt.get(i);
   if (p < 1 && Diagram.isSwap(A, B)) return { A, B, base: i - 1, s: SWAP_PHASES.length * clamp01((t - 0.1) / 0.8) };
   return null;
 }
-const boxProgress = (i, p) => (views[i].swap === 'solid' ? clamp01((p - 0.5) / 0.5) : p);
+const crossesSolid = (i) => !!views[i].swap && phaseNum(views[i - 1]) <= SOLID && phaseNum(views[i]) > SOLID;
+const boxProgress = (i, p) => (crossesSolid(i) ? clamp01((p - 0.5) / 0.5) : p);
 
 function effectiveSpeed() {
   if (ui.speedSel.value !== 'auto') return Number(ui.speedSel.value);
@@ -200,6 +201,7 @@ function render() {
   if (pv.bubbles.has('merger') || v.bubbles.has('merger')) diagram.setStairs(pv.plan, v.plan, t);
   diagram.setToken(mf && mf.t, mf ? mf.o : 0);
   diagram.setDocs(mf && mf.birth !== undefined ? mf.birth : -1, mf && mf.t);
+  diagram.setQueueDocs(v.flow === 'analysis' && p < 1 ? t : -1);
   // Our segment's slot stays faint until the marker arrives.
   diagram.setArrival(mf && mf.dest, mf && mf.dest && !mf.arrived ? 0 : 1);
 

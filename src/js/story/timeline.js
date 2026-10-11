@@ -109,7 +109,7 @@ export function resolveViews(steps) {
     if (v.ui !== undefined) ui = v.ui;
     if (v.token !== undefined) token = v.token;
     if (v.plan !== undefined) plan = v.plan;
-    return { camera, open, bubbles, ui, token, plan, swap: v.swap || null, target: v.target || null, chart: v.chart || null };
+    return { camera, open, bubbles, ui, token, plan, swap: v.swap || null, flow: v.flow || null, target: v.target || null, chart: v.chart || null };
   });
 }
 
@@ -156,6 +156,7 @@ export const EXPECTATIONS = {
   persisterPausedForMerger: (m) => m.stats.TotPersisterSlowMergerPause > 0,
   queryRunning: (m) => m.queries.size > 0,
   persisterHoldsOlderRoot: (m) => !!m.persisterSnapshot && m.persisterSnapshot !== m.root,
+  onlyRootLive: (m) => m.liveSnapshots.size === 1,
   rootMovedPastPersister: (m) => !!m.persisterSnapshot && m.root.epoch - m.persisterSnapshot.epoch >= 3,
   noQueries: (m) => m.queries.size === 0,
   zombies: (m) => m.zombieBytes() > 0,
