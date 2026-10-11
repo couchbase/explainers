@@ -229,7 +229,7 @@ chapters:
           that indexing uses.
 
       - id: analyzer-close
-        view: { unbubble: [analysis], target: analysis, flow: analysis }
+        view: { unbubble: [analysis], target: analysis }
         text: |
           Because the pool is shared and sized to the CPUs, a burst of
           ingest anywhere on the node can make [[the queue]] the
@@ -238,7 +238,7 @@ chapters:
           next batch, and the pressure backs up toward KV.
 
       - id: back
-        view: { camera: scorchTop, target: batch }
+        view: { camera: scorchTop, target: batch, flow: analysis }
         text: |
           Back in scorch, [[Scorch.Batch()]] is waiting for our batch's
           analysis results.
