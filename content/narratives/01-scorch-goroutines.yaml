@@ -672,7 +672,7 @@ chapters:
         text: |
           Back to [[our own index]], at epoch 355. It's small, a stair
           or two, but it has three files on a budget of two, so the
-          plan has one task: merge them, our file included.
+          plan has one task: merge two of them, our file included.
 
       - id: detail-close
         view: { unbubble: [merger], target: mergerInside }
@@ -681,21 +681,89 @@ chapters:
           task's files into one, then hands the result to the
           introducer.
 
-      - id: merged
-        sim: { until: merged }
-        view: { target: ourSeg }
-        expect: ["reached:merged"]
+      - id: merging
+        sim: { until: merging }
+        view: { target: ourBatch }
+        expect: ["reached:merging"]
+        code: [merger.planMergeAtSnapshot]
+        text: |
+          [[The merger]] is merging our file segment with one other
+          into a new zap file. It found them through its ref on epoch
+          355, and both stay in that root, still searchable, while it
+          works.
+
+      - id: merge-wide
+        view: { camera: mergeDisk, target: disk }
+        text: |
+          Let's widen the view to take in [[the disk]] below.
+
+      - id: merge-written
+        sim: { until: mergeWritten }
+        view: { target: ourBatch, flow: mergeWrite }
+        expect: ["reached:mergeWritten"]
+        text: |
+          It wrote the merged zap file down to disk and fsynced it, and
+          opened it, mmapped, as [[a merged file segment]] holding our
+          docs. On disk there are now two files with our docs in them:
+          our old one, and this new one. The new one isn't in the root
+          yet, though.
+
+      - id: merge-to-introducer
+        sim: { until: mergeIntroducing }
+        view: { target: ourBatch }
+        expect: ["reached:mergeIntroducing"]
         code: [introducer.introduceMerge]
         text: |
-          Our file was just merged with others into [[a bigger file]].
-          Any deletes that happened while the merge ran are remapped
-          into the new segment by the introducer.
+          Like the persister, the merger can't change the root itself.
+          It hands [[the merged file segment]] up to the introducer,
+          over the same `merges` channel.
 
-          The files our docs used to live in are no longer in the
-          root, so the merger's work has left garbage on disk.
+      - id: merge-watch
+        view: { camera: swap, target: rootFiles }
+        text: |
+          Now watch [[the root's file segments]] as the introducer
+          builds a new root around the merged file.
+
+      - id: merged
+        sim: { until: merged }
+        view: { swap: copy, target: root }
+        expect: ["reached:merged"]
+        code: [introducer.mergeSwap]
+        text: |
+          As before, the introducer starts [[a new root]] from a copy
+          of epoch 355's segment list: three file segments.
+
+      - id: merge-add
+        view: { swap: add, target: ourSeg }
+        code: [introducer.introduceMerge]
+        text: |
+          In goes [[the merged file segment]]. Any docs deleted while
+          the merge ran are marked deleted in it too: the introducer
+          remaps those deletes into the new segment.
+
+      - id: merge-drop
+        view: { swap: drop, target: rootFiles }
+        text: |
+          Out go [[the two file segments]] it replaces, ours among
+          them. The new root lists the same docs, in two file
+          segments instead of three.
+
+      - id: merge-epoch
+        view: { swap: epoch, target: rootEpoch }
+        text: |
+          Then the next epoch: [[355 + 1 = 356]].
+
+      - id: merge-swapped
+        view: { swap: settle, target: root }
+        expect: ["rootEpoch:356", onlyRootLive]
+        text: |
+          And the introducer swaps [[the new root]] in. The merger had
+          already let go of epoch 355 and nothing else held it, so
+          it's freed. Our old file is no longer in any root: it's
+          garbage on disk now.
 
       - id: to-disk
-        view: { camera: disk, target: disk, token: file }
+        view: { camera: disk, target: disk, token: hide }
         code: [persister.removeOldData]
         text: |
           Old files stay in [[the directory]], gray, until no

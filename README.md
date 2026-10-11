@@ -125,7 +125,7 @@ step to step:
 | `plan` | what the merger bubble's tier staircase shows: an example index's `budget`, `files`, `over`, `pick`, `merged`; or `live`, the simulation's own files (the default) |
 | `swap` | tell a root swap one phase per step: `cover`, `peel`, `copy`, `add`, `drop`, `epoch`, `solid`, `settle` (see `SWAP_PHASES` in `src/js/ui/snapstack.js`). The run's first step has the `sim.until` that swaps the root. Swaps that aren't told this way play every phase within one step's scroll |
 | `commit` | tell the persister's commit one phase per step: `bolt` (a new root.bolt record), `listed` (our zap file turns solid), `release` (the persister lets go of its root); see `COMMIT_PHASES` |
-| `flow` | `analysis`: our batch's docs go across to the analysis queue and back during this step's scroll; `write`: our file goes down the persister's write arrow to disk, then the marker moves |
+| `flow` | `analysis`: our batch's docs go across to the analysis queue and back during this step's scroll; `write` (or `mergeWrite`): our zap file goes down the persister's (or merger's) write arrow to disk, then the marker moves |
 | `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
 
 **Simulation directives:**
@@ -137,7 +137,7 @@ step to step:
 | `set: { ... }` | change config (keys from `src/js/sim/config.js`) |
 | `query: { durationMs, timeoutMs, label }` | start a query that pins a snapshot |
 | `follow: true` or `follow: alone` | tag the next batch, to follow it through the system; `alone` first lets batches in flight drain, has KV send just that batch's snapshot, then pauses KV |
-| `until: <stage>` | run event by event until the followed batch reaches a stage: `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `written`, `fileIntroducing`, `file`, `committed`, `caughtUp`, `planning`, `merging`, `merged`, `oldFileDeleted` |
+| `until: <stage>` | run event by event until the followed batch reaches a stage: `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `written`, `fileIntroducing`, `file`, `committed`, `caughtUp`, `planning`, `merging`, `mergeWritten`, `mergeIntroducing`, `merged`, `oldFileDeleted` |
 | `speed` | playback speed (sim ms per wall ms; `0` means paused) |
 
 To build the state for step N, the explainer starts from the most

@@ -73,7 +73,13 @@ export class MergerProcs {
         { origin: 'filemerge', mbps: cfg.fileMergeMBps, by: 'merger', label });
       if (newSeg) this.stats.TotFileMergeWrittenBytes += newSeg.bytes;
       this.stats.TotFileMergeSegments += srcs.length;
-      const introduced = yield* this._introduceMergeResult(srcs, newSeg, true);
+      if (ours && newSeg) {
+        this._trace('mergeWritten', { newFileName: newSeg.fileName });
+        // zap's Open(): mmap the merged file (instant here); the story
+        // stops on it, still in phase 3.
+        yield k.work(0, `opening ${newSeg.fileName} (mmap)`);
+      }
+      const introduced = yield* this._introduceMergeResult(srcs, newSeg, true, ours && newSeg ? 'mergeIntroducing' : false);
       if (ours && introduced) {
         this.trace.oldFiles.push(ours.seg.fileName);
         this._trace('merged', { segId: newSeg.id, fileName: newSeg.fileName });

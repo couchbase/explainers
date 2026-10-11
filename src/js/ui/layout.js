@@ -74,6 +74,7 @@ export const CAMERAS = {
   lower: { rect: [20, 820, 980, 1652], label: 'scorch and disk', section: 'scorch' },
   disk: { rect: [30, 1320, 970, 1652], label: 'disk', section: 'disk' },
   persisterBolt: { rect: [60, 840, 960, 1545], label: 'scorch and disk: committing root.bolt', section: 'scorch' },
+  mergeDisk: { rect: [20, 1000, 1000, 1545], label: 'scorch and disk: the merger writes', section: 'scorch' },
   diskDir: { rect: [30, 1350, 330, 1470], label: 'disk: the index directory', section: 'disk' },
 };
 
@@ -108,6 +109,7 @@ export const ANCHORS = {
   olderEpoch: { p: [901, 866], needs: ['cbft', 'bleve', 'scorch'] },
   rootEpoch: { p: [280, 857], needs: ['cbft', 'bleve', 'scorch'] },
   rootMem: { p: [90, 900], needs: ['cbft', 'bleve', 'scorch'] },
+  rootFiles: { p: [553, 982], needs: ['cbft', 'bleve', 'scorch'] },
   olderRoots: { p: [896, 1020], needs: ['cbft', 'bleve', 'scorch'] },
   queries: { p: [600, 826], needs: ['cbft', 'bleve', 'scorch'] },
   persister: { p: [80, 1152], needs: ['cbft', 'bleve', 'scorch'] },
@@ -162,6 +164,8 @@ export const STATIONS = {
   // our new file: written (by the persister's 'introduce' row), then
   // handed up the introduce arrow to the introducer.
   written: [68, 1205], fileIntroducing: [542, 787], // just under the 'merges' chip
+  // the merger's merged file: written, then up its own introduce arrow
+  mergeWritten: [932, 1201], mergeIntroducing: [542, 787],
 };
 
 // The boxes the batch marker must not cut through: [x, y, w, h]. When

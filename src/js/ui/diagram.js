@@ -35,7 +35,8 @@ const STACK_POOL = 6; // sheet elements, enough for a blend between two stacks
 const STACK_TWEEN_MS = 350;
 const EPOCH_X = 246; // where the root title's epoch number starts
 const DIR_COLS = 32, DIR_ROWS = 6;
-const ON_ROOT = ['root', 'rootR', 'rootEpoch', 'rootMem', 'ourSeg']; // anchors on the front sheet
+const st0 = (st) => st === 'mergeWritten' || st === 'mergeIntroducing';
+const ON_ROOT = ['root', 'rootR', 'rootEpoch', 'rootMem', 'rootFiles', 'ourSeg']; // anchors on the front sheet
 
 export class Diagram {
   constructor(svg) {
@@ -417,7 +418,7 @@ export class Diagram {
     // Our new file, down the persister's write arrow to disk.
     this.writeFly = el('g', { opacity: 0 }, g);
     el('use', { href: '#dg-file', x: -7, y: -9, width: 14, height: 18, class: 'ficon ficon-new ficon-ours' }, this.writeFly);
-    txt(this.writeFly, 12, 4, 'our zap file', 'token-label');
+    this.writeFlyLabel = txt(this.writeFly, 12, 4, 'our zap file', 'token-label');
     // Our batch's docs, off to the analysis queue and back.
     this.queueDocs = [];
     for (let i = 0; i < 24; i++) this.queueDocs.push(doc());
@@ -427,7 +428,7 @@ export class Diagram {
   // write arrow into the disk.
   // It lands on its icon in the index directory, which stays hidden
   // until it gets there.
-  setWriteFly(q) {
+  setWriteFly(q, wx = 280, label = 'our zap file') {
     const ic = this.writeIcon;
     if (this.writeHidden && this.writeHidden !== ic) this.writeHidden.g.style.visibility = '';
     if (q < 0 || q >= 1) {
@@ -436,9 +437,10 @@ export class Diagram {
       this.writeHidden = null;
       return;
     }
-    const end = ic ? [ic.x + 6, ic.y + 7.5] : [280, 1384];
-    // from the persister's 'merge → write zap → fsync' row, down its write arrow
-    const pts = [[280, 1171], [280, 1378], [end[0], 1378], end];
+    setText(this.writeFlyLabel, label);
+    const end = ic ? [ic.x + 6, ic.y + 7.5] : [wx, 1384];
+    // from the writer's 'merge → write zap → fsync' row, down its write arrow
+    const pts = [[wx, 1171], [wx, 1378], [end[0], 1378], end];
     const [x, y] = along(pts, easeQuad(q));
     this.writeFly.setAttribute('opacity', Math.min(1, q / 0.08).toFixed(3));
     this.writeFly.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${lerp(1, 0.86, q).toFixed(3)})`);
@@ -911,7 +913,13 @@ export class Diagram {
     const fixed = STATIONS[tr.stage];
     if (fixed) {
       // From Scorch.Batch()'s NewUsing() on, it's our segment.
-      const kind = ['built', 'introducing', 'persisting'].includes(tr.stage) ? 'mem' : ['merging', 'written', 'fileIntroducing'].includes(tr.stage) ? 'file' : 'batch';
+      const kind = ['built', 'introducing', 'persisting'].includes(tr.stage) ? 'mem'
+        : ['merging', 'written', 'fileIntroducing', 'mergeWritten', 'mergeIntroducing'].includes(tr.stage) ? 'file' : 'batch';
+      // The merger's result: a new file segment, with our docs in it.
+      if (st0(tr.stage)) {
+        const side = tr.stage === 'mergeIntroducing' ? 'right' : undefined;
+        return { p: fixed, size: 14, kind, st: tr.stage, side, label: 'merged file segment' };
+      }
       const st = tr.stage;
       const held = st === 'persisting' ? m.persisterSnapshot : st === 'merging' ? m.mergerSnapshot : null;
       if (held) {
@@ -1236,7 +1244,7 @@ export class Diagram {
     if (tr.deletedFile) { const p = dirPos(tr.deletedFile); if (p) this.positions.deletedFile = { p, needs: ['disk'] }; }
     const at = {
       dcp: 'dcp', channel: 'slot', worker: 'workers', herder: 'gate',
-      analysis: 'batch', built: 'batch', introducing: 'introducer', persisting: 'persister', merging: 'merger',
+      analysis: 'batch', built: 'batch', introducing: 'introducer', mergeWritten: 'merger', mergeIntroducing: 'introducer', persisting: 'persister', merging: 'merger',
       written: 'persister', fileIntroducing: 'introducer',
     }[tr.stage];
     // Callouts about our batch end at its marker.

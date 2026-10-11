@@ -29,3 +29,15 @@ test('sheets past the deepest drawn one are hidden', () => {
   assert.equal(f.sheets.length, MAX_BACK);
   assert.ok(f.sheets.every((s) => s.k <= MAX_BACK));
 });
+
+import { Slots } from '../src/js/ui/slots.js';
+
+test("a key arriving as others leave takes its own slot, not theirs", () => {
+  const s = new Slots(5);
+  s.sync(['a', 'b', 'c']);
+  s.sync(['a', 'm']); // b and c merged into m
+  assert.equal(s.get('a'), 0);
+  assert.equal(s.get('m'), 3);
+  s.sync(['a', 'm', 'n']); // later, freed slots are used again
+  assert.equal(s.get('n'), 1);
+});

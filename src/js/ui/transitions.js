@@ -75,6 +75,7 @@ const VIA = {
   // a segment becomes a file via the persister, then the introducer
   'cell>bar': ['persisting', 'written', 'fileIntroducing'],
   'bar>bar': ['merging'], // a file becomes a bigger file via the merger
+  'merging>mergeIntroducing': ['mergeWritten'],
 };
 
 // The marker's path from place a to place b ({st, p, key}).
@@ -102,6 +103,8 @@ export function route(a, b) {
 // straight on across to its 'merges' channel, then drops just below it.
 const HOPS = {
   'written>fileIntroducing': () => [STATIONS.introducing, [STATIONS.fileIntroducing[0], STATIONS.introducing[1]]],
+  // the merger's result, up its arrow on the right, into the introducer
+  'mergeWritten>mergeIntroducing': () => [[668, 752], [STATIONS.mergeIntroducing[0], 752]],
 };
 
 function hop(sa, pa, sb, pb) {
