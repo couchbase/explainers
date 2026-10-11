@@ -321,7 +321,7 @@ chapters:
           files with up to 4 workers, and commits.
 
       - id: persisting
-        sim: { until: persisting }
+        sim: { set: { ingestDocsPerSec: 0 }, until: persisting }
         view: { target: ourBatch }
         expect: ["reached:persisting"]
         code: [persister.maybeMerge, merger.memMerge]
@@ -333,6 +333,10 @@ chapters:
           Nothing was handed to the persister: it took a ref on the
           root snapshot and found our segment in it. Our segment stays
           in the root meanwhile, still searchable.
+
+          To keep this simple, we've paused new mutations from KV for
+          now, so nothing else changes the root while we watch. We'll
+          turn them back on later.
 
       - id: make-room
         view: { camera: persisterDetail, target: persister }
@@ -400,11 +404,12 @@ chapters:
         expect: [persisterHoldsOlderRoot]
         code: [snapshot.refcount]
         text: |
-          While the persister worked, the root moved on. The snapshot
-          it started from is still alive, [[behind the current one]],
-          because the persister holds a ref on it. Root snapshots
-          aren't linked to each other: each is an immutable,
-          refcounted list of segments, freed when its last ref goes.
+          That swap made a new root, one epoch on. But the snapshot
+          the persister started from is still alive,
+          [[behind the current one]], because the persister still
+          holds a ref on it. Root snapshots aren't linked to each
+          other: each is an immutable, refcounted list of segments,
+          freed when its last ref goes.
 
       - id: committed
         sim: { until: committed }
@@ -553,6 +558,52 @@ chapters:
           `root.bolt` record lists them. The persister cleans up only
           when it's idle, so under steady ingest, garbage accumulates
           for a while.
+
+  # ------------------------------------------------------------------
+  - id: meanwhile
+    title: "Meanwhile, ingest goes on"
+    color: scorch
+    steps:
+
+      - id: zoom
+        view: { camera: root, target: root, token: hide }
+        text: |
+          So far we've paused new mutations from KV, so
+          [[the root]] held still while the persister and the merger
+          worked. Real indexes don't get that break.
+
+      - id: resume
+        sim: { set: { ingestDocsPerSec: 8000 } }
+        view: { target: root }
+        text: |
+          Let's turn new mutations from KV back on, and keep watching
+          [[the root]].
+
+      - id: moving
+        sim: { minTimeMs: 9705 }
+        view: { target: olderRoots }
+        expect: [persisterHoldsOlderRoot, rootMovedPastPersister]
+        text: |
+          Batches keep being introduced while the persister works.
+          The root moves on, epoch after epoch, while the persister
+          still holds [[the one it started from]].
+
+      - id: group-commit
+        sim: { minTimeMs: 10100 }
+        view: { target: persister }
+        expect: [persisterHoldsOlderRoot]
+        code: [persister.loop]
+        text: |
+          When it's done, [[the persister]] doesn't go back for the
+          epochs it missed. It takes a ref on the latest root and
+          persists that, so one persist covers many batches: a group
+          commit.
+
+      - id: to-disk
+        view: { camera: disk, target: disk, token: file }
+        text: |
+          Each persist also gives the persister a chance to clean up
+          [[the directory]].
 
       - id: deleted
         sim: { until: oldFileDeleted }

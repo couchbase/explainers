@@ -679,7 +679,8 @@ export class Diagram {
     const st = (p, label) => ({ state: procState(p), label: label ?? (p ? shortLabel(p.label) : ''), since: p && now - p.since >= 100 && this.live ? fmtMs(now - p.since) : '' });
     // A rate only means something while the simulation is running.
     ns.kv = st(procs.get('kv'), m.kvPausedSince !== null ? 'paused: DCP buffer full'
-      : this.live ? `sending ${fmtNum(rate)} docs/s` : 'sending mutations');
+      : m.cfg.ingestDocsPerSec === 0 ? 'no new mutations for now'
+        : this.live ? `sending ${fmtNum(rate)} docs/s` : 'sending mutations');
     const frac = Math.min(1, m.dcpBufUsed / m.cfg.dcpBufferBytes);
     this.dcpFill.setAttribute('width', (140 * frac).toFixed(1));
     setCls(this.dcpFill, frac > 0.8 ? 'gauge-fill warn' : 'gauge-fill');
