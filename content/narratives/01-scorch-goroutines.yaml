@@ -420,11 +420,11 @@ chapters:
         expect: ["rootEpoch:356"]
         code: [introducer.introduceMerge]
         text: |
-          In front of it, the introducer built the new root from a
-          copy of the old one's segment list (the dashed 355′ you saw
-          as you scrolled), so its epoch is [[355 + 1 = 356]]. Every root the introducer swaps in gets
-          the next epoch, whether it adds a batch's segment, a
-          persister's file, or a merger's result.
+          In front of it is the new root, which the introducer built
+          from a copy of the old one's segment list. It took the old
+          root's epoch and added one: [[355 + 1 = 356]]. Every root the
+          introducer swaps in gets the next epoch, whether it adds a
+          batch's segment, a persister's file, or a merger's result.
 
       - id: mem-gone
         view: { target: rootMem }
