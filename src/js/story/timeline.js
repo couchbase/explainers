@@ -134,7 +134,8 @@ export function changesAt(steps, views, i) {
 
 // Named predicates that steps can `expect`, checked by the tests so
 // the prose and the simulation can't silently drift apart. Also
-// "reached:<stage>" for the followed batch.
+// "reached:<stage>" for the followed batch, and "rootEpoch:<n>" for
+// prose that names the root's epoch.
 export const EXPECTATIONS = {
   herderBlocking: (m) => m.numEventsBlocking > 0,
   herderIdle: (m) => m.numEventsBlocking === 0,
@@ -144,6 +145,7 @@ export const EXPECTATIONS = {
   overHalfQuota: (m) => m.memUsed() > 0.5 * m.indexQuota(),
   underQuota: (m) => m.memUsed() < m.indexQuota(),
   memSegsPilingUp: (m) => m.root.segs.filter((ss) => ss.seg.kind === 'mem').length >= 50,
+  noMemSegsAtRoot: (m) => m.root.segs.every((ss) => ss.seg.kind !== 'mem'),
   fileSegsAtRoot: (m) => m.root.segs.some((ss) => ss.seg.kind === 'file'),
   mergesDone: (m) => m.stats.TotFileMergeIntroductionsDone > 0,
   memMergesDone: (m) => m.stats.TotMemMergeDone > 0,
@@ -166,10 +168,12 @@ export const EXPECTATIONS = {
 
 export function checkExpectation(name, m) {
   if (name.startsWith('reached:')) return m.reached(name.slice(8));
+  if (name.startsWith('rootEpoch:')) return m.root.epoch === Number(name.slice(10));
   return EXPECTATIONS[name](m);
 }
 
 export function isKnownExpectation(name) {
   if (name.startsWith('reached:')) return TRACE_STAGES.includes(name.slice(8));
+  if (name.startsWith('rootEpoch:')) return /^\d+$/.test(name.slice(10));
   return name in EXPECTATIONS;
 }

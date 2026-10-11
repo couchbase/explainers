@@ -101,6 +101,8 @@ export const ANCHORS = {
   select: { p: [366, 752], needs: ['cbft', 'bleve', 'scorch', 'introducer'] },
   root: { p: [80, 927], needs: ['cbft', 'bleve', 'scorch'] },
   rootR: { p: [890, 927], needs: ['cbft', 'bleve', 'scorch'] },
+  rootEpoch: { p: [272, 857], needs: ['cbft', 'bleve', 'scorch'] },
+  rootMem: { p: [90, 900], needs: ['cbft', 'bleve', 'scorch'] },
   olderRoots: { p: [896, 1020], needs: ['cbft', 'bleve', 'scorch'] },
   queries: { p: [600, 826], needs: ['cbft', 'bleve', 'scorch'] },
   persister: { p: [80, 1152], needs: ['cbft', 'bleve', 'scorch'] },
