@@ -526,8 +526,12 @@ export class Diagram {
     for (let i = 0; i < 5; i++) {
       const y = 1390 + i * 30;
       const r = el('rect', { x: 650, y, width: 280, height: 24, rx: 4, class: 'bolt' }, g);
-      const t = txt(g, 660, y + 16, '', 'note-in');
-      this.boltCards.push({ r, t });
+      // In columns: "epoch", the number and the file count right-
+      // aligned, then the rest.
+      const t = el('g', { transform: `translate(0 ${y + 16})` }, g);
+      const cols = [txt(t, 660, 0, '', 'note-in'), txt(t, 726, 0, '', 'note-in', 'end'),
+        txt(t, 754, 0, '', 'note-in', 'end'), txt(t, 758, 0, '', 'note-in')];
+      this.boltCards.push({ r, t, cols, text: '' });
     }
     txt(g, 70, 1560, 'unlinked but still open:', 'note-in');
     this.zombieIcons = [];
@@ -588,7 +592,7 @@ export class Diagram {
       stack: this.stackNow,
       epoch: this.rootEpochNow,
       introLid: this.lids.introducer.status.textContent,
-      bolt: this.boltCards.map((c) => ({ text: c.t.textContent, cls: c.r.getAttribute('class'), o: c.r.getAttribute('opacity') })),
+      bolt: this.boltCards.map((c) => ({ text: c.text, cls: c.r.getAttribute('class'), o: c.r.getAttribute('opacity') })),
       dir: this.dirIcons.map((ic) => ({ o: ic.g.getAttribute('opacity'), cls: ic.use.getAttribute('class'), del: ic.del.getAttribute('opacity') })),
     };
   }
@@ -675,9 +679,9 @@ export class Diagram {
       const y = lerp(y0, y1, shift);
       const shown = added && i === 0 ? b : shift < 0.5 && a ? a : b;
       c.r.setAttribute('y', y.toFixed(1));
-      c.t.setAttribute('y', (y + 16).toFixed(1));
+      c.t.setAttribute('transform', `translate(0 ${(y + 16).toFixed(1)})`);
       setCls(c.r, shown.cls);
-      setText(c.t, shown.text);
+      this._boltText(c, shown.text);
       c.r.setAttribute('opacity', added && i === 0 ? (appear * +b.o).toFixed(3) : shown.o);
       c.t.setAttribute('opacity', added && i === 0 ? appear.toFixed(3) : 1);
     });
@@ -1131,17 +1135,25 @@ export class Diagram {
     this.boltCards.forEach((c, i) => {
       const b = m.bolt[i];
       c.r.setAttribute('y', 1390 + i * 30);
-      c.t.setAttribute('y', 1390 + i * 30 + 16);
+      c.t.setAttribute('transform', `translate(0 ${1390 + i * 30 + 16})`);
       c.t.setAttribute('opacity', 1);
       c.r.setAttribute('opacity', b ? 1 : 0.25);
       // The records that list our file get its outline.
       const hasOurs = b && ours && b.files.has(ours) ? ' ours' : '';
       setCls(c.r, (i === 0 ? 'bolt latest' : prot.has(b && b.epoch) ? 'bolt protected' : 'bolt') + hasOurs);
-      setText(c.t, b ? `epoch ${b.epoch} · ${b.files.size} files${i === 0 ? ' · latest' : prot.has(b.epoch) ? ' · rollback point' : ''}` : '');
+      this._boltText(c, b ? `epoch ${b.epoch} · ${b.files.size} files${i === 0 ? ' · latest' : prot.has(b.epoch) ? ' · rollback point' : ''}` : '');
     });
     const zs = [...m.zombies.values()];
     this.zombieIcons.forEach((z, i) => z.setAttribute('opacity', i < zs.length ? 1 : 0));
     setText(this.zombieText, zs.length ? `${zs.length} file(s), ${fmtBytes(m.zombieBytes())} not counted by num_bytes_used_disk` : 'none');
+  }
+
+  // A root.bolt record's line, "epoch N · F files · ...", in columns.
+  _boltText(c, text) {
+    c.text = text;
+    const mm = /^epoch (\d+) · (\d+) (files?)(.*)$/.exec(text);
+    const parts = mm ? ['epoch', mm[1], `· ${mm[2]}`, `${mm[3]}${mm[4]}`] : [text, '', '', ''];
+    c.cols.forEach((t, k) => setText(t, parts[k]));
   }
 
   _updateWrites(m) {
