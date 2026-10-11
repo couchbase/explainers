@@ -82,6 +82,7 @@ export class Model {
     this.trace = null; // the batch we follow through the system, if any
     this.followNext = false;
     this.kvOneShot = null; // see _kvOneShot
+    this.committedPending = null; // see _pausePersister
     this.writing = new Map(); // file name -> {by, seg, since}
     this.recentDeletes = []; // [{name, bytes, t}]
     this.introLast = null; // {kind, t}: the introducer's last message

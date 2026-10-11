@@ -611,6 +611,7 @@ export class Diagram {
     if (A.epoch !== undefined && B.epoch !== undefined) this._drawEpoch(A.epoch, B.epoch, q);
     if (A.stack && B.stack) this._drawStack(stackFrame(A.stack, B.stack, q));
     this._blendDir(A, B, q);
+    this._blendBolt(A, B, q);
   }
 
   // The introducer swapping in a new root (slots B) over the old one
@@ -666,12 +667,20 @@ export class Diagram {
   // the persister lets go of its root snapshot.
   drawCommit(A, B, s) {
     const part = (n) => clamp01(s - COMMIT_PHASES.indexOf(n));
-    // The older records move down first; then the new one appears.
-    const shift = easeQuad(clamp01(part('bolt') / 0.5)), appear = clamp01((part('bolt') - 0.5) / 0.5);
     const listed = part('listed'), release = easeQuad(part('release'));
     this._clearSwap();
     this._blendCells(B, B, 1, 1);
     this._drawEpoch(B.epoch, B.epoch, 1);
+    this._blendBolt(A, B, part('bolt'));
+    this._blendDir(A, B, listed);
+    this._drawStack(stackFrame(A.stack, B.stack, release));
+  }
+
+  // root.bolt's records partway (q) from A to B: when a record was
+  // added, the older ones move down first, then the new one appears.
+  _blendBolt(A, B, q) {
+    if (!A.bolt || !B.bolt) return;
+    const shift = easeQuad(clamp01(q / 0.5)), appear = clamp01((q - 0.5) / 0.5);
     const added = B.bolt[0].text && B.bolt[0].text !== A.bolt[0].text;
     this.boltCards.forEach((c, i) => {
       const b = B.bolt[i], a = added ? A.bolt[i - 1] : A.bolt[i];
@@ -685,8 +694,6 @@ export class Diagram {
       c.r.setAttribute('opacity', added && i === 0 ? (appear * +b.o).toFixed(3) : shown.o);
       c.t.setAttribute('opacity', added && i === 0 ? appear.toFixed(3) : 1);
     });
-    this._blendDir(A, B, listed);
-    this._drawStack(stackFrame(A.stack, B.stack, release));
   }
 
   // Whether a swap from A to B has anything for its 'drop' phase.

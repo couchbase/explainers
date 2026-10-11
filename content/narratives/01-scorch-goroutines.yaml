@@ -547,11 +547,13 @@ chapters:
         sim: { until: committed }
         view: { commit: bolt, target: bolt }
         expect: ["reached:committed"]
-        code: [persister.direct, persister.loop]
+        code: [persister.direct, persister.protected]
         text: |
           The persister wrote [[a new record]] into `root.bolt` and
           fsynced it. It's filed under epoch 354, the root the
           persister started from, and it lists our new zap file.
+          `root.bolt` keeps a few older records too: cbft keeps 3,
+          spaced 10 minutes apart, as *rollback points*.
 
       - id: listed
         view: { commit: listed, target: ourFile }
@@ -568,36 +570,18 @@ chapters:
           cycle takes a ref on whatever the root is by then: it never
           holds more than one.
 
-  # ------------------------------------------------------------------
-  - id: disk
-    title: "Down to disk"
-    color: disk
-    steps:
-
-      - id: step-back
-        view: { camera: overview, target: diskLid }
+      - id: why-354
+        view: { target: bolt }
+        code: [persister.equiv, persister.loop]
         text: |
-          Step back again. Our file has been on [[disk]] since the
-          persister wrote it, a few steps back.
-
-      - id: open
-        view: { target: ourFile, token: file }
-        text: |
-          There's [[our zap file]] in the index directory again, now
-          solid blue. Blue files are
-          in the current root. Gray ones are no longer in the root, but
-          are still on disk.
-
-      - id: zoom
-        view: { camera: disk, target: bolt }
-        code: [persister.direct, persister.protected]
-        text: |
-          [[root.bolt]] holds a few snapshot records, each listing its
-          files. A zap file only counts for crash recovery once a
-          `root.bolt` record lists it. The newest record, outlined, is
-          what our persister just committed: it lists our file, under
-          the epoch of the snapshot the persister started from. cbft keeps 3 snapshots, spaced
-          10 minutes apart, as *rollback points*.
+          Why does [[the newest record]] say 354, when the root is
+          355? The persister files its record under the epoch of the
+          root it started from, 354, with the in-memory segments
+          swapped for the new file: the same docs as 355, under the
+          older number. The root has moved on, so the persister will
+          persist again, but first it naps. When it wakes, it takes
+          whatever root is latest then, which may skip 355 entirely.
+          We'll see, after the merger.
 
   # ------------------------------------------------------------------
   - id: merger
@@ -609,7 +593,7 @@ chapters:
         view: { camera: merger, target: merger, token: auto }
         text: |
           Lots of small files would make every query slower. So
-          [[the merger]] compacts them. Our marker is back on our file
+          [[the merger]] compacts them. Our marker is on our file
           segment in the root.
 
       - id: open
@@ -701,10 +685,22 @@ chapters:
         view: { camera: disk, target: disk, token: file }
         code: [persister.removeOldData]
         text: |
-          Old files stay in [[the directory]] until no remaining
-          `root.bolt` record lists them. The persister cleans up only
-          when it's idle, so under steady ingest, garbage accumulates
-          for a while.
+          Old files stay in [[the directory]], gray, until no
+          remaining `root.bolt` record lists them. The persister
+          cleans up only when it's idle, so under steady ingest,
+          garbage accumulates for a while.
+
+      - id: caught-up
+        sim: { until: caughtUp }
+        view: { target: bolt }
+        expect: ["reached:caughtUp", "rootEpoch:356"]
+        code: [persister.loop, merger.loop]
+        text: |
+          The merger finishing its plan also woke the persister from
+          its nap. It took a ref on the latest root, 356, with the
+          merged file, and committed [[a record for it]]. Epoch 355
+          was never written down on its own: that's the group commit
+          again. Now disk and memory agree.
 
   # ------------------------------------------------------------------
   - id: meanwhile

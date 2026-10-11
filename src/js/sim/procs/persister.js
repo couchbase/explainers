@@ -40,7 +40,12 @@ export class PersisterProcs {
         watchers = [];
         this.persisterSnapshot = null;
         ourSnapshot.decRef();
-        if (this.trace && this.trace.stage === 'file') this._trace('committed', { releasedEpoch: ourSnapshot.epoch });
+        // Traced once the persister moves on (see _pausePersister).
+        if (this.trace && this.trace.stage === 'file') this.committedPending = ourSnapshot.epoch;
+        // A later cycle: a newer root than the one with our file, persisted.
+        else if (this.trace && this.trace.releasedEpoch && ourSnapshot.epoch > this.trace.releasedEpoch && !this.reached('caughtUp')) {
+          this._trace('caughtUp', { caughtUpEpoch: ourSnapshot.epoch });
+        }
         this._herderWake(); // EventKindPersisterProgress
         this.log('persist', `persister: epoch ${ourSnapshot.epoch} persisted in ${fmtMs(k.now - t0)}`);
         if (this.root.epoch !== lastPersistedEpoch) {
@@ -62,6 +67,10 @@ export class PersisterProcs {
 
   * _pausePersister(p, lastPersistedEpoch, lastMergedEpoch, watchers) {
     const k = this.k, cfg = this.cfg;
+    if (this.committedPending) {
+      this._trace('committed', { releasedEpoch: this.committedPending });
+      this.committedPending = null;
+    }
     watchers = this._notifyMergeWatchers(lastPersistedEpoch, watchers);
     let numFiles = this.numFilesOnDisk();
     if (numFiles < cfg.persisterNapUnderNumFiles && cfg.persisterNapMs > 0 && this.numEventsBlocking === 0) {

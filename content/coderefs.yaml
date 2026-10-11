@@ -162,6 +162,14 @@ persister.persistSnapshot:
   title: persistSnapshot() — in-memory merge first, unless under memory pressure
   highlight: ["MemoryPressurePauseThreshold", "persistSnapshotMaybeMerge", "persistSnapshotDirect"]
 
+persister.equiv:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) persistSnapshotMaybeMerge(snapshot *IndexSnapshot, po *persisterOptions) ("
+  extent: func
+  title: persistSnapshotMaybeMerge() — the record keeps the epoch of the root it started from
+  highlight: ["equiv := &IndexSnapshot{", "epoch:    snapshot.epoch,", "s.persistSnapshotDirect(equiv)"]
+
 persister.maybeMerge:
   repo: bleve
   path: index/scorch/persister.go
