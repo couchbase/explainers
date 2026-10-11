@@ -188,7 +188,7 @@ chapters:
           return until the batch has been fully 'introduced'.
 
       - id: analysis
-        view: { target: analysis, flow: analysis }
+        view: { target: analysis }
         code: [scorch.batchAnalysis, scorch.analyze]
         text: |
           First comes analysis. For that, scorch calls across to a
@@ -229,7 +229,7 @@ chapters:
           that indexing uses.
 
       - id: analyzer-close
-        view: { unbubble: [analysis], target: analysis }
+        view: { unbubble: [analysis], target: analysis, flow: analysis }
         text: |
           Because the pool is shared and sized to the CPUs, a burst of
           ingest anywhere on the node can make [[the queue]] the
