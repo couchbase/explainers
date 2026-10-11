@@ -17,7 +17,7 @@ import { plan as mergePlan } from '../sim/mergeplan.js';
 import { planInput } from '../sim/procs/merger.js';
 
 // The stages a followed batch goes through, in order (see Model._trace).
-export const TRACE_STAGES = ['dcp', 'channel', 'worker', 'herder', 'analysis', 'introducing', 'introduced',
+export const TRACE_STAGES = ['dcp', 'channel', 'worker', 'herder', 'analysis', 'built', 'introducing', 'introduced',
   'flushables', 'persisting', 'written', 'fileIntroducing', 'file', 'committed', 'merging', 'merged', 'oldFileDeleted'];
 
 export function flattenSteps(narrative) {

@@ -33,7 +33,7 @@ export class BatchProcs {
       this.analysisBytes -= abytes;
       seg = new Segment(this, { kind: 'mem', docs: numDocs, bytes: numDocs * cfg.memBytesPerDoc, origin: 'batch' });
       this.inflightMemBytes += seg.bytes;
-      if (batch.traced) this._trace('introducing', { segId: seg.id });
+      if (batch.traced) this._trace('built', { segId: seg.id });
     } else {
       this.stats.TotBatchesEmpty++;
     }
@@ -47,6 +47,7 @@ export class BatchProcs {
       applied: new Chan(k, 'applied', 0),
       persisted: cfg.unsafeBatch ? null : new Chan(k, 'persisted', 1),
     };
+    if (batch.traced && seg) this._trace('introducing');
     yield this.introductions.send(intro, 'introductions <- segment');
     yield intro.applied.recv('waiting for introduction to be applied');
     if (batch.traced && seg) this._trace('introduced', { segId: seg.id });

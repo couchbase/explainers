@@ -864,7 +864,8 @@ export class Diagram {
     }
     const fixed = STATIONS[tr.stage];
     if (fixed) {
-      const kind = tr.stage === 'persisting' ? 'mem' : ['merging', 'written', 'fileIntroducing'].includes(tr.stage) ? 'file' : 'batch';
+      // From Scorch.Batch()'s NewUsing() on, it's our segment.
+      const kind = ['built', 'introducing', 'persisting'].includes(tr.stage) ? 'mem' : ['merging', 'written', 'fileIntroducing'].includes(tr.stage) ? 'file' : 'batch';
       const st = tr.stage;
       const held = st === 'persisting' ? m.persisterSnapshot : st === 'merging' ? m.mergerSnapshot : null;
       if (held) {
@@ -1178,7 +1179,7 @@ export class Diagram {
     if (tr.deletedFile) { const p = dirPos(tr.deletedFile); if (p) this.positions.deletedFile = { p, needs: ['disk'] }; }
     const at = {
       dcp: 'dcp', channel: 'slot', worker: 'workers', herder: 'gate',
-      analysis: 'batch', introducing: 'introducer', persisting: 'persister', merging: 'merger',
+      analysis: 'batch', built: 'batch', introducing: 'introducer', persisting: 'persister', merging: 'merger',
       written: 'persister', fileIntroducing: 'introducer',
     }[tr.stage];
     // Callouts about our batch end at its marker.

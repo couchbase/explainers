@@ -157,7 +157,7 @@ export function isAnchorVisible(id, open, bubbles, dynamicNeeds) {
 // Where our batch's marker rests at each stage of its trip.
 export const STATIONS = {
   dcp: [372, 253], channel: [500, 298], worker: [372, 361], herder: [478, 432],
-  analysis: [372, 637], introducing: [332, 752], persisting: [68, 1171], merging: [932, 1167],
+  analysis: [372, 637], built: [372, 637], introducing: [332, 752], persisting: [68, 1171], merging: [932, 1167],
   // our new file: written (by the persister's 'introduce' row), then
   // handed up the introduce arrow to the introducer.
   written: [68, 1205], fileIntroducing: [542, 787], // just under the 'merges' chip

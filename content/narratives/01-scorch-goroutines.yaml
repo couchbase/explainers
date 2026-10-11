@@ -250,13 +250,25 @@ chapters:
           analysis results.
 
       - id: built
-        sim: { until: introducing }
-        view: { target: batch }
-        expect: ["reached:introducing"]
+        sim: { until: built }
+        view: { target: ourBatch }
+        expect: ["reached:built"]
+        code: [scorch.Batch]
         text: |
-          Analysis is done, and [[Scorch.Batch()]] has built our
-          segment. It now hands the segment to the introducer and
-          waits.
+          Analysis is done, and `Scorch.Batch()` has built
+          [[our segment]] from the results (`NewUsing()`): an
+          in-memory zap segment holding our batch's docs. From here
+          on, it's our segment we follow.
+
+      - id: handoff
+        sim: { until: introducing }
+        view: { target: ourBatch }
+        expect: ["reached:introducing"]
+        code: [scorch.prepareSegment]
+        text: |
+          `Batch()` wraps [[our segment]] in an introduction and sends
+          it to the introducer over the `introductions` channel. Then
+          it waits until the introducer has applied it.
 
       - id: follow
         view: { camera: swap, target: introducer }

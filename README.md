@@ -136,7 +136,7 @@ step to step:
 | `set: { ... }` | change config (keys from `src/js/sim/config.js`) |
 | `query: { durationMs, timeoutMs, label }` | start a query that pins a snapshot |
 | `follow: true` | tag the next batch, to follow it through the system |
-| `until: <stage>` | run event by event until the followed batch reaches a stage: `dcp`, `channel`, `worker`, `herder`, `analysis`, `introducing`, `introduced`, `flushables`, `persisting`, `file`, `merging`, `merged`, `oldFileDeleted` |
+| `until: <stage>` | run event by event until the followed batch reaches a stage: `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `file`, `merging`, `merged`, `oldFileDeleted` |
 | `speed` | playback speed (sim ms per wall ms; `0` means paused) |
 
 To build the state for step N, the explainer starts from the most
