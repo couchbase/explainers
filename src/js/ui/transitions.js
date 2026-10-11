@@ -71,19 +71,19 @@ function leg(a, b) {
 
 // Trips that pass through a station on the way.
 const VIA = {
-  'cell>bar': 'persisting', // a segment becomes a file via the persister
-  'bar>bar': 'merging', // a file becomes a bigger file via the merger
+  // a segment becomes a file via the persister, then the introducer
+  'cell>bar': ['persisting', 'written', 'fileIntroducing'],
+  'bar>bar': ['merging'], // a file becomes a bigger file via the merger
 };
 
 // The marker's path from place a to place b ({st, p, key}).
 export function route(a, b) {
   if (a.st === b.st && a.key === b.key) return [a.p, b.p];
-  const via = VIA[`${a.st}>${b.st}`] || VIA[`${b.st}>${a.st}`];
-  if (via && STATIONS[via]) {
-    const x = leg(a.p, STATIONS[via]), y = leg(STATIONS[via], b.p);
-    return [...x, ...y.slice(1)];
-  }
-  return leg(a.p, b.p);
+  const via = VIA[`${a.st}>${b.st}`] || (VIA[`${b.st}>${a.st}`] || []).slice().reverse();
+  const pts = [a.p, ...via.map((v) => STATIONS[v]), b.p];
+  let out = [a.p];
+  for (let i = 1; i < pts.length; i++) out = [...out, ...leg(pts[i - 1], pts[i]).slice(1)];
+  return out;
 }
 
 // The marker at step i, progress p. `tokenAt` maps step index to the

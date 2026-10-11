@@ -40,6 +40,7 @@ export class PersisterProcs {
         watchers = [];
         this.persisterSnapshot = null;
         ourSnapshot.decRef();
+        if (this.trace && this.trace.stage === 'file') this._trace('committed', { releasedEpoch: ourSnapshot.epoch });
         this._herderWake(); // EventKindPersisterProgress
         this.log('persist', `persister: epoch ${ourSnapshot.epoch} persisted in ${fmtMs(k.now - t0)}`);
         if (this.root.epoch !== lastPersistedEpoch) {
@@ -151,8 +152,9 @@ export class PersisterProcs {
         if (seg) {
           m.stats.TotMemMergeDone++;
           m.stats.TotMemMergeSegments += flushable.length;
+          if (ours) m._trace('written', { newFileName: seg.fileName });
         }
-        const introduced = yield* m._introduceMergeResult(flushable, seg, false);
+        const introduced = yield* m._introduceMergeResult(flushable, seg, false, ours && !!seg);
         if (introduced) newFiles.push(seg);
         else skipped = true;
         if (ours && introduced) m._trace('file', { segId: seg.id, fileName: seg.fileName });
@@ -188,6 +190,7 @@ export class PersisterProcs {
       this.ineligibleForRemoval.add(f.fileName);
       if (this.trace && this.trace.segId === ss.seg.id && this.trace.stage === 'introduced') this._trace('persisting', { pworker: null });
       yield* this._writeFile(p, f, 'persister');
+      if (this.trace && this.trace.segId === ss.seg.id && this.trace.stage === 'persisting') this._trace('written', { newFileName: f.fileName });
       persisted.set(ss.seg.id, f);
       this.stats.TotPersistedItems += f.docs;
       this.stats.TotPersistedSegments++;
@@ -195,10 +198,11 @@ export class PersisterProcs {
     if (persisted.size > 0) {
       const persist = { persisted, used: new Set(), applied: new Chan(k, 'persistApplied', 0) };
       yield this.persists.send(persist, 'persists <- new files');
+      if (this.trace && this.trace.stage === 'written' && persisted.has(this.trace.segId)) this._trace('fileIntroducing');
       yield persist.applied.recv('waiting for persist introduction');
       for (const f of persisted.values()) if (!persist.used.has(f)) f.decRef();
       const ourFile = this.trace && persisted.get(this.trace.segId);
-      if (ourFile && persist.used.has(ourFile) && this.trace.stage === 'persisting') {
+      if (ourFile && persist.used.has(ourFile) && this.trace.stage === 'fileIntroducing') {
         this._trace('file', { segId: ourFile.id, fileName: ourFile.fileName });
       }
     }

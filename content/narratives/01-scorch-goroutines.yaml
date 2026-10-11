@@ -365,14 +365,35 @@ chapters:
         text: |
           Back to [[our segment]], still being written.
 
+      - id: written
+        sim: { until: written }
+        view: { target: ourBatch }
+        expect: ["reached:written", ourSegInMemory]
+        code: [zapx.persist]
+        text: |
+          [[Our new file]] is written and fsynced, and mmapped. But
+          it's not in the root yet: queries still find our docs in
+          the in-memory segment.
+
+      - id: to-introducer
+        sim: { until: fileIntroducing }
+        view: { target: ourBatch }
+        expect: ["reached:fileIntroducing"]
+        code: [introducer.introduceMerge]
+        text: |
+          So the persister hands the new file up to
+          [[the introducer]], over the same `merges` channel the
+          merger uses. Only the introducer may change the root.
+
       - id: file
         sim: { until: file }
         view: { target: ourSeg }
         expect: ["reached:file", ourSegIsFile]
-        code: [zapx.persist]
         text: |
-          Done. Our docs now live in [[a file segment]], in blue: a
-          zap file, mmapped, and listed in `root.bolt`.
+          Done. The introducer swapped in a new root snapshot in which
+          [[a file segment]], in blue, replaces our in-memory segment
+          and its neighbors. Next, the persister commits `root.bolt`
+          and fsyncs it.
 
       - id: older-root
         view: { camera: root, target: olderRoots }
@@ -384,6 +405,17 @@ chapters:
           because the persister holds a ref on it. Root snapshots
           aren't linked to each other: each is an immutable,
           refcounted list of segments, freed when its last ref goes.
+
+      - id: committed
+        sim: { until: committed }
+        view: { target: persister }
+        expect: ["reached:committed"]
+        code: [persister.loop]
+        text: |
+          [[The persister]] committed `root.bolt`, fsynced it, and let
+          go of its ref. Nothing else held that old snapshot, so it's
+          freed. Its next cycle takes a ref on whatever the root is by
+          then: it never holds more than one.
 
   # ------------------------------------------------------------------
   - id: disk
@@ -410,7 +442,9 @@ chapters:
         text: |
           [[root.bolt]] holds a few snapshot records, each listing its
           files. A zap file only counts for crash recovery once a
-          `root.bolt` record lists it. cbft keeps 3 snapshots, spaced
+          `root.bolt` record lists it. The newest record, outlined, is
+          what our persister just committed: it lists our file, under
+          the epoch of the snapshot the persister started from. cbft keeps 3 snapshots, spaced
           10 minutes apart, as *rollback points*.
 
   # ------------------------------------------------------------------

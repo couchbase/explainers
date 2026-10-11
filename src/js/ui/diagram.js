@@ -623,7 +623,7 @@ export class Diagram {
     }
     const fixed = STATIONS[tr.stage];
     if (fixed) {
-      const kind = ['persisting', 'merging'].includes(tr.stage) ? (tr.stage === 'persisting' ? 'mem' : 'file') : 'batch';
+      const kind = tr.stage === 'persisting' ? 'mem' : ['merging', 'written', 'fileIntroducing'].includes(tr.stage) ? 'file' : 'batch';
       const st = tr.stage;
       const held = st === 'persisting' ? m.persisterSnapshot : st === 'merging' ? m.mergerSnapshot : null;
       if (held) {
@@ -777,7 +777,9 @@ export class Diagram {
     const workers = [...procs.values()].filter((x) => x.name.startsWith('persisterWorker-'));
     // While in-memory merge workers run, the persister is in its merge phase.
     const busyWorkers = workers.length > 0;
-    litRow(this.pRows, busyWorkers && !/nap|paused/.test(label) ? 2 : phaseRow(PHASES.persister, label), /paused/.test(label));
+    // A worker handing its file to the introducer is in phase 4.
+    const introducing = workers.some((w) => /merges <-|merge introduction/.test(w.label));
+    litRow(this.pRows, busyWorkers && !/nap|paused/.test(label) ? (introducing ? 3 : 2) : phaseRow(PHASES.persister, label), /paused/.test(label));
     this.pWorkers.forEach((w, i) => setCls(w, `pw s-${workers[i] ? procState(workers[i]) : 'wait'}`));
     litRow(this.pBack, busyWorkers && !/nap|paused/.test(label) ? 3 : phaseRow(PHASES.persisterCode, label));
   }
@@ -832,7 +834,9 @@ export class Diagram {
     this.boltCards.forEach((c, i) => {
       const b = m.bolt[i];
       c.r.setAttribute('opacity', b ? 1 : 0.25);
-      setCls(c.r, i === 0 ? 'bolt latest' : prot.has(b && b.epoch) ? 'bolt protected' : 'bolt');
+      // The records that list our file get its outline.
+      const hasOurs = b && ours && b.files.has(ours) ? ' ours' : '';
+      setCls(c.r, (i === 0 ? 'bolt latest' : prot.has(b && b.epoch) ? 'bolt protected' : 'bolt') + hasOurs);
       setText(c.t, b ? `epoch ${b.epoch} · ${b.files.size} files${i === 0 ? ' · latest' : prot.has(b.epoch) ? ' · rollback point' : ''}` : '');
     });
     const zs = [...m.zombies.values()];
@@ -906,6 +910,7 @@ export class Diagram {
     const at = {
       dcp: 'dcp', channel: 'slot', worker: 'workers', herder: 'gate',
       analysis: 'batch', introducing: 'introducer', persisting: 'persister', merging: 'merger',
+      written: 'persister', fileIntroducing: 'introducer',
     }[tr.stage];
     // Callouts about our batch end at its marker.
     const tok = this.tokenTarget(m, 'auto');
@@ -917,7 +922,7 @@ export class Diagram {
 // Which row of a panel's phase list (or its bubble's code list) is
 // active, from the goroutine's raw activity label: first match wins.
 const PHASES = {
-  persister: [[/nap|paused/, 0], [/writing|fsync/, 2], [/root\.bolt|persists <-|persist introduction/, 3]],
+  persister: [[/nap|paused/, 0], [/root\.bolt|persists <-|persist introduction/, 3], [/writing|fsync/, 2]],
   persisterCode: [[/nap|paused/, 0], [/root\.bolt: removed/, 5], [/root\.bolt|writing|fsync|persists <-|persist introduction/, 4]],
   merger: [[/waiting for persister|persisterNotifier/, 0], [/MergeUsing|writing|fsync/, 2], [/merge introduction|merges <-/, 3]],
 };

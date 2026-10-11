@@ -26,11 +26,14 @@ export class MergingProcs {
   // Sends a merge result on the introducer's merges channel and waits
   // until it's applied. Returns whether newSeg made it into the root
   // (it doesn't if everything in it was deleted meanwhile).
-  * _introduceMergeResult(srcs, newSeg, fileMerge) {
+  // traced: our file is in this result, so mark when the introducer
+  // takes it.
+  * _introduceMergeResult(srcs, newSeg, fileMerge, traced = false) {
     const notifyCh = new Chan(this.k, 'mergeNotify', 1);
     const old = new Map(srcs.map((ss) => [ss.seg.id, { seg: ss.seg, deleted: ss.deleted }]));
     const msg = { old, newSeg, fileMerge, notifyCh, introduced: false };
     yield this.merges.send(msg, fileMerge ? 'merges <- file merge result' : 'merges <- in-memory merge result');
+    if (traced) this._trace('fileIntroducing');
     yield notifyCh.recv('waiting for merge introduction');
     return msg.introduced;
   }
