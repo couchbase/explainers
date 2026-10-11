@@ -135,7 +135,7 @@ step to step:
 | `minTimeMs` | fast-forward to this sim time (since the last reset) |
 | `set: { ... }` | change config (keys from `src/js/sim/config.js`) |
 | `query: { durationMs, timeoutMs, label }` | start a query that pins a snapshot |
-| `follow: true` | tag the next batch, to follow it through the system |
+| `follow: true` or `follow: alone` | tag the next batch, to follow it through the system; `alone` first lets batches in flight drain, has KV send just that batch's snapshot, then pauses KV |
 | `until: <stage>` | run event by event until the followed batch reaches a stage: `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `file`, `merging`, `merged`, `oldFileDeleted` |
 | `speed` | playback speed (sim ms per wall ms; `0` means paused) |
 

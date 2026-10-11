@@ -437,7 +437,8 @@ export class Diagram {
       return;
     }
     const end = ic ? [ic.x + 6, ic.y + 7.5] : [280, 1384];
-    const pts = [[280, 1262], [280, 1378], [end[0], 1378], end];
+    // from the persister's 'merge → write zap → fsync' row, down its write arrow
+    const pts = [[280, 1171], [280, 1378], [end[0], 1378], end];
     const [x, y] = along(pts, easeQuad(q));
     this.writeFly.setAttribute('opacity', Math.min(1, q / 0.08).toFixed(3));
     this.writeFly.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${lerp(1, 0.86, q).toFixed(3)})`);
