@@ -105,7 +105,7 @@ chapters:
           Our batch is being built right now by [[the DCP goroutine]].
 
       - id: to-channel
-        sim: { until: channel }
+        sim: { set: { ingestDocsPerSec: 0 }, until: channel }
         view: { target: ourBatch }
         expect: ["reached:channel"]
         code: [cbft.submitAsync]
@@ -114,6 +114,12 @@ chapters:
           [[a worker's channel]], a slot that holds just one batch.
           Which worker is fixed by the vbucket number, so each
           vbucket's batches stay in order.
+
+          To keep the story simple, we've now paused new mutations
+          from KV, so our batch is the last one for a while and
+          nothing else changes the index while we follow it. In a
+          real system batches keep coming, all at once; we'll turn
+          them back on later.
 
       - id: to-worker
         sim: { until: worker }
@@ -347,7 +353,7 @@ chapters:
           files with up to 4 workers, and commits.
 
       - id: cut
-        sim: { set: { ingestDocsPerSec: 0 }, until: flushables }
+        sim: { until: flushables }
         view: { target: persisterInside }
         expect: ["reached:flushables"]
         code: [persister.maybeMerge]
@@ -357,10 +363,6 @@ chapters:
           It [[cut the root's in-memory segments]] into *flushables*:
           runs of neighbors, up to ~20MB each, one per worker. Ours is
           in one of them.
-
-          To keep this simple, we've paused new mutations from KV for
-          now, so nothing else changes the root while we watch. We'll
-          turn them back on later.
 
       - id: persisting
         sim: { until: persisting }
@@ -429,7 +431,7 @@ chapters:
       - id: watch
         view: { camera: swap, target: root }
         text: |
-          Now watch [[the root snapshot]], epoch 355, as the
+          Now watch [[the root snapshot]], epoch 354, as the
           introducer swaps in a new one. It goes one change at a
           time, as you scroll.
 
@@ -443,7 +445,7 @@ chapters:
           now, drawn dashed and see-through over the old one. Nobody
           else can see it yet. Queries, the persister and the merger
           all find the root through `s.root`, which still points at
-          epoch 355.
+          epoch 354.
 
       - id: peel
         view: { swap: peel, target: root }
@@ -474,10 +476,10 @@ chapters:
 
       - id: epoch-up
         view: { swap: epoch, target: rootEpoch }
-        expect: ["rootEpoch:356"]
+        expect: ["rootEpoch:355"]
         text: |
           Last, just before the swap, it gets the next epoch:
-          [[355 + 1 = 356]]. The introducer hands out epochs in order,
+          [[354 + 1 = 355]]. The introducer hands out epochs in order,
           one for every root it swaps in,
           whether that root adds a batch's segment, a persister's file,
           or a merger's result.
@@ -488,15 +490,15 @@ chapters:
         text: |
           Now the introducer [[swaps it in]]: one pointer assignment,
           `s.root = newSnapshot`, under a lock. It's solid now. From
-          here on, queries, the persister and the merger see epoch 356.
+          here on, queries, the persister and the merger see epoch 355.
 
       - id: old-root
         view: { swap: settle, target: olderEpoch }
-        expect: [persisterHoldsOlderRoot, "rootEpoch:356"]
+        expect: [persisterHoldsOlderRoot, "rootEpoch:355"]
         code: [snapshot.refcount]
         text: |
           The stack shifts back, with the new root in front. Behind
-          it, [[epoch 355]] is still alive: the introducer let go of
+          it, [[epoch 354]] is still alive: the introducer let go of
           its ref, but the persister still holds one. Root snapshots
           aren't linked to each other. Each is an immutable, refcounted
           list of segments, freed when its last ref goes. Next, the
@@ -671,7 +673,7 @@ chapters:
           [[the root]].
 
       - id: moving
-        sim: { minTimeMs: 9705 }
+        sim: { minTimeMs: 9740 }
         view: { target: olderRoots }
         expect: [persisterHoldsOlderRoot, rootMovedPastPersister]
         text: |
@@ -680,7 +682,7 @@ chapters:
           still holds [[the one it started from]].
 
       - id: group-commit
-        sim: { minTimeMs: 10100 }
+        sim: { minTimeMs: 10800 }
         view: { target: persister }
         expect: [persisterHoldsOlderRoot]
         code: [persister.loop]
