@@ -45,6 +45,14 @@ export class MergerProcs {
 
   * _planMergeAtSnapshot(p, snap) {
     const k = this.k, cfg = this.cfg;
+    // The plan that includes our file: the story stops on it, in
+    // phase 2 (instant here, as planning is cheap). The first yield
+    // lets the persister, woken in the same instant, move on first.
+    if (this.trace && !this.reached('planning') && snap.segs.some((ss) => ss.seg.id === this.trace.segId)) {
+      yield k.work(0, `plan: tiers & budget, epoch ${snap.epoch}`);
+      this._trace('planning');
+      yield k.work(0, `plan: tiers & budget, epoch ${snap.epoch}`);
+    }
     const input = planInput(snap);
     this.stats.TotFileMergePlan++;
     const pl = mergePlan(input, cfg.mergePlan);

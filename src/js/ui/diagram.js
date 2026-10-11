@@ -592,6 +592,7 @@ export class Diagram {
       stack: this.stackNow,
       epoch: this.rootEpochNow,
       introLid: this.lids.introducer.status.textContent,
+      pRow: this.pRows.findIndex((r) => /\blit\b/.test(r.getAttribute('class'))),
       bolt: this.boltCards.map((c) => ({ text: c.text, cls: c.r.getAttribute('class'), o: c.r.getAttribute('opacity') })),
       dir: this.dirIcons.map((ic) => ({ o: ic.g.getAttribute('opacity'), cls: ic.use.getAttribute('class'), del: ic.del.getAttribute('opacity') })),
     };
@@ -674,6 +675,9 @@ export class Diagram {
     this._blendBolt(A, B, part('bolt'));
     this._blendDir(A, B, listed);
     this._drawStack(stackFrame(A.stack, B.stack, release));
+    // The persister stays in phase 4 until it has let go of its root.
+    const row = release < 1 ? A.pRow : B.pRow;
+    this.pRows.forEach((r, k) => setCls(r, k === row ? 'row lit' : 'row'));
   }
 
   // root.bolt's records partway (q) from A to B: when a record was
@@ -1245,9 +1249,11 @@ export class Diagram {
 // Which row of a panel's phase list (or its bubble's code list) is
 // active, from the goroutine's raw activity label: first match wins.
 const PHASES = {
-  persister: [[/nap|paused/, 0], [/root\.bolt|persists <-|persist introduction/, 3], [/writing|fsync/, 2]],
+  // (Waiting on in-memory merges with no worker left running: the last
+  // one has introduced its file; next is the root.bolt commit.)
+  persister: [[/nap|paused/, 0], [/root\.bolt|persists <-|persist introduction|in-memory merge/, 3], [/writing|fsync/, 2]],
   persisterCode: [[/nap|paused/, 0], [/root\.bolt: removed/, 5], [/root\.bolt|writing|fsync|persists <-|persist introduction/, 4]],
-  merger: [[/waiting for persister|persisterNotifier/, 0], [/MergeUsing|writing|fsync/, 2], [/merge introduction|merges <-/, 3]],
+  merger: [[/waiting for persister|persisterNotifier/, 0], [/^plan/, 1], [/MergeUsing|writing|fsync/, 2], [/merge introduction|merges <-/, 3]],
 };
 function phaseRow(table, label) {
   for (const [re, row] of table) if (re.test(label)) return row;

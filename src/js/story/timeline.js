@@ -18,7 +18,7 @@ import { planInput } from '../sim/procs/merger.js';
 
 // The stages a followed batch goes through, in order (see Model._trace).
 export const TRACE_STAGES = ['dcp', 'channel', 'worker', 'herder', 'analysis', 'built', 'introducing', 'introduced',
-  'flushables', 'persisting', 'written', 'fileIntroducing', 'file', 'committed', 'caughtUp', 'merging', 'merged', 'oldFileDeleted'];
+  'flushables', 'persisting', 'written', 'fileIntroducing', 'file', 'committed', 'caughtUp', 'planning', 'merging', 'merged', 'oldFileDeleted'];
 
 export function flattenSteps(narrative) {
   const out = [];
@@ -162,6 +162,7 @@ export const EXPECTATIONS = {
   noQueries: (m) => m.queries.size === 0,
   zombies: (m) => m.zombieBytes() > 0,
   filesWithinBudget: (m) => mergePlan(planInput(m.root), m.cfg.mergePlan).tasks.length === 0,
+  filesOverBudget: (m) => mergePlan(planInput(m.root), m.cfg.mergePlan).tasks.length > 0,
   noZombies: (m) => m.zombieBytes() === 0,
   safeBatchesSlow: (m) => m.stats.NumBatchesIntroduced > 0 &&
     m.stats.TotBatchIntroTime / m.stats.NumBatchesIntroduced > 100,

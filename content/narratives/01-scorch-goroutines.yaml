@@ -605,15 +605,15 @@ chapters:
           introduce each result. The merger is paced by the persister,
           and as we'll see, the persister is paced by the merger.
 
-      - id: merged
-        sim: { until: merged }
-        view: { target: ourSeg }
-        expect: ["reached:merged"]
-        code: [introducer.introduceMerge]
+      - id: planning
+        sim: { until: planning }
+        view: { target: mergerInside }
+        expect: ["reached:planning"]
+        code: [merger.loop, merger.planMergeAtSnapshot]
         text: |
-          Our file was just merged with others into [[a bigger file]].
-          Any deletes that happened while the merge ran are remapped
-          into the new segment by the introducer.
+          The persister just persisted a newer epoch, which woke the
+          merger. It took a ref on the root, epoch 355, with our file
+          in it, and [[plans]]: which files, if any, should it merge?
 
       - id: make-room
         view: { camera: mergerDetail, target: merger }
@@ -668,18 +668,31 @@ chapters:
 
       - id: ours
         view: { plan: live, target: mergerDetail }
-        expect: [filesWithinBudget]
+        expect: [filesOverBudget]
         text: |
-          Back to [[our own index]]. It's still small, a stair or two,
-          and the merge our file was part of brought it back within
-          budget, so the next plan will have nothing to do until more
-          files arrive.
+          Back to [[our own index]], at epoch 355. It's small, a stair
+          or two, but it has three files on a budget of two, so the
+          plan has one task: merge them, our file included.
 
       - id: detail-close
         view: { unbubble: [merger], target: mergerInside }
         text: |
-          The files our docs used to live in are no longer in the root,
-          so [[the merger's work]] has left garbage on disk.
+          With its plan made, [[the merger]] goes on to merge that
+          task's files into one, then hands the result to the
+          introducer.
+
+      - id: merged
+        sim: { until: merged }
+        view: { target: ourSeg }
+        expect: ["reached:merged"]
+        code: [introducer.introduceMerge]
+        text: |
+          Our file was just merged with others into [[a bigger file]].
+          Any deletes that happened while the merge ran are remapped
+          into the new segment by the introducer.
+
+          The files our docs used to live in are no longer in the
+          root, so the merger's work has left garbage on disk.
 
       - id: to-disk
         view: { camera: disk, target: disk, token: file }
