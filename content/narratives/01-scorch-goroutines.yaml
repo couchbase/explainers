@@ -389,6 +389,13 @@ chapters:
           [[the introducer]], over the same `merges` channel the
           merger uses. Only the introducer may change the root.
 
+      - id: watch
+        view: { camera: swap, target: root }
+        text: |
+          Now watch [[the root snapshot]], and the stack behind it, as
+          the introducer swaps in a new root. One thing moves at a
+          time as you scroll.
+
       - id: file
         sim: { until: file }
         view: { target: ourSeg }

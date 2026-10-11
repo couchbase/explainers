@@ -65,6 +65,7 @@ export const CAMERAS = {
   analysisDetail: { rect: [290, 470, 1330, 810], label: 'bleve: analysis', section: 'bleve' },
   introducer: { rect: [300, 680, 700, 820], label: 'scorch: the introducer', section: 'scorch' },
   root: { rect: [60, 800, 940, 1062], label: 'scorch: the root snapshot', section: 'scorch' },
+  swap: { rect: [60, 690, 950, 1062], label: 'scorch: swapping in a new root', section: 'scorch' },
   persister: { rect: [40, 840, 560, 1270], label: 'scorch: the persister', section: 'scorch' },
   persisterDetail: { rect: [-450, 960, 490, 1270], label: 'scorch: inside the persister', section: 'scorch' },
   merger: { rect: [440, 840, 960, 1270], label: 'scorch: the merger', section: 'scorch' },

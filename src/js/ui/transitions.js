@@ -117,10 +117,12 @@ function hop(sa, pa, sb, pb) {
 // marker's place there (null if there was none; absent if unvisited).
 // Returns {t, o} (place, opacity) plus, while travelling, `dest` and
 // `arrived`; or `birth` (0..1) when a batch is born at the DCP goroutine.
-export function markerFrame(views, tokenAt, i, p) {
+// `win` limits the marker's move to part of the transition (in eased
+// progress), so it can wait its turn while something else changes.
+export function markerFrame(views, tokenAt, i, p, win = [0, 1]) {
   const cur = views[i].token === 'hide' ? null : tokenAt.get(i) || null;
   const prev = i > 0 && views[i - 1].token !== 'hide' ? tokenAt.get(i - 1) || null : null;
-  const e = ease(p);
+  const e = clamp01((ease(p) - win[0]) / (win[1] - win[0]));
   if (cur && prev) {
     const moving = prev.st !== cur.st || prev.key !== cur.key;
     const shown = e > 0.5 ? cur : prev;

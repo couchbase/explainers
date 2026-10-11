@@ -144,7 +144,9 @@ function render() {
 
   setChrome(toggleAt(pv.ui === 'full', v.ui === 'full', p));
 
-  const mf = markerFrame(views, ctl.tokenAt, i, p);
+  // When the root is swapped, the marker moves last (see blendSlots).
+  const swapping = !ctl.playing && Diagram.isSwap(ctl.slotsAt.get(i - 1), ctl.slotsAt.get(i));
+  const mf = markerFrame(views, ctl.tokenAt, i, p, swapping ? [0.69, 0.9] : undefined);
   const markerPt = mf && mf.t && mf.o > 0.01 ? mf.t.p : null;
   camera.show(camera.follow(camera.between(i > 0 ? pv.camera : null, v.camera, p), markerPt));
 
