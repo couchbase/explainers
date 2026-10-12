@@ -15,7 +15,7 @@ import { D } from '../src/js/domain.js';
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const CALLOUT = /\[\[(.+?)\]\]/g;
 
-export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {}) {
+export function validateNarrative(n, { coderefs = {}, sources = null, file = 'narrative' } = {}) {
   const errs = [];
   const err = (where, msg) => errs.push(`${file}: ${where}: ${msg}`);
   const keys = (obj, allowed, where) => {
@@ -35,7 +35,9 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
   };
 
   if (!isObj(n)) return [`${file}: not a mapping`];
-  keys(n, ['title', 'subtitle', 'audience', 'explainer', 'next', 'sim', 'chapters'], 'top');
+  keys(n, ['title', 'subtitle', 'audience', 'explainer', 'sources', 'next', 'sim', 'chapters'], 'top');
+  // the pinned sources it's modeled on, named in its header
+  if (n.sources !== undefined && sources) checkIds(n.sources, Object.keys(sources), 'top', 'source');
   if (typeof n.title !== 'string') err('top', 'title is required');
   if (n.sim !== undefined) {
     keys(n.sim, ['seed', 'config'], 'sim');

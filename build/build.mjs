@@ -66,7 +66,7 @@ export function explainerOf(n, file = n.id) {
   return n.explainer;
 }
 
-async function loadNarratives(coderefs) {
+async function loadNarratives(coderefs, sources) {
   const dir = join(ROOT, 'content/narratives');
   const out = [];
   const errs = [];
@@ -75,7 +75,7 @@ async function loadNarratives(coderefs) {
     // 01-indexing.yaml builds dist/01-indexing.html.
     const n = yaml.load(readFileSync(join(dir, f), 'utf8'));
     useDomain(await import(pathToFileURL(join(ROOT, 'src/explainers', explainerOf(n, f), 'domain.js')).href));
-    errs.push(...validateNarrative(n, { coderefs, file: f }));
+    errs.push(...validateNarrative(n, { coderefs, sources, file: f }));
     out.push({ ...n, id: f.replace(/\.yaml$/, '') });
   }
   if (errs.length) throw new Error('narrative errors:\n  ' + errs.join('\n  '));
@@ -90,7 +90,7 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
   const coderefs = yaml.load(read('content/coderefs.yaml'));
   const snippets = JSON.parse(read('content/snippets.json'));
   const sources = yaml.load(read('content/sources.yaml'));
-  const narratives = await loadNarratives(coderefs);
+  const narratives = await loadNarratives(coderefs, sources);
   const nextOf = (n) => {
     if (!n.next) return null;
     const m = narratives.find((x) => x.id === n.next);
@@ -152,7 +152,8 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
     const data = {
       narrative: { ...n, chapters, subtitleHtml: n.subtitle ? renderMarkdown(n.subtitle) : '' },
       snippets: Object.fromEntries([...used].map((id) => [id, renderSnippet(snippets[id])])),
-      sources: Object.fromEntries(Object.entries(sources).map(([k, v]) => [k, { github: v.github, commit: v.commit, version: v.version }])),
+      // the sources the page names, in its order (all, if it names none)
+      sources: Object.fromEntries((n.sources || Object.keys(sources)).map((k) => [k, { github: sources[k].github, commit: sources[k].commit, version: sources[k].version }])),
       builtAt,
       version,
       // the explainer to read next, if the narrative names one

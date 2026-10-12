@@ -4,6 +4,7 @@
 # real example segment (tools/zap-golden) by `expect: ["fact:..."]`.
 
 explainer: zap-format
+sources: [zapx, vellum, bleve, cbft]
 title: "Inside a zap segment: how scorch stores and finds your docs"
 subtitle: >-
   What scorch reads, byte by byte, when a query asks for a word: the

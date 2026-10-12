@@ -40,7 +40,7 @@ for (const f of files) {
 
   test(`${f}: schema`, () => {
     useDomain(domain);
-    assert.deepEqual(validateNarrative(n, { coderefs, file: f }), []);
+    assert.deepEqual(validateNarrative(n, { coderefs, sources, file: f }), []);
   });
 
   const steps = flattenSteps(n);

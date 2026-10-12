@@ -8,6 +8,7 @@
 import { h, svgEl } from './util/dom.js';
 
 const shortCommit = (c) => (c || '').slice(0, 12);
+const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const repoLink = (s) => `<a href="${s.github}/tree/${s.commit}" target="_blank" rel="noopener">${shortCommit(s.commit)}</a>`;
 
 export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
@@ -26,7 +27,7 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
     h('h1', { text: narrative.title }),
     h('div', { class: 'subtitle', html: narrative.subtitleHtml }),
     h('div', { class: 'meta', html:
-      `Modeled on bleve ${repoLink(sources.bleve)}, zapx ${repoLink(sources.zapx)} and cbft ${repoLink(sources.cbft)} · built ${data.builtAt}${data.version ? ` · version ${data.version}` : ''}` }),
+      `Modeled on ${andList(Object.entries(sources).map(([k, s]) => `${k} ${repoLink(s)}`))} · built ${data.builtAt}${data.version ? ` · version ${data.version}` : ''}` }),
     h('p', { class: 'scroll-hint', text: 'Scroll to begin ↓' })));
 
   const stepEls = [];

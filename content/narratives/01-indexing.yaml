@@ -4,6 +4,7 @@
 # camera, the lids, a detail bubble, the UI, or the simulation.
 
 explainer: scorch-goroutines
+sources: [bleve, zapx, cbft]
 next: 02-zap-format
 title: "Inside bleve / scorch: introducer, persister, merger"
 subtitle: >-
