@@ -14,6 +14,7 @@ import hljs from 'highlight.js/lib/core';
 import go from 'highlight.js/lib/languages/go';
 import * as esbuild from 'esbuild';
 import { validateNarrative } from './schema.mjs';
+import { shownChapters, isStop } from '../src/js/story/timeline.js';
 import { CONFIG_DOCS, DEFAULT_CONFIG } from '../src/js/sim/config.js';
 
 hljs.registerLanguage('go', go);
@@ -94,9 +95,14 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
 
   mkdirSync(outDir, { recursive: true });
   const written = [];
-  for (const n of narratives) {
+  // A narrative with a `stop` also gets a <id>-drafts.html with every
+  // chapter, for reviewing the drafts (and for the browser tests).
+  const variants = narratives.flatMap((n) => (shownChapters(n).length < n.chapters.length
+    ? [{ n, chs: shownChapters(n), suffix: '' }, { n, chs: n.chapters.filter((ch) => !isStop(ch)), suffix: '-drafts' }]
+    : [{ n, chs: n.chapters, suffix: '' }]));
+  for (const { n, chs, suffix } of variants) {
     const used = new Set();
-    const chapters = n.chapters.map((ch) => ({
+    const chapters = chs.map((ch) => ({
       ...ch,
       steps: ch.steps.map((st) => {
         for (const c of st.code || []) used.add(c);
@@ -117,9 +123,9 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
       .replace('/*{{CSS}}*/', () => css)
       .replace('{{DATA}}', () => escapeJsonForScript(JSON.stringify(data)))
       .replace('/*{{JS}}*/', () => js.replace(/<\/script/gi, '<\\/script'));
-    const file = join(outDir, `${n.id}.html`);
+    const file = join(outDir, `${n.id}${suffix}.html`);
     writeFileSync(file, html);
-    written.push({ file, bytes: html.length, id: n.id, title: n.title });
+    if (!suffix) written.push({ file, bytes: html.length, id: n.id, title: n.title });
   }
   // With one narrative, index.html is that narrative.
   if (written.length === 1) {

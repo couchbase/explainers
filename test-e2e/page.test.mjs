@@ -5,7 +5,7 @@
 // Needs `npm run build` first, and Chrome (or set CHROME_PATH).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { launch, openPage, scrollToStep, viewBox, stepCount } from './helpers.mjs';
+import { launch, openPage, scrollToStep, viewBox, stepCount, shared } from './helpers.mjs';
 
 let browser;
 before(async () => { browser = await launch(); });
@@ -220,4 +220,13 @@ test('contents: jumps straight to a chapter, settled', async () => {
     assert.deepEqual(errors, []);
     await page.close();
   }
+});
+
+test('the shared page ends at the narrative\'s stop, without errors', async () => {
+  const { page, errors } = await openPage(browser, { page: shared });
+  const ids = await page.evaluate(() => [...document.querySelectorAll('.step')].map((el) => el.id));
+  assert.ok(ids.some((id) => id.startsWith('merger--')));
+  assert.ok(!ids.some((id) => id.startsWith('meanwhile--')));
+  assert.deepEqual(errors, []);
+  await page.close();
 });

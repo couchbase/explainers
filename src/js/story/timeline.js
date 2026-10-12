@@ -20,9 +20,19 @@ import { planInput } from '../sim/procs/merger.js';
 export const TRACE_STAGES = ['dcp', 'channel', 'worker', 'herder', 'analysis', 'built', 'introducing', 'introduced',
   'flushables', 'persisting', 'written', 'fileIntroducing', 'file', 'committed', 'caughtUp', 'persisterWaits', 'persisterNudged', 'watcherClosed', 'planning', 'merging', 'mergeWritten', 'mergeIntroducing', 'merged', 'oldFileDeleted'];
 
+// A `- stop: <note>` entry in the chapter list: the page ends there
+// (chapters after it are drafts), though they're still validated and
+// simulated by the tests.
+export const isStop = (ch) => !!ch && typeof ch === 'object' && 'stop' in ch;
+export const shownChapters = (narrative) => {
+  const k = narrative.chapters.findIndex(isStop);
+  return k < 0 ? narrative.chapters : narrative.chapters.slice(0, k);
+};
+
 export function flattenSteps(narrative) {
   const out = [];
   narrative.chapters.forEach((ch, ci) => {
+    if (isStop(ch)) return;
     ch.steps.forEach((st, si) => out.push({ ...st, chapterId: ch.id, chapterIndex: ci, indexInChapter: si, color: ch.color }));
   });
   return out;

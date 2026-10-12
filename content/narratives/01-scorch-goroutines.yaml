@@ -821,6 +821,11 @@ chapters:
           introducer.
 
   # ------------------------------------------------------------------
+  # The page ends here for now: the chapters below are drafts, not yet
+  # reviewed. They're still validated and simulated by the tests.
+  - stop: drafts below, not yet reviewed
+
+  # ------------------------------------------------------------------
   - id: meanwhile
     title: "Meanwhile, ingest goes on"
     color: scorch

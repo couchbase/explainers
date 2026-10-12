@@ -83,3 +83,11 @@ test('schema enforces one change per step, and lid visibility', () => {
   ]);
   assert.match(validateNarrative(orphan, { coderefs }).join('\n'), /parent "scorch" isn't/);
 });
+
+test('a `stop` entry ends the page; chapters after it are still steps for the tests', async () => {
+  const { shownChapters, flattenSteps } = await import('../src/js/story/timeline.js');
+  const st = { id: 's', text: 'x' };
+  const n = { chapters: [{ id: 'a', title: 'a', steps: [st] }, { stop: 'drafts' }, { id: 'b', title: 'b', steps: [st] }] };
+  assert.deepEqual(shownChapters(n).map((c) => c.id), ['a']);
+  assert.deepEqual(flattenSteps(n).map((s) => s.chapterId), ['a', 'b']);
+});

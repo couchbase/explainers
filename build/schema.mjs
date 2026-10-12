@@ -7,7 +7,7 @@
 import { applyConfig, makeConfig } from '../src/js/sim/config.js';
 import { PLAN_PHASES } from '../src/js/ui/stairs-scene.js';
 import { SWAP_PHASES, COMMIT_PHASES } from '../src/js/ui/snapstack.js';
-import { isKnownExpectation, flattenSteps, resolveViews, changesAt } from '../src/js/story/timeline.js';
+import { isKnownExpectation, flattenSteps, resolveViews, changesAt, isStop } from '../src/js/story/timeline.js';
 import { CAMERAS, LIDS, BUBBLES, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, UI_MODES, TOKEN_MODES, isAnchorVisible } from '../src/js/ui/layout.js';
 import { TRACE_STAGES } from '../src/js/story/timeline.js';
 
@@ -47,9 +47,15 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
   const ids = new Set();
   let first = true;
   const where = [];
+  if (n.chapters.filter(isStop).length > 1) err('top', 'at most one `stop` entry');
   n.chapters.forEach((ch, ci) => {
     const cw = `chapter[${ci}]${ch && ch.id ? ' ' + ch.id : ''}`;
     if (!isObj(ch)) return err(cw, 'must be a mapping');
+    if (isStop(ch)) {
+      keys(ch, ['stop'], cw);
+      if (ci === 0) err(cw, 'a `stop` needs at least one chapter before it');
+      return;
+    }
     keys(ch, ['id', 'title', 'color', 'steps'], cw);
     if (typeof ch.id !== 'string' || !SLUG.test(ch.id)) err(cw, 'id must be a slug');
     if (typeof ch.title !== 'string') err(cw, 'title is required');
@@ -105,7 +111,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         if (v.ui !== undefined && !UI_MODES.includes(v.ui)) err(sw, `unknown ui "${v.ui}" (known: ${UI_MODES.join(', ')})`);
         if (v.token !== undefined && !TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${TOKEN_MODES.join(', ')})`);
         if (v.plan !== undefined && !PLAN_PHASES.includes(v.plan)) err(sw, `unknown plan "${v.plan}" (known: ${PLAN_PHASES.join(', ')})`);
-        if (v.flow !== undefined && !['analysis', 'write'].includes(v.flow)) err(sw, `unknown flow "${v.flow}" (known: analysis, write)`);
+        if (v.flow !== undefined && !['analysis', 'write', 'mergeWrite', 'watcher'].includes(v.flow)) err(sw, `unknown flow "${v.flow}" (known: analysis, write, mergeWrite, watcher)`);
         if (v.commit !== undefined && !COMMIT_PHASES.includes(v.commit)) err(sw, `unknown commit "${v.commit}" (known: ${COMMIT_PHASES.join(', ')})`);
         if (v.swap !== undefined && !SWAP_PHASES.includes(v.swap)) err(sw, `unknown swap "${v.swap}" (known: ${SWAP_PHASES.join(', ')})`);
         if (v.target !== undefined && !(v.target in ANCHORS) && !DYNAMIC_ANCHORS.includes(v.target)) {

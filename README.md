@@ -16,6 +16,7 @@ slow query that pins segments. The last chapter is a sandbox with knobs.
 ```sh
 npm install
 npm run build        # -> dist/scorch-goroutines.html (also dist/index.html)
+                     #    and, with a `stop` in the narrative, scorch-goroutines-drafts.html
 open dist/index.html
 ```
 
@@ -146,6 +147,11 @@ fast-forwards to that step's `minTimeMs`, then applies its directives.
 This means a step looks the same however the reader got there,
 including by scrolling back up or following a deep link
 (`#chapter--step`). See `src/js/story/timeline.js`.
+
+**Drafts.** A `- stop: <note>` entry in the chapter list ends the page
+there, so unreviewed chapters after it can stay in the YAML. They're
+still validated and simulated by `npm test`, and the build also writes
+`dist/<id>-drafts.html` with every chapter (the browser tests use it).
 
 **One change per step.** The build rejects a step that changes more
 than one of camera, lids, flips and simulation. If you need to, say

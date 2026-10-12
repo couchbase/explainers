@@ -5,7 +5,11 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
-export const file = fileURLToPath(new URL('../dist/index.html', import.meta.url));
+// The page with every chapter, drafts included, when there is one;
+// `shared` is the page as shared (ending at the narrative's `stop`).
+export const shared = fileURLToPath(new URL('../dist/index.html', import.meta.url));
+const drafts = fileURLToPath(new URL('../dist/scorch-goroutines-drafts.html', import.meta.url));
+export const file = existsSync(drafts) ? drafts : shared;
 
 export async function launch() {
   assert.ok(existsSync(file), 'run `npm run build` first');
@@ -18,12 +22,12 @@ export const DESKTOP = { width: 1600, height: 1000 };
 
 // Opens the page (optionally at #hash) and waits for the explainer to
 // be ready. Collects page errors and console errors in `errors`.
-export async function openPage(browser, { viewport = DESKTOP, scheme = 'light', hash = '', debug = true } = {}) {
+export async function openPage(browser, { viewport = DESKTOP, scheme = 'light', hash = '', debug = true, page: which = file } = {}) {
   const page = await browser.newPage({ viewport, colorScheme: scheme });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto('file://' + file + (debug ? '?debug=1' : '') + (hash ? '#' + hash : ''));
+  await page.goto('file://' + which + (debug ? '?debug=1' : '') + (hash ? '#' + hash : ''));
   await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
   return { page, errors };
 }
