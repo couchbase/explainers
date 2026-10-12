@@ -7,17 +7,10 @@ is inspired by
 [r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
 
 The first explainer, **"Inside bleve / scorch: introducer, persister,
-merger"**, follows one batch of DCP mutations from KV through cbft's
-DCP goroutine, batch workers and app herder, into bleve's analysis
-queue and scorch, then through scorch's introducer, persister and
-merger goroutines, down to the zap files and `root.bolt` on disk.
-Along the way it shows root snapshots, epochs, refcounts, the
-in-memory merge, the tiered merge policy and epoch watchers.
+merger"**, follows one batch of mutations from KV through CBFT and onto disk.
 
-The published page ends after the merger chapter. Later chapters
-(ingest resuming, a slow disk, a huge ingest, a slow query, and a
-sandbox with knobs) are drafts, still under review; see
-[Drafts](#drafts).
+Later chapters (ingest resuming, a slow disk, a huge ingest, a slow query, etc)
+are drafts, still under review; see [Drafts](#drafts).
 
 ## Quick start
 
@@ -26,56 +19,33 @@ You need [Node.js](https://nodejs.org/) 20 or newer.
 ```sh
 npm ci               # install the pinned dependencies
 npm run build        # -> dist/scorch-goroutines.html (and dist/index.html)
-open dist/index.html # or xdg-open, or just open the file in a browser
+open dist/index.html # open the file in a browser
 ```
 
-The output is **one self-contained HTML file**, with no server and no
-external scripts, so you can email it or post it in Slack. Its only
-external reference is to Google Fonts, and it falls back to system
-fonts when offline.
+The outputs will be **self-contained HTML files**, with no
+server and no external scripts, so we can email or slack it.
 
-`npm run dev` rebuilds on every change under `src/` and `content/`;
-reload the page to see the changes.
+`npm run dev` rebuilds on every change under `src/` and `content/`.
 
-**Reading it.** Scrolling drives the story. You can also navigate the
-diagram like a map:
+Scrolling drives the story. You can also navigate the diagram like a google map:
 - drag to pan;
 - ⌘, Ctrl or ⌥ + scroll, or pinch, to zoom at the cursor;
 - double-click to zoom in, ⌥/Shift + double-click to zoom out;
 - two fingers to pinch and pan on touchscreens;
 - ⟲ to return to the story's view (the next step also eases back to it).
 
-Each step has a deep link (`#chapter--step`), and the ☰ Contents
-button in the top-left corner jumps between chapters. The Code drawer
-shows the Go source each step is about, with links to GitHub at the
-pinned commits.
+The Code drawer shows the Go source each step is about, with
+links to GitHub at pinned commits.
 
 ## Tests
 
 ```sh
 npm test             # unit tests (fast; no browser needed)
 npm run build
-npm run test:e2e     # browser tests, in headless Chrome
+npm run test:e2e     # browser tests, in headless Chrome / playwright
 ```
 
-`npm test` covers:
-- the discrete-event kernel;
-- the merge planner, against golden plans from the real Go code;
-- simulator invariants and scenarios;
-- the narratives: schema, cross-step rules, and each step's
-  `expect`ations against the simulated state;
-- that `content/snippets.json` matches the pinned Go sources (skipped
-  when they aren't available locally, as in CI);
-- the build output.
-
-`npm run test:e2e` drives the built page with
-[`playwright-core`](https://playwright.dev/) and your installed Google
-Chrome. It checks every step, the drawers, deep links, phone-width
-layout, light and dark themes, and that there are no page errors. Set
-`CHROME_PATH` to use another Chromium. It tests the drafts page when
-there is one, so the draft chapters are covered too.
-
-Append `?debug=1` to the page URL to check simulator invariants on
+Append `?debug=1` to the URL to check simulator invariants on
 every frame (violations are logged to the console).
 
 CI (`.github/workflows/ci.yml`) runs the build and both test suites
@@ -83,10 +53,12 @@ on every push and pull request.
 
 ## Publishing
 
-`dist/` is committed: it's the page as reviewed. The first panel of
-the page carries a version stamp, `git describe --long` of the sources
+See `dist/`, where each self-contained HTML page carries a version
+stamp from `git describe --long` and the sources
 it was built from, plus `-dirty` if they had uncommitted changes
-(changes under `dist/` don't count). To publish a new version:
+(changes under `dist/` don't count).
+
+To publish a new version:
 
 ```sh
 git commit ...        # commit your changes first, for a clean stamp
@@ -108,10 +80,12 @@ deployment → Source: GitHub Actions**. The page is then at
 ## How it works
 
 The visuals are driven by a **live simulation**, not by canned
-animations. The diagram (`src/js/ui/diagram.js`, geometry in
+animations.
+
+The diagram (`src/js/ui/diagram.js`, geometry in
 `layout.js`) is one large SVG canvas that the story's camera zooms
-around. Sections start covered by lids and open as the story reaches
-them.
+around. Component panels start covered by lids and open as the story
+drills down into them.
 
 - `src/js/sim/des.js` is a small deterministic discrete-event kernel.
   Goroutines are JS generator functions that `yield` Go-like ops:
@@ -137,19 +111,17 @@ them.
   tested against golden plans generated by the real Go code
   (`tools/mergeplan-golden`).
 
-A few things are simplified for the story, and the narrative says so
-where it matters: it follows one batch, and pauses KV mutations so
-that batch travels alone; some steps that are instant in the real code
-(cutting flushables, opening a new zap file, planning) get a step of
-their own; and long animations, like a root swap, are told one phase
-per step.
+A few things are simplified: it follows one batch, and pauses KV mutations so
+that batch travels without concurrency; some steps that are instant in
+the real code (cutting flushables, opening a new zap file, planning)
+get a step of their own and longer animations, like a root snapshot swap,
+are animated with sub-steps.
 
 Research notes with file:line references live in `docs/research/`.
 
 ## Design principles
 
-These came out of reviewing early drafts, and they guide both the
-narratives and the code:
+These guide both the narratives and the code:
 
 - **The reader's scroll is the timeline.** Anything that changes
   between steps is driven by scroll position, not by a clock, so
@@ -159,9 +131,9 @@ narratives and the code:
 - **Change one thing at a time.** Each step changes one of camera,
   lids, bubbles, UI or simulation (the build enforces this). Within a
   step, changes are spread out in order across the step's scroll, so
-  the reader's eye has one thing to follow.
+  the reader's eye has just one thing to follow for easier understanding.
 - **Nothing teleports.** Markers travel along the drawn arrows and the
-  corridors between boxes; destinations wait for them to arrive.
+  corridor lanes between boxes; destinations wait for them to arrive.
 - **Keep the subject in view.** The camera follows the marker, and the
   charts and controls stay out of the way until they're needed.
 
@@ -184,8 +156,8 @@ section they're about. A step looks like this:
 ```
 
 **The callout.** `[[phrase]]` marks the one phrase per step that the
-callout line starts from. `view.target` names what it points at: a
-fixed anchor (`dcp`, `workers`, `gate`, `introducer`, `root`,
+callout line starts from. `view.target` is what it points at: a
+fixed anchor (e.g., `dcp`, `workers`, `gate`, `introducer`, `root`,
 `persister`, `bolt`, ... see `ANCHORS` in `src/js/ui/layout.js`) or a
 live one that follows the simulation (`ourBatch`, `ourSeg`, `ourFile`,
 `deletedFile`, `mergedSeg`).
