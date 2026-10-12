@@ -111,12 +111,13 @@ export class Model {
 
   // Tags the next batch the DCP goroutine starts for a vbucket that
   // goes to batch worker `worker`, so we can follow it (and, later, the
-  // segments and files its docs end up in). alone: KV lets what's in
-  // flight drain, sends just that batch's snapshot, then stops.
-  follow({ worker = 0, alone = false } = {}) {
+  // segments and files its docs end up in). mode 'alone': KV lets
+  // what's in flight drain, sends just that batch's snapshot, then
+  // stops. (A narrative's `sim.follow` value.)
+  follow(mode = true, { worker = 0 } = {}) {
     this.followNext = { worker };
     this.trace = null;
-    if (alone) this.kvOneShot = { worker };
+    if (mode === 'alone') this.kvOneShot = { worker };
   }
 
   reached(stage) {

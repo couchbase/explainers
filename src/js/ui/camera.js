@@ -7,7 +7,7 @@
 // draws under the transparent columns. On top of that sits the reader's
 // own pan/zoom, which eases back to the story's view on request.
 
-import { CAMERAS, CANVAS } from './layout.js';
+import { CAMERAS, CANVAS } from '../domain.js';
 import { lerpRect, ease } from './util/anim.js';
 
 export class Camera {

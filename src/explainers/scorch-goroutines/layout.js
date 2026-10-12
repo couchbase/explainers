@@ -1,5 +1,6 @@
-// Geometry of the diagram canvas, with no DOM, so the build can
-// validate narrative references (cameras, lids, anchors) against it.
+// The scorch-goroutines explainer's diagram geometry, with no DOM, so
+// the build can validate narrative references (cameras, lids, anchors)
+// against it.
 //
 // The canvas is one fixed drawing; the page shows a region of it (the
 // camera). Frames show containment: KV is its own process, across a
@@ -135,7 +136,6 @@ export const DYNAMIC_ANCHORS = ['ourBatch', 'ourSeg', 'ourFile', 'deletedFile', 
 
 export const CHART_IDS = ['dcpBuf', 'memUsed', 'segments', 'files'];
 export const SECTION_COLORS = ['kv', 'cbft', 'bleve', 'scorch', 'disk', 'neutral'];
-export const UI_MODES = ['minimal', 'full'];
 export const TOKEN_MODES = ['auto', 'file', 'hide'];
 
 // Anchors on the merger bubble's staircase, one per story phase.
@@ -150,13 +150,6 @@ function stairAnchors() {
   return out;
 }
 
-export function isAnchorVisible(id, open, bubbles, dynamicNeeds) {
-  const a = ANCHORS[id];
-  const needs = a ? a.needs : dynamicNeeds || [];
-  if (!needs.every((n) => open.has(n))) return false;
-  if (a && a.bubble && !bubbles.has(a.bubble)) return false;
-  return true;
-}
 
 // Where our batch's marker rests at each stage of its trip.
 export const STATIONS = {

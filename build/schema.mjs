@@ -4,12 +4,16 @@
 // thing (camera, lids, bubbles, UI, or the simulation) unless it says
 // `multi: true`.
 
-import { applyConfig, makeConfig } from '../src/js/sim/config.js';
-import { PLAN_PHASES } from '../src/js/ui/stairs-scene.js';
-import { SWAP_PHASES, COMMIT_PHASES } from '../src/js/ui/snapstack.js';
-import { isKnownExpectation, flattenSteps, resolveViews, changesAt, isStop } from '../src/js/story/timeline.js';
-import { CAMERAS, LIDS, BUBBLES, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, UI_MODES, TOKEN_MODES, isAnchorVisible } from '../src/js/ui/layout.js';
-import { TRACE_STAGES } from '../src/js/story/timeline.js';
+// Names an author can use (cameras, lids, anchors, stages, the
+// explainer's own view directives...) come from the explainer, through
+// src/js/domain.js; the rules here are the engine's.
+
+import { isKnownExpectation, flattenSteps, resolveViews, changesAt, isStop, UI_MODES, TRACE_STAGES } from '../src/js/story/timeline.js';
+import { isAnchorVisible } from '../src/js/ui/anchors.js';
+import {
+  applyConfig, makeConfig, CAMERAS, LIDS, BUBBLES, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, TOKEN_MODES,
+  FOLLOW_MODES, VIEW_KEYS,
+} from '../src/js/domain.js';
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const CALLOUT = /\[\[(.+?)\]\]/g;
@@ -92,13 +96,13 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         for (const k of ['minTimeMs', 'speed']) {
           if (st.sim[k] !== undefined && !(typeof st.sim[k] === 'number' && st.sim[k] >= 0)) err(sw, `sim.${k} must be a number >= 0`);
         }
-        if (st.sim.follow !== undefined && st.sim.follow !== true && st.sim.follow !== 'alone') err(sw, "sim.follow must be true or 'alone'");
+        if (st.sim.follow !== undefined && !FOLLOW_MODES.includes(st.sim.follow)) err(sw, `sim.follow must be one of: ${FOLLOW_MODES.join(', ')}`);
         if (st.sim.until !== undefined && !TRACE_STAGES.includes(st.sim.until)) err(sw, `unknown sim.until stage "${st.sim.until}" (known: ${TRACE_STAGES.join(', ')})`);
       }
       if (first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');
       first = false;
       if (st.view !== undefined) {
-        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'plan', 'swap', 'commit', 'flow', 'target', 'chart'], `${sw} view`);
+        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'target', 'chart', ...Object.keys(VIEW_KEYS)], `${sw} view`);
         const v = st.view;
         if (v.camera !== undefined && !(typeof v.camera === 'string' && CAMERAS[v.camera]) &&
           !(Array.isArray(v.camera) && v.camera.length === 4 && v.camera.every((x) => typeof x === 'number'))) {
@@ -110,10 +114,9 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         checkIds(v.unbubble, Object.keys(BUBBLES), sw, 'bubble');
         if (v.ui !== undefined && !UI_MODES.includes(v.ui)) err(sw, `unknown ui "${v.ui}" (known: ${UI_MODES.join(', ')})`);
         if (v.token !== undefined && !TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${TOKEN_MODES.join(', ')})`);
-        if (v.plan !== undefined && !PLAN_PHASES.includes(v.plan)) err(sw, `unknown plan "${v.plan}" (known: ${PLAN_PHASES.join(', ')})`);
-        if (v.flow !== undefined && !['analysis', 'write', 'mergeWrite', 'watcher'].includes(v.flow)) err(sw, `unknown flow "${v.flow}" (known: analysis, write, mergeWrite, watcher)`);
-        if (v.commit !== undefined && !COMMIT_PHASES.includes(v.commit)) err(sw, `unknown commit "${v.commit}" (known: ${COMMIT_PHASES.join(', ')})`);
-        if (v.swap !== undefined && !SWAP_PHASES.includes(v.swap)) err(sw, `unknown swap "${v.swap}" (known: ${SWAP_PHASES.join(', ')})`);
+        for (const [k, d] of Object.entries(VIEW_KEYS)) {
+          if (v[k] !== undefined && !d.values.includes(v[k])) err(sw, `unknown ${k} "${v[k]}" (known: ${d.values.join(', ')})`);
+        }
         if (v.target !== undefined && !(v.target in ANCHORS) && !DYNAMIC_ANCHORS.includes(v.target)) {
           err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(ANCHORS), ...DYNAMIC_ANCHORS].join(', ')})`);
         }
@@ -138,12 +141,14 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
       if (parent && !v.open.has(parent)) err(sw, `lid "${id}" is open but its parent "${parent}" isn't`);
     }
     for (const id of v.bubbles) if (!v.open.has(BUBBLES[id].parent)) err(sw, `bubble "${id}" shows, but its panel's lid isn't open`);
-    // A root swap told over several steps: its phases in order, and its
-    // first step is the one that changes the simulation.
-    if (v.swap) {
-      const pv = i > 0 ? views[i - 1] : null;
-      if (pv && pv.swap && SWAP_PHASES.indexOf(v.swap) <= SWAP_PHASES.indexOf(pv.swap)) err(sw, `swap "${v.swap}" must come after "${pv.swap}"`);
-      if (!(pv && pv.swap) && !(st.sim && st.sim.until)) err(sw, 'the first step of a swap needs sim.until (the step that swaps the root)');
+    // A phase told over several steps (VIEW_KEYS with a `run`): its
+    // phases come in order; an 'ordered' run's first step is the one
+    // that changes the simulation.
+    for (const [k, d] of Object.entries(VIEW_KEYS)) {
+      if (!d.run || !v[k]) continue;
+      const pv = i > 0 ? views[i - 1] : null, ph = (x) => d.values.indexOf(x);
+      if (pv && pv[k] && (d.run === 'ordered' ? ph(v[k]) <= ph(pv[k]) : ph(v[k]) < ph(pv[k]))) err(sw, `${k} "${v[k]}" must come after "${pv[k]}"`);
+      if (d.run === 'ordered' && !(pv && pv[k]) && !(st.sim && st.sim.until)) err(sw, `the first step of a ${k} needs sim.until (the step that makes the change it tells)`);
     }
     if (v.target && ANCHORS[v.target] && !isAnchorVisible(v.target, v.open, v.bubbles)) {
       err(sw, `target "${v.target}" is hidden under a closed lid (or needs its bubble) at this step`);

@@ -12,13 +12,10 @@
 // lids, the shown detail bubbles, the UI mode (minimal or full chrome)
 // and how to place our batch's marker. A step only states what changes.
 
-import { Model } from '../sim/model.js';
-import { plan as mergePlan } from '../sim/mergeplan.js';
-import { planInput } from '../sim/procs/merger.js';
+import { makeModel, TRACE_STAGES, EXPECTATIONS, EXPECTATION_PARAMS, VIEW_KEYS } from '../domain.js';
 
-// The stages a followed batch goes through, in order (see Model._trace).
-export const TRACE_STAGES = ['dcp', 'channel', 'worker', 'herder', 'analysis', 'built', 'introducing', 'introduced',
-  'flushables', 'persisting', 'written', 'fileIntroducing', 'file', 'committed', 'caughtUp', 'persisterWaits', 'persisterNudged', 'watcherClosed', 'planning', 'merging', 'mergeWritten', 'mergeIntroducing', 'merged', 'oldFileDeleted'];
+// The engine's own UI modes: minimal chrome, or full (charts, controls).
+export const UI_MODES = ['minimal', 'full'];
 
 // A `- stop: <note>` entry in the chapter list: the page ends there
 // (chapters after it are drafts), though they're still validated and
@@ -48,7 +45,7 @@ function newModelFor(narrative, step) {
   const r = step.sim.reset === true ? {} : step.sim.reset;
   const config = { ...(base.config || {}), ...(r.config || {}) };
   const seed = r.seed ?? base.seed ?? 1;
-  return new Model({ seed, config });
+  return makeModel({ seed, config });
 }
 
 const UNTIL_MAX_MS = 180000;
@@ -71,7 +68,7 @@ export function enterStep(model, step) {
   if (model.now < target) model.advance(target - model.now);
   if (sim.set) model.set(sim.set);
   if (sim.query) model.startQuery(sim.query);
-  if (sim.follow) model.follow({ alone: sim.follow === 'alone' });
+  if (sim.follow) model.follow(sim.follow);
   if (sim.set || sim.query || sim.follow) model.advance(0); // let just-spawned processes start
   if (sim.until) {
     if (!advanceUntil(model, () => model.reached(sim.until))) {
@@ -102,7 +99,10 @@ export function resolveViews(steps) {
   let bubbles = new Set();
   let ui = 'minimal';
   let token = 'auto';
-  let plan = 'live';
+  // The explainer's own view directives (VIEW_KEYS): sticky ones carry
+  // over; the others hold for their step only.
+  const sticky = {};
+  for (const [k, d] of Object.entries(VIEW_KEYS)) if (d.sticky) sticky[k] = d.initial ?? null;
   return steps.map((st) => {
     const v = st.view || {};
     if (v.camera !== undefined) camera = v.camera;
@@ -118,8 +118,11 @@ export function resolveViews(steps) {
     }
     if (v.ui !== undefined) ui = v.ui;
     if (v.token !== undefined) token = v.token;
-    if (v.plan !== undefined) plan = v.plan;
-    return { camera, open, bubbles, ui, token, plan, swap: v.swap || null, commit: v.commit || null, flow: v.flow || null, target: v.target || null, chart: v.chart || null };
+    const own = {};
+    for (const [k, d] of Object.entries(VIEW_KEYS)) {
+      if (d.sticky) { if (v[k] !== undefined) sticky[k] = v[k]; own[k] = sticky[k]; } else own[k] = v[k] ?? null;
+    }
+    return { camera, open, bubbles, ui, token, ...own, target: v.target || null, chart: v.chart || null };
   });
 }
 
@@ -135,61 +138,40 @@ export function changesAt(steps, views, i) {
   if (!sameSet(views[i - 1].open, views[i].open)) out.push('lids');
   if (!sameSet(views[i - 1].bubbles, views[i].bubbles)) out.push('bubbles');
   if (views[i - 1].ui !== views[i].ui) out.push('ui');
-  // The merger bubble's staircase phase counts only while it shows.
-  const stairs = (v) => v.bubbles.has('merger');
-  if (views[i - 1].plan !== views[i].plan && stairs(views[i - 1]) && stairs(views[i])) out.push('plan');
-  if (steps[i].sim && SIM_CHANGES.some((k) => steps[i].sim[k] !== undefined)) out.push('simulation');
-  // A root swap told step by step: its first step is the simulation's
-  // change, shown one phase at a time.
-  else if (views[i].swap && views[i].swap !== views[i - 1].swap) out.push('swap');
-  else if (views[i].commit && views[i].commit !== views[i - 1].commit) out.push('commit');
+  // The explainer's sticky keys, when their change counts.
+  for (const [k, d] of Object.entries(VIEW_KEYS)) {
+    if (d.sticky && d.counts && views[i - 1][k] !== views[i][k] && d.counts(views[i - 1], views[i])) out.push(k);
+  }
+  const simChanges = steps[i].sim && SIM_CHANGES.some((k) => steps[i].sim[k] !== undefined);
+  if (simChanges) out.push('simulation');
+  // A phase told step by step (a `run`): its first step may be the
+  // simulation's change, shown one phase at a time; each later phase
+  // is the step's change.
+  else {
+    for (const [k, d] of Object.entries(VIEW_KEYS)) {
+      if (d.run && views[i][k] && views[i][k] !== views[i - 1][k]) { out.push(k); break; }
+    }
+  }
   return out;
 }
 
-// Named predicates that steps can `expect`, checked by the tests so
-// the prose and the simulation can't silently drift apart. Also
-// "reached:<stage>" for the followed batch, and "rootEpoch:<n>" for
-// prose that names the root's epoch.
-const EXPECTATIONS = {
-  herderBlocking: (m) => m.numEventsBlocking > 0,
-  herderIdle: (m) => m.numEventsBlocking === 0,
-  kvPaused: (m) => m.kvPausedSince !== null,
-  kvFlowing: (m) => m.kvPausedSince === null,
-  kvHasPaused: (m) => m.dcpPausedMs() > 0,
-  overHalfQuota: (m) => m.memUsed() > 0.5 * m.indexQuota(),
-  underQuota: (m) => m.memUsed() < m.indexQuota(),
-  memSegsPilingUp: (m) => m.root.segs.filter((ss) => ss.seg.kind === 'mem').length >= 50,
-  noMemSegsAtRoot: (m) => m.root.segs.every((ss) => ss.seg.kind !== 'mem'),
-  fileSegsAtRoot: (m) => m.root.segs.some((ss) => ss.seg.kind === 'file'),
-  mergesDone: (m) => m.stats.TotFileMergeIntroductionsDone > 0,
-  memMergesDone: (m) => m.stats.TotMemMergeDone > 0,
-  napBroken: (m) => m.stats.TotPersisterMergerNapBreak > 0,
-  persisterPausedForMerger: (m) => m.stats.TotPersisterSlowMergerPause > 0,
-  queryRunning: (m) => m.queries.size > 0,
-  persisterHoldsOlderRoot: (m) => !!m.persisterSnapshot && m.persisterSnapshot !== m.root,
-  onlyRootLive: (m) => m.liveSnapshots.size === 1,
-  rootMovedPastPersister: (m) => !!m.persisterSnapshot && m.root.epoch - m.persisterSnapshot.epoch >= 3,
-  noQueries: (m) => m.queries.size === 0,
-  zombies: (m) => m.zombieBytes() > 0,
-  filesWithinBudget: (m) => mergePlan(planInput(m.root), m.cfg.mergePlan).tasks.length === 0,
-  filesOverBudget: (m) => mergePlan(planInput(m.root), m.cfg.mergePlan).tasks.length > 0,
-  noZombies: (m) => m.zombieBytes() === 0,
-  safeBatchesSlow: (m) => m.stats.NumBatchesIntroduced > 0 &&
-    m.stats.TotBatchIntroTime / m.stats.NumBatchesIntroduced > 100,
-  analysisSaturated: (m) => m.analysisQueue.totWaited > 1000,
-  garbageFilesOnDisk: (m) => m.files.size > m.root.segs.filter((ss) => ss.seg.kind === 'file').length,
-  ourSegInMemory: (m) => !!m.trace && m.root.segs.some((ss) => ss.seg.id === m.trace.segId && ss.seg.kind === 'mem'),
-  ourSegIsFile: (m) => !!m.trace && m.root.segs.some((ss) => ss.seg.id === m.trace.segId && ss.seg.kind === 'file'),
-};
-
+// Whether expectation `name` holds for model m: "reached:<stage>", an
+// explainer's EXPECTATIONS, or its "<name>:<arg>" EXPECTATION_PARAMS.
 export function checkExpectation(name, m) {
   if (name.startsWith('reached:')) return m.reached(name.slice(8));
-  if (name.startsWith('rootEpoch:')) return m.root.epoch === Number(name.slice(10));
-  return EXPECTATIONS[name](m);
+  const [k, arg] = splitParam(name);
+  return arg !== undefined ? EXPECTATION_PARAMS[k].check(m, arg) : EXPECTATIONS[name](m);
 }
 
 export function isKnownExpectation(name) {
   if (name.startsWith('reached:')) return TRACE_STAGES.includes(name.slice(8));
-  if (name.startsWith('rootEpoch:')) return /^\d+$/.test(name.slice(10));
-  return name in EXPECTATIONS;
+  const [k, arg] = splitParam(name);
+  return arg !== undefined ? !!EXPECTATION_PARAMS[k] && EXPECTATION_PARAMS[k].valid(arg) : name in EXPECTATIONS;
 }
+
+function splitParam(name) {
+  const c = name.indexOf(':');
+  return c < 0 ? [name, undefined] : [name.slice(0, c), name.slice(c + 1)];
+}
+
+export { TRACE_STAGES };

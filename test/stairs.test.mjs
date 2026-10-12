@@ -2,9 +2,9 @@
 // from the real Plan() port, so check them here.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planOf, exampleFiles, EXAMPLE_OPTS, stairScene, PLAN_PHASES, sizeLabel } from '../src/js/ui/stairs-scene.js';
+import { planOf, exampleFiles, EXAMPLE_OPTS, stairScene, PLAN_PHASES, sizeLabel } from '../src/explainers/scorch-goroutines/stairs-scene.js';
 import { calcBudget, DefaultMergePlanOptions } from '../src/js/sim/mergeplan.js';
-import { ANCHORS, BUBBLES } from '../src/js/ui/layout.js';
+import { ANCHORS, BUBBLES } from '../src/js/domain.js';
 import { MB } from '../src/js/sim/config.js';
 
 test('example: 20 files, budget 16 from 10 × 20MB + 6 × 200MB', () => {

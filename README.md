@@ -119,6 +119,38 @@ are animated with sub-steps.
 
 Research notes with file:line references live in `docs/research/`.
 
+## Engine and explainers
+
+The code is on its way to being split into a generic engine and
+per-explainer code, so that more explainers can share the engine. An
+explainer's specifics live in `src/explainers/<id>/`, and the engine
+reaches them only through one seam, `src/js/domain.js`, which
+re-exports the explainer's `domain.js`:
+
+- `layout.js`: the diagram's geometry: sections, panels, lids,
+  bubbles, cameras, anchors, the marker's stations, the boxes it
+  routes around;
+- `story.js`: its model (`makeModel`), settings, the stages a
+  followed batch goes through, `EXPECTATIONS`, and the view directives
+  it adds (`VIEW_KEYS`: values, whether they carry over, how they
+  count as a step's change, and whether they're told over steps);
+- `routes.js`: hints for routing the marker along drawn arrows;
+- the pieces of its drawing that are plain data or small helpers
+  (`snapstack.js`, `stairs-scene.js`, `staircase.js`).
+
+The narrative schema, the step/view folding, change counting and
+expectations are generic, driven by those tables.
+
+Still explainer-specific but not moved yet: the simulator
+(`src/js/sim/`), the diagram's drawing (`src/js/ui/diagram.js`), and
+the parts of `src/js/ui/main.js` that orchestrate this explainer's
+told phases (root swaps, commits, write and watcher animations). The
+plan is to settle that boundary with a second explainer, on the scorch
+file format: how a zap segment is laid out on disk and accessed (its
+vellum FST term dictionary, roaring-bitmap postings, stored fields and
+doc values). That one may need little or no simulation, which will
+show what the engine shouldn't assume.
+
 ## Design principles
 
 These guide both the narratives and the code:
@@ -158,7 +190,7 @@ section they're about. A step looks like this:
 **The callout.** `[[phrase]]` marks the one phrase per step that the
 callout line starts from. `view.target` is what it points at: a
 fixed anchor (e.g., `dcp`, `workers`, `gate`, `introducer`, `root`,
-`persister`, `bolt`, ... see `ANCHORS` in `src/js/ui/layout.js`) or a
+`persister`, `bolt`, ... see `ANCHORS` in the explainer's `layout.js`) or a
 live one that follows the simulation (`ourBatch`, `ourSeg`, `ourFile`,
 `deletedFile`, `mergedSeg`).
 
@@ -172,7 +204,7 @@ step to step:
 | `bubble` / `unbubble` | pop a detail bubble out of a panel: `analysis`, `persister`, `merger` |
 | `plan` | what the merger bubble's tier staircase shows: an example index's `budget`, `files`, `over`, `pick`, `merged`; or `live`, the simulation's own files (the default) |
 | `token` | the marker: `auto` (follows our batch), `file` (on our zap file on disk), or `hide` |
-| `swap` | tell a root swap one phase per step: `cover`, `peel`, `copy`, `add`, `drop`, `epoch`, `solid`, `settle` (see `SWAP_PHASES` in `src/js/ui/snapstack.js`). The run's first step has the `sim.until` that swaps the root. Swaps that aren't told this way play every phase within one step's scroll |
+| `swap` | tell a root swap one phase per step: `cover`, `peel`, `copy`, `add`, `drop`, `epoch`, `solid`, `settle` (see `SWAP_PHASES` in the explainer's `snapstack.js`). The run's first step has the `sim.until` that swaps the root. Swaps that aren't told this way play every phase within one step's scroll |
 | `commit` | tell the persister's commit one phase per step: `bolt` (a new `root.bolt` record), `listed` (our zap file turns solid), `release` (the persister lets go of its root), `wake` (the new epoch wakes the merger). A phase may repeat over several steps to hold it |
 | `flow` | an animation over the step's whole scroll: `analysis` (our batch's docs go to the analysis queue and back), `write` / `mergeWrite` (our zap file goes down the persister's / merger's write arrow to disk), `watcher` (the persister's epoch watcher goes up to the introducer) |
 | `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
@@ -186,7 +218,7 @@ step to step:
 | `set: { ... }` | change config (keys from `src/js/sim/config.js`) |
 | `query: { durationMs, timeoutMs, label }` | start a query that pins a snapshot |
 | `follow: true` or `follow: alone` | tag the next batch, to follow it through the system; `alone` first lets batches in flight drain, has KV send just that batch's snapshot, then pauses KV |
-| `until: <stage>` | run event by event until the followed batch reaches a stage (see `TRACE_STAGES` in `src/js/story/timeline.js`): `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `written`, `fileIntroducing`, `file`, `committed`, `caughtUp`, `persisterWaits`, `persisterNudged`, `watcherClosed`, `planning`, `merging`, `mergeWritten`, `mergeIntroducing`, `merged`, `oldFileDeleted` |
+| `until: <stage>` | run event by event until the followed batch reaches a stage (see `TRACE_STAGES` in the explainer's `story.js`): `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `written`, `fileIntroducing`, `file`, `committed`, `caughtUp`, `persisterWaits`, `persisterNudged`, `watcherClosed`, `planning`, `merging`, `mergeWritten`, `mergeIntroducing`, `merged`, `oldFileDeleted` |
 | `speed` | playback speed (sim ms per wall ms; `0` means paused) |
 
 To build the state for step N, the explainer starts from the most
@@ -207,8 +239,9 @@ The build also checks that:
 - nested lids only open inside open parents;
 - a told swap's phases come in order.
 
-`expect` names predicates from `EXPECTATIONS` in `timeline.js`, plus
-`reached:<stage>` and `rootEpoch:<n>`. The tests check them, so the
+`expect` names predicates from the explainer's `EXPECTATIONS` (in
+`story.js`), its parameterized ones like `rootEpoch:<n>`, and the
+engine's `reached:<stage>`. The tests check them, so the
 prose and the simulation can't silently drift apart.
 
 ### Drafts
@@ -255,6 +288,15 @@ content/                 narratives (YAML), code refs, pinned sources, snippets.
 docs/research/           how scorch and cbft work, with file:line refs
 dist/                    the built pages (committed; published by GitHub Pages)
 
+src/js/domain.js         the seam: re-exports the explainer's domain.js
+src/explainers/scorch-goroutines/
+  domain.js              everything below, as the engine sees it
+  layout.js              diagram geometry: frames, lids, cameras, anchors, stations, boxes
+  story.js               model, stages, expectations, extra view directives
+  routes.js              marker routing hints along drawn arrows
+  snapstack.js           the stack of live root snapshots; swap and commit phases
+  stairs-scene.js        the merger bubble's tier staircase, as data (staircase.js draws it)
+
 src/js/sim/              the simulator (no DOM; runs in Node and the browser)
   des.js                 discrete-event kernel: generator "goroutines", channels, select
   model.js               a cbft pindex: state, memory/disk accounting, wiring
@@ -268,11 +310,9 @@ src/js/story/timeline.js narrative semantics: sim directives, views, expectation
 src/js/ui/               the page
   main.js                wires it together: per-step state, the frame loop, controls
   page.js                story, toolbar and charts DOM
-  layout.js              diagram geometry: frames, lids, cameras, anchors, stations
-  diagram.js             the diagram canvas (with gnode.js and slots.js)
+  diagram.js             the diagram canvas (with gnode.js and slots.js; still explainer-specific)
   transitions.js         what's shown partway between steps (marker routes, boxes)
-  snapstack.js           the stack of live root snapshots; swap and commit phases
-  stairs-scene.js        the merger bubble's tier staircase, as data (staircase.js draws it)
+  anchors.js             whether an anchor shows (its lids open, its bubble shown)
   camera.js, gestures.js the camera, the reader's pan/zoom, map-style gestures
   scroll.js              scroll position -> (step, progress)
   overlay.js, charts.js  callout and leader lines; the charts column

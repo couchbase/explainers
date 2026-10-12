@@ -4,8 +4,8 @@
 // fades sequentially, the old out before the new comes in, so lines
 // never overlap.
 
-import { svgEl as el, setText, setCls } from './util/dom.js';
-import { lerp } from './util/anim.js';
+import { svgEl as el, setText, setCls } from '../../js/ui/util/dom.js';
+import { lerp } from '../../js/ui/util/anim.js';
 
 const TAG = { bar: 'rect', slot: 'rect', hl: 'rect', line: 'line', text: 'text' };
 const BASE_CLS = { bar: 'fbar', slot: 'stair-slot', hl: '', line: 'tier-line', text: 'back-note' };

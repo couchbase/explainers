@@ -3,9 +3,8 @@
 // records, for each visited step, where the batch marker and the
 // goroutine boxes were; these interpolate between those records.
 
-import { STATIONS, BOXES, CORRIDOR_XS, CORRIDOR_YS, BOX_GAP } from './layout.js';
+import { STATIONS, BOXES, CORRIDOR_XS, CORRIDOR_YS, BOX_GAP, VIA, HOPS, swapShift, swapTravel, swapPart, ADD_TRAVEL } from '../domain.js';
 import { along, clamp01, ease, lerp } from './util/anim.js';
-import { swapShift, swapTravel, swapPart, ADD_TRAVEL } from './snapstack.js';
 
 // ---- the batch marker's route ----
 //
@@ -70,13 +69,6 @@ function leg(a, b) {
   return [...(boxA ? [a] : []), ...mid, ...(boxB ? [b] : [])];
 }
 
-// Trips that pass through a station on the way.
-const VIA = {
-  // a segment becomes a file via the persister, then the introducer
-  'cell>bar': ['persisting', 'written', 'fileIntroducing'],
-  'merging>mergeIntroducing': ['mergeWritten'],
-};
-
 // The marker's path from place a to place b ({st, p, key}).
 const viaOf = (a, b) => VIA[`${a.st}>${b.st}`] || (VIA[`${b.st}>${a.st}`] || []).slice().reverse();
 
@@ -96,15 +88,6 @@ export function route(a, b) {
   for (let i = 1; i < pts.length; i++) out = [...out, ...hop(names[i - 1], pts[i - 1], names[i], pts[i]).slice(1)];
   return out;
 }
-
-// Hops that follow a drawn arrow instead of the general rule: our new
-// file rides the persister's "introduce ↑" arrow to the introducer,
-// straight on across to its 'merges' channel, then drops just below it.
-const HOPS = {
-  'written>fileIntroducing': () => [STATIONS.introducing, [STATIONS.fileIntroducing[0], STATIONS.introducing[1]]],
-  // the merger's result, up its arrow on the right, into the introducer
-  'mergeWritten>mergeIntroducing': () => [[668, 752], [STATIONS.mergeIntroducing[0], 752]],
-};
 
 function hop(sa, pa, sb, pb) {
   const fwd = HOPS[`${sa}>${sb}`];
