@@ -20,9 +20,9 @@ import { Camera } from './camera.js';
 import { bindGestures } from './gestures.js';
 import { Overlay } from './overlay.js';
 import { scrollState, scrollYFor } from './scroll.js';
-import { markerFrame, swapMarker, boxFrames, toggleAt } from './transitions.js';
-import { SWAP_PHASES, COMMIT_PHASES } from './snapstack.js';
-import { clamp01, ease, lerp } from './util/anim.js';
+import { markerFrame, swapMarker, boxFrames, toggleAt, route } from './transitions.js';
+import { SWAP_PHASES, COMMIT_PHASES, swapShift, swapTravel, swapPart, ADD_TRAVEL } from './snapstack.js';
+import { clamp01, ease, lerp, along } from './util/anim.js';
 import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../story/timeline.js';
 import { checkInvariants } from '../sim/invariants.js';
 
@@ -56,6 +56,7 @@ const ctl = {
   lastTs: null, lastSim: 0, dirty: true, scrolled: false, autoKnobs: false, blending: false,
   // What the diagram showed at each visited step, for transitions:
   tokenAt: new Map(), // the batch marker's place
+  chipAt: new Map(), // the merger's result, while it's on its own
   stateAt: new Map(), // the goroutine boxes' states
   slotsAt: new Map(), // the slot grids' contents
 };
@@ -114,6 +115,7 @@ function enter(i, { rebuild = false } = {}) {
 function record(i, m) {
   diagram.update(m);
   ctl.tokenAt.set(i, diagram.tokenTarget(m, views[i].token));
+  ctl.chipAt.set(i, diagram.mergedTarget(m));
   ctl.stateAt.set(i, diagram.nodeStates);
   ctl.slotsAt.set(i, diagram.captureSlots());
 }
@@ -178,6 +180,26 @@ function commitAt(i, p) {
 
 const crossesSolid = (i) => !!views[i].swap && phaseNum(views[i - 1]) <= SOLID && phaseNum(views[i]) > SOLID;
 const boxProgress = (i, p) => (crossesSolid(i) || releases(i) ? clamp01((p - 0.5) / 0.5) : p);
+
+// The merged file segment's chip at step i: {p, o, dest}, or null.
+function mergedChipAt(i, p, t, u, swap) {
+  if (swap) {
+    const a = ctl.chipAt.get(swap.base), cur = ctl.tokenAt.get(i);
+    if (!a || !cur) return null;
+    // into the new root, onto the merged segment's bar as it appears
+    const spot = diagram.newBarSpot(swap.A, swap.B, cur.key) || cur.p;
+    const [dx, dy] = swapShift(swap.s);
+    const e = swapTravel(swap.s), add = swapPart(swap.s, 'add');
+    const o = 1 - clamp01((add - ADD_TRAVEL) / 0.15);
+    return { p: along(route(a, { ...cur, p: [spot[0] + dx, spot[1] + dy] }), e), o };
+  }
+  const a = i > 0 ? ctl.chipAt.get(i - 1) : null, b = ctl.chipAt.get(i);
+  if (a && b) return { p: along(route(a, b), t), o: 1, dest: b.st, left: (t < 0.5 ? a : b).left };
+  // It appears once the merged zap file is written and opened.
+  if (b) return { p: b.p, left: b.left, o: views[i].flow === 'mergeWrite' ? clamp01((u - WRITE_SHARE) / 0.2) : t };
+  if (a) return { p: a.p, left: a.left, o: 1 - t };
+  return null;
+}
 
 function effectiveSpeed() {
   if (ui.speedSel.value !== 'auto') return Number(ui.speedSel.value);
@@ -256,9 +278,14 @@ function render() {
   // Our segment's slot stays faint until the marker arrives.
   diagram.setArrival(mf && mf.dest, mf && mf.dest && !mf.arrived ? 0 : 1);
   // Our file's channel lights as the marker reaches it.
-  if (mf && mf.dest && /^(fileIntroducing|mergeIntroducing)$/.test(mf.dest.st) && !ctl.playing) {
+  if (mf && mf.dest && mf.dest.st === 'fileIntroducing' && !ctl.playing) {
     diagram.setChanLit('merges', diagram.reachedChan('merges', mf.t.p, mf.t.size));
   }
+  // The merger's result, on its own: written and opened, up to the
+  // introducer, then (in a told swap) into the new root.
+  const chip = ctl.playing ? null : mergedChipAt(i, p, t, u, swap);
+  diagram.setMergedChip(chip);
+  if (chip && chip.dest === 'mergeIntroducing') diagram.setChanLit('merges', diagram.reachedChan('merges', chip.p, 14));
 
   // Who owns time: the clock while the simulation plays, otherwise the scroll.
   if (ctl.playing) {

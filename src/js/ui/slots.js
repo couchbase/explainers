@@ -20,3 +20,15 @@ export class Slots {
   }
   get(k) { return this.byKey.get(k); }
 }
+
+// Slots for items that are always packed left, in the given order: a
+// key's slot is its position in the list (so items shift as others go).
+export class PackedSlots {
+  constructor(n) { this.n = n; this.byKey = new Map(); this.keys = []; }
+  sync(keys) {
+    this.keys = keys.slice(0, this.n);
+    this.byKey = new Map(this.keys.map((k, i) => [k, i]));
+    return Math.max(0, keys.length - this.n);
+  }
+  get(k) { return this.byKey.get(k); }
+}

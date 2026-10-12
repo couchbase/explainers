@@ -687,14 +687,15 @@ chapters:
 
       - id: merging
         sim: { until: merging }
-        view: { target: ourBatch }
+        view: { target: ourSeg }
         expect: ["reached:merging"]
         code: [merger.planMergeAtSnapshot]
         text: |
-          [[The merger]] is merging our file segment with one other
-          into a new zap file. It found them through its ref on epoch
-          355, and both stay in that root, still searchable, while it
-          works.
+          The merger is merging [[our file segment]] with one other
+          into a new zap file. It reads them through its ref on epoch
+          355; it doesn't take them out of the root. A root snapshot
+          never changes, so both stay in it, still searchable, while
+          the merger works.
 
       - id: merge-wide
         view: { camera: mergeDisk, target: disk }
@@ -703,18 +704,24 @@ chapters:
 
       - id: merge-written
         sim: { until: mergeWritten }
-        view: { target: ourBatch, flow: mergeWrite }
+        view: { target: mergedSeg, flow: mergeWrite }
         expect: ["reached:mergeWritten"]
         text: |
           It wrote the merged zap file down to disk and fsynced it, and
           opened it, mmapped, as [[a merged file segment]] holding our
-          docs. On disk there are now two files with our docs in them:
+          docs (and the other file's). On disk there are now two files with our docs in them:
           our old one, and this new one. The new one isn't in the root
           yet, though.
 
+      - id: merge-up
+        view: { camera: scorch, target: mergedSeg }
+        text: |
+          [[The merged file segment]] isn't in any root yet. Let's
+          follow it.
+
       - id: merge-to-introducer
         sim: { until: mergeIntroducing }
-        view: { target: ourBatch }
+        view: { target: mergedSeg }
         expect: ["reached:mergeIntroducing"]
         code: [introducer.introduceMerge]
         text: |
@@ -738,7 +745,7 @@ chapters:
           of epoch 355's segment list: three file segments.
 
       - id: merge-add
-        view: { swap: add, target: ourSeg }
+        view: { swap: add, target: rootFiles }
         code: [introducer.introduceMerge]
         text: |
           In goes [[the merged file segment]]. Any docs deleted while
@@ -749,7 +756,8 @@ chapters:
         view: { swap: drop, target: rootFiles }
         text: |
           Out go [[the two file segments]] it replaces, ours among
-          them. The new root lists the same docs, in two file
+          them. Our docs now live in the merged one, so our marker
+          moves over. The new root lists the same docs, in two file
           segments instead of three.
 
       - id: merge-epoch

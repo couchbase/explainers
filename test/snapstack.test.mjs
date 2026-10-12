@@ -41,3 +41,13 @@ test("a key arriving as others leave takes its own slot, not theirs", () => {
   s.sync(['a', 'm', 'n']); // later, freed slots are used again
   assert.equal(s.get('n'), 1);
 });
+
+test('packed slots keep file bars packed left, in order', async () => {
+  const { PackedSlots } = await import('../src/js/ui/slots.js');
+  const s = new PackedSlots(3);
+  assert.equal(s.sync(['a', 'b', 'c', 'd']), 1);
+  assert.equal(s.get('c'), 2);
+  s.sync(['a', 'm']); // b and c merged into m: it closes up the gap
+  assert.equal(s.get('m'), 1);
+  assert.equal(s.get('b'), undefined);
+});

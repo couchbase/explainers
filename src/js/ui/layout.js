@@ -131,7 +131,7 @@ export const ANCHORS = {
 
 // Anchors whose position comes from the simulation: where our followed
 // batch (or its segment, or its file) currently is.
-export const DYNAMIC_ANCHORS = ['ourBatch', 'ourSeg', 'ourFile', 'deletedFile'];
+export const DYNAMIC_ANCHORS = ['ourBatch', 'ourSeg', 'ourFile', 'deletedFile', 'mergedSeg'];
 
 export const CHART_IDS = ['dcpBuf', 'memUsed', 'segments', 'files'];
 export const SECTION_COLORS = ['kv', 'cbft', 'bleve', 'scorch', 'disk', 'neutral'];

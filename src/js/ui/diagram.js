@@ -14,7 +14,7 @@ import { fmtBytes, fmtMs, fmtNum } from '../sim/fmt.js';
 import { svgEl as el, svgText as txt, setText, setCls } from './util/dom.js';
 import { along, clamp01, easeQuad, lerp } from './util/anim.js';
 import { GNode, procState, shortLabel } from './gnode.js';
-import { Slots } from './slots.js';
+import { Slots, PackedSlots } from './slots.js';
 import { Staircase } from './staircase.js';
 import { stairScene } from './stairs-scene.js';
 import { planInput } from '../sim/procs/merger.js';
@@ -36,7 +36,9 @@ const STACK_TWEEN_MS = 350;
 const EPOCH_X = 246; // where the root title's epoch number starts
 const SCAN_W = 46; // the copier scan's glow
 const DIR_COLS = 32, DIR_ROWS = 6;
-const st0 = (st) => st === 'mergeWritten' || st === 'mergeIntroducing';
+// While the merger works, our file segment stays in the (immutable)
+// root: the merger only reads it. Its result is a separate object.
+const MERGE_STAGES = ['merging', 'mergeWritten', 'mergeIntroducing'];
 const ON_ROOT = ['root', 'rootR', 'rootEpoch', 'rootMem', 'rootFiles', 'ourSeg']; // anchors on the front sheet
 
 export class Diagram {
@@ -50,7 +52,7 @@ export class Diagram {
     this.panels = {};
     this.bubbles = {};
     this.memSlots = new Slots(MEM_COLS * MEM_ROWS);
-    this.fileSlots = new Slots(FILE_SLOTS);
+    this.fileSlots = new PackedSlots(FILE_SLOTS); // file bars stay packed left
     this.dirSlots = new Slots(DIR_COLS * DIR_ROWS);
     this.positions = {}; // dynamic anchor positions
     this._build();
@@ -428,6 +430,11 @@ export class Diagram {
     this.writeFly = el('g', { opacity: 0 }, g);
     el('use', { href: '#dg-file', x: -7, y: -9, width: 14, height: 18, class: 'ficon ficon-new ficon-ours' }, this.writeFly);
     this.writeFlyLabel = txt(this.writeFly, 12, 4, 'our zap file', 'token-label');
+    // The merger's result: a new file segment with our docs (and the
+    // other file's) in it, on its own until it's in a root.
+    this.mergedChip = el('g', { opacity: 0 }, g);
+    el('rect', { x: -7, y: -7, width: 14, height: 14, rx: 2, class: 'merged-chip' }, this.mergedChip);
+    this.mergedLabel = txt(this.mergedChip, 12, 4, 'merged file segment', 'merged-label');
     // A root.bolt record, from the persister down to root.bolt.
     this.boltFly = el('g', { opacity: 0 }, g);
     el('rect', { x: -4, y: -9, width: 150, height: 18, rx: 3, class: 'bolt ours' }, this.boltFly);
@@ -625,7 +632,8 @@ export class Diagram {
   captureSlots() {
     return {
       mem: this.memCells.map((c) => c.getAttribute('class')),
-      bars: this.fileBars.map((b) => ({
+      bars: this.fileBars.map((b, i) => ({
+        key: this.fileSlots.keys[i] ?? null,
         y: +b.bar.getAttribute('y'), h: +b.bar.getAttribute('height'),
         dy: +b.del.getAttribute('y'), dh: +b.del.getAttribute('height'), cls: b.bar.getAttribute('class'),
       })),
@@ -692,7 +700,7 @@ export class Diagram {
       this.rootContent.setAttribute('clip-path', 'url(#dg-scan-clip)');
     } else this.rootContent.removeAttribute('clip-path');
     // Contents change only once the marker has brought the new segment.
-    this._blendCells(A, B, clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), drop);
+    this._blendCells(A, B, clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), clamp01(drop / 0.6), easeQuad(clamp01((drop - 0.6) / 0.4)));
 
     // Its epoch: the old one's, labeled "(copy)" as it lifts off, then
     // "+1" and it rolls over.
@@ -780,7 +788,8 @@ export class Diagram {
 
   // Whether a swap from A to B has anything for its 'drop' phase.
   static swapDrops(A, B) {
-    return A.mem.some((a, i) => a !== 'cell' && B.mem[i] === 'cell') || A.bars.some((a, i) => a.h > 0 && B.bars[i].h === 0);
+    const keys = new Set(B.bars.map((b) => b.key));
+    return A.mem.some((a, i) => a !== 'cell' && B.mem[i] === 'cell') || A.bars.some((a) => a.key != null && !keys.has(a.key));
   }
 
   // Undoes drawSwap's changes to the front sheet.
@@ -799,14 +808,49 @@ export class Diagram {
     this._drawGhost(null, 0, 0);
   }
 
+  // Where file bars are, partway from A to B, by segment: new ones
+  // first appear just right of the old ones; once the ones that go are
+  // gone, the rest slide left (slide) to their packed places in B.
+  // Returns [{j: element, key, x, s: bar data, o, isNew}].
+  _barLayout(A, B, qIn, qOut, slide) {
+    const xOf = (i) => 520 + i * 18;
+    const live = (S) => S.bars.map((b, i) => [b.key, i]).filter(([k]) => k !== null && k !== undefined);
+    const aIdx = new Map(live(A)), bIdx = new Map(live(B));
+    let spot = aIdx.size;
+    const out = [];
+    for (const [k, j] of bIdx) {
+      const b = B.bars[j];
+      if (aIdx.has(k)) {
+        const a = A.bars[aIdx.get(k)];
+        const l = (x, y) => x + (y - x) * qIn;
+        const s = a.h === b.h && a.dh === b.dh ? b : { y: l(a.y, b.y), h: l(a.h, b.h), dy: l(a.dy, b.dy), dh: l(a.dh, b.dh), cls: b.cls };
+        out.push({ j, key: k, x: lerp(xOf(aIdx.get(k)), xOf(j), slide), s, o: 1 });
+      } else {
+        out.push({ j, key: k, x: lerp(xOf(spot++), xOf(j), slide), s: b, o: qIn, isNew: true });
+      }
+    }
+    let spare = bIdx.size;
+    for (const [k, i] of aIdx) if (!bIdx.has(k) && spare < FILE_SLOTS) out.push({ j: spare++, key: k, x: xOf(i), s: A.bars[i], o: 1 - qOut });
+    return out;
+  }
+
+  // Where a segment that's new in B first appears (before the slide),
+  // as the point at its bar's foot; or null.
+  newBarSpot(A, B, key) {
+    const d = this._barLayout(A, B, 1, 0, 0).find((x) => x.key === key && x.isNew);
+    return d ? [d.x + 7, FILE_BASE - 7] : null;
+  }
+
   // The front sheet's cells and bars partway from A to B: qIn for what
-  // appears or changes, qOut for what goes.
-  _blendCells(A, B, qIn, qOut) {
+  // appears or changes, qOut for what goes, slide for the rest closing
+  // up the gaps.
+  _blendCells(A, B, qIn, qOut, slide = qOut) {
     const fade = (e, o) => { if (o >= 1) e.removeAttribute('opacity'); else e.setAttribute('opacity', o.toFixed(3)); };
+    const layout = this._barLayout(A, B, qIn, qOut, slide);
     // In-memory segments that leave the root while a new file bar
     // appears were merged into it: they fly into that bar as they fade.
-    const nb = A.bars.findIndex((a, i) => a.h === 0 && B.bars[i].h > 0);
-    const into = nb >= 0 ? [this.fileBars[nb].x + 7, FILE_BASE - B.bars[nb].h / 2] : null;
+    const nb = layout.find((d) => d.isNew);
+    const into = nb ? [nb.x + 7, FILE_BASE - nb.s.h / 2] : null;
     const k = easeQuad(qOut);
     this.memCells.forEach((c, i) => {
       const a = A.mem[i], b = B.mem[i];
@@ -821,14 +865,13 @@ export class Diagram {
         } else fade(c, 1 - qOut);
       } else { setCls(c, qIn < 0.5 ? a : b); fade(c, 1); }
     });
+    const byEl = new Map(layout.map((d) => [d.j, d]));
     this.fileBars.forEach((bar, i) => {
-      const a = A.bars[i], b = B.bars[i];
-      let s = b, o = 1;
-      if (a.h === 0 && b.h > 0) o = qIn;
-      else if (a.h > 0 && b.h === 0) { s = a; o = 1 - qOut; } else if (a.h !== b.h || a.dh !== b.dh) {
-        const l = (x, y) => x + (y - x) * qIn;
-        s = { y: l(a.y, b.y), h: l(a.h, b.h), dy: l(a.dy, b.dy), dh: l(a.dh, b.dh), cls: b.cls };
-      }
+      const d = byEl.get(i);
+      const s = d ? d.s : { y: FILE_BASE, h: 0, dy: FILE_BASE, dh: 0, cls: 'fbar' };
+      const o = d ? d.o : 1;
+      const x = d ? d.x : 520 + i * 18;
+      bar.bar.setAttribute('x', x.toFixed(1)); bar.del.setAttribute('x', x.toFixed(1));
       bar.bar.setAttribute('y', s.y.toFixed(1)); bar.bar.setAttribute('height', s.h.toFixed(1));
       bar.del.setAttribute('y', s.dy.toFixed(1)); bar.del.setAttribute('height', s.dh.toFixed(1));
       setCls(bar.bar, s.cls);
@@ -988,18 +1031,13 @@ export class Diagram {
         return { p: [ic.x + 6, ic.y + 7.5], size: 18, kind: 'file', label: 'our zap file', st: 'icon', key: tr.fileName };
       }
     }
-    const fixed = STATIONS[tr.stage];
+    const fixed = MERGE_STAGES.includes(tr.stage) ? null : STATIONS[tr.stage];
     if (fixed) {
       // From Scorch.Batch()'s NewUsing() on, it's our segment.
       const kind = ['built', 'introducing', 'persisting'].includes(tr.stage) ? 'mem'
         : ['merging', 'written', 'fileIntroducing', 'mergeWritten', 'mergeIntroducing'].includes(tr.stage) ? 'file' : 'batch';
-      // The merger's result: a new file segment, with our docs in it.
-      if (st0(tr.stage)) {
-        const side = tr.stage === 'mergeIntroducing' ? 'right' : undefined;
-        return { p: fixed, size: 14, kind, st: tr.stage, side, label: 'merged file segment' };
-      }
       const st = tr.stage;
-      const held = st === 'persisting' ? m.persisterSnapshot : st === 'merging' ? m.mergerSnapshot : null;
+      const held = st === 'persisting' ? m.persisterSnapshot : null;
       if (held) {
         return { p: fixed, size: 10, kind, st, snap: true, label: kind === 'mem' ? 'our segment' : 'our file segment', sub: `in epoch ${held.epoch}` };
       }
@@ -1012,8 +1050,9 @@ export class Diagram {
     if (seg) {
       const isFile = m.root.segs.some((ss) => ss.seg.id === tr.segId && ss.seg.kind === 'file');
       return isFile
-        // just right of its bar, on the baseline, labeled to the right
-        ? { p: [seg.p[0] + 3 + 14 + 3 + 8, seg.p[1] + 1], size: 16, kind: 'file', label: 'our file segment', st: 'bar', side: 'right', key: tr.segId }
+        // just under its bar, below the baseline (clear of any bars),
+        // labeled to the right
+        ? { p: [seg.p[0] + 3 + 7, FILE_BASE + 11], size: 14, kind: 'file', label: 'our file segment', st: 'bar', side: 'right', key: tr.segId }
         : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment', st: 'cell', key: tr.segId };
     }
     return null;
@@ -1030,6 +1069,23 @@ export class Diagram {
   reachedChan(name, pt, size) {
     const x = +this.chans[name].getAttribute('x');
     return pt[0] + size / 2 >= x && pt[1] >= 745;
+  }
+
+  // Where the merger's result is, while it's on its own (written and
+  // opened, then handed to the introducer), or null.
+  mergedTarget(m) {
+    const st = m.trace && m.trace.stage;
+    // (labeled on the left beside the merger, at the diagram's edge)
+    return st === 'mergeWritten' || st === 'mergeIntroducing' ? { p: STATIONS[st], st, left: st === 'mergeWritten' } : null;
+  }
+
+  // Places the merged file segment's chip: {p, o}, or null.
+  setMergedChip(c) {
+    if (!c || c.o <= 0.001) { this.mergedChip.setAttribute('opacity', 0); return; }
+    this.mergedChip.setAttribute('opacity', c.o.toFixed(3));
+    this.mergedLabel.setAttribute('x', c.left ? -12 : 12);
+    this.mergedLabel.setAttribute('text-anchor', c.left ? 'end' : 'start');
+    this.mergedChip.setAttribute('transform', `translate(${c.p[0].toFixed(1)} ${c.p[1].toFixed(1)})`);
   }
 
   // While the marker is still on its way, the slot it's heading for
@@ -1150,6 +1206,7 @@ export class Diagram {
     const merging = new Set(m.currentMerge ? m.currentMerge.srcs : []);
     this.fileBars.forEach((b, i) => {
       const ss = byIdx.get(i);
+      b.bar.setAttribute('x', b.x); b.del.setAttribute('x', b.x);
       if (!ss) { b.bar.setAttribute('height', 0); b.del.setAttribute('height', 0); setCls(b.bar, 'fbar'); return; }
       const h = barHeight(ss.seg.bytes, 100);
       b.bar.setAttribute('y', (FILE_BASE - h).toFixed(1)); b.bar.setAttribute('height', h.toFixed(1));
@@ -1327,10 +1384,12 @@ export class Diagram {
     const wi = tr.newFileName ? this.dirSlots.get(tr.newFileName) : undefined;
     this.writeIcon = wi !== undefined ? this.dirIcons[wi] : null;
     if (tr.deletedFile) { const p = dirPos(tr.deletedFile); if (p) this.positions.deletedFile = { p, needs: ['disk'] }; }
+    const mt = this.mergedTarget(m);
+    if (mt) this.positions.mergedSeg = { p: [mt.p[0] - 9, mt.p[1]], needs: ['cbft', 'bleve', 'scorch'] };
     const at = {
       dcp: 'dcp', channel: 'slot', worker: 'workers', herder: 'gate',
       analysis: 'batch', built: 'batch', introducing: 'introducer', mergeWritten: 'merger', mergeIntroducing: 'introducer', persisting: 'persister', merging: 'merger',
-      written: 'persister', fileIntroducing: 'introducer',
+      written: 'persister', fileIntroducing: 'introducer', merging: 'merger',
     }[tr.stage];
     // Callouts about our batch end at its marker.
     const tok = this.tokenTarget(m, 'auto');

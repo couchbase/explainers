@@ -5,7 +5,7 @@
 
 import { STATIONS, BOXES, CORRIDOR_XS, CORRIDOR_YS, BOX_GAP } from './layout.js';
 import { along, clamp01, ease, lerp } from './util/anim.js';
-import { swapShift, swapTravel } from './snapstack.js';
+import { swapShift, swapTravel, swapPart } from './snapstack.js';
 
 // ---- the batch marker's route ----
 //
@@ -74,7 +74,6 @@ function leg(a, b) {
 const VIA = {
   // a segment becomes a file via the persister, then the introducer
   'cell>bar': ['persisting', 'written', 'fileIntroducing'],
-  'bar>bar': ['merging'], // a file becomes a bigger file via the merger
   'merging>mergeIntroducing': ['mergeWritten'],
 };
 
@@ -165,7 +164,11 @@ export function swapMarker(views, tokenAt, i, base, s) {
   const onRoot = (t) => t.st === 'cell' || t.st === 'bar';
   const dest = onRoot(cur) ? { ...cur, p: [cur.p[0] + dx, cur.p[1] + dy] } : cur;
   const from = onRoot(prev) ? { ...prev, p: [prev.p[0] + dx, prev.p[1] + dy] } : prev;
-  return between(from, dest, swapTravel(s));
+  // Already in the root (a merge): it moves over to the merged segment
+  // as the ones it replaces drop out.
+  // (With the other bars, as they close up the gaps.)
+  const e = onRoot(prev) && onRoot(cur) && prev.key !== cur.key ? clamp01((swapPart(s, 'drop') - 0.6) / 0.4) : swapTravel(s);
+  return between(from, dest, e);
 }
 
 // ---- goroutine boxes ----
