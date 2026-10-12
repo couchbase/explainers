@@ -1014,11 +1014,11 @@ export class Diagram {
     this.tokenSub.setAttribute('opacity', so.toFixed(3));
     this.tokenSub.setAttribute('y', top.toFixed(1));
     // The label sits above the marker, or (sideMix 1) to its right, or
-    // (belowMix 1) below it, right-aligned. On its bar (barMix 1) the
+    // (belowMix 1) below it, left-aligned. On its bar (barMix 1) the
     // marker's square gives way to the bar's own outline.
     const sm = t.sideMix || 0, bm = t.belowMix || 0, w = t.label.length * 6.6;
     this.tokenRect.setAttribute('opacity', (1 - (t.barMix || 0)).toFixed(3));
-    this.tokenLabel.setAttribute('x', (sm * (z / 2 + 6 + w / 2) + bm * (z / 2 - w / 2)).toFixed(1));
+    this.tokenLabel.setAttribute('x', (sm * (z / 2 + 6 + w / 2) + bm * (w / 2 - z / 2)).toFixed(1));
     this.tokenLabel.setAttribute('y', ((1 - sm - bm) * (top - 12 * so) + sm * 4 + bm * (z / 2 + 13)).toFixed(1));
   }
 
