@@ -19,7 +19,7 @@ chapters:
     steps:
 
       - id: intro
-        view: { camera: file, target: region.storedData }
+        view: { camera: whole, target: region.storedData }
         expect: ["fact:file.size=5717", "fact:docs=9"]
         text: |
           The [first explainer](01-indexing.html) ended with our
@@ -42,6 +42,11 @@ chapters:
     title: "Front to back"
     color: file
     steps:
+
+      - id: zoom
+        view: { camera: file, target: region.storedData }
+        text: |
+          Closer up, starting at [[byte 0]].
 
       - id: stored
         view: { open: [storedData], target: region.storedData }

@@ -117,6 +117,8 @@ const lensCam = (id, pad = 30) => {
 };
 export const CAMERAS = {
   overview: { rect: CANVAS, label: '', section: null },
+  // the whole file, top to bottom
+  whole: { rect: [0, 20, STRIP.x1 + 120, STRIP.y1 + 20], label: 'the whole file', section: null },
   // the top of the file; the camera follows the story down it
   file: { rect: [0, 0, 900, 1300], label: 'the file', section: null },
   ...Object.fromEntries(Object.keys(LENSES).map((id) => [id, { rect: lensCam(id), label: LENSES[id].title, section: null }])),
