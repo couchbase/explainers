@@ -511,6 +511,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .diagram .zr-footer { --rc: var(--sec-disk); }
 .diagram .zregion-label { font: 600 12px var(--font-display); fill: var(--ink); }
 .diagram .zregion-bytes { font: 11px var(--font-mono); fill: var(--muted); }
+.diagram .zregion-more { font: 700 20px var(--font-mono); fill: var(--muted); }
 .diagram .zlid-bg { fill: var(--panel-2); stroke: var(--line); }
 .diagram .zlid-q { font: 600 18px var(--font-display); fill: var(--muted); }
 .diagram .ztick { stroke: var(--muted); }

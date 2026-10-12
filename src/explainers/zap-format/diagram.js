@@ -13,6 +13,9 @@ import { FOCI, ANCHORS } from './story.js';
 
 const bytes = Uint8Array.from(atob(SEG.bytes), (c) => c.charCodeAt(0));
 const hex = (b) => b.toString(16).padStart(2, '0');
+// The regions made of repeated entries (per doc or per field), marked
+// with a "…" in their corner.
+const REPEATS = new Set(['storedData', 'storedIndex', 'sectionBodies', 'sectionsInfo', 'sectionsIndex']);
 
 export class Diagram {
   constructor(svg) {
@@ -48,6 +51,8 @@ export class Diagram {
       el('rect', { x: x0, y: r.y, width: r.w, height: r.h, class: `zregion zr-${r.id}` }, rg);
       txt(rg, x0 + 10, r.y + 21, r.label, 'zregion-label');
       txt(rg, x0 + 10, r.y + 40, `${r.bytes.toLocaleString()} B`, 'zregion-bytes');
+      // more of the same: one entry per doc or field
+      if (REPEATS.has(r.id)) txt(rg, x0 + r.w - 10, r.y + r.h - 8, '…', 'zregion-more', 'end');
       this.regionEls[r.id] = rg;
       // its lid: a plain cover, labeled with nothing but "?"
       const lg = el('g', { class: 'zlid' }, g);
