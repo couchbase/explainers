@@ -1,4 +1,4 @@
-module bleve-explainer/tools/mergeplan-golden
+module cbft-explainer/tools/mergeplan-golden
 
 go 1.25.0
 

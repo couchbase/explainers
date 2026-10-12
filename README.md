@@ -1,9 +1,9 @@
-# bleve-explainer
+# cbft-explainer
 
-Scrollytelling explainers of how [bleve](https://github.com/blevesearch/bleve)
-works under the hood, as used by Couchbase's
-[cbft](https://github.com/couchbase/cbft) (Full Text Search). The style
-is inspired by
+Scrollytelling explainers of how Couchbase's Full Text Search service,
+[cbft](https://github.com/couchbase/cbft), works under the hood,
+including the [bleve](https://github.com/blevesearch/bleve) library and
+its scorch index that it's built on. The style is inspired by
 [r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
 
 The first explainer, **"Inside bleve / scorch: introducer, persister,
@@ -75,7 +75,8 @@ stamp.
 `main` or `master`, or when run by hand from the Actions tab. To turn
 it on, once, in the GitHub repo: **Settings → Pages → Build and
 deployment → Source: GitHub Actions**. The page is then at
-`https://<owner>.github.io/<repo>/`.
+`https://<owner>.github.io/<repo>/`, e.g.
+`https://couchbaselabs.github.io/cbft-explainer/`.
 
 ## How it works
 
@@ -269,7 +270,7 @@ persister.pause:
 `content/sources.yaml` pins each repo to the commit cbft uses, and
 lists where to find a local copy: the Go module cache, and a sibling
 `../couchbase-server.master` repo-sync tree (override that with
-`BLEVE_EXPLAINER_CB_SRC`).
+`CBFT_EXPLAINER_CB_SRC`).
 
 `npm run snippets` resolves the anchors and writes
 `content/snippets.json`: highlighted lines plus GitHub permalinks at

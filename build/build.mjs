@@ -144,7 +144,7 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
     writeFileSync(join(outDir, 'index.html'), readFileSync(written[0].file));
   } else {
     const links = written.map((w) => `<li><a href="${w.id}.html">${w.title}</a></li>`).join('\n');
-    writeFileSync(join(outDir, 'index.html'), `<!doctype html><meta charset="utf-8"><title>bleve explainers</title><ul>${links}</ul>`);
+    writeFileSync(join(outDir, 'index.html'), `<!doctype html><meta charset="utf-8"><title>cbft explainers</title><ul>${links}</ul>`);
   }
   return written;
 }

@@ -1,5 +1,5 @@
 {
-  "name": "bleve-explainer",
+  "name": "cbft-explainer",
   "version": "0.1.0",
   "private": true,
   "description": "Scrollytelling explainers of bleve/scorch internals, as used by Couchbase cbft",
