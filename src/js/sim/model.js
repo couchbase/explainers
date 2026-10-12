@@ -20,8 +20,6 @@ import { PersisterProcs } from './procs/persister.js';
 import { MergerProcs } from './procs/merger.js';
 import { MergingProcs } from './procs/merging.js';
 
-export { zapFileName } from './segments.js';
-
 // ---------------------------------------------------------------
 
 export class Model {
@@ -78,7 +76,6 @@ export class Model {
     this.nextQueryId = 1;
     this.events = []; // recent notable events for the log
     this.series = []; // sampled time series
-    this.flags = {}; // misc. scenario/visual flags
     this.trace = null; // the batch we follow through the system, if any
     this.followNext = false;
     this.kvOneShot = null; // see _kvOneShot
@@ -166,11 +163,11 @@ export class Model {
   diskBytes() { let b = 0; for (const f of this.files.values()) b += f.bytes; return b; }
   zombieBytes() { let b = 0; for (const z of this.zombies.values()) b += z.bytes; return b; }
 
-  // Mirrors index_bgthreads_active / the herder's scorchSize()==0 check.
   dcpPausedMs() {
     return this.stats.DcpFlowControlPausedMs + (this.kvPausedSince === null ? 0 : this.k.now - this.kvPausedSince);
   }
 
+  // Mirrors index_bgthreads_active / the herder's scorchSize()==0 check.
   bgThreadsActive() {
     const s = this.stats;
     return !(s.CurRootEpoch === s.LastPersistedEpoch && s.CurRootEpoch === s.LastMergedEpoch);

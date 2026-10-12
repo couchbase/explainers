@@ -19,14 +19,14 @@ export const PLAN_PHASES = ['live', 'budget', 'files', 'over', 'pick', 'merged']
 
 // An illustrative index: a few big files from earlier merges, then the
 // small fresh ones the persister keeps writing. Sizes in MB.
-export const EXAMPLE_MB = [420, 310, 190, 140, 90, 48, 26, 22, 21, 20, 5, 5, 4, 4, 4, 4, 4, 3, 3, 3];
+const EXAMPLE_MB = [420, 310, 190, 140, 90, 48, 26, 22, 21, 20, 5, 5, 4, 4, 4, 4, 4, 3, 3, 3];
 export const EXAMPLE_OPTS = { floorSegmentFileSize: 20 * MB }; // as cbft sets it
 
 const PITCH = 17, BAR = 12, MAX_COLS = 21;
 const H = 170; // plot height for 4GB
 
 // Geometry inside the bubble box [x, y, w, h].
-export function stairFrame(box) {
+function stairFrame(box) {
   const [x, y, w, h] = box;
   return { x0: x + 20, base: y + h - 46, right: x + w - 16, status: [x + 18, y + 50], caption: [x + 18, y + h - 22] };
 }
@@ -38,7 +38,7 @@ export function barH(bytes) {
 
 // The budget's tiers, as CalcBudget() walks them: [{size, count}],
 // smallest tier first. The counts add up to the budget.
-export function budgetTiers(totalSize, firstTierSize, o) {
+function budgetTiers(totalSize, firstTierSize, o) {
   let tierSize = Math.max(1, firstTierSize);
   const tiers = [];
   while (totalSize > 0) {

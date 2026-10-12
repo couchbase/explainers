@@ -6,7 +6,7 @@ import { fmtBytes } from '../sim/fmt.js';
 
 // Minimal SVG sparkline: area + line, optional dashed reference line
 // (e.g. a quota), drawn in a 100x40 viewBox scaled to its container.
-export function sparkline(ts, vals, { ref = null, t0, t1 } = {}) {
+function sparkline(ts, vals, { ref = null, t0, t1 } = {}) {
   const W = 100, H = 40;
   let max = Math.max(1, ...vals, ref || 0);
   max *= 1.08;

@@ -38,12 +38,12 @@ export function flattenSteps(narrative) {
   return out;
 }
 
-export function resetIndexFor(steps, i) {
+function resetIndexFor(steps, i) {
   for (let j = i; j >= 0; j--) if (steps[j].sim && steps[j].sim.reset) return j;
   throw new Error(`no reset at or before step ${i}`);
 }
 
-export function newModelFor(narrative, step) {
+function newModelFor(narrative, step) {
   const base = narrative.sim || {};
   const r = step.sim.reset === true ? {} : step.sim.reset;
   const config = { ...(base.config || {}), ...(r.config || {}) };
@@ -54,7 +54,7 @@ export function newModelFor(narrative, step) {
 const UNTIL_MAX_MS = 180000;
 
 // Runs the model one event at a time until pred() holds (or a cap).
-export function advanceUntil(model, pred, maxMs = UNTIL_MAX_MS) {
+function advanceUntil(model, pred, maxMs = UNTIL_MAX_MS) {
   const end = model.now + maxMs;
   const k = model.k;
   while (!pred() && model.now < end) {
@@ -150,7 +150,7 @@ export function changesAt(steps, views, i) {
 // the prose and the simulation can't silently drift apart. Also
 // "reached:<stage>" for the followed batch, and "rootEpoch:<n>" for
 // prose that names the root's epoch.
-export const EXPECTATIONS = {
+const EXPECTATIONS = {
   herderBlocking: (m) => m.numEventsBlocking > 0,
   herderIdle: (m) => m.numEventsBlocking === 0,
   kvPaused: (m) => m.kvPausedSince !== null,

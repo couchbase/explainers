@@ -67,7 +67,7 @@ function betterThan(c, other) {
   return c.score < other.score;
 }
 
-// Returns {tasks: [{segments: [...]}], budget, eligibles}.
+// Returns {tasks: [{segments: [...]}], budget, numEligible}.
 export function plan(segmentsIn, opts) {
   const o = { ...DefaultMergePlanOptions, ...(opts || {}) };
   const rv = { tasks: [], budget: 0, numEligible: 0 };

@@ -8,7 +8,7 @@
 export const SHEET_DX = 10;
 export const SHEET_DY = 8;
 export const MAX_BACK = 3; // older sheets drawn behind the front one
-export const READERS = ['persister', 'merger', 'query'];
+const READERS = ['persister', 'merger', 'query'];
 
 // What the stack holds for a model: epochs, front first, and which
 // epoch the persister, the merger and the (first) query each hold a
@@ -84,7 +84,7 @@ const easeQuad = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 export const swapPart = (s, name) => clamp01(s - SWAP_PHASES.indexOf(name));
 
 // Where the new root sits, in sheets (negative: lifted up and left).
-export const swapLift = (s) => easeQuad(swapPart(s, 'settle')) - easeQuad(swapPart(s, 'peel'));
+const swapLift = (s) => easeQuad(swapPart(s, 'settle')) - easeQuad(swapPart(s, 'peel'));
 export const swapShift = (s) => [SHEET_DX * swapLift(s), SHEET_DY * swapLift(s)];
 
 // How the persister's commit shows, one change at a time (view

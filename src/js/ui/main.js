@@ -21,7 +21,7 @@ import { bindGestures } from './gestures.js';
 import { Overlay } from './overlay.js';
 import { scrollState, scrollYFor } from './scroll.js';
 import { markerFrame, swapMarker, boxFrames, toggleAt, route } from './transitions.js';
-import { SWAP_PHASES, COMMIT_PHASES, swapShift, swapTravel, swapPart, ADD_TRAVEL } from './snapstack.js';
+import { SWAP_PHASES, COMMIT_PHASES, swapShift, swapTravel, swapPart } from './snapstack.js';
 import { clamp01, ease, lerp, along } from './util/anim.js';
 import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../story/timeline.js';
 import { checkInvariants } from '../sim/invariants.js';

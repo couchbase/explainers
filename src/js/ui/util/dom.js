@@ -1,6 +1,6 @@
 // Small DOM helpers shared by the page, the diagram and the drawers.
 
-export const SVG_NS = 'http://www.w3.org/2000/svg';
+const SVG_NS = 'http://www.w3.org/2000/svg';
 
 // HTML element: h('div', {class, text, html, onclick, ...attrs}, ...kids)
 export function h(tag, attrs = {}, ...kids) {

@@ -152,14 +152,6 @@ export class Kernel {
     op.apply(this, p);
   }
 
-  kill(p) {
-    if (p.done) return;
-    p.done = true;
-    if (p.token) p.token.fired = true;
-    p.setState('done', 'killed');
-    this.procs = this.procs.filter((x) => x !== p);
-  }
-
   // Runs all events with time <= t, then advances the clock to t.
   runUntil(t, maxEvents = Infinity) {
     let n = 0;
@@ -254,7 +246,6 @@ export class Chan {
     return {
       apply: (k, p) => k._select(p, [this.recvCase()],
         { label: label || `recv ${this.name}` }),
-      // result is unwrapped by the caller via .value; see Proc helpers.
     };
   }
 
@@ -367,7 +358,6 @@ export class Cond {
     this.waiters = [];
     for (const p of ws) this.k._resume(p, undefined);
   }
-  get numWaiting() { return this.waiters.length; }
 }
 
 // Counting semaphore, e.g. a pool of CPUs.

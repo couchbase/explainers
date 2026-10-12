@@ -432,7 +432,7 @@ export class Diagram {
     };
     this.docs = [];
     for (let i = 0; i < 9; i++) this.docs.push(doc());
-    // Our new file, down the persister's write arrow to disk.
+    // Our new file, down a write arrow to disk.
     this.writeFly = el('g', { opacity: 0 }, g);
     el('use', { href: '#dg-file', x: -7, y: -9, width: 14, height: 18, class: 'ficon ficon-new ficon-ours' }, this.writeFly);
     this.writeFlyLabel = txt(this.writeFly, 12, 4, 'our zap file', 'token-label');
@@ -456,10 +456,9 @@ export class Diagram {
     for (let i = 0; i < 24; i++) this.queueDocs.push(doc());
   }
 
-  // q in 0..1 (<0 hides it): our file going down the persister's
-  // write arrow into the disk.
-  // It lands on its icon in the index directory, which stays hidden
-  // until it gets there.
+  // q in 0..1 (<0 hides it): our file going down a write arrow (the
+  // persister's, or at wx the merger's) into the disk. It lands on its
+  // icon in the index directory, which stays hidden until it gets there.
   setWriteFly(q, wx = 280, label = 'our zap file') {
     const ic = this.writeIcon;
     if (this.writeHidden && this.writeHidden !== ic) this.writeHidden.g.style.visibility = '';
@@ -674,8 +673,8 @@ export class Diagram {
 
   // The introducer swapping in a new root (slots B) over the old one
   // (slots A), at s through SWAP_PHASES (0..8), one change at a time:
-  // the new root X starts as a see-through, dashed copy laid over the
-  // old one and lifts off the stack; it gets the old root's contents
+  // the new root X starts as a see-through, dashed, empty root laid over
+  // the old one and lifts off the stack; it gets the old root's contents
   // and epoch, the new segment, loses what that replaces, then epoch
   // + 1; then it's solid (swapped in) and the stack shifts back under it.
   drawSwap(A, B, s) {
@@ -731,9 +730,9 @@ export class Diagram {
   }
 
   // The persister's commit (slots A before, B after), at s through
-  // COMMIT_PHASES (0..3): a new root.bolt record slides in on top and
+  // COMMIT_PHASES (0..4): a new root.bolt record slides in on top and
   // the others move down; then our zap file's icon turns solid; then
-  // the persister lets go of its root snapshot.
+  // the persister lets go of its root snapshot; then the merger wakes.
   drawCommit(A, B, s) {
     const part = (n) => clamp01(s - COMMIT_PHASES.indexOf(n));
     const listed = part('listed'), release = easeQuad(part('release'));
@@ -1150,7 +1149,6 @@ export class Diagram {
     const now = m.now;
     const procs = new Map(m.k.procs.map((p) => [p.name, p]));
     const s = m.stats;
-    const tr = m.trace;
 
     // KV
     const rate = ratePerSec(m);
@@ -1209,7 +1207,7 @@ export class Diagram {
     this.nodeStates = ns;
     this._updateDisk(m);
     this._updateWrites(m);
-    this._updateLids(m, procs, rate);
+    this._updateLids(m, procs);
     this._updateDynamicAnchors(m);
     // The persister's watcher, while the introducer holds it (only the
     // persister hands the introducer epoch watchers).
@@ -1358,7 +1356,7 @@ export class Diagram {
     }
   }
 
-  _updateLids(m, procs, rate) {
+  _updateLids(m, procs) {
     const s = m.stats;
     const set = (id, state, status) => {
       const l = this.lids[id];
@@ -1421,7 +1419,7 @@ export class Diagram {
     const at = {
       dcp: 'dcp', channel: 'slot', worker: 'workers', herder: 'gate',
       analysis: 'batch', built: 'batch', introducing: 'introducer', mergeWritten: 'merger', mergeIntroducing: 'introducer', persisting: 'persister', merging: 'merger',
-      written: 'persister', fileIntroducing: 'introducer', merging: 'merger',
+      written: 'persister', fileIntroducing: 'introducer',
     }[tr.stage];
     // Callouts about our batch end at its marker.
     const tok = this.tokenTarget(m, 'auto');
@@ -1458,19 +1456,18 @@ function summarize(p) {
   return 'waiting';
 }
 
-// Log-scale bar height for byte sizes: 1MB → small, 2GB → full.
 // The height of the bar for file segment id in m's root.
 function ourBarH(m, id) {
   const ss = m.root.segs.find((x) => x.seg.id === id);
   return ss ? barHeight(ss.seg.bytes, 100) : 14;
 }
 
+// Log-scale bar height for byte sizes: 0.25MB → small, 2GB → full.
 function barHeight(bytes, max) {
   const mb = Math.max(bytes / (1024 * 1024), 0.25);
   const v = (Math.log2(mb) + 2) / 13; // 0.25MB..2GB
   return Math.max(3, Math.min(1, v) * max);
 }
-
 
 function ratePerSec(m) {
   const s = m.series;
@@ -1481,7 +1478,7 @@ function ratePerSec(m) {
 
 // A rounded rect [x, y, w, h] as a path, optionally with its top-right
 // corner cut away beyond notch [nx, ny].
-export function framePath([x, y, w, h], r, notch) {
+function framePath([x, y, w, h], r, notch) {
   const x1 = x + w, y1 = y + h;
   const top = notch
     ? `H${notch[0] - r} Q${notch[0]},${y} ${notch[0]},${y + r} V${notch[1] - r} Q${notch[0]},${notch[1]} ${notch[0] + r},${notch[1]} H${x1 - r} Q${x1},${notch[1]} ${x1},${notch[1] + r}`

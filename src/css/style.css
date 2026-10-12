@@ -51,7 +51,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
-    --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0; --scan: #fff1c4; --scan: #fff1c4;
+    --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0; --scan: #fff1c4;
     --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
     --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
     --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
@@ -61,7 +61,7 @@
 }
 :root[data-theme="dark"] {
   --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
-  --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0;
+  --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0; --scan: #fff1c4;
   --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
   --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
   --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
@@ -216,10 +216,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .st-busy::before { background: var(--busy); }
 .st-sleep::before { background: var(--nap); }
 .st-wait::before { background: transparent; border: 2px solid var(--wait); }
-.st-blocked::before, .st-stall::before { background: var(--stall); }
-.seg-mem { color: var(--seg-mem); }
-.seg-file { color: var(--seg-file); }
-.seg-zombie { color: var(--seg-zombie); }
+.st-stall::before { background: var(--stall); }
 
 /* ---------- toolbar ---------- */
 
@@ -276,8 +273,6 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .flow-read { stroke: var(--flow); stroke-width: 1.2; fill: none; stroke-dasharray: 1.5 3; stroke-linecap: round; }
 .arrowhead { fill: var(--flow); }
 .arrowhead-up { fill: var(--up); }
-.boundary { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 6 4; }
-.diagram .boundary-label { font: 600 10.5px var(--font-display); letter-spacing: 0.14em; fill: var(--muted); }
 .note { font-size: 11px; fill: var(--muted); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
 .note-in { font-size: 11px; fill: var(--muted); }
 .code-in { font-size: 11px; fill: var(--muted); }
@@ -325,10 +320,8 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .fbar.merging { stroke: var(--ink); stroke-width: 1.5; }
 .fbar.ours { stroke: var(--accent); stroke-width: 2; }
 .fdel { fill: var(--panel); fill-opacity: 0.6; }
-.ours-ring { fill: none; stroke: var(--accent); stroke-width: 2; }
 .target-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-opacity: 0.5; }
 .query { fill: var(--panel); stroke: var(--busy); }
-.pin { stroke: var(--busy); stroke-dasharray: 2 2; }
 .search-ring, .search-handle { fill: none; stroke: var(--busy); stroke-width: 1.6; }
 
 /* File icons are <use>s of one symbol: their look comes in through
@@ -360,7 +353,6 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .pw { fill: var(--panel); stroke: var(--wait); stroke-dasharray: 2 2; }
 .pw.s-busy { fill: var(--busy); stroke: var(--busy); stroke-dasharray: none; }
 .pw.s-stall { fill: var(--stall); stroke: var(--stall); stroke-dasharray: none; }
-.diagram .back-title { font: 600 12px var(--font-display); letter-spacing: 0.04em; fill: var(--ink); }
 .back-fn { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
 .back-note { font-size: 10.5px; fill: var(--muted); }
 .tok { fill: var(--panel-2); stroke: var(--line); }

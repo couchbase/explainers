@@ -13,8 +13,8 @@
 
 import { stairScene } from './stairs-scene.js';
 
-export const CW = 1000; // main diagram width; gutters extend past 0 and CW
-export const CH = 1660;
+const CW = 1000; // main diagram width; gutters extend past 0 and CW
+const CH = 1660;
 export const CANVAS = [-460, 0, 1460, 1660]; // x0, y0, x1, y1 incl. the left gutter
 
 export const SECTIONS = {
