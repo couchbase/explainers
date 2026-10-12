@@ -571,7 +571,7 @@ chapters:
           holds more than one.
 
       - id: why-354
-        view: { target: bolt }
+        view: { commit: release, target: bolt }
         code: [persister.equiv, persister.loop]
         text: |
           Why does [[the newest record]] say 354, when the root is
@@ -590,14 +590,14 @@ chapters:
     steps:
 
       - id: zoom
-        view: { camera: merger, target: merger, token: auto }
+        view: { camera: merger, target: merger, token: auto, commit: release }
         text: |
           Lots of small files would make every query slower. So
           [[the merger]] compacts them. Our marker is on our file
           segment in the root.
 
       - id: open
-        view: { open: [merger], target: mergerInside }
+        view: { open: [merger], target: mergerInside, commit: release }
         code: [merger.loop, merger.planMergeAtSnapshot]
         text: |
           It works on file segments only, in [[four phases]]: wait for
@@ -607,7 +607,7 @@ chapters:
 
       - id: planning
         sim: { until: planning }
-        view: { target: mergerInside }
+        view: { commit: wake, target: mergerInside }
         expect: ["reached:planning"]
         code: [merger.loop, merger.planMergeAtSnapshot]
         text: |

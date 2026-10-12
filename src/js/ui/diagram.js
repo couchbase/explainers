@@ -594,6 +594,8 @@ export class Diagram {
       stack: this.stackNow,
       epoch: this.rootEpochNow,
       introLid: this.lids.introducer.status.textContent,
+      mRow: this.mRows.findIndex((r) => /\blit\b/.test(r.getAttribute('class'))),
+      mergerLid: { text: this.lids.merger.status.textContent, dot: this.lids.merger.dot.getAttribute('class') },
       pRow: this.pRows.findIndex((r) => /\blit\b/.test(r.getAttribute('class'))),
       bolt: this.boltCards.map((c) => ({ text: c.text, cls: c.r.getAttribute('class'), o: c.r.getAttribute('opacity') })),
       dir: this.dirIcons.map((ic) => ({ o: ic.g.getAttribute('opacity'), cls: ic.use.getAttribute('class'), del: ic.del.getAttribute('opacity') })),
@@ -676,7 +678,16 @@ export class Diagram {
     this._drawEpoch(B.epoch, B.epoch, 1);
     this._blendBolt(A, B, part('bolt'));
     this._blendDir(A, B, listed);
-    this._drawStack(stackFrame(A.stack, B.stack, release));
+    // The merger wakes last: its status, and its ref on the root.
+    const wake = easeQuad(part('wake'));
+    const frame = stackFrame(A.stack, B.stack, release);
+    frame.readers.merger = stackFrame(A.stack, B.stack, wake).readers.merger;
+    this._drawStack(frame);
+    const ml = wake < 0.5 ? A.mergerLid : B.mergerLid;
+    setText(this.lids.merger.status, ml.text);
+    this.lids.merger.dot.setAttribute('class', ml.dot);
+    const mrow = wake < 0.5 ? A.mRow : B.mRow;
+    this.mRows.forEach((r, k) => setCls(r, k === mrow ? 'row lit' : 'row'));
     // The persister stays in phase 4 until it has let go of its root.
     const row = release < 1 ? A.pRow : B.pRow;
     this.pRows.forEach((r, k) => setCls(r, k === row ? 'row lit' : 'row'));

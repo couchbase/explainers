@@ -89,8 +89,9 @@ export const swapShift = (s) => [SHEET_DX * swapLift(s), SHEET_DY * swapLift(s)]
 
 // How the persister's commit shows, one change at a time (view
 // `commit: <phase>`): a new root.bolt record slides in on top; our zap
-// file, now listed, turns solid; the persister lets go of its root.
-export const COMMIT_PHASES = ['bolt', 'listed', 'release'];
+// file, now listed, turns solid; the persister lets go of its root;
+// and the newly persisted epoch wakes the merger.
+export const COMMIT_PHASES = ['bolt', 'listed', 'release', 'wake'];
 
 // The marker's share of the 'add' phase: it travels, then the segment
 // it carries appears.

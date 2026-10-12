@@ -87,8 +87,11 @@ function enter(i, { rebuild = false } = {}) {
   record(i, ctl.model);
   // The boxes stay as they were until the new root is swapped in (or
   // the persister lets go of its root).
-  if (base !== null && (view.swap ? SWAP_PHASES.indexOf(view.swap) < SOLID : view.commit !== 'release')) {
+  if (base !== null && (view.swap ? SWAP_PHASES.indexOf(view.swap) < SOLID : COMMIT_PHASES.indexOf(view.commit) < COMMIT_PHASES.indexOf('release'))) {
     ctl.stateAt.set(i, ctl.stateAt.get(base));
+  } else if (base !== null && view.commit && view.commit !== 'wake') {
+    // ...and the merger, until the commit's epoch wakes it.
+    ctl.stateAt.set(i, { ...ctl.stateAt.get(i), merger: ctl.stateAt.get(base).merger });
   }
 
   const cam = typeof view.camera === 'string' ? CAMERAS[view.camera] : { label: 'detail', section: null };
