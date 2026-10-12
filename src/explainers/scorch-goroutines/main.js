@@ -24,7 +24,8 @@ import { scrollState, scrollYFor } from '../../js/ui/scroll.js';
 import { markerFrame, boxFrames, toggleAt, route } from '../../js/ui/transitions.js';
 import { swapMarker } from './swapmarker.js';
 import { clamp01, ease, lerp, along } from '../../js/ui/util/anim.js';
-import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../../js/story/timeline.js';
+import { flattenSteps, modelAtStep, enterStep, resolveViews } from '../../js/story/timeline.js';
+import { speedAt } from './directives.js';
 import { checkInvariants } from './sim/invariants.js';
 
 const data = JSON.parse(document.getElementById('bx-data').textContent);

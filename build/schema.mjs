@@ -76,7 +76,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
       if (callouts > 1) err(sw, 'at most one [[callout]] phrase per step');
       if (st.sim !== undefined) {
         if (!isObj(st.sim)) err(sw, 'sim must be a mapping');
-        keys(st.sim, ['reset', 'minTimeMs', 'set', 'query', 'speed', 'follow', 'until'], `${sw} sim`);
+        keys(st.sim, ['reset', ...(D.SIM ? D.SIM.keys : [])], `${sw} sim`);
         const r = st.sim.reset;
         if (r !== undefined && r !== true) {
           if (!isObj(r)) err(sw, 'sim.reset must be true or a mapping');
@@ -85,16 +85,8 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
             checkConfig(r.config, `${sw} sim.reset.config`);
           }
         }
-        checkConfig(st.sim.set, `${sw} sim.set`);
-        if (st.sim.query !== undefined) {
-          keys(st.sim.query, ['durationMs', 'timeoutMs', 'label'], `${sw} sim.query`);
-          if (!(st.sim.query.durationMs > 0)) err(sw, 'sim.query.durationMs must be > 0');
-        }
-        for (const k of ['minTimeMs', 'speed']) {
-          if (st.sim[k] !== undefined && !(typeof st.sim[k] === 'number' && st.sim[k] >= 0)) err(sw, `sim.${k} must be a number >= 0`);
-        }
-        if (st.sim.follow !== undefined && !D.FOLLOW_MODES.includes(st.sim.follow)) err(sw, `sim.follow must be one of: ${D.FOLLOW_MODES.join(', ')}`);
-        if (st.sim.until !== undefined && !D.TRACE_STAGES.includes(st.sim.until)) err(sw, `unknown sim.until stage "${st.sim.until}" (known: ${D.TRACE_STAGES.join(', ')})`);
+        // the rest, as the explainer says
+        if (D.SIM && isObj(st.sim)) D.SIM.validate(st.sim, (msg) => err(sw, msg), (cfg, w) => checkConfig(cfg, `${sw} ${w}`));
       }
       // (An explainer without a simulation has no sim directives at all.)
       if (!D.makeModel && st.sim) err(sw, 'this explainer has no simulation, so no sim directives');

@@ -8,6 +8,7 @@
 export * from './layout.js';
 export * from './story.js';
 export * from './routes.js';
+export { SIM } from './directives.js';
 export * from './snapstack.js';
 export * from './stairs-scene.js';
 export { Staircase } from './staircase.js';

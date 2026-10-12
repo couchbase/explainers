@@ -2,15 +2,14 @@
 // view state. Shared by the UI and the tests, so "what you see at step
 // N" is deterministic and testable no matter how the reader got there.
 //
-// Simulation, for the steps from the most recent `sim.reset` up to N:
-//   - reset: a fresh Model (seed + base config + reset overrides);
-//   - each step: fast-forward to its minTimeMs (sim time since the
-//     reset), apply `set`, `query` and `follow`, then run event by event
-//     `until` the followed batch reaches the named stage.
+// Simulation (for an explainer with one), for the steps from the most
+// recent `sim.reset` up to N: the reset makes a fresh model (seed + base
+// config + reset overrides), then each step's other `sim` directives
+// are applied in turn, as the explainer's D.SIM says.
 //
 // View, folded from the first step up to N: the camera, the set of open
-// lids, the shown detail bubbles, the UI mode (minimal or full chrome)
-// and how to place our batch's marker. A step only states what changes.
+// lids, the shown detail bubbles, the UI mode (minimal or full chrome),
+// and the explainer's own view keys. A step only states what changes.
 
 import { D } from '../domain.js';
 
@@ -48,33 +47,10 @@ function newModelFor(narrative, step) {
   return D.makeModel({ seed, config });
 }
 
-const UNTIL_MAX_MS = 180000;
-
-// Runs the model one event at a time until pred() holds (or a cap).
-function advanceUntil(model, pred, maxMs = UNTIL_MAX_MS) {
-  const end = model.now + maxMs;
-  const k = model.k;
-  while (!pred() && model.now < end) {
-    if (k.runUntil(end, 1) === 0) break;
-  }
-  return pred();
-}
-
-// Applies a step's sim directives to a model whose clock started at the
-// last reset. Returns the model.
+// Applies a step's directives to a model whose clock started at the
+// last reset (the explainer says what they mean). Returns the model.
 export function enterStep(model, step) {
-  const sim = step.sim || {};
-  const target = sim.minTimeMs || 0;
-  if (model.now < target) model.advance(target - model.now);
-  if (sim.set) model.set(sim.set);
-  if (sim.query) model.startQuery(sim.query);
-  if (sim.follow) model.follow(sim.follow);
-  if (sim.set || sim.query || sim.follow) model.advance(0); // let just-spawned processes start
-  if (sim.until) {
-    if (!advanceUntil(model, () => model.reached(sim.until))) {
-      model.log('trace', `(our batch didn't reach "${sim.until}" in time)`);
-    }
-  }
+  D.SIM.enter(model, step.sim || {});
   return model;
 }
 
@@ -84,12 +60,6 @@ export function modelAtStep(narrative, steps, i) {
   const model = newModelFor(narrative, steps[j]);
   for (let s = j; s <= i; s++) enterStep(model, steps[s]);
   return model;
-}
-
-// Playback speed in effect at step i (0 means paused).
-export function speedAt(steps, i) {
-  for (let j = i; j >= 0; j--) if (steps[j].sim && steps[j].sim.speed !== undefined) return steps[j].sim.speed;
-  return 1;
 }
 
 // Folds view directives into the full view state for every step.
@@ -126,7 +96,6 @@ export function resolveViews(steps) {
   });
 }
 
-const SIM_CHANGES = ['reset', 'set', 'query', 'follow', 'until', 'minTimeMs'];
 const sameSet = (a, b) => a.size === b.size && [...a].every((x) => b.has(x));
 const sameCamera = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -142,7 +111,7 @@ export function changesAt(steps, views, i) {
   for (const [k, d] of Object.entries(D.VIEW_KEYS)) {
     if (d.sticky && d.counts && views[i - 1][k] !== views[i][k] && d.counts(views[i - 1], views[i])) out.push(k);
   }
-  const simChanges = steps[i].sim && SIM_CHANGES.some((k) => steps[i].sim[k] !== undefined);
+  const simChanges = steps[i].sim && ['reset', ...(D.SIM ? D.SIM.changes : [])].some((k) => steps[i].sim[k] !== undefined);
   if (simChanges) out.push('simulation');
   // A phase told step by step (a `run`): its first step may be the
   // simulation's change, shown one phase at a time; each later phase
@@ -155,16 +124,14 @@ export function changesAt(steps, views, i) {
   return out;
 }
 
-// Whether expectation `name` holds for model m: "reached:<stage>", an
-// explainer's EXPECTATIONS, or its "<name>:<arg>" EXPECTATION_PARAMS.
+// Whether expectation `name` holds for model m: one of the explainer's
+// EXPECTATIONS, or one of its "<name>:<arg>" EXPECTATION_PARAMS.
 export function checkExpectation(name, m) {
-  if (name.startsWith('reached:')) return m.reached(name.slice(8));
   const [k, arg] = splitParam(name);
   return arg !== undefined ? D.EXPECTATION_PARAMS[k].check(m, arg) : D.EXPECTATIONS[name](m);
 }
 
 export function isKnownExpectation(name) {
-  if (name.startsWith('reached:')) return D.TRACE_STAGES.includes(name.slice(8));
   const [k, arg] = splitParam(name);
   return arg !== undefined ? !!D.EXPECTATION_PARAMS[k] && D.EXPECTATION_PARAMS[k].valid(arg) : name in D.EXPECTATIONS;
 }

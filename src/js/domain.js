@@ -4,15 +4,14 @@
 // useDomain() before anything runs. See src/explainers/<id>/domain.js.
 //
 // An explainer exports what it uses. These are the defaults for the
-// optional parts: with no simulation (no makeModel), no sim stages,
-// follow modes or config; no marker routing (stations, boxes,
+// optional parts: with no simulation (no makeModel), no SIM
+// directives and no config; no marker routing (stations, boxes,
 // corridors, vias, hops); no charts and no token modes.
 
 export let D = null;
 
 const DEFAULTS = {
-  TRACE_STAGES: [],
-  FOLLOW_MODES: [],
+  SIM: null,
   EXPECTATIONS: {},
   EXPECTATION_PARAMS: {},
   VIEW_KEYS: {},

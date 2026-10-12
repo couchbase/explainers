@@ -25,7 +25,7 @@ export const TRACE_STAGES = ['dcp', 'channel', 'worker', 'herder', 'analysis', '
 
 // Named predicates that steps can `expect`, checked by the tests so
 // the prose and the simulation can't silently drift apart. (The engine
-// also knows "reached:<stage>" for the followed batch.)
+// Also "reached:<stage>", below, for the followed batch.)
 export const EXPECTATIONS = {
   herderBlocking: (m) => m.numEventsBlocking > 0,
   herderIdle: (m) => m.numEventsBlocking === 0,
@@ -61,6 +61,7 @@ export const EXPECTATIONS = {
 // Parameterized expectations, "<name>:<arg>": rootEpoch:<n> for prose
 // that names the root's epoch.
 export const EXPECTATION_PARAMS = {
+  reached: { valid: (arg) => TRACE_STAGES.includes(arg), check: (m, arg) => m.reached(arg) },
   rootEpoch: { valid: (arg) => /^\d+$/.test(arg), check: (m, arg) => m.root.epoch === Number(arg) },
 };
 
