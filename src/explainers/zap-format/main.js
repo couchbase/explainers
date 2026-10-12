@@ -15,7 +15,7 @@ import { scrollState, scrollYFor } from '../../js/ui/scroll.js';
 import { toggleAt } from '../../js/ui/transitions.js';
 import { along, ease } from '../../js/ui/util/anim.js';
 import { flattenSteps, resolveViews } from '../../js/story/timeline.js';
-import { CAMERAS, LIDS, BUBBLES } from './layout.js';
+import { CAMERAS, LIDS, BUBBLES, LANE_X } from './layout.js';
 import { FOCI, sceneAt } from './story.js';
 import { Diagram } from './diagram.js';
 
@@ -71,9 +71,24 @@ function readerAt(i, p) {
   if (!fa && !fb) return null;
   if (!fa) return { p: fb.p, o: ease(p) };
   if (!fb) return { p: fa.p, o: 1 - ease(p) };
-  // straight across, or down and then across between lenses
-  const pts = fa.p[1] === fb.p[1] || fa.p[0] === fb.p[0] ? [fa.p, fb.p] : [fa.p, [fa.p[0], fb.p[1]], fb.p];
+  // within a lens, straight across or down and then across; between
+  // lenses, out to the lane beside the strip, along it, and back in
+  const pts = fa.p[1] === fb.p[1] || fa.p[0] === fb.p[0] ? [fa.p, fb.p]
+    : fa.lens === fb.lens ? [fa.p, [fa.p[0], fb.p[1]], fb.p]
+      : [fa.p, [LANE_X, fa.p[1]], [LANE_X, fb.p[1]], fb.p];
   return { p: along(pts, ease(p)), o: 1 };
+}
+
+// On the file camera, with no reader yet, the camera follows the
+// story's target down the strip, partway from the last step's.
+function fileFollow(i, p) {
+  const v = views[i];
+  if (v.camera !== 'file' || !v.target) return null;
+  const b = diagram.anchor(v.target), a = i > 0 && views[i - 1].target ? diagram.anchor(views[i - 1].target) : null;
+  if (!b) return null;
+  if (!a) return b.p;
+  const t = ease(p);
+  return [a.p[0] + (b.p[0] - a.p[0]) * t, a.p[1] + (b.p[1] - a.p[1]) * t];
 }
 
 function drawCallout(i, view, opacity) {
@@ -95,7 +110,7 @@ function render() {
   const t = ease(p);
   const r = readerAt(i, p);
   diagram.readerAt = r && r.p;
-  camera.show(camera.follow(camera.between(i > 0 ? pv.camera : null, v.camera, p), r && r.o > 0.01 ? r.p : null));
+  camera.show(camera.follow(camera.between(i > 0 ? pv.camera : null, v.camera, p), r && r.o > 0.01 ? r.p : fileFollow(i, p)));
   for (const id of Object.keys(LIDS)) diagram.setLid(id, toggleAt(pv.open.has(id), v.open.has(id), p));
   for (const id of Object.keys(BUBBLES)) diagram.setBubble(id, toggleAt(pv.bubbles.has(id), v.bubbles.has(id), p));
   diagram.drawScene(i > 0 ? scenes[i - 1] : scenes[i], scenes[i], p);

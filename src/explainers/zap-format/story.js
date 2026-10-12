@@ -31,7 +31,7 @@ function foci() {
   };
   const addCell = (id, lens, c, read) => add(id, lens, cellPt(c), read, cellBox(c));
   // the strip itself
-  for (const r of REGIONS) add(`region.${r.id}`, null, [r.x + 8, 70 + 26], null, [r.x, 70, r.w, 52]);
+  for (const r of REGIONS) add(`region.${r.id}`, null, [r.x + 8, r.y + 26], null, [r.x, r.y, r.w, r.h]);
   // footer
   for (const c of S.footer.cells) if (c.size) addCell(`footer.${c.key}`, 'footer', c, [c.start, c.start + c.size]);
   // sections index and field info

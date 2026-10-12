@@ -1,4 +1,4 @@
-// The zap-format explainer's diagram: the file as a strip of bytes,
+// The zap-format explainer's diagram: the file as a column of bytes,
 // lids over its regions, lenses (tethered to their byte ranges) onto
 // the structures inside, the bytes read so far lit on the strip, and
 // the reader marker. Built once; main.js sets lid and lens openness,
@@ -7,7 +7,7 @@
 import { svgEl as el, svgText as txt, setText, setCls } from '../../js/ui/util/dom.js';
 import { easeQuad, lerp } from '../../js/ui/util/anim.js';
 import { isAnchorVisible } from '../../js/ui/anchors.js';
-import { SEG, STRIP, REGIONS, LENSES, CANVAS, byteX, regionOf } from './layout.js';
+import { SEG, STRIP, REGIONS, LENSES, CANVAS, byteY, regionOf } from './layout.js';
 import { SCENE } from './scene.js';
 import { FOCI, ANCHORS } from './story.js';
 
@@ -39,28 +39,28 @@ export class Diagram {
   // ---- the strip: regions, their lids, offsets, reads ----
 
   _strip(g) {
-    const { y, h } = STRIP;
-    txt(g, STRIP.x0, y - 34, `one zap file: ${SEG.size.toLocaleString()} bytes, mmapped`, 'zstrip-title');
+    const { x0 } = STRIP;
+    txt(g, x0, STRIP.y0 - 30, `one zap file: ${SEG.size.toLocaleString()} bytes, mmapped`, 'zstrip-title');
     this.readG = el('g', {}, g);
     this.regionEls = {};
     for (const r of REGIONS) {
       const rg = el('g', {}, g);
-      el('rect', { x: r.x, y, width: r.w, height: h, class: `zregion zr-${r.id}` }, rg);
-      txt(rg, r.x + 8, y + 21, r.label, 'zregion-label');
-      txt(rg, r.x + 8, y + 40, `${r.bytes.toLocaleString()} B`, 'zregion-bytes');
+      el('rect', { x: x0, y: r.y, width: r.w, height: r.h, class: `zregion zr-${r.id}` }, rg);
+      txt(rg, x0 + 10, r.y + 21, r.label, 'zregion-label');
+      txt(rg, x0 + 10, r.y + 40, `${r.bytes.toLocaleString()} B`, 'zregion-bytes');
       this.regionEls[r.id] = rg;
       // its lid: a plain cover, labeled with nothing but "?"
       const lg = el('g', { class: 'zlid' }, g);
-      el('rect', { x: r.x + 1, y: y + 1, width: r.w - 2, height: h - 2, class: 'zlid-bg' }, lg);
-      txt(lg, r.x + r.w / 2, y + h / 2 + 5, '?', 'zlid-q', 'middle');
+      el('rect', { x: x0 + 1, y: r.y + 1, width: r.w - 2, height: r.h - 2, class: 'zlid-bg' }, lg);
+      txt(lg, x0 + r.w / 2, r.y + r.h / 2 + 5, '?', 'zlid-q', 'middle');
       this.lids[r.id] = lg;
     }
-    // the offsets at region boundaries, under the strip
+    // the offsets at region boundaries, left of the strip
     const offs = [...new Set(REGIONS.flatMap((r) => [r.start, r.end]))];
     for (const o of offs) {
-      const xx = o === SEG.size ? STRIP.x1 : byteX(o);
-      el('line', { x1: xx, x2: xx, y1: y + h, y2: y + h + 6, class: 'ztick' }, g);
-      txt(g, xx, y + h + 18, String(o), 'ztick-label', 'middle');
+      const yy = o === SEG.size ? STRIP.y1 : byteY(o);
+      el('line', { x1: x0 - 6, x2: x0, y1: yy, y2: yy, class: 'ztick' }, g);
+      txt(g, x0 - 10, yy + 4, String(o), 'ztick-label', 'end');
     }
   }
 
@@ -68,15 +68,16 @@ export class Diagram {
 
   _lens(g, tethers, id, l) {
     const [x, y, w, h] = l.box;
+    // tethered to its region, beside it
     const r = regionOf(l.region);
     const tg = el('g', { opacity: 0 }, tethers);
-    const top = STRIP.y + STRIP.h;
-    el('path', { d: `M${r.x},${top} L${x},${y} M${r.x + r.w},${top} L${x + w},${y}`, class: 'ztether' }, tg);
+    const ty0 = Math.max(r.y, y), ty1 = Math.min(r.y + r.h, y + h);
+    el('path', { d: `M${STRIP.x1},${ty0} L${x},${y} M${STRIP.x1},${ty1} L${x},${y + h}`, class: 'ztether' }, tg);
     const lg = el('g', { opacity: 0 }, g);
     el('rect', { x, y, width: w, height: h, rx: 10, class: 'zlens' }, lg);
     txt(lg, x + 16, y + 24, l.title, 'zlens-title');
     const body = el('g', {}, lg);
-    this.lenses[id] = { g: lg, tether: tg, cx: r.x + r.w / 2, cy: top, body };
+    this.lenses[id] = { g: lg, tether: tg, cx: STRIP.x1, cy: (ty0 + ty1) / 2, body };
     this[`_draw_${id}`](body);
   }
 
@@ -265,8 +266,8 @@ export class Diagram {
     const seenA = new Set((a.reads || []).map((r) => r.join('-')));
     this.readG.replaceChildren();
     for (const r of b.reads) {
-      const x0 = byteX(r[0]), x1 = Math.max(x0 + 4, byteX(r[1] - 1) + 1);
-      el('rect', { x: x0, y: STRIP.y - 6, width: x1 - x0, height: STRIP.h + 12, rx: 3, class: 'zread',
+      const y0 = byteY(r[0]), y1 = Math.max(y0 + 4, byteY(r[1] - 1) + 1);
+      el('rect', { x: STRIP.x0 - 6, y: y0, width: STRIP.x1 - STRIP.x0 + 12, height: y1 - y0, rx: 3, class: 'zread',
         opacity: seenA.has(r.join('-')) ? 1 : k.toFixed(3) }, this.readG);
     }
     // the focus highlight: A's fades out as B's fades in
