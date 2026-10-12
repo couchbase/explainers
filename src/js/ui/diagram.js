@@ -1068,7 +1068,8 @@ export class Diagram {
       return isFile
         // on its bar's foot, on the common baseline, exactly as wide as
         // the bar (so it overlaps no other), labeled below the baseline
-        ? { p: [seg.p[0] + 3 + 7, FILE_BASE - 7], size: 14, kind: 'file', label: 'our file segment', st: 'bar', side: 'below', key: tr.segId }
+        // (once merged, our docs are in the merged file segment)
+        ? { p: [seg.p[0] + 3 + 7, FILE_BASE - 7], size: 14, kind: 'file', label: m.reached('merged') ? 'merged file segment' : 'our file segment', st: 'bar', side: 'below', key: tr.segId }
         : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment', st: 'cell', key: tr.segId };
     }
     return null;

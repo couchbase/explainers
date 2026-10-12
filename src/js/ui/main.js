@@ -197,7 +197,9 @@ function mergedChipAt(i, p, t, u, swap) {
     const bar = diagram.barInSwap(swap.A, swap.B, cur.key, swap.s);
     if (!bar) return null;
     const grow = clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL));
-    return { p: [bar.x + 7 + dx, bar.foot - 7 + dy], h: lerp(14, bar.h, grow), labelO: 1 - grow, o };
+    // Its label stays, until our marker moves onto it and takes over.
+    const hop = clamp01((swapPart(swap.s, 'drop') - 0.6) / 0.4);
+    return { p: [bar.x + 7 + dx, bar.foot - 7 + dy], h: lerp(14, bar.h, grow), labelO: 1 - hop, o };
   }
   const a = i > 0 ? ctl.chipAt.get(i - 1) : null, b = ctl.chipAt.get(i);
   if (a && b) return { p: along(route(a, b), t), o: 1, dest: b.st, left: (t < 0.5 ? a : b).left };
