@@ -993,8 +993,8 @@ export class Diagram {
     if (seg) {
       const isFile = m.root.segs.some((ss) => ss.seg.id === tr.segId && ss.seg.kind === 'file');
       return isFile
-        // on its bar, at the baseline, labeled to the right, clear of the other bars
-        ? { p: [seg.p[0] + 10, seg.p[1]], size: 18, kind: 'file', label: 'our file segment', st: 'bar', side: 'right', key: tr.segId }
+        // just right of its bar, on the baseline, labeled to the right
+        ? { p: [seg.p[0] + 3 + 14 + 3 + 8, seg.p[1] + 1], size: 16, kind: 'file', label: 'our file segment', st: 'bar', side: 'right', key: tr.segId }
         : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment', st: 'cell', key: tr.segId };
     }
     return null;
