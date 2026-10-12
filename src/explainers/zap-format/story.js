@@ -54,7 +54,9 @@ function foci() {
   for (const k of ['trie', 'min', 'outputs']) add(`fst.${k}`, 'fst', [root.x - 26, root.y], null, [lx + 20, ly + 50, lw - 40, lh - 70]);
   // the walk for "quiet": only the states on its path are read, out of
   // the FST's bytes; the strip lights the FST as a whole, faintly
-  S.walk.steps.forEach((s, i) => add(`walk.${i}`, 'walk', [s.x - 34, s.y], [S.walk.fstStart, S.walk.fstStart + S.walk.fstLen], [s.x - 24, s.y - 24, 48, 48]));
+  // (each state's box takes in its running sum, above it, so the
+  // reader marker sits clear of the sum)
+  S.walk.steps.forEach((s, i) => add(`walk.${i}`, 'walk', [s.x - 34, s.y], [S.walk.fstStart, S.walk.fstStart + S.walk.fstLen], [s.x - 36, s.y - 42, 72, 64]));
   const lastW = S.walk.steps[S.walk.steps.length - 1];
   add('walk.value', 'walk', [lastW.x - 70, lastW.y + 72], null, [lastW.x - 316, lastW.y + 54, 330, 36]);
   // postings
