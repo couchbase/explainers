@@ -191,7 +191,7 @@ export class Diagram {
     for (const c of P.header) this._cell(g, c, c.key === 'bitmap' ? 'zcell-bitmap' : '');
     this.containerTxt = txt(g, P.container.x, P.container.y + 4, P.container.text, 'znote strong');
     this.postingsChips = this._chips(g, P.docs, 'p');
-    this.deletedTxt = txt(g, P.docs[2].x - 8, P.deletedY, '↑ deleted: from root.bolt, not this file', 'zdeleted');
+    this.deletedTxt = txt(g, P.docs[2].x - 8, P.deletedY, P.deletedText, 'zdeleted');
   }
 
   _draw_freq(g) {

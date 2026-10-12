@@ -168,7 +168,7 @@ function postingsScene() {
   return {
     term: q, header, start: q.postingsStart, bitmapStart: q.bitmapStart, bitmapEnd: q.bitmapStart + q.bitmapLen,
     container: { x, y: y + 60, text: `container key 0 · array · [${q.docs.join(', ')}]` },
-    docs: chips(y + 120, q.docs, 'q'), deletedY: y + 160,
+    docs: chips(y + 120, q.docs, 'q'), deletedY: y + 160, deletedText: '↑ deleted: from root.bolt, not this file',
   };
 }
 

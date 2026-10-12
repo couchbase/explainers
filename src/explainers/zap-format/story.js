@@ -60,7 +60,8 @@ function foci() {
   addCell('postings.bitmap', 'postings', findCell(P.header, 'bitmap'), [P.bitmapStart, P.bitmapEnd]);
   const chipsBox = [P.docs[0].x - 4, P.docs[0].y - 18, 9 * 50, 36];
   add('postings.docs', 'postings', [P.docs[0].x - 14, P.docs[0].y], null, chipsBox);
-  add('postings.deleted', 'postings', [P.docs[2].x - 14, P.deletedY], null, [P.docs[2].x - 18, P.deletedY - 14, 210, 28]);
+  // (the note's width: 12px mono, 0.6em a character)
+  add('postings.deleted', 'postings', [P.docs[2].x - 14, P.deletedY], null, [P.docs[2].x - 18, P.deletedY - 16, P.deletedText.length * 7.2 + 20, 24]);
   add('postings.live', 'postings', [P.docs[0].x - 14, P.docs[0].y], null, chipsBox);
   // freq/norm
   const F = S.freq;
