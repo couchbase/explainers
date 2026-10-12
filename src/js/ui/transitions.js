@@ -123,10 +123,11 @@ function hop(sa, pa, sb, pb) {
 // `arrived`; or `birth` (0..1) when a batch is born at the DCP goroutine.
 // `win` limits the marker's move to part of the transition (in eased
 // progress), so it can wait its turn while something else changes.
-export function markerFrame(views, tokenAt, i, p, win = [0, 1]) {
+// `linear`: p is already the marker's own progress (not eased).
+export function markerFrame(views, tokenAt, i, p, win = [0, 1], linear = false) {
   const cur = views[i].token === 'hide' ? null : tokenAt.get(i) || null;
   const prev = i > 0 && views[i - 1].token !== 'hide' ? tokenAt.get(i - 1) || null : null;
-  const e = clamp01((ease(p) - win[0]) / (win[1] - win[0]));
+  const e = clamp01(((linear ? p : ease(p)) - win[0]) / (win[1] - win[0]));
   if (cur && prev) return between(prev, cur, e);
   // A batch is born at the DCP goroutine: docs flow in from KV and
   // condense into the marker.

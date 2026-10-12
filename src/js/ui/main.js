@@ -229,8 +229,11 @@ function render() {
   // While the root is swapped, the marker waits for its turn.
   const swap = ctl.playing ? null : swapAt(i, p, t);
   // ...and while our file goes down to disk.
-  const win = /^(write|mergeWrite)$/.test(v.flow || '') ? [WRITE_SHARE, 1] : undefined;
-  const mf = (swap && swapMarker(views, ctl.tokenAt, i, swap.base, swap.s)) || markerFrame(views, ctl.tokenAt, i, p, win);
+  // A write plays over the step's whole length (u), evenly: the file
+  // goes down first, then the marker moves.
+  const writing = /^(write|mergeWrite)$/.test(v.flow || '');
+  const mf = (swap && swapMarker(views, ctl.tokenAt, i, swap.base, swap.s)) ||
+    (writing ? markerFrame(views, ctl.tokenAt, i, u, [WRITE_SHARE, WRITE_SHARE + 0.25], true) : markerFrame(views, ctl.tokenAt, i, p));
   const markerPt = mf && mf.t && mf.o > 0.01 ? mf.t.p : null;
   camera.show(camera.follow(camera.between(i > 0 ? pv.camera : null, v.camera, p), markerPt));
 
@@ -249,7 +252,7 @@ function render() {
     diagram.blendWatcher(wa, wb, wq);
   }
   // our zap file down a write arrow: the persister's, or the merger's
-  diagram.setWriteFly(/^(write|mergeWrite)$/.test(v.flow) && p < 1 ? clamp01(t / WRITE_SHARE) : -1, ...(v.flow === 'mergeWrite' ? [720, 'merged zap file'] : [280]));
+  diagram.setWriteFly(writing && u < WRITE_SHARE ? clamp01(u / WRITE_SHARE) : -1, ...(v.flow === 'mergeWrite' ? [720, 'merged zap file'] : [280]));
   // Our segment's slot stays faint until the marker arrives.
   diagram.setArrival(mf && mf.dest, mf && mf.dest && !mf.arrived ? 0 : 1);
   // Our file's channel lights as the marker reaches it.
