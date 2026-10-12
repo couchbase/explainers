@@ -23,7 +23,7 @@ export function buildPage(app, data, codeDrawer) {
     h('h1', { text: narrative.title }),
     h('div', { class: 'subtitle', html: narrative.subtitleHtml }),
     h('div', { class: 'meta', html:
-      `Modeled on bleve ${repoLink(sources.bleve)}, zapx ${repoLink(sources.zapx)} and cbft ${repoLink(sources.cbft)} · built ${data.builtAt}` }),
+      `Modeled on bleve ${repoLink(sources.bleve)}, zapx ${repoLink(sources.zapx)} and cbft ${repoLink(sources.cbft)} · built ${data.builtAt}${data.version ? ` · version ${data.version}` : ''}` }),
     h('p', { class: 'scroll-hint', text: 'Scroll to begin ↓' })));
 
   const stepEls = [];

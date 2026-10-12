@@ -6,6 +6,7 @@
 //   npm run dev            # rebuild on change
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
@@ -92,6 +93,16 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
   const css = read('src/css/style.css');
   const template = read('src/index.html');
   const builtAt = new Date().toISOString().slice(0, 10);
+  // Which version this is, so readers can tell builds apart: `git
+  // describe --long` of the sources, plus "-dirty" if built with
+  // uncommitted changes. The build's own output (dist/) doesn't count,
+  // so committing a built page doesn't change the stamp it carries.
+  let version = '';
+  try {
+    const git = (args) => execSync(`git ${args}`, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    version = git('describe --long --always');
+    if (git("status --porcelain -- . ':!dist'")) version += '-dirty';
+  } catch { /* not a git checkout */ }
 
   mkdirSync(outDir, { recursive: true });
   const written = [];
@@ -116,6 +127,7 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
       configDocs: CONFIG_DOCS,
       defaultConfig: DEFAULT_CONFIG,
       builtAt,
+      version,
     };
     const html = template
       .replaceAll('{{TITLE}}', n.title.replace(/[<&"]/g, ''))

@@ -767,7 +767,7 @@ chapters:
           garbage on disk now.
 
       - id: to-disk
-        view: { camera: disk, target: disk, token: hide }
+        view: { camera: lower, target: disk }
         code: [persister.removeOldData]
         text: |
           Old files stay in [[the directory]], gray, until no
@@ -788,7 +788,7 @@ chapters:
           again. Now disk and memory agree.
 
       - id: idle
-        view: { camera: scorch, target: persister, token: hide }
+        view: { camera: scorch, target: persister }
         text: |
           With 356 persisted and no new mutations coming in,
           [[the persister]] has caught up. What does it do now?

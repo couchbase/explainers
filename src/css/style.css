@@ -12,6 +12,7 @@
   --line: #d3dae0;
   --faint: #e7ecf0;
   --accent: #c2410c;
+  --scan: #ffd98a; /* the copier scan's light */
   --flow: #7b8a97;
   --up: #6e5bd0;
 
@@ -50,7 +51,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
-    --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0;
+    --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0; --scan: #fff1c4; --scan: #fff1c4;
     --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
     --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
     --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
@@ -345,6 +346,9 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .diagram .root-draft > rect.zone { stroke-dasharray: 6 4; }
 .diagram .epoch-num.lit { fill: var(--accent); }
 .diagram .copy-label { font-style: italic; }
+/* the copier scan's light: a warm bulb, fading at its edges */
+.diagram .scan-core { stop-color: var(--scan); stop-opacity: 0.85; }
+.diagram .scan-edge { stop-color: var(--scan); stop-opacity: 0; }
 .bolt.ours { stroke: var(--accent); stroke-width: 2; }
 
 .panel-frame { fill: var(--panel); stroke: color-mix(in srgb, var(--sec-scorch) 55%, var(--line)); stroke-width: 1.3; }

@@ -34,6 +34,7 @@ const ROOT = [80, 842, 810, 170]; // the front sheet: the current root snapshot
 const STACK_POOL = 6; // sheet elements, enough for a blend between two stacks
 const STACK_TWEEN_MS = 350;
 const EPOCH_X = 246; // where the root title's epoch number starts
+const SCAN_W = 46; // the copier scan's glow
 const DIR_COLS = 32, DIR_ROWS = 6;
 const st0 = (st) => st === 'mergeWritten' || st === 'mergeIntroducing';
 const ON_ROOT = ['root', 'rootR', 'rootEpoch', 'rootMem', 'rootFiles', 'ourSeg']; // anchors on the front sheet
@@ -232,6 +233,14 @@ export class Diagram {
     this.epochNew = txt(this.rootG, EPOCH_X, 862, '', 'zone-title epoch-num', 'start');
     this.epochPlus = txt(this.rootG, EPOCH_X + 32, 862, '+1', 'zone-title epoch-num lit', 'start');
     this.epochPlus.setAttribute('opacity', 0);
+    // A copier's scan: a bright bar sweeping right to left over a new
+    // root as it gets its copy of the old one's segment list, with the
+    // copy revealed behind it.
+    const defs = el('defs', {}, g);
+    const glow = el('linearGradient', { id: 'dg-scan-glow', x1: 0, x2: 1, y1: 0, y2: 0 }, defs);
+    for (const [off, cls] of [[0, 'scan-edge'], [0.3, 'scan-core'], [1, 'scan-edge']]) el('stop', { offset: off, class: cls }, glow);
+    this.scanClip = el('rect', { x: ROOT[0], y: ROOT[1], width: ROOT[2], height: ROOT[3] }, el('clipPath', { id: 'dg-scan-clip' }, defs));
+    this.scanBar = el('rect', { x: 0, y: ROOT[1] + 3, width: SCAN_W, height: ROOT[3] - 6, fill: 'url(#dg-scan-glow)', opacity: 0 }, this.rootG);
     this.memMore = txt(face.content, 460, 1006, '', 'note-in', 'end');
     this.fileMore = txt(face.content, ROOT[0] + ROOT[2] - 10, 1006, '', 'note-in', 'end');
 
@@ -665,8 +674,19 @@ export class Diagram {
     // See-through while empty; mostly hides the old root once it has
     // its own copy of the contents, so they don't read doubled.
     this.rootRect.setAttribute('fill-opacity', lerp(lerp(0.72, 0.94, copy), 1, solid).toFixed(3));
-    // Its contents start as a faint copy, and firm up when it's solid.
-    this.rootContent.setAttribute('opacity', (0.5 * copy + 0.5 * solid).toFixed(3));
+    // Its contents start as a faint copy, scanned in right to left,
+    // and firm up when it's solid.
+    this.rootContent.setAttribute('opacity', ((copy > 0 ? 0.5 : 0) + 0.5 * solid).toFixed(3));
+    const scanning = copy > 0 && copy < 1;
+    const sx = lerp(ROOT[0] + ROOT[2] - 4, ROOT[0] - SCAN_W + 4, copy);
+    this.scanBar.setAttribute('x', sx.toFixed(1));
+    this.scanBar.setAttribute('opacity', scanning ? Math.min(1, copy / 0.06, (1 - copy) / 0.06).toFixed(3) : 0);
+    if (scanning) {
+      const cx = Math.max(ROOT[0], sx + SCAN_W * 0.3);
+      this.scanClip.setAttribute('x', cx.toFixed(1));
+      this.scanClip.setAttribute('width', Math.max(0, ROOT[0] + ROOT[2] - cx).toFixed(1));
+      this.rootContent.setAttribute('clip-path', 'url(#dg-scan-clip)');
+    } else this.rootContent.removeAttribute('clip-path');
     // Contents change only once the marker has brought the new segment.
     this._blendCells(A, B, clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), drop);
 
@@ -753,6 +773,8 @@ export class Diagram {
     setCls(this.rootG, '');
     this.rootRect.removeAttribute('fill-opacity');
     this.rootContent.removeAttribute('opacity');
+    this.rootContent.removeAttribute('clip-path');
+    this.scanBar.setAttribute('opacity', 0);
     this.epochPlus.setAttribute('opacity', 0);
     this.epochNew.style.fill = '';
     this._drawGhost(null, 0, 0);
@@ -971,7 +993,8 @@ export class Diagram {
     if (seg) {
       const isFile = m.root.segs.some((ss) => ss.seg.id === tr.segId && ss.seg.kind === 'file');
       return isFile
-        ? { p: [seg.p[0] + 10, seg.p[1]], size: 18, kind: 'file', label: 'our file segment', st: 'bar', key: tr.segId }
+        // on its bar, at the baseline, labeled to the right, clear of the other bars
+        ? { p: [seg.p[0] + 10, seg.p[1]], size: 18, kind: 'file', label: 'our file segment', st: 'bar', side: 'right', key: tr.segId }
         : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment', st: 'cell', key: tr.segId };
     }
     return null;
@@ -1267,8 +1290,9 @@ export class Diagram {
       }
       const i = this.fileSlots.get(id);
       if (i === undefined) return null;
+      // our file segment sits on the bars' baseline, on its own bar
       const x = 520 + i * 18;
-      return [x - 3, 940];
+      return [x - 3, FILE_BASE - 9];
     };
     const seg = tr.segId != null ? segPos(tr.segId) : null;
     if (seg) this.positions.ourSeg = { p: seg, needs: ['cbft', 'bleve', 'scorch'] };
