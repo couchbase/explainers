@@ -76,8 +76,8 @@ chapters:
           [[Field info]]: for each field, its name, its options, and
           where its data is in each kind of section: text (the
           inverted index), synonyms and geo shapes. (zapx built with
-          vector support, as cbft is, adds a fourth, for vectors. Our
-          example's zapx wasn't.)
+          vector support, as cbft Enterprise is on Linux and macOS,
+          adds a fourth, for vectors. Our example's zapx wasn't.)
 
       - id: index
         view: { open: [sectionsIndex], target: region.sectionsIndex }
@@ -121,8 +121,10 @@ chapters:
         expect: ["fact:footer.version=17"]
         text: |
           [[The format version]]: 17. A v17 reader refuses anything
-          else; bleve picks the right zapx version for each file it
-          opens.
+          else. Scorch doesn't choose per file: an index uses one zap
+          version, recorded in `root.bolt` (in cbft, from the index
+          definition's `segmentVersion`), and opens all its segments
+          with it.
 
       - id: chunk-mode
         view: { focus: footer.chunkMode, target: footer.chunkMode }
@@ -179,17 +181,19 @@ chapters:
       - id: description-info
         view: { focus: info.description, target: info.description }
         text: |
-          [[description's info]]: its name, its options (what it
-          indexes and stores), and one slot per section.
+          [[description's info]]: its name, its options (indexed,
+          stored, term vectors, doc values), and one slot per
+          section, each tagged with its section type.
 
       - id: text-slot
         view: { focus: info.description.text, target: info.description.text }
         text: |
           [[Its text slot]] says its inverted index is at byte 4337;
-          its synonym and geo slots are 0: no data. That's all opening
-          a segment reads: the footer, and every field's info. No
-          dictionary or postings list is touched until a query needs
-          it.
+          its synonym and geo slots are 0: no data. That's nearly all
+          opening a segment reads: the footer, every field's info, and,
+          for each field with doc values, the small index at their
+          end. No dictionary or postings list is touched until a query
+          needs it.
 
   # ------------------------------------------------------------------
   - id: address
@@ -214,6 +218,8 @@ chapters:
         text: |
           [[Where its doc values are]]: bytes 3985 to 4337. Doc values
           are for sorting and facets; this query doesn't need them.
+          (Opening the segment already read these two numbers, to find
+          the doc values' index.)
 
       - id: dictionary
         view: { focus: record.dictOffset, target: record.dictOffset }
@@ -255,7 +261,8 @@ chapters:
         expect: ["fact:city.fstStates=31"]
         text: |
           An FST [[shares tails too]]: nodes from which the rest of
-          every term is the same merge into one state. 39 nodes become
+          every term (and its outputs) is the same merge into one
+          state. 39 nodes become
           31 states. The bigger the dictionary, the more this saves.
 
       - id: outputs
@@ -288,8 +295,8 @@ chapters:
       - id: start
         view: { focus: walk.0, target: walk.0 }
         text: |
-          [[The start state]]: 19 ways out, one for each letter a term
-          starts with.
+          [[The start state]]: 19 ways out, one for each first
+          character of a term (two of them digits).
 
       - id: q
         view: { focus: walk.1, target: walk.1 }
@@ -327,9 +334,11 @@ chapters:
         text: |
           Its value: 3016 + 51 = [[3067]]. The top two bits are 00, so
           it's an offset: quiet's postings list is at byte 3067. (A
-          term in a single doc can instead get 10: its doc number and
-          field length packed right into the value, with no postings
-          list at all. Only merges write those.)
+          term that occurs once, in one doc, without locations, like
+          every `_id`, can instead get 10: its doc number and field
+          length packed right into the value, with no postings list
+          at all. Only merges write those, including the persister's
+          merge of in-memory segments.)
 
   # ------------------------------------------------------------------
   - id: postings
@@ -418,9 +427,9 @@ chapters:
         expect: ["fact:quiet.chunks=1"]
         text: |
           It's split into chunks by doc number, so a reader can jump
-          to the one it needs. In chunk mode 1026, chunks aim for
-          about 1024 hits each; quiet has three hits, so
-          [[one chunk]].
+          to the one it needs. In chunk mode 1026, a term gets one
+          chunk per 1,024 hits, plus one, each covering an equal range
+          of doc numbers; quiet has three hits, so [[one chunk]].
 
       - id: doc0
         view: { focus: freq.hit0, target: freq.hit0 }
@@ -434,8 +443,9 @@ chapters:
       - id: doc2
         view: { focus: freq.hit2, target: freq.hit2 }
         text: |
-          [[Doc 2]] is deleted. Its entry is still there, and the
-          reader steps over it.
+          [[Doc 2]] is deleted, but its entry is still here. A reader
+          after a later doc steps over it; for quiet, doc 1 is the
+          last live hit, so the reader stops before it.
 
   # ------------------------------------------------------------------
   - id: two-terms
@@ -471,9 +481,9 @@ chapters:
         view: { focus: and.result, target: and.result }
         expect: ["fact:and.result=0,1"]
         text: |
-          AND the two bitmaps: [[docs 0 and 1]]. Scorch really does
-          AND the bitmaps, segment by segment, before scoring what's
-          left.
+          AND the two bitmaps: [[docs 0 and 1]]. When every clause is
+          a plain term, as here, scorch really does AND the bitmaps,
+          segment by segment, before scoring what's left.
 
   # ------------------------------------------------------------------
   - id: stored
@@ -530,8 +540,10 @@ chapters:
       - id: overview
         view: { camera: overview, target: region.footer }
         text: |
-          That's everything this query read: the footer, the field
-          info, one record, one path through one FST, two postings
-          lists and their freq/norm data, and one stored record. The
-          lit bytes on the strip are [[a small part]] of the file, and
-          the rest was never touched.
+          That's what this query read: the footer and the field info
+          (and the doc values' indexes, on opening), one record, two
+          paths through one FST, two postings lists and their
+          freq/norm data, and each hit's ID from its stored record.
+          The lit bytes on the strip, the ones we followed, are
+          [[a small part]] of the file; the query read only a little
+          more.

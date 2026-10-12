@@ -422,8 +422,8 @@ zapx.open:
   path: segment.go
   anchor: "func (*ZapPlugin) open(path string, config map[string]interface{}) (segment.Segment, error) {"
   extent: func
-  title: zapx open() — mmap the file, then read the footer and fields
-  highlight: ["mmap.Map(", "loadConfig()", "loadFields()"]
+  title: zapx open() — mmap the file, then read the footer, fields and doc values indexes
+  highlight: ["mmap.Map(", "loadConfig()", "loadFields()", "loadDvReaders()"]
 
 zapx.footer:
   repo: zapx

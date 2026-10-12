@@ -724,13 +724,14 @@
   "id": "zapx.open",
   "repo": "zapx",
   "path": "segment.go",
-  "title": "zapx open() — mmap the file, then read the footer and fields",
+  "title": "zapx open() — mmap the file, then read the footer, fields and doc values indexes",
   "start": 52,
   "end": 110,
   "highlight": [
    57,
    84,
-   90
+   90,
+   96
   ],
   "url": "https://github.com/blevesearch/zapx/blob/6594f3d6bd0d/segment.go#L52-L110",
   "code": "func (*ZapPlugin) open(path string, config map[string]interface{}) (segment.Segment, error) {\n\tf, err := os.Open(path)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tmm, err := mmap.Map(f, mmap.RDONLY, 0)\n\tif err != nil {\n\t\t// mmap failed, try to close the file\n\t\t_ = f.Close()\n\t\treturn nil, err\n\t}\n\n\trv := &Segment{\n\t\tSegmentBase: SegmentBase{\n\t\t\tfieldsMap:         make(map[string]uint16),\n\t\t\tfieldsOptions:     make(map[string]index.FieldIndexingOptions),\n\t\t\tinvIndexCache:     newInvertedIndexCache(),\n\t\t\tvecIndexCache:     newVectorIndexCache(),\n\t\t\tsynIndexCache:     newSynonymIndexCache(),\n\t\t\tgeoIndexCache:     newGeoIndexCache(),\n\t\t\tnstIndexCache:     newNestedIndexCache(),\n\t\t\ttrainedIndexCache: newTrainedIndexCache(),\n\t\t\tfieldDvReaders:    make([][]*docValueReader, len(segmentSections)),\n\t\t\tconfig:            config,\n\t\t},\n\t\tf:    f,\n\t\tmm:   mm,\n\t\tpath: path,\n\t\trefs: 1,\n\t}\n\trv.SegmentBase.updateSize()\n\n\terr = rv.loadConfig()\n\tif err != nil {\n\t\t_ = rv.Close()\n\t\treturn nil, err\n\t}\n\n\terr = rv.loadFields()\n\tif err != nil {\n\t\t_ = rv.Close()\n\t\treturn nil, err\n\t}\n\n\terr = rv.loadDvReaders()\n\tif err != nil {\n\t\t_ = rv.Close()\n\t\treturn nil, err\n\t}\n\n\t// initialize any of the caches if needed\n\terr = rv.nstIndexCache.initialize(rv.numDocs, rv.getEdgeListOffset(), rv.mem)\n\tif err != nil {\n\t\t_ = rv.Close()\n\t\treturn nil, err\n\t}\n\n\treturn rv, nil\n}"
