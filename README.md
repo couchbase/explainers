@@ -314,4 +314,5 @@ tools/mergeplan-golden/  Go program emitting golden merge plans
 
 ## License
 
-Apache License 2.0; see [LICENSE](LICENSE).
+Copyright 2026 Couchbase, Inc. Licensed under the Apache License,
+Version 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).

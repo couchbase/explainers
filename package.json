@@ -4,6 +4,7 @@
   "private": true,
   "description": "Scrollytelling explainers of bleve/scorch internals, as used by Couchbase cbft",
   "license": "Apache-2.0",
+  "author": "Couchbase, Inc.",
   "type": "module",
   "scripts": {
     "build": "node build/build.mjs",
