@@ -31,7 +31,12 @@ function foci() {
   };
   const addCell = (id, lens, c, read) => add(id, lens, cellPt(c), read, cellBox(c));
   // the strip itself
-  for (const r of REGIONS) add(`region.${r.id}`, null, [r.x + 8, r.y + 26], null, [r.x, r.y, r.w, r.h]);
+  // (a region's callout lands on its left edge, just below its top
+  // corner, since the regions are stacked)
+  for (const r of REGIONS) {
+    add(`region.${r.id}`, null, null, null, [r.x, r.y, r.w, r.h]);
+    out[`region.${r.id}`].p = [r.x, r.y + Math.min(20, r.h / 2)];
+  }
   // footer
   for (const c of S.footer.cells) if (c.size) addCell(`footer.${c.key}`, 'footer', c, [c.start, c.start + c.size]);
   // sections index and field info
