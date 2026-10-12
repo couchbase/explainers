@@ -12,7 +12,8 @@
     "dev": "node build/build.mjs --watch",
     "test": "node --test test/*.test.mjs",
     "test:e2e": "node --test test-e2e/*.test.mjs",
-    "golden:mergeplan": "cd tools/mergeplan-golden && GOTOOLCHAIN=local GOFLAGS=-mod=mod go run . > ../../test/golden-mergeplan.json"
+    "golden:mergeplan": "cd tools/mergeplan-golden && GOTOOLCHAIN=local GOFLAGS=-mod=mod go run . > ../../test/golden-mergeplan.json",
+    "golden:zap": "cd tools/zap-golden && GOTOOLCHAIN=local GOFLAGS=-mod=mod go run . hotels.json ../../src/explainers/zap-format/segment.json"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

@@ -1,0 +1,62 @@
+{
+  "note": "Hotels from Couchbase travel-sample (docloader/examples/travel-sample.zip): the docs in the zap explainer's example segment, in batch order. The deleted one was updated after this batch, so its old version is in the segment's deletion bitmap.",
+  "deleted": [
+    "hotel_16521"
+  ],
+  "docs": [
+    {
+      "id": "hotel_21844",
+      "name": "Hôtel Astor Saint Honoré",
+      "city": "Paris",
+      "description": "4-star hotel on a quiet street."
+    },
+    {
+      "id": "hotel_1362",
+      "name": "Au Saint Roch",
+      "city": "Avignon",
+      "description": "Nice hotel with a very quiet garden."
+    },
+    {
+      "id": "hotel_16521",
+      "name": "The Wellington",
+      "city": "London",
+      "description": "Located in quiet area. Rate includes simple breakfast. Internet access available. 10 min from Victoria Station."
+    },
+    {
+      "id": "hotel_26491",
+      "name": "Wyndam Santa Monica",
+      "city": "Santa Monica",
+      "description": "Hotel is quaint, comfortable and some rooms have a partial ocean view."
+    },
+    {
+      "id": "hotel_26492",
+      "name": "Sheraton Delfina",
+      "city": "Santa Monica",
+      "description": "Four blocks from the beach."
+    },
+    {
+      "id": "hotel_21722",
+      "name": "Hotel Karraz",
+      "city": "Paris",
+      "description": "Next to Les Halles Metro Station."
+    },
+    {
+      "id": "hotel_16522",
+      "name": "Belle Cour Hotel & SPA",
+      "city": "London",
+      "description": "A charming four star boutique hotel near Victoria station."
+    },
+    {
+      "id": "hotel_26495",
+      "name": "The Fairmont",
+      "city": "Santa Monica",
+      "description": "A great hotel, but it only has ocean views."
+    },
+    {
+      "id": "hotel_25390",
+      "name": "Inn on Castro",
+      "city": "San Francisco",
+      "description": "An upscale bed and breakfast in a restored house."
+    }
+  ]
+}
