@@ -28,3 +28,9 @@ cbgt:
   local:
     - $CBFT_EXPLAINER_CB_SRC/cbgt
     - ../couchbase-server.master/cbgt
+vellum:
+  github: https://github.com/blevesearch/vellum
+  commit: v1.2.0
+  version: v1.2.0
+  local:
+    - $HOME/go/pkg/mod/github.com/blevesearch/vellum@v1.2.0

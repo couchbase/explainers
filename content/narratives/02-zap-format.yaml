@@ -1,0 +1,538 @@
+# The second explainer: inside a zap segment file. There's no
+# simulation here: each step moves the reader's `focus` (or the camera,
+# a lid or a lens), and the numbers in the text are checked against the
+# real example segment (tools/zap-golden) by `expect: ["fact:..."]`.
+
+id: zap-format
+explainer: zap-format
+title: "Inside a zap segment: how scorch stores and finds your docs"
+subtitle: >-
+  What scorch reads, byte by byte, when a query asks for a word: the
+  file layout, vellum FSTs, roaring bitmaps and stored fields.
+audience: Couchbase engineers and support
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: file
+    title: "One file"
+    color: file
+    steps:
+
+      - id: intro
+        view: { camera: file, target: region.storedData }
+        expect: ["fact:file.size=5717", "fact:docs=9"]
+        text: |
+          The [first explainer](scorch-goroutines.html) ended with our
+          docs in a *file segment*: a zap file on disk, listed by the
+          root snapshot. Here's one. It's a real segment, written by the
+          zapx code cbft uses, from nine hotels in the travel-sample
+          dataset: [[5,717 bytes]].
+
+      - id: mmapped
+        view: { target: region.sectionBodies }
+        code: [zapx.open]
+        text: |
+          When scorch opens a segment, it maps the whole file into
+          memory (mmap). All of it is now addressable, but nothing has
+          been read yet: the parts are still [[covered]] here. Let's
+          uncover them, front to back.
+
+  # ------------------------------------------------------------------
+  - id: layout
+    title: "Front to back"
+    color: file
+    steps:
+
+      - id: stored
+        view: { open: [storedData], target: region.storedData }
+        expect: ["fact:footer.storedIndexOffset=965"]
+        text: |
+          First, [[the stored fields]]: each doc's stored values, one
+          record per doc, in doc-number order. 965 bytes here.
+
+      - id: stored-index
+        view: { open: [storedIndex], target: region.storedIndex }
+        text: |
+          Then [[the stored index]]: one 8-byte offset per doc, to its
+          record. Nine docs, 72 bytes.
+
+      - id: nested
+        view: { open: [nestedEdges], target: region.nestedEdges }
+        text: |
+          [[Nested docs]], new in this version (v17): pairs of child
+          and parent doc numbers. Our hotels have none, so it's one
+          byte: a count of zero.
+
+      - id: bodies
+        view: { open: [sectionBodies], target: region.sectionBodies }
+        text: |
+          [[The sections]]: the bulk of the file. Each field's term
+          dictionary, postings lists and doc values live here.
+
+      - id: info
+        view: { open: [sectionsInfo], target: region.sectionsInfo }
+        expect: ["fact:sections.perField=3"]
+        text: |
+          [[Field info]]: for each field, its name, its options, and
+          where its data is in each kind of section: text (the
+          inverted index), synonyms and geo shapes. (zapx built with
+          vector support, as cbft is, adds a fourth, for vectors. Our
+          example's zapx wasn't.)
+
+      - id: index
+        view: { open: [sectionsIndex], target: region.sectionsIndex }
+        text: |
+          [[The sections index]]: where each field's info starts.
+
+      - id: footer
+        view: { open: [footer], target: region.footer }
+        expect: ["fact:footer.bytes=40"]
+        text: |
+          And [[the footer]]: the last 40 bytes. That's where a reader
+          starts.
+
+  # ------------------------------------------------------------------
+  - id: opening
+    title: "Opening it"
+    color: file
+    steps:
+
+      - id: zoom
+        view: { camera: footer, target: region.footer }
+        text: |
+          Opening a segment starts at [[the end of the file]].
+
+      - id: footer-open
+        view: { bubble: [footer], target: lens.footer }
+        code: [zapx.footer]
+        text: |
+          zapx reads [[the footer]] backwards from the last byte. Every
+          number in it is big-endian.
+
+      - id: crc
+        view: { focus: footer.crc, target: footer.crc }
+        text: |
+          Last in the file, so read first: [[a CRC32]] of everything
+          before it. It's read here, but not checked when the file is
+          opened.
+
+      - id: version
+        view: { focus: footer.version, target: footer.version }
+        expect: ["fact:footer.version=17"]
+        text: |
+          [[The format version]]: 17. A v17 reader refuses anything
+          else; bleve picks the right zapx version for each file it
+          opens.
+
+      - id: chunk-mode
+        view: { focus: footer.chunkMode, target: footer.chunkMode }
+        expect: ["fact:footer.chunkMode=1026"]
+        text: |
+          [[The chunk mode]], 1026: how this file chunks its postings
+          data. We'll meet the chunks later.
+
+      - id: sections-offset
+        view: { focus: footer.sectionsIndexOffset, target: footer.sectionsIndexOffset }
+        expect: ["fact:footer.sectionsIndexOffset=5644"]
+        text: |
+          [[Where the sections index is]]: byte 5644.
+
+      - id: stored-offset
+        view: { focus: footer.storedIndexOffset, target: footer.storedIndexOffset }
+        text: |
+          [[Where the stored index is]]: byte 965. Stored fields come
+          last in our story.
+
+      - id: num-docs
+        view: { focus: footer.numDocs, target: footer.numDocs }
+        expect: ["fact:footer.numDocs=9"]
+        text: |
+          [[The number of docs]]: 9. Before it, an ID length of 0: no
+          writer ID, which is only there when a file callback, such as
+          encryption, wrote the file.
+
+      - id: to-sections
+        view: { camera: sections, target: region.sectionsIndex }
+        text: |
+          Next, the reader follows the offset back to
+          [[the sections index]].
+
+      - id: sections-open
+        view: { bubble: [sections], target: lens.sections }
+        code: [zapx.loadFields]
+        text: |
+          [[The sections index]], and the field info it points to.
+
+      - id: nf
+        view: { focus: sections.nf, target: sections.nf }
+        expect: ["fact:sections.nf=4", "fact:fields=_id,city,description,name"]
+        text: |
+          It starts with [[the number of fields]]: 4. `_id` is always
+          first, then the others by name: city, description, name.
+
+      - id: offsets
+        view: { focus: sections.off2, target: sections.off2 }
+        text: |
+          Then one 8-byte offset per field, to its info. Our query is
+          on description, so we follow [[its offset]].
+
+      - id: description-info
+        view: { focus: info.description, target: info.description }
+        text: |
+          [[description's info]]: its name, its options (what it
+          indexes and stores), and one slot per section.
+
+      - id: text-slot
+        view: { focus: info.description.text, target: info.description.text }
+        text: |
+          [[Its text slot]] says its inverted index is at byte 4337;
+          its synonym and geo slots are 0: no data. That's all opening
+          a segment reads: the footer, and every field's info. No
+          dictionary or postings list is touched until a query needs
+          it.
+
+  # ------------------------------------------------------------------
+  - id: address
+    title: "A term's address"
+    color: dict
+    steps:
+
+      - id: zoom
+        view: { camera: record, target: info.description.text }
+        text: |
+          A query for *quiet* in description starts at
+          [[that address]].
+
+      - id: record-open
+        view: { bubble: [record], target: lens.record }
+        code: [zapx.dictionary]
+        text: |
+          At byte 4337, [[description's record]]: three numbers.
+
+      - id: doc-values
+        view: { focus: record.dvStart, target: record.dvStart }
+        text: |
+          [[Where its doc values are]]: bytes 3985 to 4337. Doc values
+          are for sorting and facets; this query doesn't need them.
+
+      - id: dictionary
+        view: { focus: record.dictOffset, target: record.dictOffset }
+        expect: ["fact:description.dictOffset=3519", "fact:description.fstLen=464"]
+        text: |
+          And [[where its term dictionary is]]: byte 3519. There's a
+          length, 464 bytes, and then a vellum FST.
+
+  # ------------------------------------------------------------------
+  - id: fst
+    title: "What an FST is"
+    color: dict
+    steps:
+
+      - id: zoom
+        view: { camera: fst, target: record.dictOffset }
+        text: |
+          Before we walk [[description's FST]], here's how one works,
+          on a smaller one.
+
+      - id: fst-open
+        view: { bubble: [fst], target: lens.fst }
+        expect: ["fact:city.terms=7"]
+        text: |
+          An FST maps each term to a number. This one is
+          [[city's]]: 7 terms.
+
+      - id: trie
+        view: { focus: fst.trie, target: fst.trie }
+        expect: ["fact:city.trieNodes=39"]
+        text: |
+          Start with [[a trie]]: one node per prefix, 39 of them
+          (counting the empty one) for avignon, francisco, london,
+          monica, paris, san and santa. Terms that start alike, like
+          san and santa, already share their start.
+
+      - id: tails
+        view: { focus: fst.min, target: fst.min }
+        expect: ["fact:city.fstStates=31"]
+        text: |
+          An FST [[shares tails too]]: nodes from which the rest of
+          every term is the same merge into one state. 39 nodes become
+          31 states. The bigger the dictionary, the more this saves.
+
+      - id: outputs
+        view: { focus: fst.outputs, target: fst.outputs }
+        text: |
+          And [[each transition can carry an output]]: a term's value
+          is the sum along its path. Here the first letter carries each
+          term's whole value, its postings offset, and the step from
+          san to santa adds 51 to san's 1638.
+
+  # ------------------------------------------------------------------
+  - id: lookup
+    title: "Looking up quiet"
+    color: dict
+    steps:
+
+      - id: zoom
+        view: { camera: walk, target: lens.fst }
+        text: |
+          Back to [[description's dictionary]].
+
+      - id: walk-open
+        view: { bubble: [walk], target: lens.walk }
+        code: [vellum.get]
+        expect: ["fact:description.terms=42", "fact:description.fstStates=128"]
+        text: |
+          [[description's FST]] has 42 terms and 128 states. Looking
+          up *quiet* walks it one byte at a time, adding up outputs.
+
+      - id: start
+        view: { focus: walk.0, target: walk.0 }
+        text: |
+          [[The start state]]: 19 ways out, one for each letter a term
+          starts with.
+
+      - id: q
+        view: { focus: walk.1, target: walk.1 }
+        expect: ["fact:quaint.value=3016"]
+        text: |
+          Take q. Its transition carries [[3016]]. That happens to be
+          *quaint*'s whole value: the FST puts outputs as early as it
+          can.
+
+      - id: u
+        view: { focus: walk.2, target: walk.2 }
+        text: |
+          Then [[u]], which adds nothing.
+
+      - id: i
+        view: { focus: walk.3, target: walk.3 }
+        text: |
+          Two ways out here: a, toward quaint, and i, toward quiet.
+          [[Taking i]] adds 51.
+
+      - id: e
+        view: { focus: walk.4, target: walk.4 }
+        text: |
+          Then [[e]]...
+
+      - id: t
+        view: { focus: walk.5, target: walk.5 }
+        text: |
+          ...and t. [[This state]] is final: quiet is a term in this
+          dictionary.
+
+      - id: value
+        view: { focus: walk.value, target: walk.value }
+        expect: ["fact:quiet.value=3067"]
+        text: |
+          Its value: 3016 + 51 = [[3067]]. The top two bits are 00, so
+          it's an offset: quiet's postings list is at byte 3067. (A
+          term in a single doc can instead get 10: its doc number and
+          field length packed right into the value, with no postings
+          list at all. Only merges write those.)
+
+  # ------------------------------------------------------------------
+  - id: postings
+    title: "The postings"
+    color: postings
+    steps:
+
+      - id: zoom
+        view: { camera: postings, target: walk.value }
+        text: |
+          Following [[that offset]].
+
+      - id: postings-open
+        view: { bubble: [postings], target: lens.postings }
+        code: [zapx.postingsList]
+        text: |
+          At byte 3067, [[quiet's postings list]].
+
+      - id: header
+        view: { focus: postings.header, target: postings.header }
+        expect: ["fact:quiet.bitmapLen=22"]
+        text: |
+          [[A small header]]: where its freq/norm data is (3039),
+          where its locations are (3047), and the bitmap's length, 22
+          bytes. The freq and location data were written just before
+          it.
+
+      - id: bitmap
+        view: { focus: postings.bitmap, target: postings.bitmap }
+        text: |
+          Then [[a roaring bitmap]] of the docs with quiet, used right
+          where it is in the mmapped file, without copying it.
+
+      - id: containers
+        view: { focus: postings.docs, target: postings.docs }
+        expect: ["fact:quiet.docs=0,1,2"]
+        text: |
+          Roaring splits each doc number into a 16-bit container key
+          and a 16-bit value. With 9 docs it's one container, key 0,
+          and with few values it's a sorted array:
+          [[docs 0, 1 and 2]]. (A container with more than 4096 values is a 65,536-bit
+          bitmap instead.)
+
+  # ------------------------------------------------------------------
+  - id: deleted
+    title: "Minus the deleted"
+    color: postings
+    steps:
+
+      - id: deleted
+        view: { focus: postings.deleted, target: postings.deleted }
+        expect: ["fact:deleted=2", "fact:deleted.id=hotel_16521"]
+        text: |
+          But doc 2, The Wellington, was updated after this segment
+          was written, so this copy is deleted. [[That fact]] isn't in
+          this file: files never change once written. It's in the root
+          snapshot, as a roaring bitmap per segment, and persisted in
+          `root.bolt`.
+
+      - id: live
+        view: { focus: postings.live, target: postings.live }
+        code: [zapx.postingsIterator]
+        expect: ["fact:quiet.live=0,1"]
+        text: |
+          So the docs that count are the postings ANDNOT the deleted:
+          [[0 and 1]].
+
+  # ------------------------------------------------------------------
+  - id: scoring
+    title: "Scoring"
+    color: postings
+    steps:
+
+      - id: zoom
+        view: { camera: freq, target: postings.header }
+        text: |
+          To score them, the reader goes to [[the freq/norm data]].
+
+      - id: freq-open
+        view: { bubble: [freq], target: lens.freq }
+        text: |
+          At byte 3039, [[quiet's freq/norm data]].
+
+      - id: chunk
+        view: { focus: freq.chunk, target: freq.chunk }
+        expect: ["fact:quiet.chunks=1"]
+        text: |
+          It's split into chunks by doc number, so a reader can jump
+          to the one it needs. In chunk mode 1026, chunks aim for
+          about 1024 hits each; quiet has three hits, so
+          [[one chunk]].
+
+      - id: doc0
+        view: { focus: freq.hit0, target: freq.hit0 }
+        expect: ["fact:doc0.fieldLen=5"]
+        text: |
+          [[Doc 0]]: quiet appears once, with locations, in a
+          description of 5 indexed terms. The "norm" stored here is
+          really that length; the score's 1/√5 is worked out when it's
+          read. None of this is compressed: these are plain varints.
+
+      - id: doc2
+        view: { focus: freq.hit2, target: freq.hit2 }
+        text: |
+          [[Doc 2]] is deleted. Its entry is still there, and the
+          reader steps over it.
+
+  # ------------------------------------------------------------------
+  - id: two-terms
+    title: "Two terms"
+    color: postings
+    steps:
+
+      - id: zoom
+        view: { camera: and, target: freq.hit0 }
+        text: |
+          Now a query for *quiet* AND *hotel*, still in
+          [[description]].
+
+      - id: and-open
+        view: { bubble: [and], target: lens.and }
+        code: [scorch.conjunction]
+        text: |
+          [[Both terms]], per segment.
+
+      - id: quiet
+        view: { focus: and.quiet, target: and.quiet }
+        text: |
+          [[quiet]], minus the deleted, as before: 0 and 1.
+
+      - id: hotel
+        view: { focus: and.hotel, target: and.hotel }
+        expect: ["fact:hotel.docs=0,1,3,6,7"]
+        text: |
+          [[hotel]], found the same way: its own walk, its own
+          postings. Docs 0, 1, 3, 6 and 7.
+
+      - id: result
+        view: { focus: and.result, target: and.result }
+        expect: ["fact:and.result=0,1"]
+        text: |
+          AND the two bitmaps: [[docs 0 and 1]]. Scorch really does
+          AND the bitmaps, segment by segment, before scoring what's
+          left.
+
+  # ------------------------------------------------------------------
+  - id: stored
+    title: "Getting a hit back"
+    color: stored
+    steps:
+
+      - id: zoom
+        view: { camera: stored, target: region.storedIndex }
+        text: |
+          For each hit, the search returns its ID, and maybe its
+          fields, from [[the stored fields]].
+
+      - id: stored-open
+        view: { bubble: [stored], target: lens.stored }
+        code: [zapx.storedFields]
+        text: |
+          [[Doc 0's stored fields]].
+
+      - id: index
+        view: { focus: stored.index, target: stored.index }
+        text: |
+          The 8 bytes at 965, the first entry of
+          [[the stored index]], say doc 0's record is at byte 0.
+
+      - id: record
+        view: { focus: stored.record, target: stored.record }
+        expect: ["fact:stored0.metaLen=16"]
+        text: |
+          [[The record]]: two lengths, then 16 bytes of metadata (which
+          field each value is, and where), then the data.
+
+      - id: id
+        view: { focus: stored.id, target: stored.id }
+        expect: ["fact:stored0.id=hotel_21844", "fact:stored0.idLen=11"]
+        text: |
+          The data starts with [[the doc's ID]], hotel_21844,
+          uncompressed. Getting a hit's ID decompresses nothing.
+
+      - id: snappy
+        view: { focus: stored.snappy, target: stored.snappy }
+        expect: ["fact:stored0.snappyLen=63"]
+        text: |
+          [[The rest]], 63 bytes, is compressed with snappy, one doc
+          at a time. It's decompressed only when the fields are
+          asked for.
+
+      - id: fields
+        view: { focus: stored.fields, target: stored.fields }
+        text: |
+          [[Decompressed]]: Hôtel Astor Saint Honoré, in Paris, "4-star
+          hotel on a quiet street."
+
+      - id: overview
+        view: { camera: overview, target: region.footer }
+        text: |
+          That's everything this query read: the footer, the field
+          info, one record, one path through one FST, two postings
+          lists and their freq/norm data, and one stored record. The
+          lit bytes on the strip are [[a small part]] of the file, and
+          the rest was never touched.

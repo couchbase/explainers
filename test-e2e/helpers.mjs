@@ -7,7 +7,7 @@ import { chromium } from 'playwright-core';
 
 // The page with every chapter, drafts included, when there is one;
 // `shared` is the page as shared (ending at the narrative's `stop`).
-export const shared = fileURLToPath(new URL('../dist/index.html', import.meta.url));
+export const shared = fileURLToPath(new URL('../dist/scorch-goroutines.html', import.meta.url));
 const drafts = fileURLToPath(new URL('../dist/scorch-goroutines-drafts.html', import.meta.url));
 export const file = existsSync(drafts) ? drafts : shared;
 
@@ -28,7 +28,7 @@ export async function openPage(browser, { viewport = DESKTOP, scheme = 'light', 
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto('file://' + which + (debug ? '?debug=1' : '') + (hash ? '#' + hash : ''));
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.model);
+  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.current >= 0);
   return { page, errors };
 }
 

@@ -5,6 +5,7 @@
 
 id: scorch-goroutines
 explainer: scorch-goroutines
+next: zap-format
 title: "Inside bleve / scorch: introducer, persister, merger"
 subtitle: >-
   How a Couchbase FTS index turns a stream of DCP mutations into

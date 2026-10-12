@@ -45,7 +45,17 @@ for (const f of files) {
 
   const steps = flattenSteps(n);
   steps.forEach((st, i) => {
-    if (!domain.makeModel) return;
+    // With no simulation, `expect` is checked against the explainer's
+    // facts (its real example data) instead.
+    if (!domain.makeModel) {
+      if (!(st.expect || []).length) return;
+      test(`${f}: ${st.chapterId}/${st.id} states the facts`, () => {
+        useDomain(domain);
+        const m = domain.factModel();
+        for (const e of st.expect) assert.ok(checkExpectation(e, m), `expected "${e}"`);
+      });
+      return;
+    }
     test(`${f}: ${st.chapterId}/${st.id} simulates as described`, () => {
       useDomain(domain);
       const m = modelAtStep(n, steps, i);

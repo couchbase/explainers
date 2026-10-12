@@ -45,6 +45,13 @@ export function buildPage(app, data, codeDrawer) {
     }
   }
 
+  // at the end, the explainer to read next
+  if (data.next) {
+    story.append(h('div', { class: 'card next-card' },
+      h('div', { class: 'eyebrow', text: 'Next' }),
+      h('a', { class: 'next-link', href: data.next.href, text: `${data.next.title} →` })));
+  }
+
   // ---- stage: toolbar + diagram viewport ----
   const btn = (text, title) => h('button', { class: 'btn', type: 'button', text, ...(title ? { title } : {}) });
   const ui = {
@@ -66,7 +73,7 @@ export function buildPage(app, data, codeDrawer) {
   const toolbar = h('div', { class: 'toolbar' }, ui.crumb, h('span', { class: 'spacer' }), h('span', { class: 'tools' }, ui.zoomHint, ui.controls), ui.codeBtn);
 
   const svg = svgEl('svg', { class: 'diagram', preserveAspectRatio: 'xMidYMid meet', role: 'img',
-    'aria-label': 'Diagram of cbft and scorch goroutines, segments and files' });
+    'aria-label': `Diagram: ${narrative.title}` });
   const zbtn = (text, label) => h('button', { class: 'zbtn', type: 'button', text, 'aria-label': label, title: label });
   ui.zoomIn = zbtn('+', 'Zoom in');
   ui.zoomOut = zbtn('−', 'Zoom out');

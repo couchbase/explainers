@@ -85,6 +85,12 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
   const snippets = JSON.parse(read('content/snippets.json'));
   const sources = yaml.load(read('content/sources.yaml'));
   const narratives = await loadNarratives(coderefs);
+  const nextOf = (n) => {
+    if (!n.next) return null;
+    const m = narratives.find((x) => x.id === n.next);
+    if (!m) throw new Error(`${n.id}: next "${n.next}" isn't a narrative`);
+    return { href: `${m.id}.html`, title: m.title };
+  };
 
   // One bundle per explainer: the engine plus that explainer, from its
   // entry point.
@@ -144,6 +150,8 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
       defaultConfig: DEFAULT_CONFIG,
       builtAt,
       version,
+      // the explainer to read next, if the narrative names one
+      next: nextOf(n),
     };
     const html = template
       .replaceAll('{{TITLE}}', n.title.replace(/[<&"]/g, ''))

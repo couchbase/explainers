@@ -12,13 +12,21 @@ merger"**, follows one batch of mutations from KV through CBFT and onto disk.
 Later chapters (ingest resuming, a slow disk, a huge ingest, a slow query, etc)
 are drafts, still under review; see [Drafts](#drafts).
 
+The second explainer, **"Inside a zap segment: how scorch stores and finds
+your docs"**, opens one of those segment files and follows a query for *quiet*
+through it byte by byte: footer, field info, a vellum FST, roaring postings
+minus deleted docs, freq/norm, an AND of two terms, and stored fields. The
+file is a real segment of nine travel-sample hotels, built with the zapx code
+cbft uses (`tools/zap-golden/`), so every offset, FST output and bitmap shown
+is real.
+
 ## Quick start
 
 You need [Node.js](https://nodejs.org/) 20 or newer.
 
 ```sh
 npm ci               # install the pinned dependencies
-npm run build        # -> dist/scorch-goroutines.html (and dist/index.html)
+npm run build        # -> dist/scorch-goroutines.html, dist/zap-format.html, dist/index.html
 open dist/index.html # open the file in a browser
 ```
 
@@ -289,8 +297,9 @@ the sources; only refreshing the snippets does.
 
 To move to newer versions, bump the commits/versions in
 `sources.yaml`, run `npm run snippets`, and fix any anchors it
-reports. Then run `npm run golden:mergeplan` (it needs a Go toolchain
-new enough for bleve's `go.mod`), and `npm test`.
+reports. Then run `npm run golden:mergeplan` and `npm run golden:zap`
+(they need a Go toolchain new enough for bleve's `go.mod`), and
+`npm test`.
 
 ## Layout
 
@@ -333,7 +342,10 @@ src/js/ui/               the page
   util/                  DOM and interpolation helpers
 build/                   build.mjs, snippets.mjs, schema.mjs
 test/, test-e2e/         unit tests; browser tests
+src/explainers/zap-format/  the second explainer: its example segment (segment.json),
+                         layout, scene, story, diagram and page
 tools/mergeplan-golden/  Go program emitting golden merge plans
+tools/zap-golden/        Go program building the zap example with zapx, and dumping it
 .github/workflows/       CI, and GitHub Pages publishing
 ```
 

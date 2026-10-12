@@ -414,3 +414,73 @@ cbgt.dcpBuffer:
   anchor: "var DCPFeedBufferSizeBytes = uint32(20 * 1024 * 1024)"
   extent: 6
   title: cbgt DCP flow-control buffer
+
+# ---- the zap-format explainer ----
+
+zapx.open:
+  repo: zapx
+  path: segment.go
+  anchor: "func (*ZapPlugin) open(path string, config map[string]interface{}) (segment.Segment, error) {"
+  extent: func
+  title: zapx open() — mmap the file, then read the footer and fields
+  highlight: ["mmap.Map(", "loadConfig()", "loadFields()"]
+
+zapx.footer:
+  repo: zapx
+  path: segment.go
+  anchor: "func (s *Segment) loadConfig() error {"
+  extent: func
+  title: zapx loadConfig() — the footer, read backwards from the end
+  highlight: ["Version", "chunkMode", "sectionsIndexOffset", "storedIndexOffset", "numDocs"]
+
+zapx.loadFields:
+  repo: zapx
+  path: segment.go
+  anchor: "func (sb *SegmentBase) loadFields() error {"
+  extent: func
+  title: zapx loadFields() — the sections index and each field's info
+
+zapx.dictionary:
+  repo: zapx
+  path: segment.go
+  anchor: "func (sb *SegmentBase) dictionary(field string) (rv *Dictionary, err error) {"
+  extent: func
+  title: zapx dictionary() — from a field to its FST
+
+vellum.get:
+  repo: vellum
+  path: fst.go
+  anchor: "func (f *FST) get(input []byte, prealloc fstState) (uint64, bool, error) {"
+  extent: func
+  title: vellum FST get() — walk the term's bytes, summing outputs
+
+zapx.postingsList:
+  repo: zapx
+  path: posting.go
+  anchor: "func (rv *PostingsList) read(postingsOffset uint64, d *Dictionary) error {"
+  extent: func
+  title: zapx PostingsList read() — the header, then the roaring bitmap
+  highlight: ["FromBuffer("]
+
+zapx.postingsIterator:
+  repo: zapx
+  path: posting.go
+  anchor: "func (p *PostingsList) iterator(includeFreq, includeNorm, includeLocs bool,"
+  extent: func
+  title: zapx PostingsList iterator() — postings ANDNOT deleted
+  highlight: ["roaring.AndNot("]
+
+scorch.conjunction:
+  repo: bleve
+  path: index/scorch/optimize.go
+  anchor: "func (o *OptimizeTFRConjunction) Finish() (index.Optimized, error) {"
+  extent: func
+  title: bleve scorch conjunction — AND the bitmaps, segment by segment
+  highlight: ["roaring.And("]
+
+zapx.storedFields:
+  repo: zapx
+  path: read.go
+  anchor: "func (sb *SegmentBase) getDocStoredMetaAndCompressed(docNum uint64) ([]byte, []byte, error) {"
+  extent: func
+  title: zapx getDocStoredMetaAndCompressed() — stored index, then the record
