@@ -139,10 +139,13 @@ chapters:
         expect: ["reached:herder"]
         code: [herder.onScorchEvent, herder.checkAndBlockBatch, herder.overQuota]
         text: |
-          Before the batch may enter bleve, the worker checks with
-          [[the app herder]]. This checks process memory against the
-          indexing quota (65% of the FTS memory quota). Right now we're
-          well under it, so our batch is not paused and may continue.
+          The worker calls `bindex.Batch()`, which goes into bleve. The
+          first thing scorch's `Batch()` does is fire an event that
+          cbft hooks: still on the worker goroutine, [[the app herder]]
+          checks process memory against the indexing quota (65% of the
+          FTS memory quota), and would hold the batch right here if it
+          were over. Right now we're well under it, so our batch may
+          continue.
 
       - id: into-bleve
         sim: { until: analysis }
@@ -150,9 +153,9 @@ chapters:
         expect: ["reached:analysis"]
         code: [cbft.execute]
         text: |
-          Through the gate, the worker calls `bindex.Batch()`, and
-          [[our batch]] crosses from cbft's own code into the bleve
-          library, which runs in the same process.
+          Through the gate, [[our batch]] goes on into the bleve
+          library, still on cbft's worker goroutine: bleve runs in the
+          same process.
 
   # ------------------------------------------------------------------
   - id: scorch
@@ -290,7 +293,7 @@ chapters:
 
       - id: appended
         view: { swap: add, target: ourSeg }
-        code: [scorch.prepareSegment]
+        code: [introducer.introduceSegment]
         text: |
           It appends [[our segment]] to that list.
 
@@ -305,8 +308,9 @@ chapters:
         expect: [onlyRootLive]
         text: |
           Then it swaps [[the new root]] in, and lets go of its ref on
-          the old one. Nothing else holds the old root right now, so
-          it's freed.
+          the old one. Once `Batch()` drops the ref it took earlier
+          (to check our docs against the old root), nothing holds the
+          old root, and it's freed.
 
       - id: our-segment
         view: { camera: root, target: ourSeg }
@@ -337,9 +341,13 @@ chapters:
         code: [introducer.loop, introducer.introducePersist]
         text: |
           It's [[a select loop]] over four channels: batches being
-          introduced, files from the persister, merge results from the
-          merger, and "wake me after epoch N" requests. Every message
-          produces a new root and bumps the epoch.
+          introduced (`introductions`), files the persister wrote
+          directly (`persists`), merge results (`merges`, from the
+          merger and, as we'll see, from the persister too), and
+          "wake me after epoch N" requests (`introducerNotifier`,
+          shown as `watchers`). Each batch, persist or merge produces a
+          new root and bumps the epoch; a wake-me request just waits in
+          a list.
 
           Go's `select` picks randomly among ready channels, so
           batches, persists and merges take turns fairly.
@@ -362,7 +370,8 @@ chapters:
         text: |
           The persister works in [[four phases]]. First it naps for up
           to 2 seconds (cbft's setting; bleve's default is 0), letting
-          in-memory segments pile up. Then it merges them into ~20MB
+          in-memory segments pile up, unless the herder is holding
+          batches back. Then it merges them into ~20MB
           files with up to 4 workers, and commits.
 
       - id: cut
@@ -374,8 +383,8 @@ chapters:
           The persister woke up and took a ref on the root snapshot.
           Nothing was handed to it: it found our segment in that root.
           It [[cut the root's in-memory segments]] into *flushables*:
-          runs of neighbors, up to ~20MB each, one per worker. Ours is
-          in one of them.
+          runs of neighbors of about 20MB each. Up to 4 workers take
+          them, one flushable each at a time. Ours is in one of them.
 
       - id: persisting
         sim: { until: persisting }
@@ -429,7 +438,7 @@ chapters:
         sim: { until: written }
         view: { target: ourBatch, flow: write }
         expect: ["reached:written", ourSegInMemory]
-        code: [zapx.persist]
+        code: [zapx.merge]
         text: |
           The worker wrote a new zap file down to disk and fsynced it.
           Then it opened that file, mmapped, as [[our file segment]]:
@@ -490,9 +499,9 @@ chapters:
         view: { swap: copy, target: rootMem }
         code: [introducer.mergeSwap]
         text: |
-          It starts from a copy of [[the old root's segment list]]
-          (and, for now, its epoch). Only the list: the segments themselves are shared, and each one's
-          refcount goes up by one. No docs are copied.
+          It starts from a copy of [[the old root's segment list]].
+          Only the list: the segments themselves are shared, and each
+          one that stays gets one more ref. No docs are copied.
 
       - id: add
         view: { swap: add, target: ourSeg }
@@ -552,8 +561,9 @@ chapters:
           The persister wrote [[a new record]] into `root.bolt` and
           fsynced it. It's filed under epoch 354, the root the
           persister started from, and it lists our new zap file.
-          `root.bolt` keeps a few older records too: cbft keeps 3,
-          spaced 10 minutes apart, as *rollback points*.
+          `root.bolt` keeps a few older records too: cbft keeps 3 in
+          all, the newest plus older ones about 10 minutes apart, as
+          *rollback points*.
 
       - id: listed
         view: { commit: listed, target: ourFile }
@@ -565,10 +575,10 @@ chapters:
         view: { commit: release, target: persister }
         code: [snapshot.refcount]
         text: |
-          Finally, [[the persister]] lets go of its ref on epoch 354.
-          Nothing else held that snapshot, so it's freed. Its next
-          cycle takes a ref on whatever the root is by then: it never
-          holds more than one.
+          Finally, [[the persister]] lets go of its ref on epoch 354
+          (and of a brief ref on 355 that came back with its merge
+          result). Nothing else held 354, so it's freed. Its next cycle
+          takes a ref on whatever the root is by then.
 
       - id: why-354
         view: { commit: release, target: bolt }
@@ -601,8 +611,9 @@ chapters:
         code: [merger.loop, merger.planMergeAtSnapshot]
         text: |
           It works on file segments only, in [[four phases]]: wait for
-          a newly persisted epoch, plan, merge one task at a time, and
-          introduce each result. The merger is paced by the persister,
+          a newly persisted epoch, plan, merge its tasks one after
+          another, and introduce all the results to the introducer in
+          one go. The merger is paced by the persister,
           and as we'll see, the persister is paced by the merger.
 
       - id: planning
@@ -640,8 +651,8 @@ chapters:
       - id: files
         view: { plan: files, target: stairFiles }
         text: |
-          Now [[the actual files]], biggest first, as `Plan()` sorts
-          them: a few big ones from earlier merges, and a tail of small
+          Now [[the actual files]], biggest first (by live doc count),
+          as `Plan()` sorts them: a few big ones from earlier merges, and a tail of small
           fresh ones that the persister keeps writing.
 
       - id: over
@@ -769,9 +780,9 @@ chapters:
         view: { swap: settle, target: root }
         expect: ["rootEpoch:356", onlyRootLive]
         text: |
-          And the introducer swaps [[the new root]] in. The merger had
-          already let go of epoch 355 and nothing else held it, so
-          it's freed. Our old file is no longer in any root: it's
+          And the introducer swaps [[the new root]] in. The merger,
+          told its result is in, lets go of epoch 355; nothing else
+          holds it, so it's freed. Our old file is no longer in any root: it's
           garbage on disk now.
 
       - id: to-disk
@@ -808,7 +819,8 @@ chapters:
         code: [persister.loop, introducer.loop]
         text: |
           It hands the introducer an epoch watcher of its own, over
-          the introducer's `watchers` channel: "wake me once the root
+          the introducer's `introducerNotifier` channel (the `watchers`
+          chip): "wake me once the root
           is newer than epoch 356". [[The introducer]] holds it, and
           after every root it swaps in, closes the watchers it has now
           satisfied. So the wake-ups chain: a new root wakes the
