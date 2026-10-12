@@ -201,7 +201,7 @@ export class Diagram {
       const rg = el('g', {}, g);
       const norm = (1 / Math.sqrt(r.fieldLen)).toFixed(3);
       txt(rg, r.x, r.y + 4, `doc ${r.doc}: freq ${r.freq}, locations ${r.hasLocs ? 'yes' : 'no'}, length ${r.fieldLen} → norm 1/√${r.fieldLen} = ${norm}`, `zhit${r.deleted ? ' deleted' : ''}`);
-      if (r.deleted) txt(rg, r.x, r.y + 20, '(deleted: skipped, but its bytes are stepped over)', 'znote');
+      if (r.deleted) txt(rg, r.x, r.y + 20, '(deleted: its entry is still here)', 'znote');
       return rg;
     });
   }
