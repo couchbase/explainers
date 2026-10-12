@@ -117,7 +117,8 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
     }
     return bundles.get(id);
   };
-  const css = read('src/css/style.css');
+  // The engine's styles, then the explainer's own.
+  const cssFor = (n) => read('src/css/style.css') + '\n' + read(`src/explainers/${explainerOf(n)}/style.css`);
   const template = read('src/index.html');
   const builtAt = new Date().toISOString().slice(0, 10);
   // Which version this is, so readers can tell builds apart: `git
@@ -160,7 +161,7 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
     const html = template
       .replaceAll('{{TITLE}}', n.title.replace(/[<&"]/g, ''))
       .replace('{{DESCRIPTION}}', (n.subtitle || '').replace(/[<&"]/g, '').trim())
-      .replace('/*{{CSS}}*/', () => css)
+      .replace('/*{{CSS}}*/', () => cssFor(n))
       .replace('{{DATA}}', () => escapeJsonForScript(JSON.stringify(data)))
       .replace('/*{{JS}}*/', () => js.replace(/<\/script/gi, '<\\/script'));
     const file = join(outDir, `${n.id}${suffix}.html`);
