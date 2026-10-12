@@ -428,6 +428,10 @@ export class Diagram {
     this.writeFly = el('g', { opacity: 0 }, g);
     el('use', { href: '#dg-file', x: -7, y: -9, width: 14, height: 18, class: 'ficon ficon-new ficon-ours' }, this.writeFly);
     this.writeFlyLabel = txt(this.writeFly, 12, 4, 'our zap file', 'token-label');
+    // A root.bolt record, from the persister down to root.bolt.
+    this.boltFly = el('g', { opacity: 0 }, g);
+    el('rect', { x: -4, y: -9, width: 150, height: 18, rx: 3, class: 'bolt ours' }, this.boltFly);
+    this.boltFlyText = txt(this.boltFly, 4, 4, '', 'note-in');
     // An epoch watcher, from the persister up to the introducer, and
     // a note while the introducer holds it.
     this.watcherFly = el('g', { opacity: 0 }, g);
@@ -722,7 +726,22 @@ export class Diagram {
     this._clearSwap();
     this._blendCells(B, B, 1, 1);
     this._drawEpoch(B.epoch, B.epoch, 1);
-    this._blendBolt(A, B, part('bolt'));
+    // The older records move down, then the new record comes from the
+    // persister's phase-4 row, down its write arrow and across, and
+    // lands as the top record.
+    const bq = part('bolt');
+    const added = A.bolt && B.bolt && B.bolt[0].text && B.bolt[0].text !== A.bolt[0].text;
+    this._blendBolt(A, B, added ? (bq < 0.35 ? bq / 0.35 * 0.5 : bq < 0.85 ? 0.5 : 0.5 + (bq - 0.85) / 0.15 * 0.5) : bq);
+    const fq = added ? clamp01((bq - 0.35) / 0.5) : 0;
+    if (fq > 0 && fq < 1) {
+      const ep = /^epoch (\d+)/.exec(B.bolt[0].text);
+      setText(this.boltFlyText, `root.bolt · epoch ${ep ? ep[1] : ''}`);
+      // along the top record's row, below the "root.bolt snapshots" title
+      const pts = [[280, 1205], [280, 1402], [656, 1402]];
+      const [x, y] = along(pts, easeQuad(fq));
+      this.boltFly.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+      this.boltFly.setAttribute('opacity', Math.min(1, fq / 0.08, (1 - fq) / 0.08).toFixed(3));
+    } else this.boltFly.setAttribute('opacity', 0);
     this._blendDir(A, B, listed);
     // The merger wakes last: its status, and its ref on the root.
     const wake = easeQuad(part('wake'));
