@@ -12,7 +12,7 @@
 // lids, the shown detail bubbles, the UI mode (minimal or full chrome)
 // and how to place our batch's marker. A step only states what changes.
 
-import { makeModel, TRACE_STAGES, EXPECTATIONS, EXPECTATION_PARAMS, VIEW_KEYS } from '../domain.js';
+import { D } from '../domain.js';
 
 // The engine's own UI modes: minimal chrome, or full (charts, controls).
 export const UI_MODES = ['minimal', 'full'];
@@ -45,7 +45,7 @@ function newModelFor(narrative, step) {
   const r = step.sim.reset === true ? {} : step.sim.reset;
   const config = { ...(base.config || {}), ...(r.config || {}) };
   const seed = r.seed ?? base.seed ?? 1;
-  return makeModel({ seed, config });
+  return D.makeModel({ seed, config });
 }
 
 const UNTIL_MAX_MS = 180000;
@@ -102,7 +102,7 @@ export function resolveViews(steps) {
   // The explainer's own view directives (VIEW_KEYS): sticky ones carry
   // over; the others hold for their step only.
   const sticky = {};
-  for (const [k, d] of Object.entries(VIEW_KEYS)) if (d.sticky) sticky[k] = d.initial ?? null;
+  for (const [k, d] of Object.entries(D.VIEW_KEYS)) if (d.sticky) sticky[k] = d.initial ?? null;
   return steps.map((st) => {
     const v = st.view || {};
     if (v.camera !== undefined) camera = v.camera;
@@ -119,7 +119,7 @@ export function resolveViews(steps) {
     if (v.ui !== undefined) ui = v.ui;
     if (v.token !== undefined) token = v.token;
     const own = {};
-    for (const [k, d] of Object.entries(VIEW_KEYS)) {
+    for (const [k, d] of Object.entries(D.VIEW_KEYS)) {
       if (d.sticky) { if (v[k] !== undefined) sticky[k] = v[k]; own[k] = sticky[k]; } else own[k] = v[k] ?? null;
     }
     return { camera, open, bubbles, ui, token, ...own, target: v.target || null, chart: v.chart || null };
@@ -139,7 +139,7 @@ export function changesAt(steps, views, i) {
   if (!sameSet(views[i - 1].bubbles, views[i].bubbles)) out.push('bubbles');
   if (views[i - 1].ui !== views[i].ui) out.push('ui');
   // The explainer's sticky keys, when their change counts.
-  for (const [k, d] of Object.entries(VIEW_KEYS)) {
+  for (const [k, d] of Object.entries(D.VIEW_KEYS)) {
     if (d.sticky && d.counts && views[i - 1][k] !== views[i][k] && d.counts(views[i - 1], views[i])) out.push(k);
   }
   const simChanges = steps[i].sim && SIM_CHANGES.some((k) => steps[i].sim[k] !== undefined);
@@ -148,7 +148,7 @@ export function changesAt(steps, views, i) {
   // simulation's change, shown one phase at a time; each later phase
   // is the step's change.
   else {
-    for (const [k, d] of Object.entries(VIEW_KEYS)) {
+    for (const [k, d] of Object.entries(D.VIEW_KEYS)) {
       if (d.run && views[i][k] && views[i][k] !== views[i - 1][k]) { out.push(k); break; }
     }
   }
@@ -160,13 +160,13 @@ export function changesAt(steps, views, i) {
 export function checkExpectation(name, m) {
   if (name.startsWith('reached:')) return m.reached(name.slice(8));
   const [k, arg] = splitParam(name);
-  return arg !== undefined ? EXPECTATION_PARAMS[k].check(m, arg) : EXPECTATIONS[name](m);
+  return arg !== undefined ? D.EXPECTATION_PARAMS[k].check(m, arg) : D.EXPECTATIONS[name](m);
 }
 
 export function isKnownExpectation(name) {
-  if (name.startsWith('reached:')) return TRACE_STAGES.includes(name.slice(8));
+  if (name.startsWith('reached:')) return D.TRACE_STAGES.includes(name.slice(8));
   const [k, arg] = splitParam(name);
-  return arg !== undefined ? !!EXPECTATION_PARAMS[k] && EXPECTATION_PARAMS[k].valid(arg) : name in EXPECTATIONS;
+  return arg !== undefined ? !!D.EXPECTATION_PARAMS[k] && D.EXPECTATION_PARAMS[k].valid(arg) : name in D.EXPECTATIONS;
 }
 
 function splitParam(name) {
@@ -174,4 +174,3 @@ function splitParam(name) {
   return c < 0 ? [name, undefined] : [name.slice(0, c), name.slice(c + 1)];
 }
 
-export { TRACE_STAGES };

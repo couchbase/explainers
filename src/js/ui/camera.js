@@ -7,7 +7,7 @@
 // draws under the transparent columns. On top of that sits the reader's
 // own pan/zoom, which eases back to the story's view on request.
 
-import { CAMERAS, CANVAS } from '../domain.js';
+import { D } from '../domain.js';
 import { lerpRect, ease } from './util/anim.js';
 
 export class Camera {
@@ -32,13 +32,13 @@ export class Camera {
   // A named region (or [x0, y0, x1, y1]) fitted to the free area's
   // shape, not zoomed in too far, and kept on the canvas.
   fit(camera) {
-    const [x0, y0, x1, y1] = typeof camera === 'string' ? CAMERAS[camera].rect : camera;
+    const [x0, y0, x1, y1] = typeof camera === 'string' ? D.CAMERAS[camera].rect : camera;
     const f = this.freeArea();
     const aspect = f.width / Math.max(1, f.height);
     let w = Math.max(x1 - x0, f.width < 600 ? 360 : 560), h = y1 - y0;
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     if (w / h > aspect) h = w / aspect; else w = h * aspect;
-    const [X0, Y0, X1, Y1] = CANVAS;
+    const [X0, Y0, X1, Y1] = D.CANVAS;
     const keep = (v, size, lo, hi) => (size >= hi - lo ? lo + (hi - lo - size) / 2 : Math.min(Math.max(v, lo), hi - size));
     return { x: keep(cx - w / 2, w, X0, X1), y: keep(cy - h / 2, h, Y0, Y1), w, h };
   }

@@ -8,13 +8,14 @@
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import yaml from 'js-yaml';
 import { marked } from 'marked';
 import hljs from 'highlight.js/lib/core';
 import go from 'highlight.js/lib/languages/go';
 import * as esbuild from 'esbuild';
 import { validateNarrative } from './schema.mjs';
+import { useDomain } from '../src/js/domain.js';
 import { shownChapters, isStop } from '../src/js/story/timeline.js';
 import { CONFIG_DOCS, DEFAULT_CONFIG } from '../src/js/sim/config.js';
 
@@ -57,12 +58,17 @@ function renderMarkdown(md) {
   return html.replace(/<a href="(https?:[^"]+)"/g, '<a href="$1" target="_blank" rel="noopener"');
 }
 
-function loadNarratives(coderefs) {
+// Each narrative names its explainer (src/explainers/<id>/), whose
+// domain the engine's checks read; it's validated against that one.
+export const explainerOf = (n) => n.explainer || 'scorch-goroutines';
+
+async function loadNarratives(coderefs) {
   const dir = join(ROOT, 'content/narratives');
   const out = [];
   const errs = [];
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.yaml')).sort()) {
     const n = yaml.load(readFileSync(join(dir, f), 'utf8'));
+    useDomain(await import(pathToFileURL(join(ROOT, 'src/explainers', explainerOf(n), 'domain.js')).href));
     errs.push(...validateNarrative(n, { coderefs, file: f }));
     out.push(n);
   }
@@ -78,18 +84,27 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
   const coderefs = yaml.load(read('content/coderefs.yaml'));
   const snippets = JSON.parse(read('content/snippets.json'));
   const sources = yaml.load(read('content/sources.yaml'));
-  const narratives = loadNarratives(coderefs);
+  const narratives = await loadNarratives(coderefs);
 
-  const bundle = await esbuild.build({
-    entryPoints: [join(ROOT, 'src/js/ui/main.js')],
-    bundle: true,
-    format: 'iife',
-    target: 'es2020',
-    minify: true,
-    write: false,
-    legalComments: 'none',
-  });
-  const js = bundle.outputFiles[0].text;
+  // One bundle per explainer: the engine plus that explainer, from its
+  // entry point.
+  const bundles = new Map();
+  const jsFor = async (n) => {
+    const id = explainerOf(n);
+    if (!bundles.has(id)) {
+      const bundle = await esbuild.build({
+        entryPoints: [join(ROOT, 'src/explainers', id, 'entry.js')],
+        bundle: true,
+        format: 'iife',
+        target: 'es2020',
+        minify: true,
+        write: false,
+        legalComments: 'none',
+      });
+      bundles.set(id, bundle.outputFiles[0].text);
+    }
+    return bundles.get(id);
+  };
   const css = read('src/css/style.css');
   const template = read('src/index.html');
   const builtAt = new Date().toISOString().slice(0, 10);
@@ -112,6 +127,7 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
     ? [{ n, chs: shownChapters(n), suffix: '' }, { n, chs: n.chapters.filter((ch) => !isStop(ch)), suffix: '-drafts' }]
     : [{ n, chs: n.chapters, suffix: '' }]));
   for (const { n, chs, suffix } of variants) {
+    const js = await jsFor(n);
     const used = new Set();
     const chapters = chs.map((ch) => ({
       ...ch,

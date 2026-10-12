@@ -3,7 +3,7 @@
 // records, for each visited step, where the batch marker and the
 // goroutine boxes were; these interpolate between those records.
 
-import { STATIONS, BOXES, CORRIDOR_XS, CORRIDOR_YS, BOX_GAP, VIA, HOPS, swapShift, swapTravel, swapPart, ADD_TRAVEL } from '../domain.js';
+import { D } from '../domain.js';
 import { along, clamp01, ease, lerp } from './util/anim.js';
 
 // ---- the batch marker's route ----
@@ -13,12 +13,13 @@ import { along, clamp01, ease, lerp } from './util/anim.js';
 // travels the gaps, turning only where it won't cut through a box; and
 // it enters its destination's box vertically.
 
-const boxes = Object.values(BOXES);
+// (the explainer's, read when used)
+const boxes = () => Object.values(D.BOXES);
 const inside = (b, [x, y]) => x > b[0] && x < b[0] + b[2] && y > b[1] && y < b[1] + b[3];
 const boxOf = (pt) => {
   // the smallest box containing pt
   let best = null;
-  for (const b of boxes) if (inside(b, pt) && (!best || b[2] * b[3] < best[2] * best[3])) best = b;
+  for (const b of boxes()) if (inside(b, pt) && (!best || b[2] * b[3] < best[2] * best[3])) best = b;
   return best;
 };
 
@@ -27,7 +28,7 @@ const boxOf = (pt) => {
 function blocked(p, q, except) {
   const [x0, x1] = [Math.min(p[0], q[0]), Math.max(p[0], q[0])];
   const [y0, y1] = [Math.min(p[1], q[1]), Math.max(p[1], q[1])];
-  return boxes.some((b) => !except.includes(b) &&
+  return boxes().some((b) => !except.includes(b) &&
     x1 > b[0] && x0 < b[0] + b[2] && y1 > b[1] && y0 < b[1] + b[3]);
 }
 const clear = (pts, except) => pts.every((p, k) => k === 0 || !blocked(pts[k - 1], p, except));
@@ -37,7 +38,7 @@ const clear = (pts, except) => pts.every((p, k) => k === 0 || !blocked(pts[k - 1
 // either way round, then detours along the corridors.
 function gapPath(a, b) {
   const cands = [[a, b], [a, [a[0], b[1]], b], [a, [b[0], a[1]], b]];
-  const xs = [...CORRIDOR_XS, a[0], b[0]], ys = [...CORRIDOR_YS, a[1], b[1]];
+  const xs = [...D.CORRIDOR_XS, a[0], b[0]], ys = [...D.CORRIDOR_YS, a[1], b[1]];
   for (const x of xs) cands.push([a, [x, a[1]], [x, b[1]], b]);
   for (const y of ys) cands.push([a, [a[0], y], [b[0], y], b]);
   for (const x1 of xs) for (const y of ys) for (const x2 of xs) {
@@ -57,7 +58,7 @@ function gapPath(a, b) {
 }
 
 // The point just outside box `box`, straight above or below pt.
-const edge = (box, pt, down) => [pt[0], down ? box[1] + box[3] + BOX_GAP : box[1] - BOX_GAP];
+const edge = (box, pt, down) => [pt[0], down ? box[1] + box[3] + D.BOX_GAP : box[1] - D.BOX_GAP];
 
 function leg(a, b) {
   const down = b[1] >= a[1];
@@ -70,32 +71,32 @@ function leg(a, b) {
 }
 
 // The marker's path from place a to place b ({st, p, key}).
-const viaOf = (a, b) => VIA[`${a.st}>${b.st}`] || (VIA[`${b.st}>${a.st}`] || []).slice().reverse();
+const viaOf = (a, b) => D.VIA[`${a.st}>${b.st}`] || (D.VIA[`${b.st}>${a.st}`] || []).slice().reverse();
 
 // Whether the route from a to b includes a hop along a drawn arrow
 // (which may enter a box from the side, as the arrow does).
 export function usesArrowHop(a, b) {
   const names = [a.st, ...viaOf(a, b), b.st];
-  return names.some((n, i) => i > 0 && (HOPS[`${names[i - 1]}>${n}`] || HOPS[`${n}>${names[i - 1]}`]));
+  return names.some((n, i) => i > 0 && (D.HOPS[`${names[i - 1]}>${n}`] || D.HOPS[`${n}>${names[i - 1]}`]));
 }
 
 export function route(a, b) {
   if (a.st === b.st && a.key === b.key) return [a.p, b.p];
   const via = viaOf(a, b);
   const names = [a.st, ...via, b.st];
-  const pts = [a.p, ...via.map((v) => STATIONS[v]), b.p];
+  const pts = [a.p, ...via.map((v) => D.STATIONS[v]), b.p];
   let out = [a.p];
   for (let i = 1; i < pts.length; i++) out = [...out, ...hop(names[i - 1], pts[i - 1], names[i], pts[i]).slice(1)];
   return out;
 }
 
 function hop(sa, pa, sb, pb) {
-  const fwd = HOPS[`${sa}>${sb}`];
+  const fwd = D.HOPS[`${sa}>${sb}`];
   if (fwd) {
     const [first, ...rest] = fwd();
     return [...leg(pa, first), ...rest, pb];
   }
-  if (HOPS[`${sb}>${sa}`]) return hop(sb, pb, sa, pa).reverse();
+  if (D.HOPS[`${sb}>${sa}`]) return hop(sb, pb, sa, pa).reverse();
   return leg(pa, pb);
 }
 
@@ -135,7 +136,7 @@ function barMix(prev, cur, e) {
 }
 
 // The marker partway (e) from place prev to place cur.
-function between(prev, cur, e) {
+export function between(prev, cur, e) {
   const moving = prev.st !== cur.st || prev.key !== cur.key;
   const shown = e > 0.5 ? cur : prev;
   return {
@@ -146,34 +147,6 @@ function between(prev, cur, e) {
       barMix: barMix(prev, cur, e), h: lerp(hOf(prev), hOf(cur), e), labelCls: shown.labelCls },
     o: 1, dest: moving ? cur : null, arrived: e >= 0.97,
   };
-}
-
-// The marker while the introducer swaps in a new root (see
-// SWAP_PHASES), from its place at step `base` (before the swap) to its
-// place at step i: it waits for the 'add' phase, travels then, and a
-// place on the root moves with the new root as it lifts and settles.
-// Null if the marker isn't shown at both ends.
-export function swapMarker(views, tokenAt, i, base, s) {
-  const cur = views[i].token === 'hide' ? null : tokenAt.get(i) || null;
-  const prev = views[base].token === 'hide' ? null : tokenAt.get(base) || null;
-  if (!cur || !prev) return null;
-  const [dx, dy] = swapShift(s);
-  const onRoot = (t) => t.st === 'cell' || t.st === 'bar';
-  const dest = onRoot(cur) ? { ...cur, p: [cur.p[0] + dx, cur.p[1] + dy] } : cur;
-  const from = onRoot(prev) ? { ...prev, p: [prev.p[0] + dx, prev.p[1] + dy] } : prev;
-  // Already in the root (a merge): it moves over to the merged segment
-  // as the ones it replaces drop out, with the other bars as they close
-  // up the gaps. Its label steps aside while the new root is built, and
-  // comes back only when the merged chip, whose label it takes over,
-  // gives way to the new root's bar.
-  const hop = onRoot(prev) && onRoot(cur) && prev.key !== cur.key;
-  const e = hop ? clamp01((swapPart(s, 'drop') - 0.6) / 0.4) : swapTravel(s);
-  const f = between(from, dest, e);
-  // Landing on a bar that's new in this root: its square gives way only
-  // as the bar appears.
-  if (!onRoot(prev) && onRoot(cur)) f.t.barMix = clamp01((swapPart(s, 'add') - ADD_TRAVEL) / (1 - ADD_TRAVEL));
-  if (hop) f.t.labelO = swapPart(s, 'solid') > 0 ? swapPart(s, 'solid') : 1 - swapPart(s, 'cover');
-  return f;
 }
 
 // ---- goroutine boxes ----

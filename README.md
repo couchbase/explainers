@@ -123,10 +123,14 @@ Research notes with file:line references live in `docs/research/`.
 ## Engine and explainers
 
 The code is on its way to being split into a generic engine and
-per-explainer code, so that more explainers can share the engine. An
-explainer's specifics live in `src/explainers/<id>/`, and the engine
-reaches them only through one seam, `src/js/domain.js`, which
-re-exports the explainer's `domain.js`:
+per-explainer code, so that more explainers can share the engine. A
+narrative names its explainer (`explainer: <id>`); the explainer's
+code lives in `src/explainers/<id>/`, with an `entry.js` that the
+build bundles (with the engine) into that narrative's page. The
+engine's generic parts reach the explainer only through one seam,
+`src/js/domain.js`: the explainer's entry point calls `useDomain()`
+with its `domain.js`, and the engine reads that as `D`. The build and
+the tests do the same for each narrative. A `domain.js` provides:
 
 - `layout.js`: the diagram's geometry: sections, panels, lids,
   bubbles, cameras, anchors, the marker's stations, the boxes it
@@ -136,16 +140,22 @@ re-exports the explainer's `domain.js`:
   it adds (`VIEW_KEYS`: values, whether they carry over, how they
   count as a step's change, and whether they're told over steps);
 - `routes.js`: hints for routing the marker along drawn arrows;
+- `entry.js` and `use.js`: the page's entry point, which picks the
+  explainer before anything else runs;
 - the pieces of its drawing that are plain data or small helpers
   (`snapstack.js`, `stairs-scene.js`, `staircase.js`).
 
 The narrative schema, the step/view folding, change counting and
 expectations are generic, driven by those tables.
 
-Still explainer-specific but not moved yet: the simulator
+An explainer without a simulation leaves out `makeModel`, and its
+narrative then has no `sim` directives.
+
+Still specific to the first explainer but not moved yet: the simulator
 (`src/js/sim/`), the diagram's drawing (`src/js/ui/diagram.js`), and
-the parts of `src/js/ui/main.js` that orchestrate this explainer's
-told phases (root swaps, commits, write and watcher animations). The
+`src/js/ui/main.js`, which orchestrates its told phases (root swaps,
+commits, write and watcher animations). They import that explainer
+directly, not through the seam. The
 plan is to settle that boundary with a second explainer, on the scorch
 file format: how a zap segment is laid out on disk and accessed (its
 vellum FST term dictionary, roaring-bitmap postings, stored fields and
@@ -289,12 +299,14 @@ content/                 narratives (YAML), code refs, pinned sources, snippets.
 docs/research/           how scorch and cbft work, with file:line refs
 dist/                    the built pages (committed; published by GitHub Pages)
 
-src/js/domain.js         the seam: re-exports the explainer's domain.js
+src/js/domain.js         the seam: useDomain(), and D, the explainer the engine reads
 src/explainers/scorch-goroutines/
   domain.js              everything below, as the engine sees it
   layout.js              diagram geometry: frames, lids, cameras, anchors, stations, boxes
   story.js               model, stages, expectations, extra view directives
   routes.js              marker routing hints along drawn arrows
+  entry.js, use.js       the page's entry point (picks this explainer first)
+  swapmarker.js          the marker during a told root swap
   snapstack.js           the stack of live root snapshots; swap and commit phases
   stairs-scene.js        the merger bubble's tier staircase, as data (staircase.js draws it)
 

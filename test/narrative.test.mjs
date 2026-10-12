@@ -8,6 +8,12 @@ import { validateNarrative } from '../build/schema.mjs';
 import { resolveAll, findLocal } from '../build/snippets.mjs';
 import { flattenSteps, modelAtStep, checkExpectation } from '../src/js/story/timeline.js';
 import { checkInvariants } from '../src/js/sim/invariants.js';
+import { useDomain } from '../src/js/domain.js';
+import * as scorch from '../src/explainers/scorch-goroutines/domain.js';
+
+// Each narrative is checked against its explainer (see src/js/domain.js);
+// the schema's own tests use the first explainer's names.
+const domainOf = (n) => import(`../src/explainers/${n.explainer || 'scorch-goroutines'}/domain.js`);
 
 const dir = new URL('../content/narratives/', import.meta.url);
 const files = readdirSync(dir).filter((f) => f.endsWith('.yaml')).sort();
@@ -30,14 +36,18 @@ test('snippets.json matches the pinned sources', { skip: !haveSources && 'local 
 
 for (const f of files) {
   const n = yaml.load(readFileSync(new URL(f, dir), 'utf8'));
+  const domain = await domainOf(n);
 
   test(`${f}: schema`, () => {
+    useDomain(domain);
     assert.deepEqual(validateNarrative(n, { coderefs, file: f }), []);
   });
 
   const steps = flattenSteps(n);
   steps.forEach((st, i) => {
+    if (!domain.makeModel) return;
     test(`${f}: ${st.chapterId}/${st.id} simulates as described`, () => {
+      useDomain(domain);
       const m = modelAtStep(n, steps, i);
       assert.deepEqual(checkInvariants(m), []);
       for (const e of st.expect || []) {
@@ -48,6 +58,7 @@ for (const f of files) {
 }
 
 test('schema rejects common mistakes', () => {
+  useDomain(scorch);
   const bad = {
     id: 'x', title: 'x',
     chapters: [{ id: 'c', title: 'c', color: 'plaid', steps: [
@@ -63,6 +74,7 @@ test('schema rejects common mistakes', () => {
 });
 
 test('schema enforces one change per step, and lid visibility', () => {
+  useDomain(scorch);
   const n = (steps) => ({ id: 'x', title: 'x', chapters: [{ id: 'c', title: 'c', steps }] });
   const two = n([
     { id: 'a', text: 'a', sim: { reset: true } },
@@ -85,6 +97,7 @@ test('schema enforces one change per step, and lid visibility', () => {
 });
 
 test('a `stop` entry ends the page; chapters after it are still steps for the tests', async () => {
+  useDomain(scorch);
   const { shownChapters, flattenSteps } = await import('../src/js/story/timeline.js');
   const st = { id: 's', text: 'x' };
   const n = { chapters: [{ id: 'a', title: 'a', steps: [st] }, { stop: 'drafts' }, { id: 'b', title: 'b', steps: [st] }] };

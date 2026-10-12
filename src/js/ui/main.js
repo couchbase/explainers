@@ -10,7 +10,7 @@
 // presses Play does the simulation's own clock drive things.
 
 import { Diagram } from './diagram.js';
-import { CAMERAS, LIDS, BUBBLES, ANCHORS, SWAP_PHASES, COMMIT_PHASES, swapShift, swapTravel, swapPart } from '../domain.js';
+import { CAMERAS, LIDS, BUBBLES, ANCHORS, SWAP_PHASES, COMMIT_PHASES, swapShift, swapTravel, swapPart } from '../../explainers/scorch-goroutines/domain.js';
 import { isAnchorVisible } from './anchors.js';
 import { CodeDrawer } from './code.js';
 import { KnobsDrawer } from './knobs.js';
@@ -21,7 +21,8 @@ import { Camera } from './camera.js';
 import { bindGestures } from './gestures.js';
 import { Overlay } from './overlay.js';
 import { scrollState, scrollYFor } from './scroll.js';
-import { markerFrame, swapMarker, boxFrames, toggleAt, route } from './transitions.js';
+import { markerFrame, boxFrames, toggleAt, route } from './transitions.js';
+import { swapMarker } from '../../explainers/scorch-goroutines/swapmarker.js';
 import { clamp01, ease, lerp, along } from './util/anim.js';
 import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../story/timeline.js';
 import { checkInvariants } from '../sim/invariants.js';

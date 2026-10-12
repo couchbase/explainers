@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { stackFrame, MAX_BACK } from '../src/js/domain.js';
+import { stackFrame, MAX_BACK } from '../src/explainers/scorch-goroutines/domain.js';
 
 const S = (epochs, persister = null, merger = null, query = null) => ({ epochs, persister, merger, query });
 

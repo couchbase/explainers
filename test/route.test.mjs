@@ -4,7 +4,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { route, usesArrowHop } from '../src/js/ui/transitions.js';
-import { STATIONS, BOXES } from '../src/js/domain.js';
+import { useDomain } from '../src/js/domain.js';
+import * as scorch from '../src/explainers/scorch-goroutines/domain.js';
+
+useDomain(scorch);
+const { STATIONS, BOXES } = scorch;
 
 const boxes = Object.values(BOXES);
 const inside = (b, [x, y]) => x > b[0] && x < b[0] + b[2] && y > b[1] && y < b[1] + b[3];

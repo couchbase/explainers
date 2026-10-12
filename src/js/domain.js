@@ -1,5 +1,10 @@
-// The seam between the engine and an explainer: the engine imports
-// everything explainer-specific from here. There's one explainer so
-// far; with more, the build would point this at the one it's building.
+// The seam between the engine and an explainer. The engine's generic
+// parts read everything explainer-specific from D, at call time; a
+// page's entry point (or the build, or a test) picks the explainer with
+// useDomain() before anything runs. See src/explainers/<id>/domain.js.
 
-export * from '../explainers/scorch-goroutines/domain.js';
+export let D = null;
+
+export function useDomain(domain) {
+  D = domain;
+}

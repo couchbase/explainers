@@ -12,7 +12,7 @@
 import {
   SECTIONS, PANELS, LIDS, BUBBLES, ANCHORS, CANVAS, STATIONS, Staircase, stairScene,
   stackOf, stackFrame, stackKey, MAX_BACK, SHEET_DX, SHEET_DY, swapPart, swapShift, ADD_TRAVEL, COMMIT_PHASES,
-} from '../domain.js';
+} from '../../explainers/scorch-goroutines/domain.js';
 import { isAnchorVisible } from './anchors.js';
 import { fmtBytes, fmtMs, fmtNum } from '../sim/fmt.js';
 import { svgEl as el, svgText as txt, setText, setCls } from './util/dom.js';

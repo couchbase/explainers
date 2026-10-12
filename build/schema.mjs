@@ -8,12 +8,9 @@
 // explainer's own view directives...) come from the explainer, through
 // src/js/domain.js; the rules here are the engine's.
 
-import { isKnownExpectation, flattenSteps, resolveViews, changesAt, isStop, UI_MODES, TRACE_STAGES } from '../src/js/story/timeline.js';
+import { isKnownExpectation, flattenSteps, resolveViews, changesAt, isStop, UI_MODES } from '../src/js/story/timeline.js';
 import { isAnchorVisible } from '../src/js/ui/anchors.js';
-import {
-  applyConfig, makeConfig, CAMERAS, LIDS, BUBBLES, ANCHORS, DYNAMIC_ANCHORS, CHART_IDS, SECTION_COLORS, TOKEN_MODES,
-  FOLLOW_MODES, VIEW_KEYS,
-} from '../src/js/domain.js';
+import { D } from '../src/js/domain.js';
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const CALLOUT = /\[\[(.+?)\]\]/g;
@@ -28,7 +25,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
   const checkConfig = (cfg, where) => {
     if (cfg === undefined) return;
     if (!isObj(cfg)) return err(where, 'config must be a mapping');
-    try { applyConfig(makeConfig(), cfg); } catch (e) { err(where, e.message); }
+    try { D.applyConfig(D.makeConfig(), cfg); } catch (e) { err(where, e.message); }
   };
   const checkIds = (list, known, where, what) => {
     if (list === undefined) return;
@@ -37,7 +34,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
   };
 
   if (!isObj(n)) return [`${file}: not a mapping`];
-  keys(n, ['id', 'title', 'subtitle', 'audience', 'sim', 'chapters'], 'top');
+  keys(n, ['id', 'title', 'subtitle', 'audience', 'explainer', 'sim', 'chapters'], 'top');
   if (typeof n.id !== 'string' || !SLUG.test(n.id)) err('top', 'id must be a slug');
   if (typeof n.title !== 'string') err('top', 'title is required');
   if (n.sim !== undefined) {
@@ -63,7 +60,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
     keys(ch, ['id', 'title', 'color', 'steps'], cw);
     if (typeof ch.id !== 'string' || !SLUG.test(ch.id)) err(cw, 'id must be a slug');
     if (typeof ch.title !== 'string') err(cw, 'title is required');
-    if (ch.color !== undefined && !SECTION_COLORS.includes(ch.color)) err(cw, `unknown color "${ch.color}" (known: ${SECTION_COLORS.join(', ')})`);
+    if (ch.color !== undefined && !D.SECTION_COLORS.includes(ch.color)) err(cw, `unknown color "${ch.color}" (known: ${D.SECTION_COLORS.join(', ')})`);
     if (!Array.isArray(ch.steps) || ch.steps.length === 0) return err(cw, 'steps must be a non-empty list');
     ch.steps.forEach((st, si) => {
       const sw = `${cw} step[${si}]${st && st.id ? ' ' + st.id : ''}`;
@@ -96,32 +93,34 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         for (const k of ['minTimeMs', 'speed']) {
           if (st.sim[k] !== undefined && !(typeof st.sim[k] === 'number' && st.sim[k] >= 0)) err(sw, `sim.${k} must be a number >= 0`);
         }
-        if (st.sim.follow !== undefined && !FOLLOW_MODES.includes(st.sim.follow)) err(sw, `sim.follow must be one of: ${FOLLOW_MODES.join(', ')}`);
-        if (st.sim.until !== undefined && !TRACE_STAGES.includes(st.sim.until)) err(sw, `unknown sim.until stage "${st.sim.until}" (known: ${TRACE_STAGES.join(', ')})`);
+        if (st.sim.follow !== undefined && !D.FOLLOW_MODES.includes(st.sim.follow)) err(sw, `sim.follow must be one of: ${D.FOLLOW_MODES.join(', ')}`);
+        if (st.sim.until !== undefined && !D.TRACE_STAGES.includes(st.sim.until)) err(sw, `unknown sim.until stage "${st.sim.until}" (known: ${D.TRACE_STAGES.join(', ')})`);
       }
-      if (first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');
+      // (An explainer without a simulation has no sim directives at all.)
+      if (!D.makeModel && st.sim) err(sw, 'this explainer has no simulation, so no sim directives');
+      if (D.makeModel && first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');
       first = false;
       if (st.view !== undefined) {
-        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'target', 'chart', ...Object.keys(VIEW_KEYS)], `${sw} view`);
+        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'target', 'chart', ...Object.keys(D.VIEW_KEYS)], `${sw} view`);
         const v = st.view;
-        if (v.camera !== undefined && !(typeof v.camera === 'string' && CAMERAS[v.camera]) &&
+        if (v.camera !== undefined && !(typeof v.camera === 'string' && D.CAMERAS[v.camera]) &&
           !(Array.isArray(v.camera) && v.camera.length === 4 && v.camera.every((x) => typeof x === 'number'))) {
-          err(sw, `unknown camera "${v.camera}" (known: ${Object.keys(CAMERAS).join(', ')}, or [x0, y0, x1, y1])`);
+          err(sw, `unknown camera "${v.camera}" (known: ${Object.keys(D.CAMERAS).join(', ')}, or [x0, y0, x1, y1])`);
         }
-        checkIds(v.open, Object.keys(LIDS), sw, 'lid');
-        checkIds(v.close, Object.keys(LIDS), sw, 'lid');
-        checkIds(v.bubble, Object.keys(BUBBLES), sw, 'bubble');
-        checkIds(v.unbubble, Object.keys(BUBBLES), sw, 'bubble');
+        checkIds(v.open, Object.keys(D.LIDS), sw, 'lid');
+        checkIds(v.close, Object.keys(D.LIDS), sw, 'lid');
+        checkIds(v.bubble, Object.keys(D.BUBBLES), sw, 'bubble');
+        checkIds(v.unbubble, Object.keys(D.BUBBLES), sw, 'bubble');
         if (v.ui !== undefined && !UI_MODES.includes(v.ui)) err(sw, `unknown ui "${v.ui}" (known: ${UI_MODES.join(', ')})`);
-        if (v.token !== undefined && !TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${TOKEN_MODES.join(', ')})`);
-        for (const [k, d] of Object.entries(VIEW_KEYS)) {
+        if (v.token !== undefined && !D.TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${D.TOKEN_MODES.join(', ')})`);
+        for (const [k, d] of Object.entries(D.VIEW_KEYS)) {
           if (v[k] !== undefined && !d.values.includes(v[k])) err(sw, `unknown ${k} "${v[k]}" (known: ${d.values.join(', ')})`);
         }
-        if (v.target !== undefined && !(v.target in ANCHORS) && !DYNAMIC_ANCHORS.includes(v.target)) {
-          err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(ANCHORS), ...DYNAMIC_ANCHORS].join(', ')})`);
+        if (v.target !== undefined && !(v.target in D.ANCHORS) && !D.DYNAMIC_ANCHORS.includes(v.target)) {
+          err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(D.ANCHORS), ...D.DYNAMIC_ANCHORS].join(', ')})`);
         }
         if (v.target && callouts === 0) err(sw, 'a view.target needs a [[callout]] phrase in the text');
-        if (v.chart !== undefined && !CHART_IDS.includes(v.chart)) err(sw, `unknown chart "${v.chart}" (known: ${CHART_IDS.join(', ')})`);
+        if (v.chart !== undefined && !D.CHART_IDS.includes(v.chart)) err(sw, `unknown chart "${v.chart}" (known: ${D.CHART_IDS.join(', ')})`);
       }
       if (callouts === 1 && !(st.view && st.view.target)) err(sw, 'a [[callout]] phrase needs a view.target');
       for (const c of st.code || []) if (!(c in coderefs)) err(sw, `unknown code ref "${c}" (see content/coderefs.yaml)`);
@@ -137,20 +136,20 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
     const sw = where[i];
     const v = views[i];
     for (const id of v.open) {
-      const parent = LIDS[id].parent;
+      const parent = D.LIDS[id].parent;
       if (parent && !v.open.has(parent)) err(sw, `lid "${id}" is open but its parent "${parent}" isn't`);
     }
-    for (const id of v.bubbles) if (!v.open.has(BUBBLES[id].parent)) err(sw, `bubble "${id}" shows, but its panel's lid isn't open`);
+    for (const id of v.bubbles) if (!v.open.has(D.BUBBLES[id].parent)) err(sw, `bubble "${id}" shows, but its panel's lid isn't open`);
     // A phase told over several steps (VIEW_KEYS with a `run`): its
     // phases come in order; an 'ordered' run's first step is the one
     // that changes the simulation.
-    for (const [k, d] of Object.entries(VIEW_KEYS)) {
+    for (const [k, d] of Object.entries(D.VIEW_KEYS)) {
       if (!d.run || !v[k]) continue;
       const pv = i > 0 ? views[i - 1] : null, ph = (x) => d.values.indexOf(x);
       if (pv && pv[k] && (d.run === 'ordered' ? ph(v[k]) <= ph(pv[k]) : ph(v[k]) < ph(pv[k]))) err(sw, `${k} "${v[k]}" must come after "${pv[k]}"`);
       if (d.run === 'ordered' && !(pv && pv[k]) && !(st.sim && st.sim.until)) err(sw, `the first step of a ${k} needs sim.until (the step that makes the change it tells)`);
     }
-    if (v.target && ANCHORS[v.target] && !isAnchorVisible(v.target, v.open, v.bubbles)) {
+    if (v.target && D.ANCHORS[v.target] && !isAnchorVisible(v.target, v.open, v.bubbles)) {
       err(sw, `target "${v.target}" is hidden under a closed lid (or needs its bubble) at this step`);
     }
     const changes = changesAt(steps, views, i);
@@ -161,4 +160,3 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
   return errs;
 }
 
-export { CHART_IDS };
