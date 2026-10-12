@@ -34,8 +34,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
   };
 
   if (!isObj(n)) return [`${file}: not a mapping`];
-  keys(n, ['id', 'title', 'subtitle', 'audience', 'explainer', 'next', 'sim', 'chapters'], 'top');
-  if (typeof n.id !== 'string' || !SLUG.test(n.id)) err('top', 'id must be a slug');
+  keys(n, ['title', 'subtitle', 'audience', 'explainer', 'next', 'sim', 'chapters'], 'top');
   if (typeof n.title !== 'string') err('top', 'title is required');
   if (n.sim !== undefined) {
     keys(n.sim, ['seed', 'config'], 'sim');

@@ -70,7 +70,7 @@ for (const f of files) {
 test('schema rejects common mistakes', () => {
   useDomain(scorch);
   const bad = {
-    id: 'x', title: 'x',
+    title: 'x',
     chapters: [{ id: 'c', title: 'c', color: 'plaid', steps: [
       { id: 's', text: 'hi [[a]] and [[b]]', sim: { set: { nope: 1 }, until: 'nowhere' }, view: { camera: 'moon', open: ['lid9'], target: 'zzz' }, code: ['missing.ref'], typo: 1 },
     ] }],
@@ -85,7 +85,7 @@ test('schema rejects common mistakes', () => {
 
 test('schema enforces one change per step, and lid visibility', () => {
   useDomain(scorch);
-  const n = (steps) => ({ id: 'x', title: 'x', chapters: [{ id: 'c', title: 'c', steps }] });
+  const n = (steps) => ({ title: 'x', chapters: [{ id: 'c', title: 'c', steps }] });
   const two = n([
     { id: 'a', text: 'a', sim: { reset: true } },
     { id: 'b', text: 'b', view: { camera: 'cbft', open: ['kv'] } },

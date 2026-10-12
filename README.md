@@ -26,7 +26,7 @@ You need [Node.js](https://nodejs.org/) 20 or newer.
 
 ```sh
 npm ci               # install the pinned dependencies
-npm run build        # -> dist/scorch-goroutines.html, dist/zap-format.html, dist/index.html
+npm run build        # -> dist/01-indexing.html, dist/02-zap-format.html, dist/index.html
 open dist/index.html # open the file in a browser
 ```
 

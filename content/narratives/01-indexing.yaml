@@ -3,9 +3,8 @@
 # including the rule that each step changes only one thing: the
 # camera, the lids, a detail bubble, the UI, or the simulation.
 
-id: scorch-goroutines
 explainer: scorch-goroutines
-next: zap-format
+next: 02-zap-format
 title: "Inside bleve / scorch: introducer, persister, merger"
 subtitle: >-
   How a Couchbase FTS index turns a stream of DCP mutations into

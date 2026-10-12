@@ -3,7 +3,6 @@
 # a lid or a lens), and the numbers in the text are checked against the
 # real example segment (tools/zap-golden) by `expect: ["fact:..."]`.
 
-id: zap-format
 explainer: zap-format
 title: "Inside a zap segment: how scorch stores and finds your docs"
 subtitle: >-
@@ -23,7 +22,7 @@ chapters:
         view: { camera: file, target: region.storedData }
         expect: ["fact:file.size=5717", "fact:docs=9"]
         text: |
-          The [first explainer](scorch-goroutines.html) ended with our
+          The [first explainer](01-indexing.html) ended with our
           docs in a *file segment*: a zap file on disk, listed by the
           root snapshot. Here's one. It's a real segment, written by the
           zapx code cbft uses, from nine hotels in the travel-sample

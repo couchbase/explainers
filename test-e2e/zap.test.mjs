@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { launch, openPage, scrollToStep, stepCount } from './helpers.mjs';
 
-const zap = fileURLToPath(new URL('../dist/zap-format.html', import.meta.url));
+const zap = fileURLToPath(new URL('../dist/02-zap-format.html', import.meta.url));
 let browser;
 before(async () => { browser = await launch(); });
 after(async () => { await browser.close(); });

@@ -7,8 +7,8 @@ import { chromium } from 'playwright-core';
 
 // The page with every chapter, drafts included, when there is one;
 // `shared` is the page as shared (ending at the narrative's `stop`).
-export const shared = fileURLToPath(new URL('../dist/scorch-goroutines.html', import.meta.url));
-const drafts = fileURLToPath(new URL('../dist/scorch-goroutines-drafts.html', import.meta.url));
+export const shared = fileURLToPath(new URL('../dist/01-indexing.html', import.meta.url));
+const drafts = fileURLToPath(new URL('../dist/01-indexing-drafts.html', import.meta.url));
 export const file = existsSync(drafts) ? drafts : shared;
 
 export async function launch() {

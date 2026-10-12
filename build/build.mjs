@@ -2,7 +2,7 @@
 // CSS, JS, narrative data and highlighted code snippets are all
 // inlined, so the file can be opened from disk, emailed or Slacked.
 //
-//   npm run build          # dist/<narrative-id>.html + dist/index.html
+//   npm run build          # dist/<narrative file base>.html + dist/index.html
 //   npm run dev            # rebuild on change
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch } from 'node:fs';
@@ -67,10 +67,12 @@ async function loadNarratives(coderefs) {
   const out = [];
   const errs = [];
   for (const f of readdirSync(dir).filter((x) => x.endsWith('.yaml')).sort()) {
+    // A narrative's id is its file's base name, and names its page:
+    // 01-indexing.yaml builds dist/01-indexing.html.
     const n = yaml.load(readFileSync(join(dir, f), 'utf8'));
     useDomain(await import(pathToFileURL(join(ROOT, 'src/explainers', explainerOf(n), 'domain.js')).href));
     errs.push(...validateNarrative(n, { coderefs, file: f }));
-    out.push(n);
+    out.push({ ...n, id: f.replace(/\.yaml$/, '') });
   }
   if (errs.length) throw new Error('narrative errors:\n  ' + errs.join('\n  '));
   return out;
