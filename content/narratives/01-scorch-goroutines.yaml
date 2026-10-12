@@ -612,8 +612,12 @@ chapters:
         code: [merger.loop, merger.planMergeAtSnapshot]
         text: |
           The persister just persisted a newer epoch, which woke the
-          merger. It took a ref on the root, epoch 355, with our file
-          in it, and [[plans]]: which files, if any, should it merge?
+          merger. After its last plan, the merger had handed the
+          persister an *epoch watcher* ("wake me once you've persisted
+          something newer than epoch 316") and waited on it. Persisting
+          354 closed it. Now the merger took a ref on the root, epoch
+          355, with our file in it, and [[plans]]: which files, if any,
+          should it merge?
 
       - id: make-room
         view: { camera: mergerDetail, target: merger }
@@ -783,6 +787,39 @@ chapters:
           was never written down on its own: that's the group commit
           again. Now disk and memory agree.
 
+      - id: idle
+        view: { camera: scorch, target: persister, token: hide }
+        text: |
+          With 356 persisted and no new mutations coming in,
+          [[the persister]] has caught up. What does it do now?
+
+      - id: persister-waits
+        sim: { until: persisterWaits }
+        view: { target: introWatchers, flow: watcher }
+        expect: ["reached:persisterWaits"]
+        code: [persister.loop, introducer.loop]
+        text: |
+          It hands the introducer an epoch watcher of its own, over
+          the introducer's `watchers` channel: "wake me once the root
+          is newer than epoch 356". [[The introducer]] holds it, and
+          after every root it swaps in, closes the watchers it has now
+          satisfied. So the wake-ups chain: a new root wakes the
+          persister, and a newly persisted epoch wakes the merger. The
+          persister waits on its watcher, and also on its channel from
+          the merger, whichever comes first.
+
+      - id: persister-nudged
+        sim: { until: persisterNudged }
+        view: { target: persister }
+        expect: ["reached:persisterNudged"]
+        code: [persister.loop, merger.loop]
+        text: |
+          The merger came first. It finished its own plan for 356
+          (nothing left to merge) and handed [[the persister]] a
+          watcher. That wakes the persister, which goes round its loop
+          and naps again, for up to 2s. Its watcher stays with the
+          introducer.
+
   # ------------------------------------------------------------------
   - id: meanwhile
     title: "Meanwhile, ingest goes on"
@@ -790,7 +827,7 @@ chapters:
     steps:
 
       - id: zoom
-        view: { camera: root, target: root, token: hide }
+        view: { camera: swap, target: root, token: hide }
         text: |
           So far we've paused new mutations from KV, so
           [[the root]] held still while the persister and the merger
@@ -802,6 +839,17 @@ chapters:
         text: |
           Let's turn new mutations from KV back on, and keep watching
           [[the root]].
+
+      - id: woken
+        sim: { until: watcherClosed }
+        view: { target: introWatchers }
+        expect: ["reached:watcherClosed"]
+        code: [introducer.loop]
+        text: |
+          The first new batch's root is newer than 356, so after
+          swapping it in, the introducer closes
+          [[the persister's watcher]]. The persister is napping, so it
+          will find the new root when its nap ends.
 
       - id: moving
         sim: { minTimeMs: 9740 }

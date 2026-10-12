@@ -41,7 +41,7 @@ export class PersisterProcs {
         this.persisterSnapshot = null;
         ourSnapshot.decRef();
         // Traced once the persister moves on (see _pausePersister).
-        if (this.trace && this.trace.stage === 'file') this.committedPending = ourSnapshot.epoch;
+        if (this.trace && this.trace.stage === 'file') this.pendingTrace = ['committed', { releasedEpoch: ourSnapshot.epoch }];
         // A later cycle: a newer root than the one with our file, persisted.
         else if (this.trace && this.trace.releasedEpoch && ourSnapshot.epoch > this.trace.releasedEpoch && !this.reached('caughtUp')) {
           this._trace('caughtUp', { caughtUpEpoch: ourSnapshot.epoch });
@@ -57,19 +57,25 @@ export class PersisterProcs {
       // Tell the introducer we're waiting for changes.
       const w = { epoch: lastPersistedEpoch, notifyCh: new Chan(k, 'persisterWatcher', 1) };
       yield this.introducerNotifier.send(w, 'introducerNotifier <- watcher');
+      // (For the story: once it has caught up with our file's roots.)
+      const told = this.trace && this.reached('caughtUp') && !this.reached('persisterWaits');
+      if (told) { w.traced = true; this._trace('persisterWaits', { waitEpoch: w.epoch }); }
       yield* this._removeOldData(p); // might as well cleanup while waiting
       this.stats.TotPersistLoopWait++;
       r = yield k.select([w.notifyCh.recvCase(), this.persisterNotifier.recvCase()],
         { label: 'waiting for a new root epoch' });
+      if (r.index === 1 && this.trace && this.reached('persisterWaits') && !this.reached('persisterNudged')) this.pendingTrace = ['persisterNudged', {}];
       if (r.index === 1) watchers.push(r.value);
     }
   }
 
   * _pausePersister(p, lastPersistedEpoch, lastMergedEpoch, watchers) {
     const k = this.k, cfg = this.cfg;
-    if (this.committedPending) {
-      this._trace('committed', { releasedEpoch: this.committedPending });
-      this.committedPending = null;
+    // Story trace points reached at the end of the last cycle, marked
+    // now that the persister has moved on (so it shows its nap).
+    if (this.pendingTrace) {
+      this._trace(...this.pendingTrace);
+      this.pendingTrace = null;
     }
     watchers = this._notifyMergeWatchers(lastPersistedEpoch, watchers);
     let numFiles = this.numFilesOnDisk();

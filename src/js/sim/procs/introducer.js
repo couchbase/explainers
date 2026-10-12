@@ -20,7 +20,7 @@ export class IntroducerProcs {
       ], { label: 'select: introductions / persists / merges' });
       this.introLast = { kind: ['watchers', 'merges', 'introductions', 'persists'][r.index], t: this.k.now };
       switch (r.index) {
-        case 0: watchers.push(r.value); break;
+        case 0: watchers.push(r.value); this.introWatchers = watchers; break;
         case 1: yield* this._introduceMerge(p, r.value); break;
         case 2: yield* this._introduceSegment(p, r.value); break;
         case 3: yield* this._introducePersist(p, r.value); break;
@@ -28,10 +28,14 @@ export class IntroducerProcs {
       const epoch = this.root.epoch;
       const still = [];
       for (const w of watchers) {
-        if (w.epoch < epoch) w.notifyCh.close();
+        if (w.epoch < epoch) {
+          w.notifyCh.close();
+          if (w.traced) this._trace('watcherClosed');
+        }
         else still.push(w);
       }
       watchers = still;
+      this.introWatchers = watchers; // for the diagram
     }
   }
 

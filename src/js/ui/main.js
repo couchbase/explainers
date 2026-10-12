@@ -240,6 +240,14 @@ function render() {
   diagram.setToken(mf && mf.t, mf ? mf.o : 0);
   diagram.setDocs(mf && mf.birth !== undefined ? mf.birth : -1, mf && mf.t);
   diagram.setQueueDocs(v.flow === 'analysis' && u < 1 ? u : -1);
+  // The persister's epoch watcher: up to the introducer, then a note
+  // while it waits there; the note goes once a new root closes it.
+  diagram.setWatcherFly(v.flow === 'watcher' && p < 1 ? clamp01(t / WRITE_SHARE) : -1);
+  if (!ctl.playing) {
+    const wa = ctl.slotsAt.get(i - 1)?.watcher || '', wb = ctl.slotsAt.get(i)?.watcher || '';
+    const wq = p >= 1 ? 1 : v.flow === 'watcher' ? clamp01((t - WRITE_SHARE) / (1 - WRITE_SHARE)) : wa && !wb ? clamp01((t - 0.85) / 0.15) : t;
+    diagram.blendWatcher(wa, wb, wq);
+  }
   // our zap file down a write arrow: the persister's, or the merger's
   diagram.setWriteFly(/^(write|mergeWrite)$/.test(v.flow) && p < 1 ? clamp01(t / WRITE_SHARE) : -1, ...(v.flow === 'mergeWrite' ? [720, 'merged zap file'] : [280]));
   // Our segment's slot stays faint until the marker arrives.

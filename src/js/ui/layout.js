@@ -109,6 +109,7 @@ export const ANCHORS = {
   olderEpoch: { p: [901, 866], needs: ['cbft', 'bleve', 'scorch'] },
   rootEpoch: { p: [280, 857], needs: ['cbft', 'bleve', 'scorch'] },
   rootMem: { p: [90, 900], needs: ['cbft', 'bleve', 'scorch'] },
+  introWatchers: { p: [656, 774], needs: ['cbft', 'bleve', 'scorch', 'introducer'] },
   rootFiles: { p: [553, 982], needs: ['cbft', 'bleve', 'scorch'] },
   olderRoots: { p: [896, 1020], needs: ['cbft', 'bleve', 'scorch'] },
   queries: { p: [600, 826], needs: ['cbft', 'bleve', 'scorch'] },

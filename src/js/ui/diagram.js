@@ -419,6 +419,12 @@ export class Diagram {
     this.writeFly = el('g', { opacity: 0 }, g);
     el('use', { href: '#dg-file', x: -7, y: -9, width: 14, height: 18, class: 'ficon ficon-new ficon-ours' }, this.writeFly);
     this.writeFlyLabel = txt(this.writeFly, 12, 4, 'our zap file', 'token-label');
+    // An epoch watcher, from the persister up to the introducer, and
+    // a note while the introducer holds it.
+    this.watcherFly = el('g', { opacity: 0 }, g);
+    el('rect', { x: -26, y: -8, width: 52, height: 16, rx: 8, class: 'chan lit' }, this.watcherFly);
+    txt(this.watcherFly, 0, 4, 'watcher', 'chan-text', 'middle');
+    this.watcherNote = txt(g, 660, 778, '', 'token-label');
     // Our batch's docs, off to the analysis queue and back.
     this.queueDocs = [];
     for (let i = 0; i < 24; i++) this.queueDocs.push(doc());
@@ -445,6 +451,25 @@ export class Diagram {
     this.writeFly.setAttribute('opacity', Math.min(1, q / 0.08).toFixed(3));
     this.writeFly.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${lerp(1, 0.86, q).toFixed(3)})`);
     if (ic) { ic.g.style.visibility = 'hidden'; this.writeHidden = ic; }
+  }
+
+  // q in 0..1 (<0 hides it): the persister's epoch watcher going up
+  // its introduce arrow onto the introducer's 'watchers' channel.
+  setWatcherFly(q) {
+    if (q < 0 || q >= 1) { this.watcherFly.setAttribute('opacity', 0); return; }
+    const cx = +this.chans.watchers.getAttribute('x') + +this.chans.watchers.getAttribute('width') / 2;
+    const pts = [[70, 1110], [70, 752], [cx, 752], [cx, 763]];
+    const [x, y] = along(pts, easeQuad(q));
+    this.watcherFly.setAttribute('opacity', Math.min(1, q / 0.08, (1 - q) / 0.08).toFixed(3));
+    this.watcherFly.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+  }
+
+  // The note on the persister's watcher, partway (q) from text a to b.
+  blendWatcher(a, b, q) {
+    const text = b || a || '';
+    setText(this.watcherNote, text);
+    const o = a && b ? 1 : b ? q : a ? 1 - q : 0;
+    this.watcherNote.setAttribute('opacity', o.toFixed(3));
   }
 
   // t in 0..1 (<0 hides them), over the step's whole length: our
@@ -594,6 +619,7 @@ export class Diagram {
       stack: this.stackNow,
       epoch: this.rootEpochNow,
       introLid: this.lids.introducer.status.textContent,
+      watcher: this.watcherNow || '',
       mRow: this.mRows.findIndex((r) => /\blit\b/.test(r.getAttribute('class'))),
       mergerLid: { text: this.lids.merger.status.textContent, dot: this.lids.merger.dot.getAttribute('class') },
       pRow: this.pRows.findIndex((r) => /\blit\b/.test(r.getAttribute('class'))),
@@ -1056,6 +1082,11 @@ export class Diagram {
     this._updateWrites(m);
     this._updateLids(m, procs, rate);
     this._updateDynamicAnchors(m);
+    // The persister's watcher, while the introducer holds it (only the
+    // persister hands the introducer epoch watchers).
+    const pw = (m.introWatchers || [])[0];
+    this.watcherNow = pw ? `← persister's watcher (epoch ${pw.epoch})` : '';
+    this.blendWatcher(this.watcherNow, this.watcherNow, 1);
   }
 
   _updateRoot(m) {
