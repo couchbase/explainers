@@ -1014,9 +1014,11 @@ export class Diagram {
     this.tokenSub.setAttribute('opacity', so.toFixed(3));
     this.tokenSub.setAttribute('y', top.toFixed(1));
     // The label sits above the marker, or (sideMix 1) to its right, or
-    // (belowMix 1) below it.
+    // (belowMix 1) below it, right-aligned. On its bar (barMix 1) the
+    // marker's square gives way to the bar's own outline.
     const sm = t.sideMix || 0, bm = t.belowMix || 0, w = t.label.length * 6.6;
-    this.tokenLabel.setAttribute('x', (sm * (z / 2 + 6 + w / 2)).toFixed(1));
+    this.tokenRect.setAttribute('opacity', (1 - (t.barMix || 0)).toFixed(3));
+    this.tokenLabel.setAttribute('x', (sm * (z / 2 + 6 + w / 2) + bm * (z / 2 - w / 2)).toFixed(1));
     this.tokenLabel.setAttribute('y', ((1 - sm - bm) * (top - 12 * so) + sm * 4 + bm * (z / 2 + 13)).toFixed(1));
   }
 
@@ -1100,8 +1102,12 @@ export class Diagram {
       if (tok.st === 'icon') { const i = this.dirSlots.get(tok.key); if (i !== undefined) els.push(this.dirIcons[i].use); }
     }
     for (const e of this.arrivalEls || []) if (!els.includes(e)) e.style.opacity = '';
-    const o = alpha >= 1 ? '' : String(0.15 + 0.85 * alpha);
-    for (const e of els) e.style.opacity = o;
+    // (A fraction of what the blend gives it, so a slot that's still
+    // hidden, like a new root's bar before it appears, stays hidden.)
+    for (const e of els) {
+      const base = e.hasAttribute('opacity') ? +e.getAttribute('opacity') : 1;
+      e.style.opacity = alpha >= 1 ? '' : String(base * (0.15 + 0.85 * alpha));
+    }
     this.arrivalEls = els;
   }
 
@@ -1213,7 +1219,8 @@ export class Diagram {
       b.bar.setAttribute('y', (FILE_BASE - h).toFixed(1)); b.bar.setAttribute('height', h.toFixed(1));
       const dh = h * ss.deleted / ss.seg.docs;
       b.del.setAttribute('y', (FILE_BASE - h).toFixed(1)); b.del.setAttribute('height', dh.toFixed(1));
-      setCls(b.bar, merging.has(ss.seg.id) ? 'fbar merging' : 'fbar');
+      // Our file segment's own bar is outlined (the marker rests on it).
+      setCls(b.bar, (merging.has(ss.seg.id) ? 'fbar merging' : 'fbar') + (m.trace && m.trace.segId === ss.seg.id ? ' ours' : ''));
     });
     setText(this.fileMore, fileOver ? `+${fileOver} more` : '');
 

@@ -323,6 +323,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .cell.mem { fill: var(--seg-mem); stroke: none; }
 .fbar { fill: var(--seg-file); }
 .fbar.merging { stroke: var(--ink); stroke-width: 1.5; }
+.fbar.ours { stroke: var(--accent); stroke-width: 2; }
 .fdel { fill: var(--panel); fill-opacity: 0.6; }
 .ours-ring { fill: none; stroke: var(--accent); stroke-width: 2; }
 .target-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-opacity: 0.5; }

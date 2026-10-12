@@ -133,10 +133,18 @@ export function markerFrame(views, tokenAt, i, p, win = [0, 1], linear = false) 
   if (cur && cur.st === 'dcp' && i > 0 && tokenAt.has(i - 1)) {
     return { t: cur, o: clamp01((e - 0.72) / 0.25), birth: e };
   }
-  const withSnap = (t) => ({ ...t, snapO: t.snap ? 1 : 0, sideMix: t.side === 'right' ? 1 : 0, belowMix: t.side === 'below' ? 1 : 0 });
+  const withSnap = (t) => ({ ...t, snapO: t.snap ? 1 : 0, sideMix: t.side === 'right' ? 1 : 0, belowMix: t.side === 'below' ? 1 : 0, barMix: t.st === 'bar' ? 1 : 0 });
   if (cur) return { t: withSnap(cur), o: i > 0 && !tokenAt.has(i - 1) ? 1 : e };
   if (prev) return { t: withSnap(prev), o: 1 - e };
   return null;
+}
+
+// How far the marker has become its bar's outline: it does so as it
+// lands on a bar, and stops as it leaves one.
+function barMix(prev, cur, e) {
+  const a = prev.st === 'bar', b = cur.st === 'bar';
+  if (a === b) return a ? 1 : 0;
+  return b ? clamp01((e - 0.9) / 0.1) : clamp01(1 - e / 0.1);
 }
 
 // The marker partway (e) from place prev to place cur.
@@ -147,7 +155,8 @@ function between(prev, cur, e) {
     t: { p: along(route(prev, cur), e), size: lerp(prev.size, cur.size, e), kind: shown.kind, label: shown.label, sub: (cur.snap ? cur : prev).sub,
       snapO: lerp(prev.snap ? 1 : 0, cur.snap ? 1 : 0, e),
       sideMix: lerp(prev.side === 'right' ? 1 : 0, cur.side === 'right' ? 1 : 0, e),
-      belowMix: lerp(prev.side === 'below' ? 1 : 0, cur.side === 'below' ? 1 : 0, e) },
+      belowMix: lerp(prev.side === 'below' ? 1 : 0, cur.side === 'below' ? 1 : 0, e),
+      barMix: barMix(prev, cur, e) },
     o: 1, dest: moving ? cur : null, arrived: e >= 0.97,
   };
 }
