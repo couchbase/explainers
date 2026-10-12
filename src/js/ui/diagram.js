@@ -1013,10 +1013,11 @@ export class Diagram {
     setText(this.tokenSub, t.sub || '');
     this.tokenSub.setAttribute('opacity', so.toFixed(3));
     this.tokenSub.setAttribute('y', top.toFixed(1));
-    // The label sits above the marker, or (sideMix 1) to its right.
-    const sm = t.sideMix || 0, w = t.label.length * 6.6;
+    // The label sits above the marker, or (sideMix 1) to its right, or
+    // (belowMix 1) below it.
+    const sm = t.sideMix || 0, bm = t.belowMix || 0, w = t.label.length * 6.6;
     this.tokenLabel.setAttribute('x', (sm * (z / 2 + 6 + w / 2)).toFixed(1));
-    this.tokenLabel.setAttribute('y', ((1 - sm) * (top - 12 * so) + sm * 4).toFixed(1));
+    this.tokenLabel.setAttribute('y', ((1 - sm - bm) * (top - 12 * so) + sm * 4 + bm * (z / 2 + 13)).toFixed(1));
   }
 
   // Where the marker belongs for the current model state. mode 'file'
@@ -1050,9 +1051,9 @@ export class Diagram {
     if (seg) {
       const isFile = m.root.segs.some((ss) => ss.seg.id === tr.segId && ss.seg.kind === 'file');
       return isFile
-        // just under its bar, below the baseline (clear of any bars),
-        // labeled to the right
-        ? { p: [seg.p[0] + 3 + 7, FILE_BASE + 11], size: 14, kind: 'file', label: 'our file segment', st: 'bar', side: 'right', key: tr.segId }
+        // on its bar's foot, on the common baseline, exactly as wide as
+        // the bar (so it overlaps no other), labeled below the baseline
+        ? { p: [seg.p[0] + 3 + 7, FILE_BASE - 7], size: 14, kind: 'file', label: 'our file segment', st: 'bar', side: 'below', key: tr.segId }
         : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment', st: 'cell', key: tr.segId };
     }
     return null;
