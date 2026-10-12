@@ -1013,15 +1013,17 @@ export class Diagram {
     if (!t || opacity <= 0.001) { this.token.setAttribute('opacity', 0); return; }
     this.token.setAttribute('opacity', opacity.toFixed(3));
     this.token.setAttribute('transform', `translate(${t.p[0].toFixed(1)} ${t.p[1].toFixed(1)})`);
-    const z = t.size;
-    this.tokenRect.setAttribute('x', -z / 2); this.tokenRect.setAttribute('y', -z / 2);
-    this.tokenRect.setAttribute('width', z); this.tokenRect.setAttribute('height', z);
+    // (h: taller than wide, growing up from its foot, as it becomes a bar)
+    const z = t.size, hz = t.h || z;
+    this.tokenRect.setAttribute('x', -z / 2); this.tokenRect.setAttribute('y', z / 2 - hz);
+    this.tokenRect.setAttribute('width', z); this.tokenRect.setAttribute('height', hz);
     setCls(this.tokenRect, `token-chip kind-${t.kind}`);
     const so = t.snapO || 0;
     this.tokenSheet.setAttribute('opacity', so.toFixed(3));
     this.tokenSheet.setAttribute('transform', `scale(${(0.3 + 0.7 * so).toFixed(3)})`);
     const top = -Math.max(z / 2, 14 * so) - 5;
     setText(this.tokenLabel, t.label);
+    setCls(this.tokenLabel, t.labelCls || 'token-label');
     this.tokenLabel.setAttribute('opacity', (t.labelO ?? 1).toFixed(3));
     setText(this.tokenSub, t.sub || '');
     this.tokenSub.setAttribute('opacity', so.toFixed(3));
@@ -1068,8 +1070,11 @@ export class Diagram {
       return isFile
         // on its bar's foot, on the common baseline, exactly as wide as
         // the bar (so it overlaps no other), labeled below the baseline
-        // (once merged, our docs are in the merged file segment)
-        ? { p: [seg.p[0] + 3 + 7, FILE_BASE - 7], size: 14, kind: 'file', label: m.reached('merged') ? 'merged file segment' : 'our file segment', st: 'bar', side: 'below', key: tr.segId }
+        // (Once merged, our docs are in the merged file segment, labeled
+        // as it was on its way in, in black, beside it.) barH: the bar's
+        // height, which a square marker grows to as it lands.
+        ? { p: [seg.p[0] + 3 + 7, FILE_BASE - 7], size: 14, kind: 'file', st: 'bar', key: tr.segId, barH: ourBarH(m, tr.segId),
+          ...(m.reached('merged') ? { label: 'merged file segment', side: 'right', labelCls: 'merged-label' } : { label: 'our file segment', side: 'below' }) }
         : { p: [seg.p[0] + 8, seg.p[1]], size: 14, kind: 'mem', label: 'our segment', st: 'cell', key: tr.segId };
     }
     return null;
@@ -1454,6 +1459,12 @@ function summarize(p) {
 }
 
 // Log-scale bar height for byte sizes: 1MB → small, 2GB → full.
+// The height of the bar for file segment id in m's root.
+function ourBarH(m, id) {
+  const ss = m.root.segs.find((x) => x.seg.id === id);
+  return ss ? barHeight(ss.seg.bytes, 100) : 14;
+}
+
 function barHeight(bytes, max) {
   const mb = Math.max(bytes / (1024 * 1024), 0.25);
   const v = (Math.log2(mb) + 2) / 13; // 0.25MB..2GB

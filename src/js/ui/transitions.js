@@ -5,7 +5,7 @@
 
 import { STATIONS, BOXES, CORRIDOR_XS, CORRIDOR_YS, BOX_GAP } from './layout.js';
 import { along, clamp01, ease, lerp } from './util/anim.js';
-import { swapShift, swapTravel, swapPart } from './snapstack.js';
+import { swapShift, swapTravel, swapPart, ADD_TRAVEL } from './snapstack.js';
 
 // ---- the batch marker's route ----
 //
@@ -133,11 +133,15 @@ export function markerFrame(views, tokenAt, i, p, win = [0, 1], linear = false) 
   if (cur && cur.st === 'dcp' && i > 0 && tokenAt.has(i - 1)) {
     return { t: cur, o: clamp01((e - 0.72) / 0.25), birth: e };
   }
-  const withSnap = (t) => ({ ...t, snapO: t.snap ? 1 : 0, sideMix: t.side === 'right' ? 1 : 0, belowMix: t.side === 'below' ? 1 : 0, barMix: t.st === 'bar' ? 1 : 0 });
+  const withSnap = (t) => ({ ...t, snapO: t.snap ? 1 : 0, sideMix: t.side === 'right' ? 1 : 0, belowMix: t.side === 'below' ? 1 : 0, barMix: t.st === 'bar' ? 1 : 0, h: hOf(t) });
   if (cur) return { t: withSnap(cur), o: i > 0 && !tokenAt.has(i - 1) ? 1 : e };
   if (prev) return { t: withSnap(prev), o: 1 - e };
   return null;
 }
+
+// A marker's height: a square, or on a bar, the bar's height (so it
+// grows into its bar as it travels there).
+const hOf = (t) => (t.st === 'bar' && t.barH ? t.barH : t.size);
 
 // How far the marker has become its bar's outline: it does so as it
 // lands on a bar, and stops as it leaves one.
@@ -156,7 +160,7 @@ function between(prev, cur, e) {
       snapO: lerp(prev.snap ? 1 : 0, cur.snap ? 1 : 0, e),
       sideMix: lerp(prev.side === 'right' ? 1 : 0, cur.side === 'right' ? 1 : 0, e),
       belowMix: lerp(prev.side === 'below' ? 1 : 0, cur.side === 'below' ? 1 : 0, e),
-      barMix: barMix(prev, cur, e) },
+      barMix: barMix(prev, cur, e), h: lerp(hOf(prev), hOf(cur), e), labelCls: shown.labelCls },
     o: 1, dest: moving ? cur : null, arrived: e >= 0.97,
   };
 }
@@ -181,7 +185,12 @@ export function swapMarker(views, tokenAt, i, base, s) {
   const hop = onRoot(prev) && onRoot(cur) && prev.key !== cur.key;
   const e = hop ? clamp01((swapPart(s, 'drop') - 0.6) / 0.4) : swapTravel(s);
   const f = between(from, dest, e);
-  if (hop) f.t.labelO = swapPart(s, 'drop') > 0 ? e : 1 - swapPart(s, 'cover');
+  // (Its label comes back only when the merged chip, whose label it
+  // takes over, gives way to the new root's bar.)
+  // Landing on a bar that's new in this root: its square gives way only
+  // as the bar appears.
+  if (!onRoot(prev) && onRoot(cur)) f.t.barMix = clamp01((swapPart(s, 'add') - ADD_TRAVEL) / (1 - ADD_TRAVEL));
+  if (hop) f.t.labelO = swapPart(s, 'solid') > 0 ? swapPart(s, 'solid') : 1 - swapPart(s, 'cover');
   return f;
 }
 

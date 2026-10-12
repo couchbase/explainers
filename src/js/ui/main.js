@@ -191,15 +191,13 @@ function mergedChipAt(i, p, t, u, swap) {
     // close, and gives way to the bar once the new root is solid.
     const spot = diagram.newBarSpot(swap.A, swap.B, cur.key) || cur.p;
     const [dx, dy] = swapShift(swap.s);
-    const e = swapTravel(swap.s), add = swapPart(swap.s, 'add');
+    const e = swapTravel(swap.s);
     const o = 1 - swapPart(swap.s, 'solid');
-    if (e < 1) return { p: along(route(a, { ...cur, p: [spot[0] + dx, spot[1] + dy] }), e), o };
     const bar = diagram.barInSwap(swap.A, swap.B, cur.key, swap.s);
+    // (growing into its bar's height on the way)
+    if (e < 1) return { p: along(route(a, { ...cur, p: [spot[0] + dx, spot[1] + dy] }), e), h: lerp(14, bar ? bar.h : 14, e), o };
     if (!bar) return null;
-    const grow = clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL));
-    // Its label stays, until our marker moves onto it and takes over.
-    const hop = clamp01((swapPart(swap.s, 'drop') - 0.6) / 0.4);
-    return { p: [bar.x + 7 + dx, bar.foot - 7 + dy], h: lerp(14, bar.h, grow), labelO: 1 - hop, o };
+    return { p: [bar.x + 7 + dx, bar.foot - 7 + dy], h: bar.h, o };
   }
   const a = i > 0 ? ctl.chipAt.get(i - 1) : null, b = ctl.chipAt.get(i);
   if (a && b) return { p: along(route(a, b), t), o: 1, dest: b.st, left: (t < 0.5 ? a : b).left };
