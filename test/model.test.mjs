@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Model } from '../src/js/sim/model.js';
-import { checkInvariants } from '../src/js/sim/invariants.js';
+import { Model } from '../src/explainers/scorch-goroutines/sim/model.js';
+import { checkInvariants } from '../src/explainers/scorch-goroutines/sim/invariants.js';
 
 function runChecked(m, ms, step = 50) {
   for (let t = 0; t < ms; t += step) {

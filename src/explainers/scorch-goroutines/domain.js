@@ -1,10 +1,9 @@
 // The scorch-goroutines explainer, as the engine sees it: everything
 // specific to this explainer that the generic parts (src/js/story,
 // src/js/ui, build/) need, re-exported from one place. The engine
-// imports it through src/js/domain.js.
-//
-// (Still to move here: the simulator, src/js/sim/, and the diagram's
-// drawing, src/js/ui/diagram.js, which are specific to it too.)
+// imports it through src/js/domain.js. (Its simulator, sim/, and its
+// page, main.js and diagram.js, live here too; they're its own, so they
+// import this explainer directly.)
 
 export * from './layout.js';
 export * from './story.js';

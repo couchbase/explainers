@@ -30,7 +30,7 @@ test('sheets past the deepest drawn one are hidden', () => {
   assert.ok(f.sheets.every((s) => s.k <= MAX_BACK));
 });
 
-import { Slots } from '../src/js/ui/slots.js';
+import { Slots } from '../src/explainers/scorch-goroutines/slots.js';
 
 test("a key arriving as others leave takes its own slot, not theirs", () => {
   const s = new Slots(5);
@@ -43,7 +43,7 @@ test("a key arriving as others leave takes its own slot, not theirs", () => {
 });
 
 test('packed slots keep file bars packed left, in order', async () => {
-  const { PackedSlots } = await import('../src/js/ui/slots.js');
+  const { PackedSlots } = await import('../src/explainers/scorch-goroutines/slots.js');
   const s = new PackedSlots(3);
   assert.equal(s.sync(['a', 'b', 'c', 'd']), 1);
   assert.equal(s.get('c'), 2);

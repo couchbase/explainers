@@ -2,8 +2,8 @@
 // model immediately; scrolling to another step rebuilds it from the
 // narrative, so changes last only while you stay on this step.
 
-import { h } from './util/dom.js';
-import { MB } from '../sim/config.js';
+import { h } from '../../js/ui/util/dom.js';
+import { MB } from './sim/config.js';
 
 const GROUPS = [
   ['workload', 'Workload (modeled)'],

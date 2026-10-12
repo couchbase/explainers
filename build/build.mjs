@@ -17,7 +17,7 @@ import * as esbuild from 'esbuild';
 import { validateNarrative } from './schema.mjs';
 import { useDomain } from '../src/js/domain.js';
 import { shownChapters, isStop } from '../src/js/story/timeline.js';
-import { CONFIG_DOCS, DEFAULT_CONFIG } from '../src/js/sim/config.js';
+import { CONFIG_DOCS, DEFAULT_CONFIG } from '../src/explainers/scorch-goroutines/sim/config.js';
 
 hljs.registerLanguage('go', go);
 

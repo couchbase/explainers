@@ -10,22 +10,22 @@
 // presses Play does the simulation's own clock drive things.
 
 import { Diagram } from './diagram.js';
-import { CAMERAS, LIDS, BUBBLES, ANCHORS, SWAP_PHASES, COMMIT_PHASES, swapShift, swapTravel, swapPart } from '../../explainers/scorch-goroutines/domain.js';
-import { isAnchorVisible } from './anchors.js';
-import { CodeDrawer } from './code.js';
+import { CAMERAS, LIDS, BUBBLES, ANCHORS, SWAP_PHASES, COMMIT_PHASES, swapShift, swapTravel, swapPart } from './domain.js';
+import { isAnchorVisible } from '../../js/ui/anchors.js';
+import { CodeDrawer } from '../../js/ui/code.js';
 import { KnobsDrawer } from './knobs.js';
 import { ChartsPanel } from './charts.js';
-import { buildPage } from './page.js';
-import { Toc } from './toc.js';
-import { Camera } from './camera.js';
-import { bindGestures } from './gestures.js';
-import { Overlay } from './overlay.js';
-import { scrollState, scrollYFor } from './scroll.js';
-import { markerFrame, boxFrames, toggleAt, route } from './transitions.js';
-import { swapMarker } from '../../explainers/scorch-goroutines/swapmarker.js';
-import { clamp01, ease, lerp, along } from './util/anim.js';
-import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../story/timeline.js';
-import { checkInvariants } from '../sim/invariants.js';
+import { buildPage } from '../../js/ui/page.js';
+import { Toc } from '../../js/ui/toc.js';
+import { Camera } from '../../js/ui/camera.js';
+import { bindGestures } from '../../js/ui/gestures.js';
+import { Overlay } from '../../js/ui/overlay.js';
+import { scrollState, scrollYFor } from '../../js/ui/scroll.js';
+import { markerFrame, boxFrames, toggleAt, route } from '../../js/ui/transitions.js';
+import { swapMarker } from './swapmarker.js';
+import { clamp01, ease, lerp, along } from '../../js/ui/util/anim.js';
+import { flattenSteps, modelAtStep, enterStep, resolveViews, speedAt } from '../../js/story/timeline.js';
+import { checkInvariants } from './sim/invariants.js';
 
 const data = JSON.parse(document.getElementById('bx-data').textContent);
 const { narrative } = data;

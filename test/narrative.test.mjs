@@ -7,7 +7,7 @@ import yaml from 'js-yaml';
 import { validateNarrative } from '../build/schema.mjs';
 import { resolveAll, findLocal } from '../build/snippets.mjs';
 import { flattenSteps, modelAtStep, checkExpectation } from '../src/js/story/timeline.js';
-import { checkInvariants } from '../src/js/sim/invariants.js';
+import { checkInvariants } from '../src/explainers/scorch-goroutines/sim/invariants.js';
 import { useDomain } from '../src/js/domain.js';
 import * as scorch from '../src/explainers/scorch-goroutines/domain.js';
 

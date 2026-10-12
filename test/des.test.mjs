@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Kernel, Chan, Cond, Sem } from '../src/js/sim/des.js';
+import { Kernel, Chan, Cond, Sem } from '../src/explainers/scorch-goroutines/sim/des.js';
 
 test('unbuffered channel is a rendezvous', () => {
   const k = new Kernel();

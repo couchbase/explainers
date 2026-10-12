@@ -12,14 +12,14 @@
 import {
   SECTIONS, PANELS, LIDS, BUBBLES, ANCHORS, CANVAS, STATIONS, Staircase, stairScene,
   stackOf, stackFrame, stackKey, MAX_BACK, SHEET_DX, SHEET_DY, swapPart, swapShift, ADD_TRAVEL, COMMIT_PHASES,
-} from '../../explainers/scorch-goroutines/domain.js';
-import { isAnchorVisible } from './anchors.js';
-import { fmtBytes, fmtMs, fmtNum } from '../sim/fmt.js';
-import { svgEl as el, svgText as txt, setText, setCls } from './util/dom.js';
-import { along, clamp01, easeQuad, lerp } from './util/anim.js';
+} from './domain.js';
+import { isAnchorVisible } from '../../js/ui/anchors.js';
+import { fmtBytes, fmtMs, fmtNum } from './sim/fmt.js';
+import { svgEl as el, svgText as txt, setText, setCls } from '../../js/ui/util/dom.js';
+import { along, clamp01, easeQuad, lerp } from '../../js/ui/util/anim.js';
 import { GNode, procState, shortLabel } from './gnode.js';
 import { Slots, PackedSlots } from './slots.js';
-import { planInput } from '../sim/procs/merger.js';
+import { planInput } from './sim/procs/merger.js';
 
 const SYMBOLS = `
 <symbol id="dg-file" viewBox="0 0 12 15"><path d="M0.5,0.5 H8 L11.5,4 V14.5 H0.5 Z" class="ficon-body"/><path d="M8,0.5 V4 H11.5" class="ficon-fold"/></symbol>

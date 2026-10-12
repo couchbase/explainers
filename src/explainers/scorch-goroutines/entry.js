@@ -2,4 +2,4 @@
 // start the page. (Imports run in order, so use.js goes first.)
 
 import './use.js';
-import '../../js/ui/main.js';
+import './main.js';

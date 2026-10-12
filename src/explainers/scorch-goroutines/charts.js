@@ -1,8 +1,8 @@
 // The charts column: small sparklines of the simulation's stats, each
 // with a leader line to what it measures in the diagram.
 
-import { h } from './util/dom.js';
-import { fmtBytes } from '../sim/fmt.js';
+import { h } from '../../js/ui/util/dom.js';
+import { fmtBytes } from './sim/fmt.js';
 
 // Minimal SVG sparkline: area + line, optional dashed reference line
 // (e.g. a quota), drawn in a 100x40 viewBox scaled to its container.

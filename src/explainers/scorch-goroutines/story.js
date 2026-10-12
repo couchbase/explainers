@@ -3,14 +3,14 @@
 // our followed batch goes through, what steps can `expect`, and the
 // view directives it adds.
 
-import { Model } from '../../js/sim/model.js';
-import { plan as mergePlan } from '../../js/sim/mergeplan.js';
-import { planInput } from '../../js/sim/procs/merger.js';
+import { Model } from './sim/model.js';
+import { plan as mergePlan } from './sim/mergeplan.js';
+import { planInput } from './sim/procs/merger.js';
 import { PLAN_PHASES } from './stairs-scene.js';
 import { SWAP_PHASES, COMMIT_PHASES } from './snapstack.js';
 
 // The simulation's settings (for `sim.reset.config` and `sim.set`).
-export { applyConfig, makeConfig } from '../../js/sim/config.js';
+export { applyConfig, makeConfig } from './sim/config.js';
 
 // A fresh simulation, for a narrative's `sim.reset`.
 export const makeModel = ({ seed, config }) => new Model({ seed, config });

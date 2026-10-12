@@ -1,7 +1,7 @@
 // A goroutine box in the diagram, and the short labels it shows.
 
-import { svgEl as el, svgText as txt, setText, setCls, clip } from './util/dom.js';
-import { easeQuad } from './util/anim.js';
+import { svgEl as el, svgText as txt, setText, setCls, clip } from '../../js/ui/util/dom.js';
+import { easeQuad } from '../../js/ui/util/anim.js';
 
 // Classifies a goroutine's state. "stall" means blocked by
 // backpressure, as opposed to idly waiting for work.

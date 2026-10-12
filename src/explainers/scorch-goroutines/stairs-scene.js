@@ -9,9 +9,9 @@
 // stepping down to the floor tier on the right. Files past the last
 // stair are over budget.
 
-import { plan, DefaultMergePlanOptions } from '../../js/sim/mergeplan.js';
-import { fmtBytes } from '../../js/sim/fmt.js';
-import { MB } from '../../js/sim/config.js';
+import { plan, DefaultMergePlanOptions } from './sim/mergeplan.js';
+import { fmtBytes } from './sim/fmt.js';
+import { MB } from './sim/config.js';
 
 // The phases the story steps through (view.plan), and 'live', which
 // shows the running simulation's own files.

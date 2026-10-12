@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { plan, calcBudget, DefaultMergePlanOptions } from '../src/js/sim/mergeplan.js';
+import { plan, calcBudget, DefaultMergePlanOptions } from '../src/explainers/scorch-goroutines/sim/mergeplan.js';
 
 const cases = JSON.parse(readFileSync(new URL('./golden-mergeplan.json', import.meta.url)));
 
