@@ -17,6 +17,7 @@ import go from 'highlight.js/lib/languages/go';
 import * as esbuild from 'esbuild';
 import { validateNarrative } from './schema.mjs';
 import { ROOT, listExplainers, loadExplainer, loadTopic } from './explainers.mjs';
+import { topicIndex, rootIndex } from './indexes.mjs';
 import { useDomain } from '../js/domain.js';
 import { shownChapters, isStop } from '../js/story/timeline.js';
 
@@ -76,8 +77,6 @@ async function loadAll() {
 function escapeJsonForScript(json) {
   return json.replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
-
-const esc = (t) => String(t).replace(/[<&"]/g, (c) => ({ '<': '&lt;', '&': '&amp;', '"': '&quot;' })[c]);
 
 export async function build({ outDir = join(ROOT, 'dist') } = {}) {
   const explainers = await loadAll();
@@ -148,6 +147,8 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
         version,
         // the explainer to read next, if the narrative names one
         next: nextOf(e),
+        // the topic's index page, beside this one
+        topic: (({ title, label }) => ({ href: 'index.html', title, label }))(loadTopic(e.topic)),
       };
       const html = template
         .replaceAll('{{TITLE}}', n.title.replace(/[<&"]/g, ''))
@@ -158,19 +159,16 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
       mkdirSync(join(outDir, e.topic), { recursive: true });
       const file = join(outDir, e.topic, `${e.name}${suffix}.html`);
       writeFileSync(file, html);
-      if (!suffix) written.push({ file, bytes: html.length, topic: e.topic, name: e.name, title: n.title });
+      if (!suffix) written.push({ file, bytes: html.length, topic: e.topic, name: e.name, title: n.title, subtitleHtml: data.narrative.subtitleHtml });
     }
   }
   // The index pages: one per topic, and one over all of them.
-  const page = (title, body) => `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(title)}</title><body style="font: 1rem/1.6 system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 16px">${body}`;
-  const topics = [...new Set(written.map((w) => w.topic))];
-  const list = (ws, prefix) => `<ul>${ws.map((w) => `<li><a href="${prefix}${w.name}.html">${esc(w.title)}</a></li>`).join('')}</ul>`;
-  for (const t of topics) {
-    const { title } = loadTopic(t);
-    writeFileSync(join(outDir, t, 'index.html'), page(title, `<h1>${esc(title)}</h1>${list(written.filter((w) => w.topic === t), '')}`));
-  }
-  writeFileSync(join(outDir, 'index.html'), page('Explainers', `<h1>Explainers</h1>${topics.map((t) =>
-    `<h2><a href="${t}/">${esc(loadTopic(t).title)}</a></h2>${list(written.filter((w) => w.topic === t), `${t}/`)}`).join('')}`));
+  const topics = [...new Set(written.map((w) => w.topic))].map((t) => {
+    const topic = loadTopic(t);
+    return { topic: { ...topic, subtitleHtml: topic.subtitle ? renderMarkdown(topic.subtitle) : '' }, ws: written.filter((w) => w.topic === t) };
+  });
+  for (const { topic, ws } of topics) writeFileSync(join(outDir, topic.topic, 'index.html'), topicIndex(topic, ws));
+  writeFileSync(join(outDir, 'index.html'), rootIndex(topics));
   return written;
 }
 

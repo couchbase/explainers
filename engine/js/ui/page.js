@@ -23,7 +23,9 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
 
   // ---- story ----
   story.append(h('header', { class: 'hero card' },
-    h('div', { class: 'eyebrow', text: 'cbft / bleve / scorch' }),
+    data.topic
+      ? h('a', { class: 'eyebrow', href: data.topic.href, title: `All the explainers in “${data.topic.title}”`, text: data.topic.label })
+      : h('div', { class: 'eyebrow', text: narrative.id.split('/')[0] }),
     h('h1', { text: narrative.title }),
     h('div', { class: 'subtitle', html: narrative.subtitleHtml }),
     h('div', { class: 'meta', html:
@@ -49,11 +51,16 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
     }
   }
 
-  // at the end, the explainer to read next
-  if (data.next) {
-    story.append(h('div', { class: 'card next-card' },
+  // at the end, the explainer to read next, and the way back up to the
+  // topic's other explainers
+  if (data.next || data.topic) {
+    const end = h('div', { class: 'card next-card' });
+    if (data.next) end.append(
       h('div', { class: 'eyebrow', text: 'Next' }),
-      h('a', { class: 'next-link', href: data.next.href, text: `${data.next.title} →` })));
+      h('a', { class: 'next-link', href: data.next.href, text: `${data.next.title} →` }));
+    if (data.topic) end.append(
+      h('a', { class: 'up-link', href: data.topic.href, text: `All the explainers in “${data.topic.title}” ↑` }));
+    story.append(end);
   }
 
   // ---- stage: toolbar + diagram viewport ----

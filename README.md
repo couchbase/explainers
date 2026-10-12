@@ -106,8 +106,13 @@ builds to `dist/<topic>/<name>.html`:
 
 Anything else it needs (its diagram, a simulator, example data, tools
 that generate it) goes beside these. A topic's directory holds what its
-explainers share: `topic.yaml` (its title), `sources.yaml` (the source
-repos they link into, pinned), and any shared notes or code. Code
+explainers share: `topic.yaml` (its `title`; a short `label`, shown
+atop each explainer page as a link up to the topic's index; and a
+`subtitle` for that index page), `sources.yaml` (the source repos they
+link into, pinned), and any shared notes or code. The build gives each
+topic an index page, `dist/<topic>/index.html`, listing its explainers
+with their subtitles; each explainer links back up to it, from its
+header and from its last card. Code
 shared across topics goes in the engine.
 
 The engine reaches an explainer only through one seam,
@@ -255,7 +260,7 @@ engine/                  the engine
                          code.js and toc.js (the drawers), util/
   css/style.css          the engine's styles: palette, layout, story, toolbar, drawers
   page.html              the page template
-  build/                 build.mjs, explainers.mjs (finding them), schema.mjs, snippets.mjs
+  build/                 build.mjs, explainers.mjs (finding them), indexes.mjs (the index pages), schema.mjs, snippets.mjs
   test/, test-e2e/       its tests; helpers for explainers' browser tests
 topics/
   cbft/                  Couchbase full-text search (see its README.md)

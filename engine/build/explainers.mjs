@@ -1,7 +1,7 @@
 // Where the explainers are, and what each one is made of.
 //
 //   topics/<topic>/
-//     topic.yaml           the topic's title
+//     topic.yaml           the topic's title, label and subtitle
 //     sources.yaml         the pinned source repos its explainers link into
 //     <name>/              one explainer, built to dist/<topic>/<name>.html:
 //       narrative.yaml     the story
@@ -36,11 +36,12 @@ export function listExplainers() {
   return out;
 }
 
-// A topic's title and pinned sources.
+// A topic's title, label (a short name, for its explainers' headers),
+// subtitle (markdown, for its index page) and pinned sources.
 export function loadTopic(topic) {
   const dir = join(ROOT, 'topics', topic);
   const meta = existsSync(join(dir, 'topic.yaml')) ? readYaml(join(dir, 'topic.yaml')) : {};
-  return { topic, title: meta.title || topic, sources: existsSync(join(dir, 'sources.yaml')) ? readYaml(join(dir, 'sources.yaml')) : {} };
+  return { topic, title: meta.title || topic, label: meta.label || topic, subtitle: meta.subtitle || '', sources: existsSync(join(dir, 'sources.yaml')) ? readYaml(join(dir, 'sources.yaml')) : {} };
 }
 
 // An explainer's narrative, code refs and snippets (each may be empty).

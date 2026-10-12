@@ -1,2 +1,9 @@
 # Couchbase full-text search: how cbft and bleve/scorch work inside.
 title: "Inside Couchbase full-text search (cbft, bleve, scorch)"
+# the short name in each explainer's header, linking up to the topic's index
+label: "cbft / bleve / scorch"
+# for the topic's index page
+subtitle: >-
+  How Couchbase's Full Text Search service, cbft, and the bleve library
+  and scorch index it's built on, work under the hood: from a stream of
+  mutations to segment files on disk, and what a query reads from them.
