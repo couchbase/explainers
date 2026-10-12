@@ -2,32 +2,42 @@
 
 Scrollytelling explainers of how [bleve](https://github.com/blevesearch/bleve)
 works under the hood, as used by Couchbase's
-[cbft](https://github.com/couchbase/cbft). The style is inspired by
+[cbft](https://github.com/couchbase/cbft) (Full Text Search). The style
+is inspired by
 [r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
 
-The first explainer, **"Inside bleve / scorch: introducer, persister, merger"**,
-follows DCP mutations through cbft's batch workers and app herder into
-scorch's introducer, persister and merger goroutines. It walks through
-four scenarios: steady state, a slow I/O hiccup, a huge ingest, and a
-slow query that pins segments. The last chapter is a sandbox with knobs.
+The first explainer, **"Inside bleve / scorch: introducer, persister,
+merger"**, follows one batch of DCP mutations from KV through cbft's
+DCP goroutine, batch workers and app herder, into bleve's analysis
+queue and scorch, then through scorch's introducer, persister and
+merger goroutines, down to the zap files and `root.bolt` on disk.
+Along the way it shows root snapshots, epochs, refcounts, the
+in-memory merge, the tiered merge policy and epoch watchers.
+
+The published page ends after the merger chapter. Later chapters
+(ingest resuming, a slow disk, a huge ingest, a slow query, and a
+sandbox with knobs) are drafts, still under review; see
+[Drafts](#drafts).
 
 ## Quick start
 
+You need [Node.js](https://nodejs.org/) 20 or newer.
+
 ```sh
-npm install
-npm run build        # -> dist/scorch-goroutines.html (also dist/index.html)
-                     #    and, with a `stop` in the narrative, scorch-goroutines-drafts.html
-open dist/index.html
+npm ci               # install the pinned dependencies
+npm run build        # -> dist/scorch-goroutines.html (and dist/index.html)
+open dist/index.html # or xdg-open, or just open the file in a browser
 ```
 
 The output is **one self-contained HTML file**, with no server and no
-external scripts, so you can email it or post it in Slack. The only
-external reference is to Google Fonts, and the page falls back to
-system fonts when offline.
+external scripts, so you can email it or post it in Slack. Its only
+external reference is to Google Fonts, and it falls back to system
+fonts when offline.
 
-`npm run dev` rebuilds on every change under `src/` and `content/`.
+`npm run dev` rebuilds on every change under `src/` and `content/`;
+reload the page to see the changes.
 
-Reading it: scrolling drives the story. You can also navigate the
+**Reading it.** Scrolling drives the story. You can also navigate the
 diagram like a map:
 - drag to pan;
 - ⌘, Ctrl or ⌥ + scroll, or pinch, to zoom at the cursor;
@@ -35,37 +45,104 @@ diagram like a map:
 - two fingers to pinch and pan on touchscreens;
 - ⟲ to return to the story's view (the next step also eases back to it).
 
+Each step has a deep link (`#chapter--step`), and the ☰ Contents
+button in the top-left corner jumps between chapters. The Code drawer
+shows the Go source each step is about, with links to GitHub at the
+pinned commits.
+
+## Tests
+
+```sh
+npm test             # unit tests (fast; no browser needed)
+npm run build
+npm run test:e2e     # browser tests, in headless Chrome
+```
+
+`npm test` covers:
+- the discrete-event kernel;
+- the merge planner, against golden plans from the real Go code;
+- simulator invariants and scenarios;
+- the narratives: schema, cross-step rules, and each step's
+  `expect`ations against the simulated state;
+- that `content/snippets.json` matches the pinned Go sources (skipped
+  when they aren't available locally, as in CI);
+- the build output.
+
+`npm run test:e2e` drives the built page with
+[`playwright-core`](https://playwright.dev/) and your installed Google
+Chrome. It checks every step, the drawers, deep links, phone-width
+layout, light and dark themes, and that there are no page errors. Set
+`CHROME_PATH` to use another Chromium. It tests the drafts page when
+there is one, so the draft chapters are covered too.
+
+Append `?debug=1` to the page URL to check simulator invariants on
+every frame (violations are logged to the console).
+
+CI (`.github/workflows/ci.yml`) runs the build and both test suites
+on every push and pull request.
+
+## Publishing
+
+`dist/` is committed: it's the page as reviewed. The first panel of
+the page carries a version stamp, `git describe --long` of the sources
+it was built from, plus `-dirty` if they had uncommitted changes
+(changes under `dist/` don't count). To publish a new version:
+
+```sh
+git commit ...        # commit your changes first, for a clean stamp
+npm run build
+git add dist && git commit -m "Rebuild dist"
+git push
+```
+
+Tag a release (`git tag v0.2.0`) before building to get a friendlier
+stamp.
+
+**GitHub Pages.** `.github/workflows/pages.yml` publishes the committed
+`dist/*.html` (but not the drafts page) whenever `dist/` changes on
+`main` or `master`, or when run by hand from the Actions tab. To turn
+it on, once, in the GitHub repo: **Settings → Pages → Build and
+deployment → Source: GitHub Actions**. The page is then at
+`https://<owner>.github.io/<repo>/`.
+
 ## How it works
 
 The visuals are driven by a **live simulation**, not by canned
 animations. The diagram (`src/js/ui/diagram.js`, geometry in
-`layout.js`) is one large canvas that the story zooms around. Sections
-start covered by lids and open as the story reaches them. Everything
-sits in fixed slots, so the diagram updates in place without moving
-around.
+`layout.js`) is one large SVG canvas that the story's camera zooms
+around. Sections start covered by lids and open as the story reaches
+them.
 
-- `src/js/sim/des.js` is a tiny deterministic discrete-event kernel.
+- `src/js/sim/des.js` is a small deterministic discrete-event kernel.
   Goroutines are JS generator functions that `yield` Go-like ops:
   channel send/recv, `select` (with Go's random choice among ready
   cases), timers, condition variables and semaphores. Every run is
   seeded and reproducible.
 - `src/js/sim/model.js` models one cbft pindex:
-  - KV's DCP producer with flow control;
+  - KV's DCP producer, with flow control;
   - the DCP goroutine;
-  - cbft's 4 batch workers with capacity-1 channels;
+  - cbft's 4 batch workers, with capacity-1 channels;
   - the app herder;
-  - `Scorch.Batch()` and the analysis queue;
+  - `Scorch.Batch()` and bleve's analysis queue;
   - the introducer, persister (nap, in-memory merge workers, slow-merger
     pause, `root.bolt` commits, `removeOldData`) and merger;
+  - epoch watchers between them;
   - queries that pin snapshots.
 
   Comments name the Go functions being mirrored. Control flow, channel
-  capacities, refcounting and default knobs follow the real code.
+  capacities, refcounting and default settings follow the real code.
   Costs (CPU per doc, disk bandwidth, fsync latency) are modeled
   assumptions; see `src/js/sim/config.js`.
-- `src/js/sim/mergeplan.js` is a faithful port of bleve's
-  `mergeplan.Plan`. It is tested against golden plans generated by the
-  real Go code (`tools/mergeplan-golden`).
+- `src/js/sim/mergeplan.js` is a port of bleve's `mergeplan.Plan`,
+  tested against golden plans generated by the real Go code
+  (`tools/mergeplan-golden`).
+
+A few things are simplified for the story, and the narrative says so
+where it matters: it follows one batch, and pauses KV mutations so
+that batch travels alone; some steps that are instant in the real code
+(cutting flushables, opening a new zap file, planning) get a step of
+their own; and long animations, like a root swap, are told one phase
+per step.
 
 Research notes with file:line references live in `docs/research/`.
 
@@ -77,19 +154,16 @@ narratives and the code:
 - **The reader's scroll is the timeline.** Anything that changes
   between steps is driven by scroll position, not by a clock, so
   scrolling halfway leaves a change halfway done, and scrolling back
-  reverses it. This covers the camera, lids, bubbles, callout fades, the
-  batch marker, goroutine state changes and slot contents. The only
-  exception is when the reader presses Play and the simulation runs on
-  its own clock.
+  reverses it. The only exception is when the reader presses Play and
+  the simulation runs on its own clock.
 - **Change one thing at a time.** Each step changes one of camera,
   lids, bubbles, UI or simulation (the build enforces this). Within a
-  step, simultaneous changes are spread out in flow order across the
-  step's scroll range.
-- **Nothing teleports.** Our batch's marker travels along the corridors
-  between boxes; destinations wait for it to arrive.
-- **Keep the subject in view.** The camera follows the marker, the
-  charts and controls stay out of the way until they're needed, and the
-  story and chart columns are transparent around their cards.
+  step, changes are spread out in order across the step's scroll, so
+  the reader's eye has one thing to follow.
+- **Nothing teleports.** Markers travel along the drawn arrows and the
+  corridors between boxes; destinations wait for them to arrive.
+- **Keep the subject in view.** The camera follows the marker, and the
+  charts and controls stay out of the way until they're needed.
 
 ## Writing narratives
 
@@ -105,28 +179,30 @@ section they're about. A step looks like this:
   expect: ["reached:persisting"]    # checked by `npm test`
   code: [persister.maybeMerge]      # ids from content/coderefs.yaml
   text: |
-    Markdown. [[A persister worker]] is merging them into one zap file.
+    Markdown. [[A persister worker]] is merging our flushable into one
+    new zap file.
 ```
 
 **The callout.** `[[phrase]]` marks the one phrase per step that the
-callout line starts from. `view.target` names what it points at. That
-can be a fixed anchor (`dcp`, `workers`, `gate`, `introducer`, `root`,
+callout line starts from. `view.target` names what it points at: a
+fixed anchor (`dcp`, `workers`, `gate`, `introducer`, `root`,
 `persister`, `bolt`, ... see `ANCHORS` in `src/js/ui/layout.js`) or a
-live one that follows the simulation: `ourBatch`, `ourSeg`, `ourFile`
-or `deletedFile`.
+live one that follows the simulation (`ourBatch`, `ourSeg`, `ourFile`,
+`deletedFile`, `mergedSeg`).
 
 **View directives** say only what changes; the state carries over from
 step to step:
 
 | key | meaning |
 |---|---|
-| `camera` | a named region (`overview`, `top`, `cbft`, `scorchTop`, `introducer`, `root`, `persister`, `merger`, `lower`, `disk`, ...) or `[x0, y0, x1, y1]` |
+| `camera` | a named region (`overview`, `top`, `cbft`, `scorchTop`, `introducer`, `root`, `swap`, `persister`, `merger`, `lower`, `disk`, ... see `CAMERAS`) or `[x0, y0, x1, y1]` |
 | `open` / `close` | lids to open or close: `kv`, `cbft`, `bleve` (inside cbft), `scorch` (inside bleve), `disk`, and inside scorch `introducer`, `persister`, `merger` |
 | `bubble` / `unbubble` | pop a detail bubble out of a panel: `analysis`, `persister`, `merger` |
 | `plan` | what the merger bubble's tier staircase shows: an example index's `budget`, `files`, `over`, `pick`, `merged`; or `live`, the simulation's own files (the default) |
+| `token` | the marker: `auto` (follows our batch), `file` (on our zap file on disk), or `hide` |
 | `swap` | tell a root swap one phase per step: `cover`, `peel`, `copy`, `add`, `drop`, `epoch`, `solid`, `settle` (see `SWAP_PHASES` in `src/js/ui/snapstack.js`). The run's first step has the `sim.until` that swaps the root. Swaps that aren't told this way play every phase within one step's scroll |
-| `commit` | tell the persister's commit one phase per step: `bolt` (a new root.bolt record), `listed` (our zap file turns solid), `release` (the persister lets go of its root), `wake` (the new epoch wakes the merger); a phase may repeat over several steps to hold it; see `COMMIT_PHASES` |
-| `flow` | `analysis`: our batch's docs go across to the analysis queue and back during this step's scroll; `write` (or `mergeWrite`): our zap file goes down the persister's (or merger's) write arrow to disk, then the marker moves |
+| `commit` | tell the persister's commit one phase per step: `bolt` (a new `root.bolt` record), `listed` (our zap file turns solid), `release` (the persister lets go of its root), `wake` (the new epoch wakes the merger). A phase may repeat over several steps to hold it |
+| `flow` | an animation over the step's whole scroll: `analysis` (our batch's docs go to the analysis queue and back), `write` / `mergeWrite` (our zap file goes down the persister's / merger's write arrow to disk), `watcher` (the persister's epoch watcher goes up to the introducer) |
 | `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
 
 **Simulation directives:**
@@ -138,34 +214,37 @@ step to step:
 | `set: { ... }` | change config (keys from `src/js/sim/config.js`) |
 | `query: { durationMs, timeoutMs, label }` | start a query that pins a snapshot |
 | `follow: true` or `follow: alone` | tag the next batch, to follow it through the system; `alone` first lets batches in flight drain, has KV send just that batch's snapshot, then pauses KV |
-| `until: <stage>` | run event by event until the followed batch reaches a stage: `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `written`, `fileIntroducing`, `file`, `committed`, `caughtUp`, `persisterWaits`, `persisterNudged`, `watcherClosed`, `planning`, `merging`, `mergeWritten`, `mergeIntroducing`, `merged`, `oldFileDeleted` |
+| `until: <stage>` | run event by event until the followed batch reaches a stage (see `TRACE_STAGES` in `src/js/story/timeline.js`): `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `written`, `fileIntroducing`, `file`, `committed`, `caughtUp`, `persisterWaits`, `persisterNudged`, `watcherClosed`, `planning`, `merging`, `mergeWritten`, `mergeIntroducing`, `merged`, `oldFileDeleted` |
 | `speed` | playback speed (sim ms per wall ms; `0` means paused) |
 
 To build the state for step N, the explainer starts from the most
 recent `reset` at or before N. For each step from there through N, it
 fast-forwards to that step's `minTimeMs`, then applies its directives.
-This means a step looks the same however the reader got there,
-including by scrolling back up or following a deep link
-(`#chapter--step`). See `src/js/story/timeline.js`.
-
-**Drafts.** A `- stop: <note>` entry in the chapter list ends the page
-there, so unreviewed chapters after it can stay in the YAML. They're
-still validated and simulated by `npm test`, and the build also writes
-`dist/<id>-drafts.html` with every chapter (the browser tests use it).
+So a step looks the same however the reader got there, including by
+scrolling back up or following a deep link. See
+`src/js/story/timeline.js`.
 
 **One change per step.** The build rejects a step that changes more
-than one of camera, lids, flips and simulation. If you need to, say
-`multi: true`. To move from one section to another, use three steps:
-zoom out, open the next lid, then zoom in.
+than one of camera, lids, bubbles, UI and simulation. If you really
+need to, add `multi: true` to the step. To move from one section to
+another, use three steps: zoom out, open the next lid, then zoom in.
 
 The build also checks that:
 - every camera, lid, anchor and chart name exists;
 - a callout's target isn't hidden under a closed lid;
-- nested lids only open inside open parents.
+- nested lids only open inside open parents;
+- a told swap's phases come in order.
 
 `expect` names predicates from `EXPECTATIONS` in `timeline.js`, plus
-`reached:<stage>`. The tests check them, so the prose and the
-simulation can't silently drift apart.
+`reached:<stage>` and `rootEpoch:<n>`. The tests check them, so the
+prose and the simulation can't silently drift apart.
+
+### Drafts
+
+A `- stop: <note>` entry in the chapter list ends the published page
+there, so unreviewed chapters can stay in the YAML after it. They're
+still validated and simulated by `npm test`, and the build also writes
+`dist/<id>-drafts.html` with every chapter, for reviewing them.
 
 ### Code references
 
@@ -182,43 +261,27 @@ persister.pause:
   highlight: ["time.After(", "TotPersisterSlowMergerPause"]
 ```
 
-`content/sources.yaml` pins each repo to the commit cbft master uses,
-and lists where to find a local copy. The defaults are the Go module
-cache and a sibling `../couchbase-server.master` repo-sync tree;
-override the latter with `BLEVE_EXPLAINER_CB_SRC`.
+`content/sources.yaml` pins each repo to the commit cbft uses, and
+lists where to find a local copy: the Go module cache, and a sibling
+`../couchbase-server.master` repo-sync tree (override that with
+`BLEVE_EXPLAINER_CB_SRC`).
 
 `npm run snippets` resolves the anchors and writes
 `content/snippets.json`: highlighted lines plus GitHub permalinks at
-the pinned commit. That file is committed, so building doesn't need
-the sources; only refreshing snippets does.
+the pinned commits. That file is committed, so building doesn't need
+the sources; only refreshing the snippets does.
 
 To move to newer versions, bump the commits/versions in
-`sources.yaml` and run `npm run snippets`. Fix any anchors it reports.
-Then run `npm run golden:mergeplan`, which needs a Go toolchain new
-enough for bleve's `go.mod`, followed by `npm test`.
-
-## Tests
-
-```sh
-npm test            # kernel, mergeplan vs Go, simulator invariants and
-                    # scenarios, narrative schema + per-step expectations,
-                    # snippets freshness, build output
-npm run build && npm run test:e2e   # headless Chrome: every step, drawers,
-                                    # phone-width overflow, light + dark
-```
-
-The e2e tests use `playwright-core` with your installed Chrome. Set
-`CHROME_PATH` to use another Chromium.
-
-Append `?debug=1` to the page URL to check simulator invariants on
-every frame (violations are logged to the console).
+`sources.yaml`, run `npm run snippets`, and fix any anchors it
+reports. Then run `npm run golden:mergeplan` (it needs a Go toolchain
+new enough for bleve's `go.mod`), and `npm test`.
 
 ## Layout
 
 ```
 content/                 narratives (YAML), code refs, pinned sources, snippets.json
 docs/research/           how scorch and cbft work, with file:line refs
-docs/proposals/          earlier design sketches (static HTML, kept for reference)
+dist/                    the built pages (committed; published by GitHub Pages)
 
 src/js/sim/              the simulator (no DOM; runs in Node and the browser)
   des.js                 discrete-event kernel: generator "goroutines", channels, select
@@ -235,44 +298,20 @@ src/js/ui/               the page
   page.js                story, toolbar and charts DOM
   layout.js              diagram geometry: frames, lids, cameras, anchors, stations
   diagram.js             the diagram canvas (with gnode.js and slots.js)
-  transitions.js         what's shown partway between steps (marker route, boxes)
+  transitions.js         what's shown partway between steps (marker routes, boxes)
+  snapstack.js           the stack of live root snapshots; swap and commit phases
   stairs-scene.js        the merger bubble's tier staircase, as data (staircase.js draws it)
-  snapstack.js           the stack of live root snapshots, and who holds a ref on which
   camera.js, gestures.js the camera, the reader's pan/zoom, map-style gestures
   scroll.js              scroll position -> (step, progress)
   overlay.js, charts.js  callout and leader lines; the charts column
   code.js, knobs.js      the drawers
   util/                  DOM and interpolation helpers
 build/                   build.mjs, snippets.mjs, schema.mjs
-test/, test-e2e/
+test/, test-e2e/         unit tests; browser tests
 tools/mergeplan-golden/  Go program emitting golden merge plans
+.github/workflows/       CI, and GitHub Pages publishing
 ```
 
-## Original project brief
+## License
 
-> This project is to build a scrollytelling explainer for how bleve
-> works underneath the hood. Inspirations: r2d3.us -- especially
-> https://r2d3.us/visual-intro-to-machine-learning-part-1/
->
-> We intend to build several explainers, starting with how bleve and
-> zapx's concurrent goroutines of the introducer, persister, merger and
-> backpressure work, such as in Couchbase Server's cbft project.
->
-> Favor plain old JS and CSS, no fancy frameworks like ReactJS. Using
-> three.js is ok. If you need python, favor uv to prevent touching the
-> global python setup.
->
-> Ideally, we also want linkage to code, so if folks want to drill-down,
-> there would be pointers to actual files and code lines and/or code
-> highlighting. URL's to github.com are ok if you decide to not do this
-> locally.
->
-> The scrollytelling narratives ideally should be *.yaml files, for
-> easier editability for humans, instead of just big *.html files. The
-> narrative *.yaml might have the sections and steps, along perhaps with
-> declarative info like animation instructions and pointers to more
-> info, etc.
->
-> Use git commit'ing as you see fit.
->
-> Tests appreciated, too, to ensure things work and don't break.
+Apache License 2.0; see [LICENSE](LICENSE).

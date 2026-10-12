@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Scrollytelling explainers of bleve/scorch internals, as used by Couchbase cbft",
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "build": "node build/build.mjs",
@@ -18,5 +19,8 @@
     "js-yaml": "4.3.2",
     "marked": "12.0.2",
     "playwright-core": "1.56.1"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

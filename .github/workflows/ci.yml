@@ -1,0 +1,23 @@
+# Builds the explainer and runs the tests on every push and pull request.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Unit tests. (The check that content/snippets.json matches the
+      # pinned Go sources is skipped here: CI doesn't have them.)
+      - run: npm test
+      # Browser tests, in the runner's Google Chrome.
+      - run: npm run test:e2e
