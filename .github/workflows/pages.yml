@@ -3,7 +3,7 @@
 # It deploys what's in dist/ as committed, not a fresh build, so what's
 # published is exactly what was reviewed (and its version stamp names
 # the commit it was built from). Rebuild and commit dist/ to publish a
-# new version. Drafts (dist/*-drafts.html) aren't published.
+# new version. Drafts (dist/**/*-drafts.html) aren't published.
 name: Pages
 
 on:
@@ -32,10 +32,9 @@ jobs:
       - name: Collect the published pages
         run: |
           mkdir _site
-          for f in dist/*.html; do
-            case "$f" in *-drafts.html) ;; *) cp "$f" _site/ ;; esac
-          done
-          ls -l _site
+          cp -R dist/. _site/
+          find _site -name '*-drafts.html' -delete
+          find _site -type f | sort
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

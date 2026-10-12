@@ -1,0 +1,116 @@
+{
+ "zapx.open": {
+  "id": "zapx.open",
+  "repo": "zapx",
+  "path": "segment.go",
+  "title": "zapx open() — mmap the file, then read the footer, fields and doc values indexes",
+  "start": 52,
+  "end": 110,
+  "highlight": [
+   57,
+   84,
+   90,
+   96
+  ],
+  "url": "https://github.com/blevesearch/zapx/blob/6594f3d6bd0d/segment.go#L52-L110",
+  "code": "func (*ZapPlugin) open(path string, config map[string]interface{}) (segment.Segment, error) {\n\tf, err := os.Open(path)\n\tif err != nil {\n\t\treturn nil, err\n\t}\n\tmm, err := mmap.Map(f, mmap.RDONLY, 0)\n\tif err != nil {\n\t\t// mmap failed, try to close the file\n\t\t_ = f.Close()\n\t\treturn nil, err\n\t}\n\n\trv := &Segment{\n\t\tSegmentBase: SegmentBase{\n\t\t\tfieldsMap:         make(map[string]uint16),\n\t\t\tfieldsOptions:     make(map[string]index.FieldIndexingOptions),\n\t\t\tinvIndexCache:     newInvertedIndexCache(),\n\t\t\tvecIndexCache:     newVectorIndexCache(),\n\t\t\tsynIndexCache:     newSynonymIndexCache(),\n\t\t\tgeoIndexCache:     newGeoIndexCache(),\n\t\t\tnstIndexCache:     newNestedIndexCache(),\n\t\t\ttrainedIndexCache: newTrainedIndexCache(),\n\t\t\tfieldDvReaders:    make([][]*docValueReader, len(segmentSections)),\n\t\t\tconfig:            config,\n\t\t},\n\t\tf:    f,\n\t\tmm:   mm,\n\t\tpath: path,\n\t\trefs: 1,\n\t}\n\trv.SegmentBase.updateSize()\n\n\terr = rv.loadConfig()\n\tif err != nil {\n\t\t_ = rv.Close()\n\t\treturn nil, err\n\t}\n\n\terr = rv.loadFields()\n\tif err != nil {\n\t\t_ = rv.Close()\n\t\treturn nil, err\n\t}\n\n\terr = rv.loadDvReaders()\n\tif err != nil {\n\t\t_ = rv.Close()\n\t\treturn nil, err\n\t}\n\n\t// initialize any of the caches if needed\n\terr = rv.nstIndexCache.initialize(rv.numDocs, rv.getEdgeListOffset(), rv.mem)\n\tif err != nil {\n\t\t_ = rv.Close()\n\t\treturn nil, err\n\t}\n\n\treturn rv, nil\n}"
+ },
+ "zapx.footer": {
+  "id": "zapx.footer",
+  "repo": "zapx",
+  "path": "segment.go",
+  "title": "zapx loadConfig() — the footer, read backwards from the end",
+  "start": 243,
+  "end": 294,
+  "highlight": [
+   249,
+   262,
+   267
+  ],
+  "url": "https://github.com/blevesearch/zapx/blob/6594f3d6bd0d/segment.go#L243-L294",
+  "code": "func (s *Segment) loadConfig() error {\n\t// read offsets of 32 bit values - crc, ver, chunk\n\tcrcOffset := len(s.mm) - 4\n\tverOffset := crcOffset - 4\n\tchunkOffset := verOffset - 4\n\n\t// read offsets of 64 bit values - sectionsIndexOffset, storedIndexOffset, numDocsOffset\n\tsectionsIndexOffset := chunkOffset - 8\n\tstoredIndexOffset := sectionsIndexOffset - 8\n\tnumDocsOffset := storedIndexOffset - 8\n\n\t// read offsets for the writer id length\n\tidLenOffset := numDocsOffset - 4\n\n\t// read 32-bit crc\n\ts.crc = binary.BigEndian.Uint32(s.mm[crcOffset : crcOffset+4])\n\n\t// read 32-bit version\n\ts.version = binary.BigEndian.Uint32(s.mm[verOffset : verOffset+4])\n\tif s.version != Version {\n\t\treturn fmt.Errorf(\"unsupported version %d != %d\", s.version, Version)\n\t}\n\n\t// read 32-bit chunk mode\n\ts.chunkMode = binary.BigEndian.Uint32(s.mm[chunkOffset : chunkOffset+4])\n\n\t// read 64-bit sections index offset\n\ts.sectionsIndexOffset = binary.BigEndian.Uint64(s.mm[sectionsIndexOffset : sectionsIndexOffset+8])\n\n\t// read 64-bit stored index offset\n\ts.storedIndexOffset = binary.BigEndian.Uint64(s.mm[storedIndexOffset : storedIndexOffset+8])\n\n\t// read 64-bit num docs\n\ts.numDocs = binary.BigEndian.Uint64(s.mm[numDocsOffset : numDocsOffset+8])\n\n\t// read the length of the id\n\tidLen := binary.BigEndian.Uint32(s.mm[idLenOffset : idLenOffset+4])\n\tidOffset := idLenOffset - int(idLen)\n\n\t// read the file writer callback id and initialize the file reader with the same id\n\tfileWriterID := string(s.mm[idOffset : idOffset+int(idLen)])\n\tvar err error\n\ts.fileReader, err = NewFileReader(fileWriterID, []byte(s.path))\n\tif err != nil {\n\t\treturn err\n\t}\n\n\tfooterSize := FooterSize + int(idLen)\n\ts.incrementBytesRead(uint64(footerSize))\n\ts.SegmentBase.mem = s.mm[:len(s.mm)-footerSize]\n\treturn nil\n}"
+ },
+ "zapx.loadFields": {
+  "id": "zapx.loadFields",
+  "repo": "zapx",
+  "path": "segment.go",
+  "title": "zapx loadFields() — the sections index and each field's info",
+  "start": 335,
+  "end": 381,
+  "highlight": [],
+  "url": "https://github.com/blevesearch/zapx/blob/6594f3d6bd0d/segment.go#L335-L381",
+  "code": "func (sb *SegmentBase) loadFields() error {\n\tpos := sb.sectionsIndexOffset\n\n\tif pos == 0 {\n\t\treturn fmt.Errorf(\"no sections index present\")\n\t}\n\n\tseek := pos + binary.MaxVarintLen64\n\tif seek > uint64(len(sb.mem)) {\n\t\t// handling a buffer overflow case.\n\t\t// a rare case where the backing buffer is not large enough to be read directly via\n\t\t// a pos+binary.MaxVarintLen64 seek. For eg, this can happen when there is only\n\t\t// one field to be indexed in the entire batch of data and while writing out\n\t\t// these fields metadata, you write 1 + 8 bytes whereas the MaxVarintLen64 = 10.\n\t\tseek = uint64(len(sb.mem))\n\t}\n\n\t// read the number of fields\n\tnumFields, sz := binary.Uvarint(sb.mem[pos:seek])\n\t// here, the pos is incremented by the valid number bytes read from the buffer\n\t// so in the edge case pointed out above the numFields = 1, the sz = 1 as well.\n\tpos += uint64(sz)\n\tsb.incrementBytesRead(uint64(sz))\n\n\t// the following loop will be executed only once in the edge case pointed out above\n\t// since there is only field's offset store which occupies 8 bytes.\n\t// the pointer then seeks to a position preceding the sectionsIndexOffset, at\n\t// which point the responsibility of handling the out-of-bounds cases shifts to\n\t// the specific section's parsing logic.\n\tvar fieldID uint64\n\tfor fieldID < numFields {\n\t\taddr := binary.BigEndian.Uint64(sb.mem[pos : pos+8])\n\t\tsb.incrementBytesRead(8)\n\n\t\tfieldSectionMap, err := sb.loadField(uint16(fieldID), addr)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\n\t\tsb.fieldsSectionsMap = append(sb.fieldsSectionsMap, fieldSectionMap)\n\n\t\tfieldID++\n\t\tpos += 8\n\t}\n\n\treturn nil\n}"
+ },
+ "zapx.dictionary": {
+  "id": "zapx.dictionary",
+  "repo": "zapx",
+  "path": "segment.go",
+  "title": "zapx dictionary() — from a field to its FST",
+  "start": 437,
+  "end": 469,
+  "highlight": [],
+  "url": "https://github.com/blevesearch/zapx/blob/6594f3d6bd0d/segment.go#L437-L469",
+  "code": "func (sb *SegmentBase) dictionary(field string) (rv *Dictionary, err error) {\n\tfieldIDPlus1 := sb.fieldsMap[field]\n\tif fieldIDPlus1 == 0 {\n\t\treturn nil, nil\n\t}\n\tpos := sb.fieldsSectionsMap[fieldIDPlus1-1][SectionInvertedTextIndex]\n\tif pos > 0 {\n\t\trv = &Dictionary{\n\t\t\tsb:      sb,\n\t\t\tfield:   field,\n\t\t\tfieldID: fieldIDPlus1 - 1,\n\t\t}\n\t\t// skip the doc value offsets to get to the dictionary portion\n\t\tfor i := 0; i < 2; i++ {\n\t\t\t_, n := binary.Uvarint(sb.mem[pos : pos+binary.MaxVarintLen64])\n\t\t\tpos += uint64(n)\n\t\t}\n\t\tdictLoc, n := binary.Uvarint(sb.mem[pos : pos+binary.MaxVarintLen64])\n\t\tpos += uint64(n)\n\t\tfst, bytesRead, err := sb.invIndexCache.loadOrCreate(rv.fieldID, sb.mem[dictLoc:], sb.fileReader)\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"dictionary for field %s err: %v\", field, err)\n\t\t}\n\t\trv.fst = fst\n\t\trv.fstReader, err = rv.fst.Reader()\n\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"dictionary for field %s, vellum reader err: %v\", field, err)\n\t\t}\n\t\trv.bytesRead += bytesRead\n\t}\n\n\treturn rv, nil\n}"
+ },
+ "vellum.get": {
+  "id": "vellum.get",
+  "repo": "vellum",
+  "path": "fst.go",
+  "title": "vellum FST get() — walk the term's bytes, summing outputs",
+  "start": 70,
+  "end": 96,
+  "highlight": [],
+  "url": "https://github.com/blevesearch/vellum/blob/v1.2.0/fst.go#L70-L96",
+  "code": "func (f *FST) get(input []byte, prealloc fstState) (uint64, bool, error) {\n\tvar total uint64\n\tcurr := f.decoder.getRoot()\n\tstate, err := f.decoder.stateAt(curr, prealloc)\n\tif err != nil {\n\t\treturn 0, false, err\n\t}\n\tfor _, c := range input {\n\t\t_, curr, output := state.TransitionFor(c)\n\t\tif curr == noneAddr {\n\t\t\treturn 0, false, nil\n\t\t}\n\n\t\tstate, err = f.decoder.stateAt(curr, state)\n\t\tif err != nil {\n\t\t\treturn 0, false, err\n\t\t}\n\n\t\ttotal += output\n\t}\n\n\tif state.Final() {\n\t\ttotal += state.FinalOutput()\n\t\treturn total, true, nil\n\t}\n\treturn 0, false, nil\n}"
+ },
+ "zapx.postingsList": {
+  "id": "zapx.postingsList",
+  "repo": "zapx",
+  "path": "posting.go",
+  "title": "zapx PostingsList read() — the header, then the roaring bitmap",
+  "start": 271,
+  "end": 317,
+  "highlight": [
+   303
+  ],
+  "url": "https://github.com/blevesearch/zapx/blob/6594f3d6bd0d/posting.go#L271-L317",
+  "code": "func (rv *PostingsList) read(postingsOffset uint64, d *Dictionary) error {\n\trv.postingsOffset = postingsOffset\n\n\t// handle \"1-hit\" encoding special case\n\tif rv.postingsOffset&FSTValEncodingMask == FSTValEncoding1Hit {\n\t\treturn rv.init1Hit(postingsOffset)\n\t}\n\n\t// read the location of the freq/norm details\n\tvar n uint64\n\tvar read int\n\n\trv.freqOffset, read = binary.Uvarint(d.sb.mem[postingsOffset+n : postingsOffset+binary.MaxVarintLen64])\n\tn += uint64(read)\n\n\trv.locOffset, read = binary.Uvarint(d.sb.mem[postingsOffset+n : postingsOffset+n+binary.MaxVarintLen64])\n\tn += uint64(read)\n\n\tvar postingsLen uint64\n\tpostingsLen, read = binary.Uvarint(d.sb.mem[postingsOffset+n : postingsOffset+n+binary.MaxVarintLen64])\n\tn += uint64(read)\n\n\troaringBytes, err := d.sb.fileReader.process(d.sb.mem[postingsOffset+n : postingsOffset+n+postingsLen])\n\tif err != nil {\n\t\treturn err\n\t}\n\n\trv.incrementBytesRead(n + postingsLen)\n\n\tif rv.postings == nil {\n\t\trv.postings = roaring.NewBitmap()\n\t}\n\t_, err = rv.postings.FromBuffer(roaringBytes)\n\tif err != nil {\n\t\treturn fmt.Errorf(\"error loading roaring bitmap: %v\", err)\n\t}\n\n\tchunkSize, err := getChunkSize(d.sb.chunkMode,\n\t\trv.postings.GetCardinality(), d.sb.numDocs)\n\tif err != nil {\n\t\treturn fmt.Errorf(\"failed to get chunk size: %v\", err)\n\t}\n\n\trv.chunkSize = chunkSize\n\n\treturn nil\n}"
+ },
+ "zapx.postingsIterator": {
+  "id": "zapx.postingsIterator",
+  "repo": "zapx",
+  "path": "posting.go",
+  "title": "zapx PostingsList iterator() — postings ANDNOT deleted",
+  "start": 158,
+  "end": 232,
+  "highlight": [
+   224
+  ],
+  "url": "https://github.com/blevesearch/zapx/blob/6594f3d6bd0d/posting.go#L158-L232",
+  "code": "func (p *PostingsList) iterator(includeFreq, includeNorm, includeLocs bool,\n\trv *PostingsIterator) *PostingsIterator {\n\tif rv == nil {\n\t\trv = &PostingsIterator{}\n\t} else {\n\t\tfreqNormReader := rv.freqNormReader\n\t\tif freqNormReader != nil {\n\t\t\tfreqNormReader.reset()\n\t\t}\n\n\t\tlocReader := rv.locReader\n\t\tif locReader != nil {\n\t\t\tlocReader.reset()\n\t\t}\n\n\t\tnextLocs := rv.nextLocs[:0]\n\t\tnextSegmentLocs := rv.nextSegmentLocs[:0]\n\n\t\tbuf := rv.buf\n\n\t\t*rv = PostingsIterator{} // clear the struct\n\n\t\trv.freqNormReader = freqNormReader\n\t\trv.locReader = locReader\n\n\t\trv.nextLocs = nextLocs\n\t\trv.nextSegmentLocs = nextSegmentLocs\n\n\t\trv.buf = buf\n\t}\n\n\trv.postings = p\n\trv.includeFreqNorm = includeFreq || includeNorm || includeLocs\n\trv.includeLocs = includeLocs\n\n\tif p.normBits1Hit != 0 {\n\t\t// \"1-hit\" encoding\n\t\trv.docNum1Hit = p.docNum1Hit\n\t\trv.normBits1Hit = p.normBits1Hit\n\n\t\tif p.except != nil && p.except.Contains(uint32(rv.docNum1Hit)) {\n\t\t\trv.docNum1Hit = DocNum1HitFinished\n\t\t}\n\n\t\treturn rv\n\t}\n\n\t// \"general\" encoding, check if empty\n\tif p.postings == nil {\n\t\treturn rv\n\t}\n\n\t// initialize freq chunk reader\n\tif rv.includeFreqNorm {\n\t\trv.freqNormReader = newChunkedIntDecoder(p.sb.mem, p.freqOffset, rv.freqNormReader, p.sb.fileReader)\n\t\trv.incrementBytesRead(rv.freqNormReader.getBytesRead())\n\t}\n\n\t// initialize the loc chunk reader\n\tif rv.includeLocs {\n\t\trv.locReader = newChunkedIntDecoder(p.sb.mem, p.locOffset, rv.locReader, p.sb.fileReader)\n\t\trv.incrementBytesRead(rv.locReader.getBytesRead())\n\t}\n\n\trv.all = p.postings.Iterator()\n\tif p.except != nil {\n\t\trv.ActualBM = roaring.AndNot(p.postings, p.except)\n\t\trv.Actual = rv.ActualBM.Iterator()\n\t} else {\n\t\trv.ActualBM = p.postings\n\t\trv.Actual = rv.all // Optimize to use same iterator for all & Actual.\n\t}\n\n\treturn rv\n}"
+ },
+ "scorch.conjunction": {
+  "id": "scorch.conjunction",
+  "repo": "bleve",
+  "path": "index/scorch/optimize.go",
+  "title": "bleve scorch conjunction — AND the bitmaps, segment by segment",
+  "start": 77,
+  "end": 117,
+  "highlight": [
+   93
+  ],
+  "url": "https://github.com/blevesearch/bleve/blob/9d2da23a5c58/index/scorch/optimize.go#L77-L117",
+  "code": "func (o *OptimizeTFRConjunction) Finish() (index.Optimized, error) {\n\tif len(o.tfrs) <= 1 {\n\t\treturn nil, nil\n\t}\n\n\tfor i := range o.snapshot.segment {\n\t\titr0, ok := o.tfrs[0].iterators[i].(segment.OptimizablePostingsIterator)\n\t\tif !ok || itr0.ActualBitmap() == nil {\n\t\t\tcontinue\n\t\t}\n\n\t\titr1, ok := o.tfrs[1].iterators[i].(segment.OptimizablePostingsIterator)\n\t\tif !ok || itr1.ActualBitmap() == nil {\n\t\t\tcontinue\n\t\t}\n\n\t\tbm := roaring.And(itr0.ActualBitmap(), itr1.ActualBitmap())\n\n\t\tfor _, tfr := range o.tfrs[2:] {\n\t\t\titr, ok := tfr.iterators[i].(segment.OptimizablePostingsIterator)\n\t\t\tif !ok || itr.ActualBitmap() == nil {\n\t\t\t\tcontinue\n\t\t\t}\n\n\t\t\tbm.And(itr.ActualBitmap())\n\t\t}\n\n\t\t// in this conjunction optimization, the postings iterators\n\t\t// will all share the same AND'ed together actual bitmap.  The\n\t\t// regular conjunction searcher machinery will still be used,\n\t\t// but the underlying bitmap will be smaller.\n\t\tfor _, tfr := range o.tfrs {\n\t\t\titr, ok := tfr.iterators[i].(segment.OptimizablePostingsIterator)\n\t\t\tif ok && itr.ActualBitmap() != nil {\n\t\t\t\titr.ReplaceActual(bm)\n\t\t\t}\n\t\t}\n\t}\n\n\treturn nil, nil\n}"
+ },
+ "zapx.storedFields": {
+  "id": "zapx.storedFields",
+  "repo": "zapx",
+  "path": "read.go",
+  "title": "zapx getDocStoredMetaAndCompressed() — stored index, then the record",
+  "start": 19,
+  "end": 35,
+  "highlight": [],
+  "url": "https://github.com/blevesearch/zapx/blob/6594f3d6bd0d/read.go#L19-L35",
+  "code": "func (sb *SegmentBase) getDocStoredMetaAndCompressed(docNum uint64) ([]byte, []byte, error) {\n\t_, storedOffset, n, metaLen, dataLen := sb.getDocStoredOffsets(docNum)\n\n\tmeta := sb.mem[storedOffset+n : storedOffset+n+metaLen]\n\tdata := sb.mem[storedOffset+n+metaLen : storedOffset+n+metaLen+dataLen]\n\n\tmeta, err := sb.fileReader.process(meta)\n\tif err != nil {\n\t\treturn nil, nil, err\n\t}\n\tdata, err = sb.fileReader.process(data)\n\tif err != nil {\n\t\treturn nil, nil, err\n\t}\n\n\treturn meta, data, nil\n}"
+ }
+}

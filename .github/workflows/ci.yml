@@ -16,7 +16,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      # Unit tests. (The check that content/snippets.json matches the
+      # Unit tests. (The check that each snippets.json matches the
       # pinned Go sources is skipped here: CI doesn't have them.)
       - run: npm test
       # Browser tests, in the runner's Google Chrome.

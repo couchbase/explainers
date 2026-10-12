@@ -1,0 +1,416 @@
+# Named code references used by narratives (`code: [id, ...]`).
+#
+#   repo:      key in sources.yaml
+#   path:      file path within the repo
+#   anchor:    text on the first line of the snippet; must be unique in
+#              the file (line numbers are derived, so they don't rot)
+#   extent:    func  - through the next line that is exactly "}"
+#              block - through the next line that is exactly ")" or "}"
+#              N     - N lines
+#   highlight: substrings; lines containing them are highlighted
+#   title:     shown in the UI
+
+# ---------------- bleve / scorch ----------------
+
+bleve.analysisQueue:
+  repo: bleve
+  path: config.go
+  anchor: "func (c *configuration) SetAnalysisQueueSize(n int) {"
+  extent: 15
+  title: bleve.Config — one analysis queue per process, 4 workers by default
+  highlight: ["analysisQueue"]
+
+scorch.batchAnalysis:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "if numUpdates > 0 {"
+  extent: 30
+  title: Scorch.Batch() — queue one analysis closure per doc, wait for all
+  highlight: ["s.analysisQueue.Queue", "resultChan"]
+
+scorch.analyze:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "func analyze(d index.Document, fn customAnalyzerPluginInitFunc) {"
+  extent: 10
+  title: analyze() — run each indexed field's analyzer
+  highlight: ["field.Analyze()"]
+
+cbft.analysisQueueSize:
+  repo: cbft
+  path: cmd/cbft/init_bleve.go
+  anchor: "initAnalysisQueue.Do(func() {"
+  extent: 23
+  title: cbft sizes bleve's analysis queue to NumCPU (bleveAnalysisQueueSize)
+  highlight: ["runtime.NumCPU()", "SetAnalysisQueueSize"]
+
+scorch.Batch:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "func (s *Scorch) Batch(batch *index.Batch) (err error) {"
+  extent: func
+  title: Scorch.Batch() — analyze, build a segment, hand it to the introducer
+  highlight: ["EventKindBatchIntroductionStart", "analysisQueue.Queue", "NewUsing(", "prepareSegment("]
+
+scorch.prepareSegment:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "func (s *Scorch) prepareSegment(newSegment segment.Segment, ids []string,"
+  extent: func
+  title: prepareSegment() — compute obsoletes, send the introduction, wait
+  highlight: ["unsafeBatch", "s.introductions <- introduction", "<-introduction.applied", "<-introduction.persisted"]
+
+scorch.fireEvent:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "func (s *Scorch) NumEventsBlocking() uint64 {"
+  extent: 15
+  title: fireEvent() and NumEventsBlocking() — how app callbacks can block scorch
+  highlight: ["TotEventTriggerStarted", "TotEventTriggerCompleted", "s.onEvent("]
+
+scorch.currentSnapshot:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "func (s *Scorch) Reader() (index.IndexReader, error) {"
+  extent: 13
+  title: Reader() — a query AddRef()s the current root snapshot
+  highlight: ["AddRef()"]
+
+scorch.MemoryUsed:
+  repo: bleve
+  path: index/scorch/scorch.go
+  anchor: "func (s *Scorch) MemoryUsed() (memUsed uint64) {"
+  extent: func
+  title: MemoryUsed()
+
+snapshot.refcount:
+  repo: bleve
+  path: index/scorch/snapshot_index.go
+  anchor: "func (i *IndexSnapshot) AddRef() {"
+  extent: 29
+  title: IndexSnapshot AddRef / DecRef — the last ref releases segments
+  highlight: ["i.refs--", "segment.DecRef()", "AddEligibleForRemoval"]
+
+introducer.loop:
+  repo: bleve
+  path: index/scorch/introducer.go
+  anchor: "func (s *Scorch) introducerLoop() {"
+  extent: func
+  title: introducerLoop() — the single goroutine that swaps the root
+  highlight: ["case epochWatcher := <-s.introducerNotifier", "case nextMerge := <-s.merges", "case next := <-s.introductions", "case persist := <-s.persists"]
+
+introducer.introduceSegment:
+  repo: bleve
+  path: index/scorch/introducer.go
+  anchor: "func (s *Scorch) introduceSegment(next *segmentIntroduction) error {"
+  extent: func
+  title: introduceSegment() — a new root epoch with the batch's segment
+  highlight: ["roaring.Or(", "s.nextSnapshotEpoch++", "s.root = newSnapshot", "rootPrev.DecRef()", "close(next.applied)"]
+
+introducer.introducePersist:
+  repo: bleve
+  path: index/scorch/introducer.go
+  anchor: "func (s *Scorch) introducePersist(persist *persistIntroduction) {"
+  extent: func
+  title: introducePersist() — swap in-memory segments for mmapped files
+
+introducer.introduceMerge:
+  repo: bleve
+  path: index/scorch/introducer.go
+  anchor: "func (s *Scorch) introduceMerge(nextMerge *segmentMerge) {"
+  extent: func
+  title: introduceMerge() — remap deletes that happened during the merge
+  highlight: ["AndNot(", "oldNewDocIDs"]
+
+introducer.mergeSwap:
+  repo: bleve
+  path: index/scorch/introducer.go
+  anchor: "func (s *Scorch) introduceMerge(nextMerge *segmentMerge) {"
+  extent: func
+  title: introduceMerge() — a new root from the old one's list, then the swap
+  highlight: ["newSnapshot := &IndexSnapshot{", "for i := range root.segment {", "root.segment[i].segment.AddRef()", "newSnapshot.epoch = s.nextSnapshotEpoch", "s.root = newSnapshot", "rootPrev.DecRef()"]
+
+persister.defaults:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "DefaultPersisterNapTimeMSec is kept to zero"
+  extent: 64
+  title: Persister defaults (bleve) — cbft overrides several
+  highlight: ["DefaultPersisterNapTimeMSec int", "DefaultPersisterNapUnderNumFiles int", "DefaultMemoryPressurePauseThreshold uint64", "DefaultNumPersisterWorkers int", "DefaultMaxSizeInMemoryMergePerWorker int", "NumSnapshotsToKeep int", "RollbackSamplingInterval time.Duration"]
+
+persister.loop:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) persisterLoop() {"
+  extent: func
+  title: persisterLoop()
+  highlight: ["pausePersisterForMergerCatchUp(", "s.root.epoch > lastPersistedEpoch", "s.persistSnapshot(", "close(ew.notifyCh)", "s.introducerNotifier <- w", "s.removeOldData()"]
+
+persister.pause:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) pausePersisterForMergerCatchUp(lastPersistedEpoch uint64,"
+  extent: func
+  title: pausePersisterForMergerCatchUp() — the nap, and the slow-merger pause
+  highlight: ["numFilesOnDisk < uint64(po.PersisterNapUnderNumFiles)", "s.NumEventsBlocking() == 0", "time.After(", "TotPersisterMergerNapBreak", "numFilesOnDisk >= uint64(po.PersisterNapUnderNumFiles)", "TotPersisterSlowMergerPause"]
+
+persister.persistSnapshot:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) persistSnapshot(snapshot *IndexSnapshot, po *persisterOptions) error {"
+  extent: func
+  title: persistSnapshot() — in-memory merge first, unless under memory pressure
+  highlight: ["MemoryPressurePauseThreshold", "persistSnapshotMaybeMerge", "persistSnapshotDirect"]
+
+persister.equiv:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) persistSnapshotMaybeMerge(snapshot *IndexSnapshot, po *persisterOptions) ("
+  extent: func
+  title: persistSnapshotMaybeMerge() — the record keeps the epoch of the root it started from
+  highlight: ["equiv := &IndexSnapshot{", "epoch:    snapshot.epoch,", "s.persistSnapshotDirect(equiv)"]
+
+persister.maybeMerge:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) persistSnapshotMaybeMerge(snapshot *IndexSnapshot, po *persisterOptions) ("
+  extent: func
+  title: persistSnapshotMaybeMerge() — cut in-memory segments into flushables
+  highlight: ["DefaultMinSegmentsForInMemoryMerge", "MaxSizeInMemoryMergePerWorker", "mergeAndPersistInMemorySegments("]
+
+persister.direct:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) persistSnapshotDirect(snapshot *IndexSnapshot) (err error) {"
+  extent: func
+  title: persistSnapshotDirect() — write zap files, then commit root.bolt
+  highlight: ["s.persists <- persist", "tx.Commit()", "s.rootBolt.Sync()", "ineligibleForRemoval"]
+
+persister.removeOldData:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) removeOldData() {"
+  extent: func
+  title: removeOldData()
+
+persister.protected:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) getProtectedSnapshots(liveSnapshots []*snapshotMetaData) map[uint64]time.Time {"
+  extent: func
+  title: getProtectedSnapshots() — which rollback points to keep
+
+persister.removeOldZapFiles:
+  repo: bleve
+  path: index/scorch/persister.go
+  anchor: "func (s *Scorch) removeOldZapFiles() error {"
+  extent: func
+  title: removeOldZapFiles() — deletes by bolt listing, not by refcount
+  highlight: ["liveFileNames[fname]", "ineligibleForRemoval[fname]", "os.Remove("]
+
+merger.loop:
+  repo: bleve
+  path: index/scorch/merge.go
+  anchor: "func (s *Scorch) mergerLoop() {"
+  extent: func
+  title: mergerLoop() — plan, merge, then wait for the persister
+  highlight: ["EventKindPreMergeCheck", "s.planMergeAtSnapshot(", "s.persisterNotifier <- ew", "<-ew.notifyCh"]
+
+merger.planMergeAtSnapshot:
+  repo: bleve
+  path: index/scorch/merge.go
+  anchor: "func (s *Scorch) planMergeAtSnapshot(ctrlMsg *mergerCtrl, ourSnapshot *IndexSnapshot) error {"
+  extent: func
+  title: planMergeAtSnapshot() — only file segments are merge candidates
+  highlight: ["mergeplan.Plan(", "s.segPlugin.MergeUsing(", "s.merges <- sm"]
+
+merger.memMerge:
+  repo: bleve
+  path: index/scorch/merge.go
+  anchor: "func (s *Scorch) mergeAndPersistInMemorySegments(flushes []*flushable, po *persisterOptions) (*IndexSnapshot, map[uint64]struct{}, error) {"
+  extent: func
+  title: mergeAndPersistInMemorySegments() — parallel persister workers
+
+mergeplan.defaults:
+  repo: bleve
+  path: index/scorch/mergeplan/merge_plan.go
+  anchor: "var DefaultMergePlanOptions = MergePlanOptions{"
+  extent: block
+  title: DefaultMergePlanOptions
+
+mergeplan.plan:
+  repo: bleve
+  path: index/scorch/mergeplan/merge_plan.go
+  anchor: "func plan(segmentsIn []Segment, o *MergePlanOptions) (*MergePlan, error) {"
+  extent: func
+  title: plan() — a tiered merge policy, à la Lucene
+  highlight: ["o.MaxSegmentSize/2", "calcBudget(", "(len(eligibles)+numMergeTasks) > budgetNumSegments", "scoreSegments(roster, o)"]
+
+mergeplan.CalcBudget:
+  repo: bleve
+  path: index/scorch/mergeplan/merge_plan.go
+  anchor: "func CalcBudget(totalSize int64, firstTierSize int64, o *MergePlanOptions) ("
+  extent: func
+  title: CalcBudget() — the staircase of tiers
+
+mergeplan.ScoreSegments:
+  repo: bleve
+  path: index/scorch/mergeplan/merge_plan.go
+  anchor: "func ScoreSegments(segments []Segment, o *MergePlanOptions) float64 {"
+  extent: func
+  title: ScoreSegments() — prefer balanced merges that reclaim deletes
+
+bleve.SearchInContext:
+  repo: bleve
+  path: index_impl.go
+  anchor: "func (i *indexImpl) SearchInContext(ctx context.Context, req *SearchRequest) (sr *SearchResult, err error) {"
+  extent: 20
+  title: indexImpl.SearchInContext() — one reader for the whole query
+  highlight: ["i.i.Reader()", "indexReader.Close()"]
+
+bleve.BatchIndex:
+  repo: bleve
+  path: index.go
+  anchor: "func (b *Batch) Index(id string, data interface{}) error {"
+  extent: func
+  title: Batch.Index() — mapping happens on the caller's goroutine
+  highlight: ["FireIndexEvent()", "MapDocument("]
+
+# ---------------- zapx ----------------
+
+zapx.persist:
+  repo: zapx
+  path: build.go
+  anchor: "func PersistSegmentBase(sb *SegmentBase, path string) error {"
+  extent: func
+  title: zapx PersistSegmentBase() — write then fsync
+  highlight: ["f.Sync()"]
+
+zapx.closeActual:
+  repo: zapx
+  path: segment.go
+  anchor: "func (s *Segment) DecRef() (err error) {"
+  extent: func
+  title: zapx Segment.DecRef() — the last ref unmaps and closes the file
+  highlight: ["s.closeActual()"]
+
+zapx.merge:
+  repo: zapx
+  path: merge.go
+  anchor: "func mergeSegmentBases(segmentBases []*SegmentBase, drops []*roaring.Bitmap, path string,"
+  extent: func
+  title: zapx mergeSegmentBases() — write the merged file, fsync
+  highlight: ["f.Sync()", "DefaultFileMergerBufferSize"]
+
+# ---------------- cbft ----------------
+
+cbft.batchDefaults:
+  repo: cbft
+  path: pindex_bleve.go
+  anchor: "	BleveMaxOpsPerBatch = 200 // Unlimited when <= 0."
+  extent: 10
+  title: cbft batch defaults
+  highlight: ["BleveMaxOpsPerBatch = 200", "BleveBatchFlushDuration =", "asyncBatchWorkerCount = 4"]
+
+cbft.kvConfig:
+  repo: cbft
+  path: pindex_bleve.go
+  anchor: "func bleveRuntimeConfigMap(bleveParams *BleveParams) (map[string]interface{},"
+  extent: 20
+  title: bleveRuntimeConfigMap() — cbft's scorch config
+  highlight: ['"unsafe_batch":             true', '"numSnapshotsToKeep":       3', '"rollbackSamplingInterval": "10m"']
+
+cbft.persisterDefaults:
+  repo: cbft
+  path: pindex_bleve.go
+  anchor: "		var numPersisterWorkers = 4"
+  extent: 3
+  title: PrepareIndexDef() — cbft's persister and mergeplan defaults
+
+cbft.napDefaults:
+  repo: cbft
+  path: cmd/cbft/init_bleve.go
+  anchor: "	scorch.DefaultPersisterNapTimeMSec = 2000 // ms"
+  extent: 2
+  title: cbft sets the persister nap globally
+
+cbft.updateSeq:
+  repo: cbft
+  path: pindex_bleve.go
+  anchor: "func (t *BleveDestPartition) updateSeqLOCKED(seq uint64) (bool, error) {"
+  extent: func
+  title: updateSeqLOCKED() — flush at snapshot end or at 200 ops
+  highlight: ["seqSnapEnd", "BleveMaxOpsPerBatch"]
+
+cbft.submitAsync:
+  repo: cbft
+  path: pindex_bleve.go
+  anchor: "func (t *BleveDestPartition) submitAsyncBatchRequestLOCKED() (bool, error) {"
+  extent: func
+  title: submitAsyncBatchRequestLOCKED() — hand the batch to a worker
+  highlight: ["SetInternal(", "batchReqChs["]
+
+cbft.runBatchWorker:
+  repo: cbft
+  path: pindex_bleve.go
+  anchor: "func runBatchWorker(requestCh chan *batchRequest, stopCh chan struct{},"
+  extent: func
+  title: runBatchWorker() — merge batches, flush on 200 ops or 100ms
+  highlight: ["BleveBatchFlushDuration", "TotBatchesFlushedOnMaxOps", "TotBatchesFlushedOnTimer", "Merge("]
+
+cbft.execute:
+  repo: cbft
+  path: pindex_bleve.go
+  anchor: "func execute(bdp []*BleveDestPartition, bdpMaxSeqNums []uint64,"
+  extent: func
+  title: execute() — bindex.Batch(), then release consistency waiters
+  highlight: ["bindex.Batch(batch)", "seqMaxBatch", "cwrQueue"]
+
+cbft.dataUpdate:
+  repo: cbft
+  path: pindex_bleve.go
+  anchor: "func (t *BleveDestPartition) dataUpdate(partition string,"
+  extent: func
+  title: dataUpdate() — on the DCP goroutine
+  highlight: ["batch.Index(", "updateSeqLOCKED("]
+
+herder.onScorchEvent:
+  repo: cbft
+  path: cmd/cbft/app_herder.go
+  anchor: "func (a *appHerder) onScorchEvent(event scorch.Event) bool {"
+  extent: func
+  title: appHerder.onScorchEvent() — where cbft hooks scorch events
+  highlight: ["EventKindIndexStart", "EventKindBatchIntroductionStart", "EventKindPersisterProgress", "EventKindMergerProgress"]
+
+herder.checkAndBlockIndex:
+  repo: cbft
+  path: cmd/cbft/app_herder.go
+  anchor: "func (a *appHerder) checkAndBlockIndex() {"
+  extent: func
+  title: checkAndBlockIndex() — blocks the DCP goroutine
+  highlight: ["a.waitCond.Wait()"]
+
+herder.checkAndBlockBatch:
+  repo: cbft
+  path: cmd/cbft/app_herder.go
+  anchor: "func (a *appHerder) checkAndBlockBatch(c interface{}, s sizeFunc) {"
+  extent: func
+  title: checkAndBlockBatch() — blocks the batch worker (with the MB-29504 escape hatch)
+  highlight: ["MB-29504", "a.indexingMemoryLOCKED() == 0", "a.waitCond.Wait()"]
+
+herder.overQuota:
+  repo: cbft
+  path: cmd/cbft/app_herder.go
+  anchor: "func (a *appHerder) overMemQuotaForIndexing() (bool, int64, int64) {"
+  extent: func
+  title: overMemQuotaForIndexing()
+  highlight: ["FetchCurMemoryUsed()", "a.indexQuota"]
+
+# ---------------- cbgt ----------------
+
+cbgt.dcpBuffer:
+  repo: cbgt
+  path: feed_dcp.go
+  anchor: "var DCPFeedBufferSizeBytes = uint32(20 * 1024 * 1024)"
+  extent: 6
+  title: cbgt DCP flow-control buffer

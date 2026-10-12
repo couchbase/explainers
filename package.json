@@ -1,19 +1,19 @@
 {
-  "name": "cbft-explainer",
+  "name": "explainers",
   "version": "0.1.0",
   "private": true,
-  "description": "Scrollytelling explainers of bleve/scorch internals, as used by Couchbase cbft",
+  "description": "Scrollytelling explainers: a generic engine (engine/), and explainers by topic (topics/), starting with Couchbase full-text search internals",
   "license": "Apache-2.0",
   "author": "Couchbase, Inc.",
   "type": "module",
   "scripts": {
-    "build": "node build/build.mjs",
-    "snippets": "node build/snippets.mjs",
-    "dev": "node build/build.mjs --watch",
-    "test": "node --test test/*.test.mjs",
-    "test:e2e": "node --test test-e2e/*.test.mjs",
-    "golden:mergeplan": "cd tools/mergeplan-golden && GOTOOLCHAIN=local GOFLAGS=-mod=mod go run . > ../../test/golden-mergeplan.json",
-    "golden:zap": "cd tools/zap-golden && GOTOOLCHAIN=local GOFLAGS=-mod=mod go run . hotels.json ../../src/explainers/zap-format/segment.json"
+    "build": "node engine/build/build.mjs",
+    "snippets": "node engine/build/snippets.mjs",
+    "dev": "node engine/build/build.mjs --watch",
+    "test": "node --test \"engine/test/*.test.mjs\" \"topics/*/*/test/*.test.mjs\"",
+    "test:e2e": "node --test \"engine/test-e2e/*.test.mjs\" \"topics/*/*/test-e2e/*.test.mjs\"",
+    "golden:mergeplan": "cd topics/cbft/01-indexing/tools/mergeplan-golden && GOTOOLCHAIN=local GOFLAGS=-mod=mod go run . > ../../test/golden-mergeplan.json",
+    "golden:zap": "cd topics/cbft/02-zap-format/tools/zap-golden && GOTOOLCHAIN=local GOFLAGS=-mod=mod go run . hotels.json ../../segment.json"
   },
   "devDependencies": {
     "esbuild": "0.25.12",

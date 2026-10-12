@@ -1,24 +1,23 @@
-# cbft-explainer
+# explainers
 
-Scrollytelling explainers of how Couchbase's Full Text Search service,
-[cbft](https://github.com/couchbase/cbft), works under the hood,
-including the [bleve](https://github.com/blevesearch/bleve) library and
-its scorch index that it's built on. The style is inspired by
+Scrollytelling explainers of how software works inside: a story column
+you scroll, beside one large diagram that the story zooms around and
+opens up section by section, and the real source code each step is
+about. The style is inspired by
 [r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
 
-The first explainer, **"Inside bleve / scorch: introducer, persister,
-merger"**, follows one batch of mutations from KV through CBFT and onto disk.
+This repo has a generic engine (`engine/`) and explainers grouped by
+topic (`topics/`). So far there's one topic:
 
-Later chapters (ingest resuming, a slow disk, a huge ingest, a slow query, etc)
-are drafts, still under review; see [Drafts](#drafts).
-
-The second explainer, **"Inside a zap segment: how scorch stores and finds
-your docs"**, opens one of those segment files and follows a query for *quiet*
-through it byte by byte: footer, field info, a vellum FST, roaring postings
-minus deleted docs, freq/norm, an AND of two terms, and stored fields. The
-file is a real segment of nine travel-sample hotels, built with the zapx code
-cbft uses (`tools/zap-golden/`), so every offset, FST output and bitmap shown
-is real.
+- **[cbft](topics/cbft/README.md):** how Couchbase's full-text search
+  service, [cbft](https://github.com/couchbase/cbft), works under the
+  hood, with the [bleve](https://github.com/blevesearch/bleve) library
+  and its scorch index:
+  - **01-indexing**, "Inside bleve / scorch: introducer, persister,
+    merger": one batch of mutations, from KV through cbft and onto
+    disk, driven by a live simulation;
+  - **02-zap-format**, "Inside a zap segment": one query, followed byte
+    by byte through a real segment file.
 
 ## Quick start
 
@@ -26,14 +25,14 @@ You need [Node.js](https://nodejs.org/) 20 or newer.
 
 ```sh
 npm ci               # install the pinned dependencies
-npm run build        # -> dist/01-indexing.html, dist/02-zap-format.html, dist/index.html
-open dist/index.html # open the file in a browser
+npm run build        # -> dist/<topic>/<name>.html, and index pages
+open dist/index.html # open it in a browser
 ```
 
-The outputs will be **self-contained HTML files**, with no
-server and no external scripts, so we can email or slack it.
+Each page is a **self-contained HTML file**, with no server and no
+external scripts, so it can be emailed or Slacked.
 
-`npm run dev` rebuilds on every change under `src/` and `content/`.
+`npm run dev` rebuilds on every change under `engine/` and `topics/`.
 
 Scrolling drives the story. You can also navigate the diagram like a google map:
 - drag to pan;
@@ -53,25 +52,29 @@ npm run build
 npm run test:e2e     # browser tests, in headless Chrome / playwright
 ```
 
-Append `?debug=1` to the URL to check simulator invariants on
-every frame (violations are logged to the console).
+The engine's tests are in `engine/test/`; each explainer's are in its
+own `test/` and `test-e2e/`. `engine/test/narratives.test.mjs` checks
+every explainer's narrative: its schema, its code refs, and each
+step's `expect`.
+
+Append `?debug=1` to a page's URL for its explainer's debug checks
+(the cbft simulation's invariants, on every frame).
 
 CI (`.github/workflows/ci.yml`) runs the build and both test suites
 on every push and pull request.
 
 ## Publishing
 
-See `dist/`, where each self-contained HTML page carries a version
-stamp from `git describe --long` and the sources
-it was built from, plus `-dirty` if they had uncommitted changes
-(changes under `dist/` don't count).
+Each built page carries a version stamp from `git describe --long` of
+the sources it was built from, plus `-dirty` if they had uncommitted
+changes (changes under `dist/` don't count).
 
 To publish a new version:
 
 ```sh
 git commit ...        # commit your changes first, for a clean stamp
 npm run build
-git add dist && git commit -m "Rebuild dist"
+git add dist && git commit -m "Build dist"
 git push
 ```
 
@@ -79,69 +82,38 @@ Tag a release (`git tag v0.2.0`) before building to get a friendlier
 stamp.
 
 **GitHub Pages.** `.github/workflows/pages.yml` publishes the committed
-`dist/*.html` (but not the drafts page) whenever `dist/` changes on
-`main` or `master`, or when run by hand from the Actions tab. To turn
-it on, once, in the GitHub repo: **Settings → Pages → Build and
-deployment → Source: GitHub Actions**. The page is then at
+`dist/` (but not the drafts pages) whenever `dist/` changes on `main`
+or `master`, or when run by hand from the Actions tab. To turn it on,
+once, in the GitHub repo: **Settings → Pages → Build and deployment →
+Source: GitHub Actions**. The pages are then at
 `https://<owner>.github.io/<repo>/`, e.g.
-`https://couchbaselabs.github.io/cbft-explainer/`.
-
-## How it works
-
-The first explainer's visuals are driven by a **live simulation**, not
-by canned animations. (The second, on the zap file format, has no
-simulation: its numbers come from a real segment, built by
-`tools/zap-golden` with the zapx code cbft uses.)
-
-The diagram (`src/explainers/scorch-goroutines/diagram.js`, geometry in
-`layout.js`) is one large SVG canvas that the story's camera zooms
-around. Component panels start covered by lids and open as the story
-drills down into them.
-
-- `src/explainers/scorch-goroutines/sim/des.js` is a small deterministic discrete-event kernel.
-  Goroutines are JS generator functions that `yield` Go-like ops:
-  channel send/recv, `select` (with Go's random choice among ready
-  cases), timers, condition variables and semaphores. Every run is
-  seeded and reproducible.
-- `src/explainers/scorch-goroutines/sim/model.js` models one cbft pindex:
-  - KV's DCP producer, with flow control;
-  - the DCP goroutine;
-  - cbft's 4 batch workers, with capacity-1 channels;
-  - the app herder;
-  - `Scorch.Batch()` and bleve's analysis queue;
-  - the introducer, persister (nap, in-memory merge workers, slow-merger
-    pause, `root.bolt` commits, `removeOldData`) and merger;
-  - epoch watchers between them;
-  - queries that pin snapshots.
-
-  Comments name the Go functions being mirrored. Control flow, channel
-  capacities, refcounting and default settings follow the real code.
-  Costs (CPU per doc, disk bandwidth, fsync latency) are modeled
-  assumptions; see `src/explainers/scorch-goroutines/sim/config.js`.
-- `src/explainers/scorch-goroutines/sim/mergeplan.js` is a port of bleve's `mergeplan.Plan`,
-  tested against golden plans generated by the real Go code
-  (`tools/mergeplan-golden`).
-
-A few things are simplified: it follows one batch, and pauses KV mutations so
-that batch travels without concurrency; some steps that are instant in
-the real code (cutting flushables, opening a new zap file, planning)
-get a step of their own and longer animations, like a root snapshot swap,
-are animated with sub-steps.
-
-Research notes with file:line references live in `docs/research/`.
+`https://<owner>.github.io/<repo>/cbft/01-indexing.html`.
 
 ## Engine and explainers
 
-The code is split into a generic engine (`src/js/`, `build/`) and
-per-explainer code (`src/explainers/<id>/`). A narrative names its
-explainer (`explainer: <id>`); the build bundles that explainer's
-`entry.js`, with the engine, into the narrative's page, and appends
-its `style.css` to the engine's `src/css/style.css`.
+An explainer lives in one directory, `topics/<topic>/<name>/`, and
+builds to `dist/<topic>/<name>.html`:
 
-The engine's generic parts reach the explainer only through one seam,
-`src/js/domain.js`: the explainer's entry point calls `useDomain()`
+| file | what it is |
+|---|---|
+| `narrative.yaml` | the story: chapters of steps, each with its text and what it changes |
+| `coderefs.yaml`, `snippets.json` | the source code it shows, and those snippets resolved (`npm run snippets`) |
+| `domain.js` | everything the engine reads from it (below) |
+| `entry.js`, `use.js` | the page's entry point, which picks the explainer before anything else runs |
+| `main.js` | its page: the engine's parts, put together with its diagram |
+| `style.css` | its styles, appended to the engine's |
+| `test/`, `test-e2e/` | its tests |
+
+Anything else it needs (its diagram, a simulator, example data, tools
+that generate it) goes beside these. A topic's directory holds what its
+explainers share: `topic.yaml` (its title), `sources.yaml` (the source
+repos they link into, pinned), and any shared notes or code. Code
+shared across topics goes in the engine.
+
+The engine reaches an explainer only through one seam,
+`engine/js/domain.js`: the explainer's entry point calls `useDomain()`
 with its `domain.js`, and the engine reads that as `D`. The build and
-the tests do the same for each narrative. The engine reads:
+the tests do the same for each explainer. The engine reads:
 
 - **geometry:** `CANVAS`, `CAMERAS`, `LIDS`, `BUBBLES`, `ANCHORS`,
   `DYNAMIC_ANCHORS` (anchors whose place the page works out) and
@@ -153,18 +125,19 @@ the tests do the same for each narrative. The engine reads:
   (`<name>:<arg>`);
 - **a simulation, if it has one:** `makeModel`, `makeConfig` and
   `applyConfig`, and `SIM`: the step directives besides `reset`, how
-  they're checked, and how they drive the model.
+  they're checked, and how they drive the model; and optionally
+  `checkInvariants`, which the tests run at every step.
 
 `useDomain()` fills in empty defaults for what an explainer leaves out.
 With no `makeModel`, a narrative has no `sim` directives, and the page
 builds no simulation controls (`buildPage(..., { simulation: true })`
 asks for them).
 
-The engine provides the rest: the narrative schema, the step/view
-folding and change counting (`src/js/story/timeline.js`), and the
-page's parts (`src/js/ui/`): story column, camera and gestures, scroll
-position, callout lines, contents, code drawer. Each explainer has its
-own `main.js` that puts these together with its diagram.
+The engine provides the rest: the narrative schema
+(`engine/build/schema.mjs`), the step/view folding and change counting
+(`engine/js/story/timeline.js`), and the page's parts (`engine/js/ui/`):
+story column, camera and gestures, scroll position, callout lines,
+contents, code drawer.
 
 ## Design principles
 
@@ -186,72 +159,43 @@ These guide both the narratives and the code:
 
 ## Writing narratives
 
-Narratives are YAML files in `content/narratives/`. Each one builds to
-an HTML file of the same name (`01-indexing.yaml` builds
-`dist/01-indexing.html`). At the top, it names its `explainer`, the
-pinned `sources` it's modeled on (from `content/sources.yaml`, listed in
-the page's header), and optionally the narrative to read `next`.
-Chapters have a `color` (for the first explainer: `kv`, `cbft`,
-`scorch`, `disk` or `neutral`), which ties the story's headings to the
-diagram section they're about.
-
-What follows is the first explainer's vocabulary; the zap explainer's
-steps move the reader's `focus` instead (see its `story.js`). A step
-looks like this:
+A narrative (`narrative.yaml`) names, at the top, its `title`,
+`subtitle` and `audience`; the pinned `sources` it's modeled on (keys
+in its topic's `sources.yaml`, listed in the page's header); and
+optionally the explainer to read `next` (another in the same topic).
+Then its `chapters`, each with an `id`, a `title`, a `color` (one of
+the explainer's `SECTION_COLORS`, tying the story's headings to the
+diagram section they're about) and its `steps`. A step looks like
+this (from cbft's 01-indexing):
 
 ```yaml
 - id: persisting                    # slug, unique within the chapter
-  sim: { until: persisting }        # simulation directives (see below)
+  sim: { until: persisting }        # simulation directives (if it has a simulation)
   view: { target: ourBatch }        # what the callout points at, etc.
   expect: ["reached:persisting"]    # checked by `npm test`
-  code: [persister.maybeMerge]      # ids from content/coderefs.yaml
+  code: [persister.maybeMerge]      # ids from its coderefs.yaml
   text: |
     Markdown. [[A persister worker]] is merging our flushable into one
     new zap file.
 ```
 
 **The callout.** `[[phrase]]` marks the one phrase per step that the
-callout line starts from. `view.target` is what it points at: a
-fixed anchor (e.g., `dcp`, `workers`, `gate`, `introducer`, `root`,
-`persister`, `bolt`, ... see `ANCHORS` in the explainer's `layout.js`) or a
-live one that follows the simulation (`ourBatch`, `ourSeg`, `ourFile`,
-`deletedFile`, `mergedSeg`).
+callout line starts from. `view.target` is what it points at: one of
+the explainer's `ANCHORS` or `DYNAMIC_ANCHORS`.
 
 **View directives** say only what changes; the state carries over from
-step to step. `camera`, `open`/`close`, `bubble`/`unbubble`, `ui` and
-`target` are the engine's; the rest are the explainer's `VIEW_KEYS`:
+step to step. The engine's are `camera` (a named region from `CAMERAS`,
+or `[x0, y0, x1, y1]`), `open`/`close` (lids), `bubble`/`unbubble`
+(detail bubbles), `ui` (`minimal` or `full` chrome) and `target`. The
+rest are the explainer's `VIEW_KEYS`.
 
-| key | meaning |
-|---|---|
-| `camera` | a named region (`overview`, `top`, `cbft`, `scorchTop`, `introducer`, `root`, `swap`, `persister`, `merger`, `lower`, `disk`, ... see `CAMERAS`) or `[x0, y0, x1, y1]` |
-| `open` / `close` | lids to open or close: `kv`, `cbft`, `bleve` (inside cbft), `scorch` (inside bleve), `disk`, and inside scorch `introducer`, `persister`, `merger` |
-| `bubble` / `unbubble` | pop a detail bubble out of a panel: `analysis`, `persister`, `merger` |
-| `plan` | what the merger bubble's tier staircase shows: an example index's `budget`, `files`, `over`, `pick`, `merged`; or `live`, the simulation's own files (the default) |
-| `token` | the marker: `auto` (follows our batch), `file` (on our zap file on disk), or `hide` |
-| `swap` | tell a root swap one phase per step: `cover`, `peel`, `copy`, `add`, `drop`, `epoch`, `solid`, `settle` (see `SWAP_PHASES` in the explainer's `snapstack.js`). The run's first step has the `sim.until` that swaps the root. Swaps that aren't told this way play every phase within one step's scroll |
-| `commit` | tell the persister's commit one phase per step: `bolt` (a new `root.bolt` record), `listed` (our zap file turns solid), `release` (the persister lets go of its root), `wake` (the new epoch wakes the merger). A phase may repeat over several steps to hold it |
-| `flow` | an animation over the step's whole scroll: `analysis` (our batch's docs go to the analysis queue and back), `write` / `mergeWrite` (our zap file goes down the persister's / merger's write arrow to disk), `watcher` (the persister's epoch watcher goes up to the introducer) |
-| `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
-
-**Simulation directives** (`reset` is the engine's; the rest are the
-explainer's, in its `directives.js`):
-
-| key | meaning |
-|---|---|
-| `reset: true` or `reset: { seed, config }` | start a fresh simulation |
-| `minTimeMs` | fast-forward to this sim time (since the last reset) |
-| `set: { ... }` | change config (keys from `src/explainers/scorch-goroutines/sim/config.js`) |
-| `query: { durationMs, timeoutMs, label }` | start a query that pins a snapshot |
-| `follow: true` or `follow: alone` | tag the next batch, to follow it through the system; `alone` first lets batches in flight drain, has KV send just that batch's snapshot, then pauses KV |
-| `until: <stage>` | run event by event until the followed batch reaches a stage (see `TRACE_STAGES` in the explainer's `story.js`): `dcp`, `channel`, `worker`, `herder`, `analysis`, `built`, `introducing`, `introduced`, `flushables`, `persisting`, `written`, `fileIntroducing`, `file`, `committed`, `caughtUp`, `persisterWaits`, `persisterNudged`, `watcherClosed`, `planning`, `merging`, `mergeWritten`, `mergeIntroducing`, `merged`, `oldFileDeleted` |
-| `speed` | playback speed (sim ms per wall ms; `0` means paused) |
-
-To build the state for step N, the explainer starts from the most
-recent `reset` at or before N. For each step from there through N, it
-fast-forwards to that step's `minTimeMs`, then applies its directives.
-So a step looks the same however the reader got there, including by
-scrolling back up or following a deep link. See
-`src/js/story/timeline.js`.
+**Simulation.** For an explainer with one, `sim: { reset: true }` (or
+`reset: { seed, config }`) starts a fresh model; the explainer's `SIM`
+says what else a step's `sim` may say. To build the state for step N,
+the engine starts from the most recent `reset` at or before N and
+applies each step's directives through N, so a step looks the same
+however the reader got there, including by scrolling back up or
+following a deep link.
 
 **One change per step.** The build rejects a step that changes more
 than one of camera, lids, bubbles, UI and simulation. If you really
@@ -264,24 +208,24 @@ The build also checks that:
 - nested lids only open inside open parents;
 - a told swap's phases come in order.
 
-`expect` names predicates from the explainer's `EXPECTATIONS` (in
-`story.js`) and its parameterized ones, like `rootEpoch:<n>` and
-`reached:<stage>`. The tests check them, so the prose and the
-simulation can't silently drift apart. (The zap explainer's
-`fact:<name>=<value>` checks a number against the real segment.)
+`expect` names predicates from the explainer's `EXPECTATIONS` and its
+parameterized `EXPECTATION_PARAMS` (`<name>:<arg>`). The tests check
+them, so the prose and the model (or the real data) can't silently
+drift apart.
 
 ### Drafts
 
 A `- stop: <note>` entry in the chapter list ends the published page
 there, so unreviewed chapters can stay in the YAML after it. They're
-still validated and simulated by `npm test`, and the build also writes
-`dist/<id>-drafts.html` with every chapter, for reviewing them.
+still validated (and simulated) by `npm test`, and the build also
+writes `dist/<topic>/<name>-drafts.html` with every chapter, for
+reviewing them.
 
 ### Code references
 
-Code links are defined in `content/coderefs.yaml` by **anchor text**,
-not line numbers. Each one names the source repo, a file, and a unique
-line to start from:
+Code links are defined in an explainer's `coderefs.yaml` by **anchor
+text**, not line numbers. Each one names a source repo (a key in the
+topic's `sources.yaml`), a file, and a unique line to start from:
 
 ```yaml
 persister.pause:
@@ -292,77 +236,33 @@ persister.pause:
   highlight: ["time.After(", "TotPersisterSlowMergerPause"]
 ```
 
-`content/sources.yaml` pins each repo to the commit cbft uses, and
-lists where to find a local copy: the Go module cache, and a sibling
-`../couchbase-server.master` repo-sync tree (override that with
-`CBFT_EXPLAINER_CB_SRC`).
+A topic's `sources.yaml` pins each repo to a commit, and lists where to
+find a local copy (relative paths are from the repo root).
 
-`npm run snippets` resolves the anchors and writes
-`content/snippets.json`: highlighted lines plus GitHub permalinks at
-the pinned commits. That file is committed, so building doesn't need
-the sources; only refreshing the snippets does.
-
-To move to newer versions, bump the commits/versions in
-`sources.yaml`, run `npm run snippets`, and fix any anchors it
-reports. Then run `npm run golden:mergeplan` and `npm run golden:zap`
-(they need a Go toolchain new enough for bleve's `go.mod`), and
-`npm test`.
+`npm run snippets` resolves the anchors and writes each explainer's
+`snippets.json`: highlighted lines plus GitHub permalinks at the pinned
+commits. Those files are committed, so building doesn't need the
+sources; only refreshing the snippets does.
 
 ## Layout
 
 ```
-content/                 narratives (YAML), code refs, pinned sources, snippets.json
-docs/research/           how scorch and cbft work, with file:line refs
+engine/                  the engine
+  js/domain.js           the seam: useDomain(), and D, the explainer the engine reads
+  js/story/timeline.js   narrative semantics: steps, views, change counting, expectations
+  js/ui/                 the page's parts: page.js (story, toolbar DOM), camera.js and
+                         gestures.js, scroll.js, overlay.js (callout lines), anchors.js,
+                         code.js and toc.js (the drawers), util/
+  css/style.css          the engine's styles: palette, layout, story, toolbar, drawers
+  page.html              the page template
+  build/                 build.mjs, explainers.mjs (finding them), schema.mjs, snippets.mjs
+  test/, test-e2e/       its tests; helpers for explainers' browser tests
+topics/
+  cbft/                  Couchbase full-text search (see its README.md)
+    topic.yaml, sources.yaml, research/
+    01-indexing/         goroutines and backpressure, with a simulator (sim/)
+    02-zap-format/       inside a zap segment, with tools/zap-golden
 dist/                    the built pages (committed; published by GitHub Pages)
-
-src/js/                  the engine
-  domain.js              the seam: useDomain(), and D, the explainer the engine reads
-  story/timeline.js      narrative semantics: steps, views, change counting, expectations
-  ui/page.js             story, toolbar and charts-column DOM
-  ui/camera.js, gestures.js   the camera, the reader's pan/zoom, map-style gestures
-  ui/scroll.js           scroll position -> (step, progress)
-  ui/overlay.js          callout and leader lines
-  ui/anchors.js          whether an anchor shows (its lids open, its bubble shown)
-  ui/code.js, toc.js     the code drawer; the contents menu
-  ui/util/               DOM and interpolation helpers
-src/css/style.css        the engine's styles: palette, layout, story, toolbar, drawers
-src/index.html           the page template
-
-src/explainers/scorch-goroutines/   the first explainer: goroutines and backpressure
-  domain.js              what the engine reads (re-exported from the files below)
-  layout.js              diagram geometry: frames, lids, cameras, anchors, stations, boxes
-  story.js               model, stages, expectations, view keys
-  directives.js          its simulation directives (D.SIM)
-  routes.js              marker routing hints along drawn arrows
-  main.js                the page: per-step state, the frame loop, controls
-  diagram.js             the diagram (with gnode.js and slots.js)
-  transitions.js         what's shown partway between steps (marker routes, boxes)
-  swapmarker.js          the marker during a told root swap
-  snapstack.js           the stack of live root snapshots; swap and commit phases
-  stairs-scene.js        the merger bubble's tier staircase, as data (staircase.js draws it)
-  charts.js, knobs.js    the charts column; the knobs drawer
-  style.css              its styles
-  entry.js, use.js       the page's entry point (picks this explainer first)
-  sim/                   the simulator (no DOM; runs in Node and the browser)
-    des.js               discrete-event kernel: generator "goroutines", channels, select
-    model.js             a cbft pindex: state, memory/disk accounting, wiring
-    procs/*.js           its goroutines, by group: cbft (DCP, batch workers, herder),
-                         batch (Scorch.Batch), introducer, persister, merger, and
-                         merging (shared by the persister and merger)
-    segments.js          Segment and Snapshot, with refcounting
-    mergeplan.js         port of bleve's mergeplan (tested against Go)
-    config.js, fmt.js, invariants.js
-src/explainers/zap-format/   the second explainer: inside a zap segment
-  segment.json           the example segment, from tools/zap-golden
-  layout.js, scene.js    geometry: the file strip, the lenses, and what's drawn in them
-  story.js               foci (where the reader is), facts, view keys
-  diagram.js, main.js    the diagram; the page
-  style.css, domain.js, entry.js, use.js
-
-build/                   build.mjs, snippets.mjs, schema.mjs
-test/, test-e2e/         unit tests; browser tests
-tools/mergeplan-golden/  Go program emitting golden merge plans
-tools/zap-golden/        Go program building the zap example with zapx, and dumping it
 .github/workflows/       CI, and GitHub Pages publishing
 ```
 

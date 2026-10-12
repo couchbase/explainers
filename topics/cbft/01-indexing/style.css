@@ -1,0 +1,169 @@
+/* The 01-indexing explainer's styles: its chapter colors, charts,
+   diagram (goroutine boxes, gauges, file icons, lids, bubbles, the
+   batch marker) and knobs drawer. Appended to engine/css/style.css. */
+
+.sec-kv { --sec: var(--sec-kv); }
+.sec-cbft { --sec: var(--sec-cbft); }
+.sec-bleve { --sec: var(--sec-bleve); }
+.sec-scorch { --sec: var(--sec-scorch); }
+.sec-disk { --sec: var(--sec-disk); }
+/* ---------- charts ---------- */
+
+.chart { font: 400 0.75rem/1.3 var(--font-mono); color: var(--muted); }
+.chart.dim { opacity: 0.3; }
+.chart.emph { color: var(--ink); }
+.chart-head { display: flex; justify-content: space-between; gap: 0.5rem; }
+.chart-head b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.plot svg { display: block; width: 100%; height: 3.2rem; overflow: visible; margin-top: 0.3rem; }
+.plot .area { fill: color-mix(in srgb, var(--seg-file) 14%, transparent); }
+.plot .line { fill: none; stroke: var(--seg-file); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.chart.emph .line { stroke: var(--accent); }
+.chart.emph .area { fill: color-mix(in srgb, var(--accent) 14%, transparent); }
+.plot .ref { stroke: var(--stall); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.plot .grid { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+
+/* ---------- diagram ---------- */
+
+.frame { fill: color-mix(in srgb, var(--sec) 3%, var(--bg)); stroke: var(--sec); stroke-width: 1.6; }
+.tab { fill: var(--sec); }
+.diagram .tab-text { font: 600 11.5px var(--font-display); letter-spacing: 0.08em; text-transform: uppercase; fill: var(--panel); }
+.flow { stroke: var(--flow); stroke-width: 1.4; fill: none; }
+.flow-up { stroke: var(--up); stroke-width: 1.4; fill: none; stroke-dasharray: 5 3; }
+.flow-read { stroke: var(--flow); stroke-width: 1.2; fill: none; stroke-dasharray: 1.5 3; stroke-linecap: round; }
+.arrowhead-up { fill: var(--up); }
+.note { font-size: 11px; fill: var(--muted); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.note-in { font-size: 11px; fill: var(--muted); }
+.code-in { font-size: 11px; fill: var(--muted); }
+.zone { fill: var(--panel); stroke: var(--line); }
+.zone.strong { stroke: color-mix(in srgb, var(--ink) 30%, var(--line)); }
+.diagram .zone-title { font: 600 12px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; fill: var(--muted); }
+
+.gbox { fill: var(--panel); stroke: var(--wait); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.gbox.s-busy { stroke: var(--busy); stroke-dasharray: none; }
+.gbox.s-nap { stroke: var(--nap); stroke-dasharray: none; }
+.gbox.s-stall { stroke: var(--stall); stroke-dasharray: none; stroke-width: 2; }
+.gbox-header { fill: none; }
+.gbox.behind { stroke-dasharray: none; stroke: var(--line); }
+.gbox.behind.s-busy { stroke: color-mix(in srgb, var(--busy) 45%, var(--line)); }
+.gbox.behind.s-stall { stroke: color-mix(in srgb, var(--stall) 60%, var(--line)); }
+.gdot { fill: none; stroke: var(--wait); stroke-width: 1.5; }
+.gdot.s-busy, .gdot.dot-busy { fill: var(--busy); stroke: none; }
+.gdot.s-nap, .gdot.dot-nap { fill: var(--nap); stroke: none; }
+.gdot.s-stall, .gdot.dot-stall { fill: var(--stall); stroke: none; }
+.gtitle { font-size: 13px; font-weight: 600; fill: var(--ink); }
+.glabel { font-size: 11px; fill: var(--muted); }
+.glabel.small { font-size: 10px; }
+.glabel.s-stall { fill: var(--stall); }
+.gsince { font-size: 10px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.badge { fill: var(--ink); }
+.badge-text { font-size: 10.5px; font-weight: 600; fill: var(--panel); }
+
+.gauge { fill: var(--faint); stroke: var(--line); }
+.gauge-fill { fill: var(--seg-file); }
+.gauge-fill.mem { fill: var(--seg-mem); }
+.gauge-fill.warn { fill: var(--stall); }
+.gauge-mark { stroke: var(--ink); stroke-width: 1.5; }
+.gate { stroke: var(--stall); stroke-width: 1.6; stroke-dasharray: 10 3 2 3; }
+.slot { fill: var(--panel); stroke: var(--line); }
+.slot.full { fill: var(--accent); stroke: var(--accent); }
+.cpu { fill: var(--panel); stroke: var(--line); }
+.cpu.busy { fill: var(--busy); stroke: var(--busy); }
+.chan { fill: var(--bg); stroke: var(--line); }
+.chan.lit { fill: color-mix(in srgb, var(--busy) 18%, var(--panel)); stroke: var(--busy); }
+.chan-text { font-size: 9px; fill: var(--ink); }
+
+.cell { fill: none; stroke: none; }
+.cell.mem { fill: var(--seg-mem); stroke: none; }
+.fbar { fill: var(--seg-file); }
+.fbar.merging { stroke: var(--ink); stroke-width: 1.5; }
+.fbar.ours { stroke: var(--accent); stroke-width: 2; }
+.fdel { fill: var(--panel); fill-opacity: 0.6; }
+.query { fill: var(--panel); stroke: var(--busy); }
+.search-ring, .search-handle { fill: none; stroke: var(--busy); stroke-width: 1.6; }
+
+/* File icons are <use>s of one symbol: their look comes in through
+   custom properties, which (unlike descendant selectors) reach inside. */
+.ficon-body { fill: var(--fi-fill, var(--seg-file)); stroke: var(--fi-stroke, var(--seg-file)); stroke-width: var(--fi-sw, 1); stroke-dasharray: var(--fi-dash, none); }
+.ficon-fold { fill: none; stroke: var(--fi-fold, var(--panel)); stroke-width: 1; }
+.ficon-garbage { --fi-fill: var(--seg-garbage); --fi-stroke: var(--seg-garbage); }
+.ficon-new { --fi-fill: var(--panel); --fi-dash: 2 1.5; --fi-fold: var(--seg-file); }
+.ficon-zombie { --fi-fill: var(--panel); --fi-stroke: var(--seg-zombie); --fi-sw: 1.4; --fi-fold: var(--seg-zombie); }
+.ficon-ours { --fi-stroke: var(--accent); --fi-sw: 2; }
+.del-ring { fill: var(--panel); fill-opacity: 0.5; stroke: var(--stall); stroke-width: 1.8; }
+.del-slash { stroke: var(--stall); stroke-width: 1.8; }
+.bolt { fill: var(--panel); stroke: var(--line); }
+.bolt.latest { stroke: var(--seg-file); }
+.bolt.protected { stroke: var(--muted); stroke-width: 2.5; }
+.diagram .root-draft > rect.zone { stroke-dasharray: 6 4; }
+.diagram .epoch-num.lit { fill: var(--accent); }
+.diagram .copy-label { font-style: italic; }
+/* the copier scan's light: a warm bulb, fading at its edges */
+.diagram .scan-core { stop-color: var(--scan); stop-opacity: 0.85; }
+.diagram .scan-edge { stop-color: var(--scan); stop-opacity: 0; }
+.bolt.ours { stroke: var(--accent); stroke-width: 2; }
+
+.panel-frame { fill: var(--panel); stroke: color-mix(in srgb, var(--sec-scorch) 55%, var(--line)); stroke-width: 1.3; }
+.row { fill: var(--bg); stroke: var(--line); }
+.row.lit { fill: color-mix(in srgb, var(--busy) 14%, var(--panel)); stroke: var(--busy); }
+.row.lit.stall { fill: color-mix(in srgb, var(--stall) 12%, var(--panel)); stroke: var(--stall); }
+.row-text { font-size: 11.5px; fill: var(--ink); }
+.pw { fill: var(--panel); stroke: var(--wait); stroke-dasharray: 2 2; }
+.pw.s-busy { fill: var(--busy); stroke: var(--busy); stroke-dasharray: none; }
+.pw.s-stall { fill: var(--stall); stroke: var(--stall); stroke-dasharray: none; }
+.back-fn { font-size: 12.5px; font-weight: 600; fill: var(--ink); }
+.back-note { font-size: 10.5px; fill: var(--muted); }
+.tok { fill: var(--panel-2); stroke: var(--line); }
+.tok.gone { fill: none; stroke-dasharray: 2 2; }
+.diagram .tok-text { font: 400 11px var(--font-mono); fill: var(--ink); }
+.diagram .tok-text.gone { fill: var(--muted); text-decoration: line-through; }
+.tier-line { stroke: var(--muted); stroke-dasharray: 3 3; stroke-opacity: 0.5; }
+.stair-slot { fill: color-mix(in srgb, var(--sec-scorch) 7%, var(--panel)); stroke: var(--sec-scorch); stroke-dasharray: 3 2; }
+.stair-over { fill: none; stroke: var(--stall); stroke-width: 1.8; }
+.stair-pick { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 1.8; }
+.tier-line.stair-end { stroke: var(--stall); stroke-dasharray: none; stroke-opacity: 1; stroke-width: 1.5; }
+
+/* lids sit inset inside their frame, so the colored border stays
+   visible; the page sets their openness from the scroll position */
+.lid-bg { fill: color-mix(in srgb, var(--sec) 11%, var(--panel)); }
+.lid.stalled .lid-bg { fill: color-mix(in srgb, var(--stall) 10%, var(--panel)); }
+.diagram .lid-title { font: 600 34px var(--font-display); fill: var(--ink); }
+.diagram .lid-title-small { font: 600 18px var(--font-display); fill: var(--ink); }
+.diagram .lid-sub { font: 400 17px var(--font-body); fill: var(--muted); }
+.diagram .lid-sub-small { font: 400 12.5px var(--font-body); fill: var(--muted); }
+.lid-status { font-size: 15px; fill: var(--ink); }
+.lid-status-small { font-size: 11.5px; fill: var(--ink); }
+
+/* detail bubbles, grown out of their panel by the page */
+.bubble-box, .bubble-tail { fill: var(--panel); stroke: color-mix(in srgb, var(--sec-scorch) 70%, var(--line)); stroke-width: 1.5; }
+.bubble-box { filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.16)); }
+.bubble-seam { stroke: var(--panel); stroke-width: 3; }
+.diagram .bubble-title { font: 600 14px var(--font-display); fill: var(--ink); }
+
+/* the marker for "our batch" */
+.token-chip { fill: color-mix(in srgb, var(--accent) 22%, var(--panel)); stroke: var(--accent); stroke-width: 2.5; }
+.token-chip.kind-mem { fill: var(--seg-mem); }
+.token-chip.kind-file { fill: var(--seg-file); }
+.token-sheet { fill: var(--panel); stroke: color-mix(in srgb, var(--ink) 35%, var(--line)); stroke-width: 1.2; }
+.token-other { fill: color-mix(in srgb, var(--muted) 45%, var(--panel)); }
+.token-sub { font-size: 10px; fill: var(--accent); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.merged-chip { fill: var(--seg-file); stroke: var(--ink); stroke-width: 1.5; }
+.merged-label { font-size: 11px; font-weight: 600; fill: var(--ink); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.token-label { font-size: 11px; font-weight: 600; fill: var(--accent); paint-order: stroke; stroke: var(--bg); stroke-width: 4px; stroke-linejoin: round; }
+.doc-body { fill: var(--panel); stroke: var(--ink); stroke-width: 1; }
+.doc-lines { stroke: var(--muted); stroke-width: 0.8; fill: none; }
+.network { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 2 5; stroke-linecap: round; }
+
+.knobs .body { padding: 0.5rem 1rem 2rem; }
+.knobs fieldset { border: none; padding: 0; margin: 0 0 1rem; }
+.knobs legend { font: 600 0.75rem/1 var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0.75rem 0 0.4rem; }
+.knob { display: grid; grid-template-columns: minmax(0, 15rem) minmax(0, 8rem) minmax(0, 1fr); gap: 0.25rem 0.75rem; align-items: center; padding: 0.3rem 0; border-bottom: 1px solid var(--line); }
+.knob label { font: 500 0.75rem/1.3 var(--font-mono); }
+.knob input[type="number"] { width: 100%; font: 400 0.75rem/1 var(--font-mono); padding: 0.3rem; background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; }
+.knob .doc { font-size: 0.75rem; color: var(--muted); line-height: 1.35; }
+.knob .doc .dflt { font-family: var(--font-mono); }
+.knobs .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.75rem 0 0.25rem; }
+
+@media (max-width: 900px) {
+  .knob { grid-template-columns: minmax(0, 1fr) minmax(0, 7rem); }
+  .knob .doc { grid-column: 1 / -1; }
+}
