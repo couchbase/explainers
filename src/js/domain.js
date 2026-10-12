@@ -5,8 +5,7 @@
 //
 // An explainer exports what it uses. These are the defaults for the
 // optional parts: with no simulation (no makeModel), no SIM
-// directives and no config; no marker routing (stations, boxes,
-// corridors, vias, hops); no charts and no token modes.
+// directives and no config; and no view keys or expectations of its own.
 
 export let D = null;
 
@@ -16,15 +15,6 @@ const DEFAULTS = {
   EXPECTATION_PARAMS: {},
   VIEW_KEYS: {},
   DYNAMIC_ANCHORS: [],
-  CHART_IDS: [],
-  TOKEN_MODES: [],
-  STATIONS: {},
-  BOXES: {},
-  CORRIDOR_XS: [],
-  CORRIDOR_YS: [],
-  BOX_GAP: 10,
-  VIA: {},
-  HOPS: {},
 };
 
 export function useDomain(domain) {

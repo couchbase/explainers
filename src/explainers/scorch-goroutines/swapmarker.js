@@ -1,6 +1,6 @@
 // The marker during a told root swap (see SWAP_PHASES in snapstack.js).
 
-import { between } from '../../js/ui/transitions.js';
+import { between } from './transitions.js';
 import { clamp01 } from '../../js/ui/util/anim.js';
 import { swapShift, swapTravel, swapPart, ADD_TRAVEL } from './snapstack.js';
 

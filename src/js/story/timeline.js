@@ -68,7 +68,6 @@ export function resolveViews(steps) {
   let open = new Set();
   let bubbles = new Set();
   let ui = 'minimal';
-  let token = 'auto';
   // The explainer's own view directives (VIEW_KEYS): sticky ones carry
   // over; the others hold for their step only.
   const sticky = {};
@@ -87,12 +86,11 @@ export function resolveViews(steps) {
       for (const id of v.unbubble || []) bubbles.delete(id);
     }
     if (v.ui !== undefined) ui = v.ui;
-    if (v.token !== undefined) token = v.token;
     const own = {};
     for (const [k, d] of Object.entries(D.VIEW_KEYS)) {
       if (d.sticky) { if (v[k] !== undefined) sticky[k] = v[k]; own[k] = sticky[k]; } else own[k] = v[k] ?? null;
     }
-    return { camera, open, bubbles, ui, token, ...own, target: v.target || null, chart: v.chart || null };
+    return { camera, open, bubbles, ui, ...own, target: v.target || null };
   });
 }
 

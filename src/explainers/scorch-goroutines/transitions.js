@@ -3,8 +3,9 @@
 // records, for each visited step, where the batch marker and the
 // goroutine boxes were; these interpolate between those records.
 
-import { D } from '../domain.js';
-import { along, clamp01, ease, lerp } from './util/anim.js';
+import { along, clamp01, ease, lerp } from '../../js/ui/util/anim.js';
+import { STATIONS, BOXES, CORRIDOR_XS, CORRIDOR_YS, BOX_GAP } from './layout.js';
+import { VIA, HOPS } from './routes.js';
 
 // ---- the batch marker's route ----
 //
@@ -13,8 +14,7 @@ import { along, clamp01, ease, lerp } from './util/anim.js';
 // travels the gaps, turning only where it won't cut through a box; and
 // it enters its destination's box vertically.
 
-// (the explainer's, read when used)
-const boxes = () => Object.values(D.BOXES);
+const boxes = () => Object.values(BOXES);
 const inside = (b, [x, y]) => x > b[0] && x < b[0] + b[2] && y > b[1] && y < b[1] + b[3];
 const boxOf = (pt) => {
   // the smallest box containing pt
@@ -38,7 +38,7 @@ const clear = (pts, except) => pts.every((p, k) => k === 0 || !blocked(pts[k - 1
 // either way round, then detours along the corridors.
 function gapPath(a, b) {
   const cands = [[a, b], [a, [a[0], b[1]], b], [a, [b[0], a[1]], b]];
-  const xs = [...D.CORRIDOR_XS, a[0], b[0]], ys = [...D.CORRIDOR_YS, a[1], b[1]];
+  const xs = [...CORRIDOR_XS, a[0], b[0]], ys = [...CORRIDOR_YS, a[1], b[1]];
   for (const x of xs) cands.push([a, [x, a[1]], [x, b[1]], b]);
   for (const y of ys) cands.push([a, [a[0], y], [b[0], y], b]);
   for (const x1 of xs) for (const y of ys) for (const x2 of xs) {
@@ -58,7 +58,7 @@ function gapPath(a, b) {
 }
 
 // The point just outside box `box`, straight above or below pt.
-const edge = (box, pt, down) => [pt[0], down ? box[1] + box[3] + D.BOX_GAP : box[1] - D.BOX_GAP];
+const edge = (box, pt, down) => [pt[0], down ? box[1] + box[3] + BOX_GAP : box[1] - BOX_GAP];
 
 function leg(a, b) {
   const down = b[1] >= a[1];
@@ -71,32 +71,32 @@ function leg(a, b) {
 }
 
 // The marker's path from place a to place b ({st, p, key}).
-const viaOf = (a, b) => D.VIA[`${a.st}>${b.st}`] || (D.VIA[`${b.st}>${a.st}`] || []).slice().reverse();
+const viaOf = (a, b) => VIA[`${a.st}>${b.st}`] || (VIA[`${b.st}>${a.st}`] || []).slice().reverse();
 
 // Whether the route from a to b includes a hop along a drawn arrow
 // (which may enter a box from the side, as the arrow does).
 export function usesArrowHop(a, b) {
   const names = [a.st, ...viaOf(a, b), b.st];
-  return names.some((n, i) => i > 0 && (D.HOPS[`${names[i - 1]}>${n}`] || D.HOPS[`${n}>${names[i - 1]}`]));
+  return names.some((n, i) => i > 0 && (HOPS[`${names[i - 1]}>${n}`] || HOPS[`${n}>${names[i - 1]}`]));
 }
 
 export function route(a, b) {
   if (a.st === b.st && a.key === b.key) return [a.p, b.p];
   const via = viaOf(a, b);
   const names = [a.st, ...via, b.st];
-  const pts = [a.p, ...via.map((v) => D.STATIONS[v]), b.p];
+  const pts = [a.p, ...via.map((v) => STATIONS[v]), b.p];
   let out = [a.p];
   for (let i = 1; i < pts.length; i++) out = [...out, ...hop(names[i - 1], pts[i - 1], names[i], pts[i]).slice(1)];
   return out;
 }
 
 function hop(sa, pa, sb, pb) {
-  const fwd = D.HOPS[`${sa}>${sb}`];
+  const fwd = HOPS[`${sa}>${sb}`];
   if (fwd) {
     const [first, ...rest] = fwd();
     return [...leg(pa, first), ...rest, pb];
   }
-  if (D.HOPS[`${sb}>${sa}`]) return hop(sb, pb, sa, pa).reverse();
+  if (HOPS[`${sb}>${sa}`]) return hop(sb, pb, sa, pa).reverse();
   return leg(pa, pb);
 }
 
@@ -171,6 +171,3 @@ export function boxFrames(stateAt, order, i, p, fallback) {
   });
   return out;
 }
-
-// A value that's on (1) or off (0) at each step, at progress p.
-export const toggleAt = (wasOn, isOn, p) => lerp(wasOn ? 1 : 0, isOn ? 1 : 0, ease(p));

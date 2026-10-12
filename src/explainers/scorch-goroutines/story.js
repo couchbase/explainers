@@ -8,6 +8,7 @@ import { plan as mergePlan } from './sim/mergeplan.js';
 import { planInput } from './sim/procs/merger.js';
 import { PLAN_PHASES } from './stairs-scene.js';
 import { SWAP_PHASES, COMMIT_PHASES } from './snapstack.js';
+import { CHART_IDS, TOKEN_MODES } from './layout.js';
 
 // The simulation's settings (for `sim.reset.config` and `sim.set`).
 export { applyConfig, makeConfig } from './sim/config.js';
@@ -66,7 +67,7 @@ export const EXPECTATION_PARAMS = {
 };
 
 // View directives this explainer adds to the engine's own (camera,
-// open/close, bubble/unbubble, ui, token, target, chart):
+// open/close, bubble/unbubble, ui, target):
 //   values: what it may be set to;
 //   sticky: carried over from step to step (else it holds for one step);
 //   counts(prev, cur): whether changing it counts as the step's one
@@ -76,6 +77,10 @@ export const EXPECTATION_PARAMS = {
 //     `until`; 'held': forward or held in place). A run's step counts
 //     as a change unless the simulation already changes.
 export const VIEW_KEYS = {
+  // how to place our batch's marker: 'auto', as a 'file', or 'hide'
+  token: { values: TOKEN_MODES, sticky: true, initial: 'auto' },
+  // the chart a step's callout points along to (for that step only)
+  chart: { values: CHART_IDS },
   plan: { values: PLAN_PHASES, sticky: true, initial: 'live', counts: (a, b) => a.bubbles.has('merger') && b.bubbles.has('merger') },
   swap: { values: SWAP_PHASES, run: 'ordered' },
   commit: { values: COMMIT_PHASES, run: 'held' },

@@ -93,7 +93,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
       if (D.makeModel && first && !(st.sim && st.sim.reset)) err(sw, 'the first step must have sim.reset');
       first = false;
       if (st.view !== undefined) {
-        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'token', 'target', 'chart', ...Object.keys(D.VIEW_KEYS)], `${sw} view`);
+        keys(st.view, ['camera', 'open', 'close', 'bubble', 'unbubble', 'ui', 'target', ...Object.keys(D.VIEW_KEYS)], `${sw} view`);
         const v = st.view;
         if (v.camera !== undefined && !(typeof v.camera === 'string' && D.CAMERAS[v.camera]) &&
           !(Array.isArray(v.camera) && v.camera.length === 4 && v.camera.every((x) => typeof x === 'number'))) {
@@ -104,7 +104,6 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
         checkIds(v.bubble, Object.keys(D.BUBBLES), sw, 'bubble');
         checkIds(v.unbubble, Object.keys(D.BUBBLES), sw, 'bubble');
         if (v.ui !== undefined && !UI_MODES.includes(v.ui)) err(sw, `unknown ui "${v.ui}" (known: ${UI_MODES.join(', ')})`);
-        if (v.token !== undefined && !D.TOKEN_MODES.includes(v.token)) err(sw, `unknown token "${v.token}" (known: ${D.TOKEN_MODES.join(', ')})`);
         for (const [k, d] of Object.entries(D.VIEW_KEYS)) {
           if (v[k] !== undefined && !d.values.includes(v[k])) err(sw, `unknown ${k} "${v[k]}" (known: ${d.values.join(', ')})`);
         }
@@ -112,7 +111,6 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
           err(sw, `unknown target "${v.target}" (known: ${[...Object.keys(D.ANCHORS), ...D.DYNAMIC_ANCHORS].join(', ')})`);
         }
         if (v.target && callouts === 0) err(sw, 'a view.target needs a [[callout]] phrase in the text');
-        if (v.chart !== undefined && !D.CHART_IDS.includes(v.chart)) err(sw, `unknown chart "${v.chart}" (known: ${D.CHART_IDS.join(', ')})`);
       }
       if (callouts === 1 && !(st.view && st.view.target)) err(sw, 'a [[callout]] phrase needs a view.target');
       for (const c of st.code || []) if (!(c in coderefs)) err(sw, `unknown code ref "${c}" (see content/coderefs.yaml)`);

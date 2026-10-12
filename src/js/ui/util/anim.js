@@ -38,3 +38,6 @@ export function elbowPath(x0, y0, xTurn, x1, y1, run) {
   const f = (n) => n.toFixed(1);
   return `M${f(x0)},${f(y0)} H${f(xTurn)} L${f(x1 - dir * run)},${f(y1)} H${f(x1)}`;
 }
+
+// A value that's on (1) or off (0) at each step, at progress p.
+export const toggleAt = (wasOn, isOn, p) => lerp(wasOn ? 1 : 0, isOn ? 1 : 0, ease(p));

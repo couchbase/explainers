@@ -3,7 +3,7 @@
 // cut through a box on the way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { route, usesArrowHop } from '../src/js/ui/transitions.js';
+import { route, usesArrowHop } from '../src/explainers/scorch-goroutines/transitions.js';
 import { useDomain } from '../src/js/domain.js';
 import * as scorch from '../src/explainers/scorch-goroutines/domain.js';
 
