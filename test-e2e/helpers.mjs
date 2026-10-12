@@ -28,7 +28,7 @@ export async function openPage(browser, { viewport = DESKTOP, scheme = 'light', 
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto('file://' + which + (debug ? '?debug=1' : '') + (hash ? '#' + hash : ''));
-  await page.waitForFunction(() => window.bleveExplainer && window.bleveExplainer.ctl.current >= 0);
+  await page.waitForFunction(() => window.explainer && window.explainer.ctl.current >= 0);
   return { page, errors };
 }
 
@@ -37,7 +37,7 @@ export async function openPage(browser, { viewport = DESKTOP, scheme = 'light', 
 export async function scrollToStep(page, step, p = 1.2, settleMs = 150) {
   await page.evaluate(([step, p]) => {
     const i = typeof step === 'number' ? step : Number(document.getElementById(step).dataset.index);
-    window.scrollTo(0, window.bleveExplainer.scrollYFor(i, p));
+    window.scrollTo(0, window.explainer.scrollYFor(i, p));
   }, [step, p]);
   if (settleMs) await page.waitForTimeout(settleMs);
 }
@@ -45,4 +45,4 @@ export async function scrollToStep(page, step, p = 1.2, settleMs = 150) {
 export const viewBox = (page) =>
   page.evaluate(() => document.querySelector('.diagram').getAttribute('viewBox').split(' ').map(Number));
 
-export const stepCount = (page) => page.evaluate(() => window.bleveExplainer.steps.length);
+export const stepCount = (page) => page.evaluate(() => window.explainer.steps.length);

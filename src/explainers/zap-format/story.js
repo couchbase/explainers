@@ -8,12 +8,6 @@
 import { SEG, REGIONS, LENSES } from './layout.js';
 import { SCENE } from './scene.js';
 
-// No simulation: no makeModel, so narratives have no `sim` directives.
-export const TRACE_STAGES = [];
-export const FOLLOW_MODES = [];
-export const applyConfig = () => {};
-export const makeConfig = () => ({});
-
 const cellPt = (c) => [c.x - 12, c.y + c.h / 2];
 const cellBox = (c) => [c.x, c.y, c.w, c.h];
 const findCell = (cells, key) => cells.find((c) => c.key === key);
@@ -149,7 +143,6 @@ export const FACTS = {
   'stored0.metaLen': SEG.stored[0].metaLen,
 };
 
-export const EXPECTATIONS = {};
 export const EXPECTATION_PARAMS = {
   fact: {
     valid: (arg) => /^[\w.]+=.+$/.test(arg) && arg.split('=')[0] in FACTS,

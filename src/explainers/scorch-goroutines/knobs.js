@@ -3,7 +3,7 @@
 // narrative, so changes last only while you stay on this step.
 
 import { h } from '../../js/ui/util/dom.js';
-import { MB } from './sim/config.js';
+import { MB, CONFIG_DOCS, DEFAULT_CONFIG } from './sim/config.js';
 
 const GROUPS = [
   ['workload', 'Workload (modeled)'],
@@ -31,8 +31,7 @@ const fmtDefault = (v, unit) => {
 };
 
 export class KnobsDrawer {
-  constructor(parent, data, { onReset }) {
-    this.data = data;
+  constructor(parent, { onReset }) {
     this.onReset = onReset;
     this.model = null;
     this.inputs = new Map();
@@ -65,12 +64,12 @@ export class KnobsDrawer {
     const actions = h('div', { class: 'actions' },
       h('button', { class: 'btn', type: 'button', text: 'Start a 30s query', onclick: () => this.model && this.model.startQuery({ durationMs: 30000, timeoutMs: 60000, label: 'your query' }) }),
       h('button', { class: 'btn', type: 'button', text: 'Make the disk slow', onclick: () => { this._set({ diskWriteMBps: 4, fsyncMs: 2500 }); this._sync(); } }),
-      h('button', { class: 'btn', type: 'button', text: 'Heal the disk', onclick: () => { this._set({ diskWriteMBps: this.data.defaultConfig.diskWriteMBps, fsyncMs: this.data.defaultConfig.fsyncMs }); this._sync(); } }),
+      h('button', { class: 'btn', type: 'button', text: 'Heal the disk', onclick: () => { this._set({ diskWriteMBps: DEFAULT_CONFIG.diskWriteMBps, fsyncMs: DEFAULT_CONFIG.fsyncMs }); this._sync(); } }),
       h('button', { class: 'btn', type: 'button', text: 'Reset simulation', onclick: () => this.onReset() }));
     this.body.append(note, actions);
 
-    const docs = this.data.configDocs;
-    const dflt = this.data.defaultConfig;
+    const docs = CONFIG_DOCS;
+    const dflt = DEFAULT_CONFIG;
     for (const [group, title] of GROUPS) {
       const fs = h('fieldset', {}, h('legend', { text: title }));
       if (group === 'mergeplan') {

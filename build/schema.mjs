@@ -25,6 +25,7 @@ export function validateNarrative(n, { coderefs = {}, file = 'narrative' } = {})
   const checkConfig = (cfg, where) => {
     if (cfg === undefined) return;
     if (!isObj(cfg)) return err(where, 'config must be a mapping');
+    if (!D.makeConfig) return err(where, 'this explainer has no config');
     try { D.applyConfig(D.makeConfig(), cfg); } catch (e) { err(where, e.message); }
   };
   const checkIds = (list, known, where, what) => {

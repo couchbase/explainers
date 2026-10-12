@@ -5,7 +5,7 @@
 //   npm run build          # dist/<narrative file base>.html + dist/index.html
 //   npm run dev            # rebuild on change
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, watch } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, watch } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -17,7 +17,6 @@ import * as esbuild from 'esbuild';
 import { validateNarrative } from './schema.mjs';
 import { useDomain } from '../src/js/domain.js';
 import { shownChapters, isStop } from '../src/js/story/timeline.js';
-import { CONFIG_DOCS, DEFAULT_CONFIG } from '../src/explainers/scorch-goroutines/sim/config.js';
 
 hljs.registerLanguage('go', go);
 
@@ -60,7 +59,12 @@ function renderMarkdown(md) {
 
 // Each narrative names its explainer (src/explainers/<id>/), whose
 // domain the engine's checks read; it's validated against that one.
-export const explainerOf = (n) => n.explainer || 'scorch-goroutines';
+export function explainerOf(n, file = n.id) {
+  if (typeof n.explainer !== 'string' || !existsSync(join(ROOT, 'src/explainers', n.explainer, 'domain.js'))) {
+    throw new Error(`${file}: explainer must name one in src/explainers/ (got ${JSON.stringify(n.explainer)})`);
+  }
+  return n.explainer;
+}
 
 async function loadNarratives(coderefs) {
   const dir = join(ROOT, 'content/narratives');
@@ -70,7 +74,7 @@ async function loadNarratives(coderefs) {
     // A narrative's id is its file's base name, and names its page:
     // 01-indexing.yaml builds dist/01-indexing.html.
     const n = yaml.load(readFileSync(join(dir, f), 'utf8'));
-    useDomain(await import(pathToFileURL(join(ROOT, 'src/explainers', explainerOf(n), 'domain.js')).href));
+    useDomain(await import(pathToFileURL(join(ROOT, 'src/explainers', explainerOf(n, f), 'domain.js')).href));
     errs.push(...validateNarrative(n, { coderefs, file: f }));
     out.push({ ...n, id: f.replace(/\.yaml$/, '') });
   }
@@ -148,8 +152,6 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
       narrative: { ...n, chapters, subtitleHtml: n.subtitle ? renderMarkdown(n.subtitle) : '' },
       snippets: Object.fromEntries([...used].map((id) => [id, renderSnippet(snippets[id])])),
       sources: Object.fromEntries(Object.entries(sources).map(([k, v]) => [k, { github: v.github, commit: v.commit, version: v.version }])),
-      configDocs: CONFIG_DOCS,
-      defaultConfig: DEFAULT_CONFIG,
       builtAt,
       version,
       // the explainer to read next, if the narrative names one

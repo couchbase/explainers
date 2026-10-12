@@ -1,13 +1,16 @@
 // The page's DOM: the story column (title card, chapter headings, step
 // cards with code chips), the stage (toolbar and diagram viewport), the
-// charts column, and the overlay for callout lines.
+// charts column, and the overlay for callout lines. With `simulation`,
+// the toolbar also gets the simulation's controls (clock, play, speed,
+// replay, knobs); the charts column is the explainer's to fill, and
+// stays empty and zero-width otherwise.
 
 import { h, svgEl } from './util/dom.js';
 
 const shortCommit = (c) => (c || '').slice(0, 12);
 const repoLink = (s) => `<a href="${s.github}/tree/${s.commit}" target="_blank" rel="noopener">${shortCommit(s.commit)}</a>`;
 
-export function buildPage(app, data, codeDrawer) {
+export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
   const { narrative, snippets, sources } = data;
   const layout = h('div', { class: 'layout' });
   const story = h('main', { class: 'story' });
@@ -57,6 +60,10 @@ export function buildPage(app, data, codeDrawer) {
   const ui = {
     crumbDot: h('span', { class: 'crumb-dot' }),
     crumbText: h('span', { class: 'crumb-text' }),
+    codeBtn: btn('Code'),
+    zoomHint: h('span', { class: 'zoom-hint', text: 'drag to pan · ⌘/⌥ + scroll or pinch to zoom · double-click to zoom in' }),
+  };
+  if (simulation) Object.assign(ui, {
     clock: h('span', { class: 'clock' }),
     playBtn: btn('Play', 'Pause or resume the simulation (space)'),
     speedSel: h('select', { class: 'btn', id: 'speed', 'aria-label': 'Simulation speed' },
@@ -64,13 +71,12 @@ export function buildPage(app, data, codeDrawer) {
         .map(([value, text]) => h('option', { value, text }))),
     replayBtn: btn('Replay', 'Rebuild this step’s simulation from scratch'),
     knobsBtn: btn('Knobs'),
-    codeBtn: btn('Code'),
-    zoomHint: h('span', { class: 'zoom-hint', text: 'drag to pan · ⌘/⌥ + scroll or pinch to zoom · double-click to zoom in' }),
-  };
+  });
   ui.crumb = h('span', { class: 'crumb', title: 'Where you are in the diagram' }, ui.crumbDot, ui.crumbText);
-  ui.controls = h('span', { class: 'controls' }, ui.clock, ui.playBtn, ui.speedSel, ui.replayBtn, ui.knobsBtn);
   // The hint and the controls share one slot and cross-fade.
-  const toolbar = h('div', { class: 'toolbar' }, ui.crumb, h('span', { class: 'spacer' }), h('span', { class: 'tools' }, ui.zoomHint, ui.controls), ui.codeBtn);
+  const tools = h('span', { class: 'tools' }, ui.zoomHint);
+  if (simulation) tools.append(ui.controls = h('span', { class: 'controls' }, ui.clock, ui.playBtn, ui.speedSel, ui.replayBtn, ui.knobsBtn));
+  const toolbar = h('div', { class: 'toolbar' }, ui.crumb, h('span', { class: 'spacer' }), tools, ui.codeBtn);
 
   const svg = svgEl('svg', { class: 'diagram', preserveAspectRatio: 'xMidYMid meet', role: 'img',
     'aria-label': `Diagram: ${narrative.title}` });

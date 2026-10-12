@@ -102,9 +102,6 @@ export const LANE_X = LENS_X - 30;
 
 // ---- the engine's names ----
 
-export const SECTIONS = {};
-export const PANELS = {};
-
 export const LIDS = Object.fromEntries(REGIONS.map((r) => [r.id, { title: r.label }]));
 
 // Bubbles are the lenses; each needs its region's lid open.
@@ -125,13 +122,3 @@ export const CAMERAS = {
 };
 
 export const SECTION_COLORS = ['file', 'dict', 'postings', 'stored', 'neutral'];
-export const CHART_IDS = [];
-export const TOKEN_MODES = ['auto', 'hide'];
-
-// ---- the reader marker, and routing ----
-
-export const STATIONS = {};
-export const BOXES = {};
-export const CORRIDOR_XS = [];
-export const CORRIDOR_YS = [];
-export const BOX_GAP = 10;

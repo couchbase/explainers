@@ -1,8 +1,8 @@
 // The zap-format explainer's page: the engine's story column, camera,
 // callouts, contents and code drawer, with this explainer's diagram.
-// There's no simulation: each step's scene comes from its view (see
-// sceneAt in story.js), and the scroll blends one step's scene into
-// the next. The same rules as the first explainer: the scroll is the
+// There's no simulation, so no controls or charts: each step's scene
+// comes from its view (see sceneAt in story.js), and the scroll blends
+// one step's scene into the next. The same rules as the first explainer: the scroll is the
 // timeline, and the reader marker never teleports.
 
 import { buildPage } from '../../js/ui/page.js';
@@ -32,11 +32,6 @@ const diagram = new Diagram(page.svg);
 const overlay = new Overlay(page.overlay);
 const camera = new Camera({ ...page, reduceMotion });
 bindGestures(page.viewport, camera);
-
-// No simulation, so no controls and no charts.
-page.layout.style.setProperty('--chrome', '0');
-for (const e of [ui.controls, page.chartsCol]) { e.style.visibility = 'hidden'; e.style.opacity = '0'; }
-ui.controls.style.display = 'none';
 
 const firstStepOf = narrative.chapters.map((ch) => steps.findIndex((st) => st.chapterId === ch.id));
 const toc = new Toc(document.body, narrative.chapters.map((ch, ci) => ({
@@ -160,7 +155,7 @@ enter(scrollState(stepEls, reduceMotion).i);
 requestAnimationFrame(frame);
 
 // For tests and the curious.
-window.bleveExplainer = {
+window.explainer = {
   ctl, steps, views, scenes, enter, jumpTo, diagram, camera, toc,
   scrollState: () => scrollState(stepEls, reduceMotion),
   scrollYFor: (i, p) => scrollYFor(stepEls[i], p),

@@ -4,6 +4,3 @@
 export * from './layout.js';
 export * from './story.js';
 export { SCENE } from './scene.js';
-// no marker routing hints
-export const VIA = {};
-export const HOPS = {};

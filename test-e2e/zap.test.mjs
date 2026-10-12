@@ -30,7 +30,7 @@ for (const scheme of ['light', 'dark']) {
 test('zap page: a deep link lands on its step', async () => {
   const { page, errors } = await openPage(browser, { page: zap, hash: 'lookup--value' });
   await page.waitForTimeout(300);
-  const id = await page.evaluate(() => window.bleveExplainer.steps[window.bleveExplainer.ctl.current].id);
+  const id = await page.evaluate(() => window.explainer.steps[window.explainer.ctl.current].id);
   assert.equal(id, 'value');
   assert.deepEqual(errors, []);
   await page.close();

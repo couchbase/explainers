@@ -18,7 +18,7 @@ test('desktop: scrolling activates every step without errors', async () => {
   const seen = [];
   for (let i = 0; i < n; i++) {
     await scrollToStep(page, i, 1.05, 0);
-    await page.waitForFunction((i) => window.bleveExplainer.ctl.current === i, i, { timeout: 5000 });
+    await page.waitForFunction((i) => window.explainer.ctl.current === i, i, { timeout: 5000 });
     await page.waitForTimeout(150);
     seen.push(i);
   }
@@ -26,7 +26,7 @@ test('desktop: scrolling activates every step without errors', async () => {
   assert.deepEqual(errors, []);
   // Scrolling back up rebuilds an earlier state deterministically.
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.waitForFunction(() => window.bleveExplainer.ctl.current === 0);
+  await page.waitForFunction(() => window.explainer.ctl.current === 0);
   assert.deepEqual(errors, []);
   await page.close();
 });
@@ -54,7 +54,7 @@ test('knobs change the live simulation', async () => {
   await page.getByRole('button', { name: 'Knobs' }).click();
   await page.fill('#knob-ingestDocsPerSec', '1234');
   await page.dispatchEvent('#knob-ingestDocsPerSec', 'change');
-  const rate = await page.evaluate(() => window.bleveExplainer.ctl.model.cfg.ingestDocsPerSec);
+  const rate = await page.evaluate(() => window.explainer.ctl.model.cfg.ingestDocsPerSec);
   assert.equal(rate, 1234);
   assert.deepEqual(errors, []);
   await page.close();
@@ -78,11 +78,11 @@ test('a deep-linked step shows its lids, bubble and one callout', async () => {
   const { page, errors } = await openPage(browser, { hash: 'persister--detail' });
   await page.waitForTimeout(800);
   const state = await page.evaluate(() => ({
-    step: window.bleveExplainer.steps[window.bleveExplainer.ctl.current].id,
+    step: window.explainer.steps[window.explainer.ctl.current].id,
     openLids: [...document.querySelectorAll('.lid')].filter((l) => l.style.visibility === 'hidden').length,
     bubble: Number(document.querySelector('.bubble[data-bubble=persister]').getAttribute('opacity')),
     callouts: document.querySelectorAll('.overlay .callout').length,
-    trace: window.bleveExplainer.ctl.model.trace.stage,
+    trace: window.explainer.ctl.model.trace.stage,
   }));
   assert.equal(state.step, 'detail');
   assert.equal(state.openLids, 6); // kv, cbft, bleve, scorch, introducer, persister
@@ -117,7 +117,7 @@ test('our batch\'s marker stays in view at every step that shows it', async () =
         const vp = document.querySelector('.viewport').getBoundingClientRect();
         const b = tok.querySelector('rect').getBoundingClientRect();
         return { inside: b.left >= vp.left && b.right <= vp.right && b.top >= vp.top && b.bottom <= vp.bottom,
-          step: window.bleveExplainer.steps[window.bleveExplainer.ctl.current].id };
+          step: window.explainer.steps[window.explainer.ctl.current].id };
       });
       if (!r) continue;
       checked++;
@@ -212,8 +212,8 @@ test('contents: jumps straight to a chapter, settled', async () => {
     await page.click('.toc-btn');
     assert.equal(await page.isVisible('.toc-panel'), true);
     await page.click('.toc-item:has-text("The merger")');
-    await page.waitForFunction(() => window.bleveExplainer.steps[window.bleveExplainer.ctl.current].chapterId === 'merger');
-    const s = await page.evaluate(() => window.bleveExplainer.scrollState());
+    await page.waitForFunction(() => window.explainer.steps[window.explainer.ctl.current].chapterId === 'merger');
+    const s = await page.evaluate(() => window.explainer.scrollState());
     assert.equal(s.p, 1);
     assert.equal(await page.isVisible('.toc-panel'), false);
     assert.equal(await page.getAttribute('.toc-item.current', 'href'), '#merger--zoom');

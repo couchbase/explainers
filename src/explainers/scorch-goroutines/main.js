@@ -35,7 +35,7 @@ const debug = /[?&]debug=1/.test(location.search);
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const codeDrawer = new CodeDrawer(document.body, data.snippets);
-const page = buildPage(document.getElementById('app'), data, codeDrawer);
+const page = buildPage(document.getElementById('app'), data, codeDrawer, { simulation: true });
 const { ui, stepEls } = page;
 const diagram = new Diagram(page.svg);
 const charts = new ChartsPanel(page.chartsCol);
@@ -65,7 +65,7 @@ const ctl = {
 // A step with a flow plays it over its whole length: give it room.
 views.forEach((v, i) => { if (v.flow) stepEls[i].classList.add('step-long'); });
 
-const knobs = new KnobsDrawer(document.body, data, { onReset: () => enter(ctl.current, { rebuild: true }) });
+const knobs = new KnobsDrawer(document.body, { onReset: () => enter(ctl.current, { rebuild: true }) });
 
 function enter(i, { rebuild = false } = {}) {
   if (i === ctl.current && !rebuild) return;
@@ -412,7 +412,7 @@ enter(scrollState(stepEls, reduceMotion).i);
 requestAnimationFrame(frame);
 
 // For tests and the curious.
-window.bleveExplainer = {
+window.explainer = {
   ctl, steps, views, enter, jumpTo, diagram, camera, toc,
   scrollState: () => scrollState(stepEls, reduceMotion),
   scrollYFor: (i, p) => scrollYFor(stepEls[i], p),

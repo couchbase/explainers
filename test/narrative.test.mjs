@@ -13,7 +13,7 @@ import * as scorch from '../src/explainers/scorch-goroutines/domain.js';
 
 // Each narrative is checked against its explainer (see src/js/domain.js);
 // the schema's own tests use the first explainer's names.
-const domainOf = (n) => import(`../src/explainers/${n.explainer || 'scorch-goroutines'}/domain.js`);
+const domainOf = (n) => import(`../src/explainers/${n.explainer}/domain.js`);
 
 const dir = new URL('../content/narratives/', import.meta.url);
 const files = readdirSync(dir).filter((f) => f.endsWith('.yaml')).sort();
