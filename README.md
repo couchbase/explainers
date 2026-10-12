@@ -88,8 +88,10 @@ deployment → Source: GitHub Actions**. The page is then at
 
 ## How it works
 
-The visuals are driven by a **live simulation**, not by canned
-animations.
+The first explainer's visuals are driven by a **live simulation**, not
+by canned animations. (The second, on the zap file format, has no
+simulation: its numbers come from a real segment, built by
+`tools/zap-golden` with the zapx code cbft uses.)
 
 The diagram (`src/explainers/scorch-goroutines/diagram.js`, geometry in
 `layout.js`) is one large SVG canvas that the story's camera zooms
@@ -130,45 +132,39 @@ Research notes with file:line references live in `docs/research/`.
 
 ## Engine and explainers
 
-The code is on its way to being split into a generic engine and
-per-explainer code, so that more explainers can share the engine. A
-narrative names its explainer (`explainer: <id>`); the explainer's
-code lives in `src/explainers/<id>/`, with an `entry.js` that the
-build bundles (with the engine) into that narrative's page. The
-engine's generic parts reach the explainer only through one seam,
+The code is split into a generic engine (`src/js/`, `build/`) and
+per-explainer code (`src/explainers/<id>/`). A narrative names its
+explainer (`explainer: <id>`); the build bundles that explainer's
+`entry.js`, with the engine, into the narrative's page, and appends
+its `style.css` to the engine's `src/css/style.css`.
+
+The engine's generic parts reach the explainer only through one seam,
 `src/js/domain.js`: the explainer's entry point calls `useDomain()`
 with its `domain.js`, and the engine reads that as `D`. The build and
-the tests do the same for each narrative. A `domain.js` provides:
+the tests do the same for each narrative. The engine reads:
 
-- `layout.js`: the diagram's geometry: sections, panels, lids,
-  bubbles, cameras, anchors, the marker's stations, the boxes it
-  routes around;
-- `story.js`: its model (`makeModel`), settings, the stages a
-  followed batch goes through, `EXPECTATIONS`, and the view directives
-  it adds (`VIEW_KEYS`: values, whether they carry over, how they
-  count as a step's change, and whether they're told over steps);
-- `routes.js`: hints for routing the marker along drawn arrows;
-- `entry.js` and `use.js`: the page's entry point, which picks the
-  explainer before anything else runs;
-- the pieces of its drawing that are plain data or small helpers
-  (`snapstack.js`, `stairs-scene.js`, `staircase.js`).
+- **geometry:** `CANVAS`, `CAMERAS`, `LIDS`, `BUBBLES`, `ANCHORS`,
+  `DYNAMIC_ANCHORS` (anchors whose place the page works out) and
+  `SECTION_COLORS`;
+- **its own view directives:** `VIEW_KEYS`: their values, whether they
+  carry over, how they count as a step's change, and whether they're
+  told over steps;
+- **expectations:** `EXPECTATIONS` and `EXPECTATION_PARAMS`
+  (`<name>:<arg>`);
+- **a simulation, if it has one:** `makeModel`, `makeConfig` and
+  `applyConfig`, and `SIM`: the step directives besides `reset`, how
+  they're checked, and how they drive the model.
 
-The narrative schema, the step/view folding, change counting and
-expectations are generic, driven by those tables.
+`useDomain()` fills in empty defaults for what an explainer leaves out.
+With no `makeModel`, a narrative has no `sim` directives, and the page
+builds no simulation controls (`buildPage(..., { simulation: true })`
+asks for them).
 
-An explainer without a simulation leaves out `makeModel`, and its
-narrative then has no `sim` directives.
-
-Still specific to the first explainer but not moved yet: the simulator
-(`src/explainers/scorch-goroutines/sim/`), the diagram's drawing (`src/explainers/scorch-goroutines/diagram.js`), and
-`src/explainers/scorch-goroutines/main.js`, which orchestrates its told phases (root swaps,
-commits, write and watcher animations). They import that explainer
-directly, not through the seam. The
-plan is to settle that boundary with a second explainer, on the scorch
-file format: how a zap segment is laid out on disk and accessed (its
-vellum FST term dictionary, roaring-bitmap postings, stored fields and
-doc values). That one may need little or no simulation, which will
-show what the engine shouldn't assume.
+The engine provides the rest: the narrative schema, the step/view
+folding and change counting (`src/js/story/timeline.js`), and the
+page's parts (`src/js/ui/`): story column, camera and gestures, scroll
+position, callout lines, contents, code drawer. Each explainer has its
+own `main.js` that puts these together with its diagram.
 
 ## Design principles
 
@@ -191,9 +187,17 @@ These guide both the narratives and the code:
 ## Writing narratives
 
 Narratives are YAML files in `content/narratives/`. Each one builds to
-its own HTML file. Chapters have a `color` (`kv`, `cbft`, `scorch`,
-`disk` or `neutral`), which ties the story's headings to the diagram
-section they're about. A step looks like this:
+an HTML file of the same name (`01-indexing.yaml` builds
+`dist/01-indexing.html`). At the top, it names its `explainer`, the
+pinned `sources` it's modeled on (from `content/sources.yaml`, listed in
+the page's header), and optionally the narrative to read `next`.
+Chapters have a `color` (for the first explainer: `kv`, `cbft`,
+`scorch`, `disk` or `neutral`), which ties the story's headings to the
+diagram section they're about.
+
+What follows is the first explainer's vocabulary; the zap explainer's
+steps move the reader's `focus` instead (see its `story.js`). A step
+looks like this:
 
 ```yaml
 - id: persisting                    # slug, unique within the chapter
@@ -214,7 +218,8 @@ live one that follows the simulation (`ourBatch`, `ourSeg`, `ourFile`,
 `deletedFile`, `mergedSeg`).
 
 **View directives** say only what changes; the state carries over from
-step to step:
+step to step. `camera`, `open`/`close`, `bubble`/`unbubble`, `ui` and
+`target` are the engine's; the rest are the explainer's `VIEW_KEYS`:
 
 | key | meaning |
 |---|---|
@@ -228,7 +233,8 @@ step to step:
 | `flow` | an animation over the step's whole scroll: `analysis` (our batch's docs go to the analysis queue and back), `write` / `mergeWrite` (our zap file goes down the persister's / merger's write arrow to disk), `watcher` (the persister's epoch watcher goes up to the introducer) |
 | `chart` | emphasize one chart: `dcpBuf`, `memUsed`, `segments`, `files` |
 
-**Simulation directives:**
+**Simulation directives** (`reset` is the engine's; the rest are the
+explainer's, in its `directives.js`):
 
 | key | meaning |
 |---|---|
@@ -259,9 +265,10 @@ The build also checks that:
 - a told swap's phases come in order.
 
 `expect` names predicates from the explainer's `EXPECTATIONS` (in
-`story.js`), its parameterized ones like `rootEpoch:<n>`, and the
-engine's `reached:<stage>`. The tests check them, so the
-prose and the simulation can't silently drift apart.
+`story.js`) and its parameterized ones, like `rootEpoch:<n>` and
+`reached:<stage>`. The tests check them, so the prose and the
+simulation can't silently drift apart. (The zap explainer's
+`fact:<name>=<value>` checks a number against the real segment.)
 
 ### Drafts
 
@@ -308,42 +315,52 @@ content/                 narratives (YAML), code refs, pinned sources, snippets.
 docs/research/           how scorch and cbft work, with file:line refs
 dist/                    the built pages (committed; published by GitHub Pages)
 
-src/js/domain.js         the seam: useDomain(), and D, the explainer the engine reads
-src/explainers/scorch-goroutines/
-  domain.js              everything below, as the engine sees it
+src/js/                  the engine
+  domain.js              the seam: useDomain(), and D, the explainer the engine reads
+  story/timeline.js      narrative semantics: steps, views, change counting, expectations
+  ui/page.js             story, toolbar and charts-column DOM
+  ui/camera.js, gestures.js   the camera, the reader's pan/zoom, map-style gestures
+  ui/scroll.js           scroll position -> (step, progress)
+  ui/overlay.js          callout and leader lines
+  ui/anchors.js          whether an anchor shows (its lids open, its bubble shown)
+  ui/code.js, toc.js     the code drawer; the contents menu
+  ui/util/               DOM and interpolation helpers
+src/css/style.css        the engine's styles: palette, layout, story, toolbar, drawers
+src/index.html           the page template
+
+src/explainers/scorch-goroutines/   the first explainer: goroutines and backpressure
+  domain.js              what the engine reads (re-exported from the files below)
   layout.js              diagram geometry: frames, lids, cameras, anchors, stations, boxes
-  story.js               model, stages, expectations, extra view directives
+  story.js               model, stages, expectations, view keys
+  directives.js          its simulation directives (D.SIM)
   routes.js              marker routing hints along drawn arrows
-  entry.js, use.js       the page's entry point (picks this explainer first)
+  main.js                the page: per-step state, the frame loop, controls
+  diagram.js             the diagram (with gnode.js and slots.js)
+  transitions.js         what's shown partway between steps (marker routes, boxes)
   swapmarker.js          the marker during a told root swap
   snapstack.js           the stack of live root snapshots; swap and commit phases
   stairs-scene.js        the merger bubble's tier staircase, as data (staircase.js draws it)
-
-src/explainers/scorch-goroutines/sim/              the simulator (no DOM; runs in Node and the browser)
-  des.js                 discrete-event kernel: generator "goroutines", channels, select
-  model.js               a cbft pindex: state, memory/disk accounting, wiring
-  procs/*.js             its goroutines, by group: cbft (DCP, batch workers, herder),
+  charts.js, knobs.js    the charts column; the knobs drawer
+  style.css              its styles
+  entry.js, use.js       the page's entry point (picks this explainer first)
+  sim/                   the simulator (no DOM; runs in Node and the browser)
+    des.js               discrete-event kernel: generator "goroutines", channels, select
+    model.js             a cbft pindex: state, memory/disk accounting, wiring
+    procs/*.js           its goroutines, by group: cbft (DCP, batch workers, herder),
                          batch (Scorch.Batch), introducer, persister, merger, and
                          merging (shared by the persister and merger)
-  segments.js            Segment and Snapshot, with refcounting
-  mergeplan.js           port of bleve's mergeplan (tested against Go)
-  config.js, fmt.js, invariants.js
-src/js/story/timeline.js narrative semantics: sim directives, views, expectations
-src/js/ui/               the page
-  main.js                wires it together: per-step state, the frame loop, controls
-  page.js                story, toolbar and charts DOM
-  diagram.js             the diagram canvas (with gnode.js and slots.js; still explainer-specific)
-  transitions.js         what's shown partway between steps (marker routes, boxes)
-  anchors.js             whether an anchor shows (its lids open, its bubble shown)
-  camera.js, gestures.js the camera, the reader's pan/zoom, map-style gestures
-  scroll.js              scroll position -> (step, progress)
-  overlay.js, charts.js  callout and leader lines; the charts column
-  code.js, knobs.js      the drawers
-  util/                  DOM and interpolation helpers
+    segments.js          Segment and Snapshot, with refcounting
+    mergeplan.js         port of bleve's mergeplan (tested against Go)
+    config.js, fmt.js, invariants.js
+src/explainers/zap-format/   the second explainer: inside a zap segment
+  segment.json           the example segment, from tools/zap-golden
+  layout.js, scene.js    geometry: the file strip, the lenses, and what's drawn in them
+  story.js               foci (where the reader is), facts, view keys
+  diagram.js, main.js    the diagram; the page
+  style.css, domain.js, entry.js, use.js
+
 build/                   build.mjs, snippets.mjs, schema.mjs
 test/, test-e2e/         unit tests; browser tests
-src/explainers/zap-format/  the second explainer: its example segment (segment.json),
-                         layout, scene, story, diagram and page
 tools/mergeplan-golden/  Go program emitting golden merge plans
 tools/zap-golden/        Go program building the zap example with zapx, and dumping it
 .github/workflows/       CI, and GitHub Pages publishing
