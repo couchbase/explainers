@@ -36,6 +36,12 @@ const STACK_TWEEN_MS = 350;
 const EPOCH_X = 246; // where the root title's epoch number starts
 const SCAN_W = 46; // the copier scan's glow
 const DIR_COLS = 32, DIR_ROWS = 6;
+// A swap's bar blend at s: [appear/grow, fade out, slide to close gaps].
+const swapBarParams = (s) => {
+  const add = swapPart(s, 'add'), drop = swapPart(s, 'drop');
+  return [clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), clamp01(drop / 0.6), easeQuad(clamp01((drop - 0.6) / 0.4))];
+};
+
 // While the merger works, our file segment stays in the (immutable)
 // root: the merger only reads it. Its result is a separate object.
 const MERGE_STAGES = ['merging', 'mergeWritten', 'mergeIntroducing'];
@@ -433,7 +439,7 @@ export class Diagram {
     // The merger's result: a new file segment with our docs (and the
     // other file's) in it, on its own until it's in a root.
     this.mergedChip = el('g', { opacity: 0 }, g);
-    el('rect', { x: -7, y: -7, width: 14, height: 14, rx: 2, class: 'merged-chip' }, this.mergedChip);
+    this.mergedRect = el('rect', { x: -7, y: -7, width: 14, height: 14, rx: 2, class: 'merged-chip' }, this.mergedChip);
     this.mergedLabel = txt(this.mergedChip, 12, 4, 'merged file segment', 'merged-label');
     // A root.bolt record, from the persister down to root.bolt.
     this.boltFly = el('g', { opacity: 0 }, g);
@@ -700,7 +706,7 @@ export class Diagram {
       this.rootContent.setAttribute('clip-path', 'url(#dg-scan-clip)');
     } else this.rootContent.removeAttribute('clip-path');
     // Contents change only once the marker has brought the new segment.
-    this._blendCells(A, B, clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL)), clamp01(drop / 0.6), easeQuad(clamp01((drop - 0.6) / 0.4)));
+    this._blendCells(A, B, ...swapBarParams(s));
 
     // Its epoch: the old one's, labeled "(copy)" as it lifts off, then
     // "+1" and it rolls over.
@@ -832,6 +838,12 @@ export class Diagram {
     let spare = bIdx.size;
     for (const [k, i] of aIdx) if (!bIdx.has(k) && spare < FILE_SLOTS) out.push({ j: spare++, key: k, x: xOf(i), s: A.bars[i], o: 1 - qOut });
     return out;
+  }
+
+  // Where a segment's bar is in a new root at swap s: {x, h, foot}.
+  barInSwap(A, B, key, s) {
+    const d = this._barLayout(A, B, ...swapBarParams(s)).find((x) => x.key === key);
+    return d ? { x: d.x, h: B.bars[d.j] ? B.bars[d.j].h : d.s.h, foot: FILE_BASE } : null;
   }
 
   // Where a segment that's new in B first appears (before the slide),
@@ -1010,6 +1022,7 @@ export class Diagram {
     this.tokenSheet.setAttribute('transform', `scale(${(0.3 + 0.7 * so).toFixed(3)})`);
     const top = -Math.max(z / 2, 14 * so) - 5;
     setText(this.tokenLabel, t.label);
+    this.tokenLabel.setAttribute('opacity', (t.labelO ?? 1).toFixed(3));
     setText(this.tokenSub, t.sub || '');
     this.tokenSub.setAttribute('opacity', so.toFixed(3));
     this.tokenSub.setAttribute('y', top.toFixed(1));
@@ -1083,9 +1096,14 @@ export class Diagram {
   }
 
   // Places the merged file segment's chip: {p, o}, or null.
+  // h (default 14): it grows into its bar, upward from its foot.
   setMergedChip(c) {
     if (!c || c.o <= 0.001) { this.mergedChip.setAttribute('opacity', 0); return; }
     this.mergedChip.setAttribute('opacity', c.o.toFixed(3));
+    const h = c.h || 14;
+    this.mergedRect.setAttribute('y', (7 - h).toFixed(1));
+    this.mergedRect.setAttribute('height', h.toFixed(1));
+    this.mergedLabel.setAttribute('opacity', (c.labelO ?? 1).toFixed(3));
     this.mergedLabel.setAttribute('x', c.left ? -12 : 12);
     this.mergedLabel.setAttribute('text-anchor', c.left ? 'end' : 'start');
     this.mergedChip.setAttribute('transform', `translate(${c.p[0].toFixed(1)} ${c.p[1].toFixed(1)})`);

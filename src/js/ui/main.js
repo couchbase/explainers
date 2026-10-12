@@ -186,12 +186,18 @@ function mergedChipAt(i, p, t, u, swap) {
   if (swap) {
     const a = ctl.chipAt.get(swap.base), cur = ctl.tokenAt.get(i);
     if (!a || !cur) return null;
-    // into the new root, onto the merged segment's bar as it appears
+    // Into the new root: it lands where the merged segment's bar
+    // appears, grows into that bar, slides left with it as the gaps
+    // close, and gives way to the bar once the new root is solid.
     const spot = diagram.newBarSpot(swap.A, swap.B, cur.key) || cur.p;
     const [dx, dy] = swapShift(swap.s);
     const e = swapTravel(swap.s), add = swapPart(swap.s, 'add');
-    const o = 1 - clamp01((add - ADD_TRAVEL) / 0.15);
-    return { p: along(route(a, { ...cur, p: [spot[0] + dx, spot[1] + dy] }), e), o };
+    const o = 1 - swapPart(swap.s, 'solid');
+    if (e < 1) return { p: along(route(a, { ...cur, p: [spot[0] + dx, spot[1] + dy] }), e), o };
+    const bar = diagram.barInSwap(swap.A, swap.B, cur.key, swap.s);
+    if (!bar) return null;
+    const grow = clamp01((add - ADD_TRAVEL) / (1 - ADD_TRAVEL));
+    return { p: [bar.x + 7 + dx, bar.foot - 7 + dy], h: lerp(14, bar.h, grow), labelO: 1 - grow, o };
   }
   const a = i > 0 ? ctl.chipAt.get(i - 1) : null, b = ctl.chipAt.get(i);
   if (a && b) return { p: along(route(a, b), t), o: 1, dest: b.st, left: (t < 0.5 ? a : b).left };
@@ -285,6 +291,12 @@ function render() {
   // introducer, then (in a told swap) into the new root.
   const chip = ctl.playing ? null : mergedChipAt(i, p, t, u, swap);
   diagram.setMergedChip(chip);
+  // The introducer's channel stays lit while it builds the new root
+  // for what came on it, until the new root is swapped in.
+  if (swap && !ctl.playing && swapPart(swap.s, 'solid') < 1) {
+    const b = ctl.tokenAt.get(swap.base);
+    if (ctl.chipAt.get(swap.base) || (b && b.st === 'fileIntroducing')) diagram.setChanLit('merges', true);
+  }
   if (chip && chip.dest === 'mergeIntroducing') diagram.setChanLit('merges', diagram.reachedChan('merges', chip.p, 14));
 
   // Who owns time: the clock while the simulation plays, otherwise the scroll.

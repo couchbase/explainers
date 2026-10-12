@@ -176,9 +176,13 @@ export function swapMarker(views, tokenAt, i, base, s) {
   const from = onRoot(prev) ? { ...prev, p: [prev.p[0] + dx, prev.p[1] + dy] } : prev;
   // Already in the root (a merge): it moves over to the merged segment
   // as the ones it replaces drop out.
-  // (With the other bars, as they close up the gaps.)
-  const e = onRoot(prev) && onRoot(cur) && prev.key !== cur.key ? clamp01((swapPart(s, 'drop') - 0.6) / 0.4) : swapTravel(s);
-  return between(from, dest, e);
+  // (With the other bars, as they close up the gaps.) Its label steps
+  // aside while the new root is built, and comes back as it moves.
+  const hop = onRoot(prev) && onRoot(cur) && prev.key !== cur.key;
+  const e = hop ? clamp01((swapPart(s, 'drop') - 0.6) / 0.4) : swapTravel(s);
+  const f = between(from, dest, e);
+  if (hop) f.t.labelO = swapPart(s, 'drop') > 0 ? e : 1 - swapPart(s, 'cover');
+  return f;
 }
 
 // ---- goroutine boxes ----
