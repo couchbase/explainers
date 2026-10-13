@@ -1,13 +1,12 @@
 # blance: planning and moving partitions
 
-Explainers of [blance](https://github.com/couchbase/blance), the
-partition-assignment library under
-[cbgt](https://github.com/couchbase/cbgt) and so under Couchbase's
-full-text search: how it decides which node holds each index
-partition's primary and replicas, and how a rebalance then moves them
-there. (See the [repo's README](../../README.md) for the engine,
-building and publishing, and [../cbft](../cbft/README.md) for the
-search side.)
+Explainers of [blance](https://github.com/couchbase/blance), a small
+library for any partitioned distributed system: it decides which nodes
+hold each partition's primary and replicas (or whatever states the app
+defines), and how a rebalance then moves them there. Couchbase's cbgt
+(and so its full-text search) is one user, and the explainers take
+their examples from it. (See the [repo's README](../../README.md) for
+the engine, building and publishing.)
 
 Shared by its explainers: `topic.yaml` and `style.css` (the topic's
 own look: warm paper, teal primaries, amber replicas, and Space

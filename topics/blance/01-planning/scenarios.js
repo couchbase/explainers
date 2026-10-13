@@ -12,12 +12,12 @@ import { calcPartitionMoves } from '../lib/moves.js';
 export const NODES = ['a', 'b', 'c', 'd'];
 export const PARTITIONS = ['0', '1', '2', '3', '4', '5', '6', '7'];
 export const STATES = ['primary', 'replica'];
-// cbgt's model, with one replica (cbgt manager_planner.go BlancePartitionModel)
+// a primary and one replica (the model cbgt uses: manager_planner.go BlancePartitionModel)
 export const MODEL = { primary: { priority: 0, constraints: 1 }, replica: { priority: 1, constraints: 1 } };
 // server groups: g1 = {a, b}, g2 = {c, d}, in one datacenter
 export const GROUPS = { a: 'g1', b: 'g1', c: 'g2', d: 'g2', g1: 'dc', g2: 'dc' };
-// cbgt's default rule when there are server groups: a replica goes to
-// another group than its primary (manager_planner.go)
+// a replica in another group from its primary (cbgt's default rule
+// when there are server groups: manager_planner.go)
 export const OTHER_GROUP = { replica: [{ includeLevel: 2, excludeLevel: 1 }] };
 
 const empty = () => Object.fromEntries(PARTITIONS.map((p) => [p, { name: p, nodesByState: {} }]));
@@ -64,11 +64,11 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
 }
 
 const abc = ['a', 'b', 'c'];
-const fresh = scenario('fresh', 'a new index on nodes a, b, c', { prev: boardOf(empty()), nodesAll: abc, add: abc });
+const fresh = scenario('fresh', 'from scratch, on nodes a, b, c', { prev: boardOf(empty()), nodesAll: abc, add: abc });
 const add = scenario('add', 'node d joins', { prev: fresh.result, nodesAll: NODES, add: ['d'] });
 const remove = scenario('remove', 'node b leaves', { prev: add.result, nodesAll: NODES, remove: ['b'] });
 // (with no groups, then with them, from scratch on all four)
-const nogroups = scenario('nogroups', 'a new index on a, b, c, d', { prev: boardOf(empty()), nodesAll: NODES, add: NODES, groups: true });
+const nogroups = scenario('nogroups', 'from scratch, on a, b, c, d', { prev: boardOf(empty()), nodesAll: NODES, add: NODES, groups: true });
 const groups = scenario('groups', 'the same, told the server groups', {
   prev: boardOf(empty()), nodesAll: NODES, add: NODES, groups: true, opts: { nodeHierarchy: GROUPS, hierarchyRules: OTHER_GROUP },
 });

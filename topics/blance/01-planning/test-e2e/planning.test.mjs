@@ -49,6 +49,6 @@ test('planning page: deep links land on their step', async () => {
 test('planning page: its header links up to the blance topic index', async () => {
   const { page } = await openPage(browser, { page: planning });
   assert.equal(await page.evaluate(() => document.querySelector('a.eyebrow').getAttribute('href')), 'index.html');
-  assert.equal(await page.evaluate(() => document.querySelector('a.eyebrow').textContent), 'blance / cbgt');
+  assert.equal(await page.evaluate(() => document.querySelector('a.eyebrow').textContent), 'blance');
   await page.close();
 });

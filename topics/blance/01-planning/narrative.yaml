@@ -9,10 +9,10 @@
 sources: [blance, cbgt]
 title: "Inside blance: how a plan places partitions"
 subtitle: >-
-  How cbgt's planner decides which node gets each index partition's
-  primary and replicas: greedily, one partition at a time, and what
-  that means when nodes join and leave.
-audience: Couchbase engineers and support
+  How blance, a library for placing partitions on nodes, decides which
+  node gets each partition's primary and replicas: greedily, one
+  partition at a time, and what that means when nodes join and leave.
+audience: Engineers who build or run partitioned systems
 
 chapters:
 
@@ -26,23 +26,26 @@ chapters:
         view: { target: board.title }
         code: [blance.PartitionMap]
         text: |
-          A Couchbase full-text index is split into partitions (cbgt
-          calls them pindexes), and each one lives on a node of the
-          cluster. Which node gets which is decided by
-          [blance](https://github.com/couchbase/blance), the library
-          under cbgt, and what it decides is [[the partition map]]: for
-          each partition, its nodes, by state.
+          Many distributed systems split their data into partitions,
+          or shards, and place each one on some of the cluster's nodes:
+          a primary here, replicas there. Deciding where is a problem
+          of its own, and [blance](https://github.com/couchbase/blance)
+          is a small library for just that, for any system with
+          partitions to place. What it decides is [[the partition map]]:
+          for each partition, its nodes, by state.
 
       - id: model
         view: { target: row.0 }
         code: [blance.PartitionModel, cbgt.model]
         text: |
-          The states come from the app's model. cbgt's has two: a
-          primary, with priority 0 and a constraint of 1 node, and
-          replicas, with priority 1 and as many nodes as the index
-          has replicas. Here, an index with eight partitions and one
-          replica: [[partition 0]] needs a primary and a replica, on
-          different nodes, and so does each of the others.
+          blance knows nothing about primaries or replicas: the states
+          come from the app's model, each with a priority and how many
+          nodes it wants. A common model, and the one here (it's what
+          Couchbase's cbgt uses for its search indexes): a primary, with
+          priority 0 and 1 node, and replicas, with priority 1 and one
+          node per replica. Here, eight partitions and one replica:
+          [[partition 0]] needs a primary and a replica, on different
+          nodes, and so does each of the others.
 
       - id: call
         view: { target: node.a }
@@ -50,7 +53,7 @@ chapters:
         text: |
           blance's `PlanNextMapEx` takes the map as it is, all the
           nodes, the ones joining and the ones leaving, the model and
-          some options, and returns the next map. Here the index is
+          some options, and returns the next map. Here everything is
           new: nothing is placed yet, and [[nodes a, b and c]] are all
           joining.
 
@@ -261,9 +264,9 @@ chapters:
         expect: ["fact:remove.moves=8", "fact:remove.moves.4=add a:primary, del b"]
         text: |
           8 moves, among them [[partition 4]]'s: add a as its primary,
-          then delete b. (cbgt's failover doesn't leave this to blance:
-          it promotes a surviving replica itself, and uses blance's plan
-          only for a partition with none.)
+          then delete b. (An app can handle a failed node outside
+          blance: cbgt, for one, promotes a surviving replica itself,
+          and uses blance's plan only for a partition with none.)
 
   # ------------------------------------------------------------------
   - id: groups
@@ -292,10 +295,11 @@ chapters:
         code: [cbgt.groupsRule]
         expect: ["fact:groups.sameGroup=0"]
         text: |
-          cbgt's rule for replicas when there are groups: include level
-          2, exclude level 1. From the primary's node, go up 2 levels
-          (to dc) for the candidates, and take away everything up 1
-          level (its own group). Now [[partition 0]]'s replica is on c,
+          A rule for replicas (the app's to give; this one is cbgt's
+          default when there are groups): include level 2, exclude
+          level 1. From the primary's node, go up 2 levels (to dc) for
+          the candidates, and take away everything up 1 level (its own
+          group). Now [[partition 0]]'s replica is on c,
           and every replica is in the other group from its primary.
 
   # ------------------------------------------------------------------
@@ -310,8 +314,8 @@ chapters:
         text: |
           Stickiness is 1.5 unless the app says otherwise: staying put
           is worth one and a half partitions of imbalance. An app can
-          set it per state (cbgt does, in failover: 100000 for
-          primaries). Adding d to the first map, [[as before]]: 10
+          set it per state, say very high for primaries, to keep them
+          in place. Adding d to the first map, [[as before]]: 10
           moves.
 
       - id: ignored
@@ -334,6 +338,6 @@ chapters:
 
       - id: so
         text: |
-          For cbft this matters little, as its failover promotes
-          replicas itself. But an app that sets per-state stickiness
-          alone gets the default, which looks like a bug in blance.
+          So an app that sets per-state stickiness, and no partition
+          weights, quietly gets the default. It looks like a bug in
+          blance, and one easy to work around: pass an empty map.

@@ -17,9 +17,10 @@ topic (`topics/`):
   - **02-zap-format**, "Inside a zap segment": one query, followed byte
     by byte through a real segment file.
 - **[blance](topics/blance/README.md):** how
-  [blance](https://github.com/couchbase/blance), the library under
-  cbgt, plans which node holds each partition's primary and replicas,
-  and moves them in a rebalance:
+  [blance](https://github.com/couchbase/blance), a small, reusable
+  library for partitioned systems (cbgt, under Couchbase's search, is
+  one user), plans which nodes hold each partition's primary and
+  replicas, and moves them in a rebalance:
   - **01-planning**, "Inside blance: how a plan places partitions":
     the planner's real decisions, score by score, as nodes join and
     leave, with server groups and stickiness.
