@@ -111,8 +111,12 @@ Anything else it needs (its diagram, a simulator, example data, tools
 that generate it) goes beside these. A topic's directory holds what its
 explainers share: `topic.yaml` (its `title`; a short `label`, shown
 atop each explainer page as a link up to the topic's index; and a
-`subtitle` for that index page), `sources.yaml` (the source repos they
-link into, pinned), and any shared notes or code. The build gives each
+`subtitle` for that index page; and optionally its `fonts`, as Google
+Fonts families), `style.css` (its look: palette, section colors, and
+the engine's `--font-*` set to its fonts; after the engine's styles,
+before each explainer's), `sources.yaml` (the source repos they link
+into, pinned), and any shared notes or code. With no fonts or
+`style.css`, a topic looks like the engine: neutral, in IBM Plex. The build gives each
 topic an index page, `dist/<topic>/index.html`, listing its explainers
 with their subtitles; each explainer links back up to it, from its
 header and from its last card. Those links, the one to the next
@@ -265,13 +269,13 @@ engine/                  the engine
   js/ui/                 the page's parts: story.js (runStory: the page, run), page.js (story, toolbar DOM), camera.js and
                          gestures.js, scroll.js, overlay.js (callout lines), anchors.js,
                          code.js and toc.js (the drawers), util/
-  css/style.css          the engine's styles: palette, layout, story, toolbar, drawers
+  css/style.css          the engine's styles: neutral palette, default fonts, layout, story, toolbar, drawers
   page.html              the page template
-  build/                 build.mjs, explainers.mjs (finding them), indexes.mjs (the index pages), schema.mjs, snippets.mjs
+  build/                 build.mjs, explainers.mjs (finding them), look.mjs (topic styles and fonts), indexes.mjs (the index pages), schema.mjs, snippets.mjs
   test/, test-e2e/       its tests; helpers for explainers' browser tests
 topics/
   cbft/                  Couchbase full-text search (see its README.md)
-    topic.yaml, sources.yaml, research/
+    topic.yaml, style.css, sources.yaml, research/
     01-indexing/         goroutines and backpressure, with a simulator (sim/)
     02-zap-format/       inside a zap segment, with tools/zap-golden
   blance/                partition planning and moves (see its README.md)

@@ -1,0 +1,48 @@
+/* The cbft topic's look, shared by its explainers: its section colors
+   (KV, cbft, bleve, scorch, disk), segment kinds, goroutine states, and
+   the legend swatches for them in the prose. After the engine's styles
+   (engine/css/style.css), before each explainer's. Its fonts are the
+   engine's defaults. */
+:root {
+  --scan: #ffd98a; /* the copier scan's light */
+  --up: #6e5bd0;
+
+  --busy: #1f8f58;
+  --nap: #6e5bd0;
+  --wait: #8b97a3;
+  --stall: #d0342c;
+
+  --sec-kv: #2b7c84;
+  --sec-cbft: #a07408;
+  --sec-bleve: #5b4fa8;
+  --sec-scorch: #9c3f7c;
+  --sec-disk: #7a5a3a;
+
+  --seg-mem: #e8862a;
+  --seg-file: #2d6cc9;
+  --seg-garbage: #a9b4be;
+  --seg-zombie: #d23a4e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --up: #9a8cf0; --scan: #fff1c4;
+    --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
+    --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72;
+    --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
+  }
+}
+:root[data-theme="dark"] {
+  --up: #9a8cf0; --scan: #fff1c4;
+  --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
+  --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72;
+  --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
+}
+
+/* inline legend swatches in the prose */
+.st { font-weight: 500; white-space: nowrap; }
+.st::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%; margin-right: 0.3em; vertical-align: -0.02em; }
+.st-busy::before { background: var(--busy); }
+.st-sleep::before { background: var(--nap); }
+.st-wait::before { background: transparent; border: 2px solid var(--wait); }
+.st-stall::before { background: var(--stall); }
+

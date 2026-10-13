@@ -18,6 +18,7 @@ import * as esbuild from 'esbuild';
 import { validateNarrative } from './schema.mjs';
 import { ROOT, listExplainers, loadExplainer, loadTopic } from './explainers.mjs';
 import { topicIndex, rootIndex } from './indexes.mjs';
+import { fontLinks, topicCss, DEFAULT_FONTS } from './look.mjs';
 import { useDomain } from '../js/domain.js';
 import { shownChapters, isStop } from '../js/story/timeline.js';
 
@@ -103,8 +104,8 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
     });
     return bundle.outputFiles[0].text;
   };
-  // The engine's styles, then the explainer's own.
-  const cssFor = (e) => read('engine/css/style.css') + '\n' + readFileSync(join(e.dir, 'style.css'), 'utf8');
+  // The engine's styles, then the topic's, then the explainer's own.
+  const cssFor = (e) => topicCss(e.topic) + '\n' + readFileSync(join(e.dir, 'style.css'), 'utf8');
   const template = read('engine/page.html');
   const builtAt = new Date().toISOString().slice(0, 10);
   // Which version this is, so readers can tell builds apart: `git
@@ -152,6 +153,7 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
       };
       const html = template
         .replaceAll('{{TITLE}}', n.title.replace(/[<&"]/g, ''))
+        .replace('{{FONTS}}', () => fontLinks(loadTopic(e.topic).fonts || DEFAULT_FONTS))
         .replace('{{DESCRIPTION}}', (n.subtitle || '').replace(/[<&"]/g, '').trim())
         .replace('/*{{CSS}}*/', () => css)
         .replace('{{DATA}}', () => escapeJsonForScript(JSON.stringify(data)))

@@ -1,15 +1,16 @@
 // The index pages: dist/<topic>/index.html, listing a topic's
-// explainers (each explainer page links up to it), and dist/index.html
-// over all the topics. They use the engine's palette and fonts, so they
-// read as part of the same set, in light and dark.
+// explainers (each explainer page links up to it), in the topic's look;
+// and dist/index.html over all the topics, in the engine's. In light
+// and dark.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT } from './explainers.mjs';
+import { fontLinks, topicCss } from './look.mjs';
 
 const esc = (t) => String(t).replace(/[<&"]/g, (c) => ({ '<': '&lt;', '&': '&amp;', '"': '&quot;' })[c]);
 
-const css = () => readFileSync(join(ROOT, 'engine/css/style.css'), 'utf8') + `
+const INDEX_CSS = `
 .index { max-width: 44rem; margin: 0 auto; padding: 3rem 16px 6rem; }
 .index h1 { font: 600 2.4rem/1.08 var(--font-display); margin: 0.5rem 0 1rem; text-wrap: balance; }
 .index .subtitle { color: var(--muted); font-size: 1.15rem; line-height: 1.45; }
@@ -26,18 +27,19 @@ const css = () => readFileSync(join(ROOT, 'engine/css/style.css'), 'utf8') + `
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
 `;
 
-const page = (title, description, body) => `<!doctype html>
+// `topic`: the topic whose look it takes, or null for the engine's.
+const css = (topic) => (topic ? topicCss(topic.topic) : readFileSync(join(ROOT, 'engine/css/style.css'), 'utf8')) + INDEX_CSS;
+
+const page = (title, description, body, topic = null) => `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(description)}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap">
+${fontLinks((topic && topic.fonts) || undefined)}
 <style>
-${css()}
+${css(topic)}
 </style>
 </head>
 <body>
@@ -57,7 +59,7 @@ export const topicIndex = (topic, ws) => page(topic.title, topic.subtitle || '',
   `<a class="eyebrow" href="../index.html">← All explainers</a>
 <h1>${esc(topic.title)}</h1>
 <div class="subtitle">${topic.subtitleHtml}</div>
-${entries(ws, '')}`);
+${entries(ws, '')}`, topic);
 
 // `topics`: [{topic, ws}], as for topicIndex.
 export const rootIndex = (topics) => page('Explainers', 'Scrollytelling explainers of how things work inside.',
