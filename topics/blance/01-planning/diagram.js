@@ -463,10 +463,13 @@ export class Diagram {
     if (!a) {
       const [x0, y0] = from, [x1, y1] = to;
       const d = `M${x0},${y0} C${x0 + bow},${y0 + (y1 - y0) * 0.35} ${x1 + bow},${y1 - (y1 - y0) * 0.35} ${x1},${y1}`;
+      // (a halo under it, in the background's color, so it shows even
+      // over a bar of its own color)
+      const halo = el('path', { d, class: 'sarc-halo' }, this.arcG);
       const path = el('path', { d, class: `sarc ${cls}` }, this.arcG);
       // a triangle, pointing along the path (see _drawArcs)
       const head = el('path', { d: 'M0,0 L-9,-4.5 L-9,4.5 Z', class: `sarc-head ${cls}` }, this.arcG);
-      a = { path, head, len: path.getTotalLength() };
+      a = { halo, path, head, len: path.getTotalLength() };
       this.arcs.set(key, a);
     }
     return a;
@@ -491,9 +494,9 @@ export class Diagram {
         const chipAt = ([p, nn, st]) => [chipX(nn, st), rowY(p) + 12];
         // each lands on the top of the bar as it is when it arrives
         const cn = src[n].count.length, sn = src[n].spread.length, fn = src[n].fill.length;
-        src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n) - W / 2 + 6, scoreY(i / w) - 2], -44 - 12 * i, `sarc-count sarc-${d.state}`]));
-        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n) + W / 2 - 6, scoreY(b.count + i / np / w) - 2], 44 + 12 * i, 'sarc-spread']));
-        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 2], 30 + 8 * i, 'sarc-fill']));
+        src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`]));
+        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], 44 + 12 * i, 'sarc-spread']));
+        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], 30 + 8 * i, 'sarc-fill']));
         src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], 56, 'sarc-sticky']));
       }
       // pick: from the winner's bar up to where its chip goes
@@ -511,15 +514,20 @@ export class Diagram {
         const a = this._arc(key, from, to, bow, cls);
         // dashed, up to its head
         a.path.setAttribute('stroke-dasharray', dashesTo(a.len * t, a.len));
+        a.halo.setAttribute('stroke-dasharray', `${(a.len * t).toFixed(1)} ${(a.len + 10).toFixed(1)}`);
         const h = a.path.getPointAtLength(a.len * t);
         const b = a.path.getPointAtLength(Math.max(0, a.len * t - 2));
         const angle = Math.atan2(h.y - b.y, h.x - b.x) * 180 / Math.PI;
         a.head.setAttribute('transform', `translate(${h.x.toFixed(1)} ${h.y.toFixed(1)}) rotate(${angle.toFixed(1)})`);
-        op(a.path, o * fade); op(a.head, o * fade);
+        // once it lands and its part has grown, it's absorbed: its head
+        // goes, and its line stays only as a faint trace of the source
+        const absorbed = i < 0 ? 0 : grown(u, i, n);
+        op(a.path, o * fade * (1 - 0.75 * absorbed)); op(a.halo, o * fade * (1 - 0.75 * absorbed));
+        op(a.head, o * fade * (1 - absorbed));
         shown.add(key);
       }
     }
-    for (const [key, a] of this.arcs) if (!shown.has(key)) { op(a.path, 0); op(a.head, 0); }
+    for (const [key, a] of this.arcs) if (!shown.has(key)) { op(a.path, 0); op(a.head, 0); op(a.halo, 0); }
   }
 
   // ---- what main.js calls ----

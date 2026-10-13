@@ -58,7 +58,7 @@ export const cameraFor = (panel) => (panel === 'none' || panel === 'score' ? CAM
 export const ANCHORS = {
   'board.title': { p: [BOARD.x0, 46], needs: [] },
   ...Object.fromEntries(NODES.map((n) => [`node.${n}`, { p: [colX(n) - 18, HEAD_Y - 6], needs: [] }])),
-  ...Object.fromEntries(NODES.map((n) => [`tally.${n}`, { p: [colX(n) - 30, TALLY_Y], needs: [] }])),
+  ...Object.fromEntries(NODES.map((n) => [`tally.${n}`, { p: [colX(n) - 50, TALLY_Y + 25], needs: [] }])),
   ...Object.fromEntries(PARTITIONS.map((p) => [`row.${p}`, { p: [BOARD.labelX - 8, rowY(p)], needs: [] }])),
   'groups': { p: [BOARD.col0 + 10, GROUP_Y], needs: [] },
   'scores': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },

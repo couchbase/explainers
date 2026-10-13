@@ -58,6 +58,16 @@ chapters:
           new: nothing is placed yet, and [[nodes a, b and c]] are all
           joining.
 
+      - id: tallies
+        view: { target: tally.a }
+        expect: ["fact:fresh.prev.counts=a0/0 b0/0 c0/0"]
+        text: |
+          Under each node's column, [[its tallies]]: how many primaries
+          (P) and how many replicas (R) it holds, as two bars and as
+          counts. All 0, for now. Keeping these even, so that no node
+          holds much more than the others, is most of what the planner
+          is for.
+
   # ------------------------------------------------------------------
   - id: primaries
     title: "Primaries first"
