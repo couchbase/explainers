@@ -12,6 +12,7 @@ import { calcPartitionMoves } from '../lib/moves.js';
 export const NODES = ['a', 'b', 'c', 'd'];
 export const PARTITIONS = ['0', '1', '2', '3', '4', '5', '6', '7'];
 export const STATES = ['primary', 'replica'];
+const PLURAL = { primary: 'primaries', replica: 'replicas' };
 // a primary and one replica (the model cbgt uses: manager_planner.go BlancePartitionModel)
 export const MODEL = { primary: { priority: 0, constraints: 1 }, replica: { priority: 1, constraints: 1 } };
 // server groups: g1 = {a, b}, g2 = {c, d}, in one datacenter
@@ -60,7 +61,9 @@ function seqOf(t) {
 // partition, prev to result), iterations, decisions}.
 //
 // A frame: {key, i (its place in the scenario), board, decision, k
-// (decisions made), stage (its place in the decision's seq)}. Each
+// (decisions made), stage (its place in the decision's seq)}; and after
+// each state's last decision, "fresh.primaries", the pass done (no
+// decision in hand, nothing left over from the last one). Each
 // decision has a frame per stage, "fresh.2~row", "fresh.2~a.count", on
 // the board as it was before it, and then its pick, "fresh.2", with it
 // made.
@@ -82,6 +85,9 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
     board = apply(board, t);
     k++;
     push({ key: `${id}.${k}`, board, decision, k, stage: seq.length - 1 });
+    // after a state's last decision, the pass done: "fresh.primaries"
+    const next = r.passes[0].trace.slice(r.passes[0].trace.indexOf(t) + 1).find((x) => !x.begin);
+    if (!next || next.state !== t.state) push({ key: `${id}.${PLURAL[t.state]}`, board, decision: null, k, passDone: t.state });
   }
   const result = boardOf(r.nextMap);
   if (JSON.stringify(board) !== JSON.stringify(result)) throw new Error(`${id}: replaying the trace doesn't give the plan`);

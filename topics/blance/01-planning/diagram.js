@@ -361,7 +361,8 @@ export class Diagram {
     const text = (f, d, s) => {
       if (!d) {
         const sc = SCENARIOS[f.scenario];
-        return ['the planner\'s scores', f.done ? `pass ${sc.iterations} changed nothing: done, in ${sc.iterations} passes`
+        return ['the planner\'s scores', f.passDone ? `every partition's ${f.passDone} is assigned`
+          : f.done ? `pass ${sc.iterations} changed nothing: done, in ${sc.iterations} passes`
           : f.k < 0 ? (sc.id === 'add' ? `nodes to add: ${sc.joining.join(', ')}` : sc.leaving.length ? `nodes to remove: ${sc.leaving.join(', ')}` : 'one decision at a time: a partition, a state')
             : `${sc.leaving.join(', ')} taken out of every partition`, ''];
       }
