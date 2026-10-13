@@ -183,6 +183,13 @@ These guide both the narratives and the code:
   lids, bubbles, UI or simulation (the build enforces this). Within a
   step, changes are spread out in order across the step's scroll, so
   the reader's eye has just one thing to follow for easier understanding.
+- **Give each change room.** A step's changes play over its
+  transition, a fixed stretch of scrolling. A step with more to play
+  (many things, one at a time) gets the class `step-scrub`: its
+  transition then runs over its whole length, and the explainer makes
+  it as tall as what it plays needs (blance's 01-planning gives each
+  arrow its own share). It still settles before the next step, so deep
+  links land on it finished.
 - **Nothing teleports.** Markers travel along the drawn arrows and the
   corridor lanes between boxes; destinations wait for them to arrive.
 - **Keep the subject in view.** The camera follows the marker, and the
