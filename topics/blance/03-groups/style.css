@@ -134,3 +134,6 @@
 
 /* between the board and the area under it */
 .diagram .bsep { stroke: var(--line); stroke-width: 1; }
+
+/* an arrow for a term with nothing to count (it adds 0), from the tallies */
+.diagram .sarc-zero { stroke-opacity: 0.7; }
