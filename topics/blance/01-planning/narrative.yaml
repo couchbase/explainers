@@ -63,33 +63,33 @@ chapters:
       - id: replica
         view: { target: chip.R }
         text: |
-          An [[R]] chip, outlined, is a replica: a further copy, on
+          An [[R]] chip represents a replica: a further copy, on
           another node, ready to take over (be promoted) if the
-          primary's node is lost. Partition 0's is on node c. So a
+          primary's node is lost. Partition 0's is on node c. And, a
           replica never goes on its own primary's node: that would be
-          no help at all when the node fails.
+          no help if the primary node fails.
 
       - id: tallies
         view: { target: tally.a, focus: tallies }
         expect: ["fact:fresh.end.counts=a3/3 b3/2 c2/3"]
         text: |
           Under each node's column, [[its tallies]]: how many primaries
-          (P) and how many replicas (R) it holds, as two bars and as
-          counts. a holds 3 primaries and 3 replicas, b 3 and 2, c 2 and
+          (P) and how many replicas (R) the node holds, shown as two bars and their
+          counts. Node a holds 3 primaries and 3 replicas, b 3 and 2, c 2 and
           3: as even as eight partitions on three nodes can be.
           Keeping these even, so that no node holds much more than the
-          others, is most of what the planner is for.
+          others, is most of what the blance's planner is for.
 
       - id: call
         view: { at: fresh.prev, target: node.a, focus: board }
         code: [blance.PlanNextMapEx]
         expect: ["fact:fresh.prev.counts=a0/0 b0/0 c0/0"]
         text: |
-          So how does blance arrive at it? Its `PlanNextMapEx` takes the
-          map as it is, all the nodes, the ones joining and the ones
-          leaving, the model and some options, and returns the next
-          map. Let's start from nothing: no partition placed yet, and
-          [[nodes a, b and c]] all joining.
+          So how does blance compute the partition map? Its `PlanNextMapEx()` function takes the
+          current map as it is, all the nodes, the ones joining and the ones
+          leaving, the model and some options, and functionally computes the next
+          map. Let's start from nothing: the current map has no partitions assigned in it yet, and
+          [[nodes a, b and c]] are all joining.
 
   # ------------------------------------------------------------------
   - id: primaries
@@ -101,10 +101,10 @@ chapters:
         view: { panel: score, target: scores, focus: strip }
         code: [blance.states, blance.assign]
         text: |
-          The planner goes state by state, most important first: every
-          partition's primary, then every partition's replicas. Within
-          a state, it goes partition by partition, and for each one it
-          gives every node [[a score]]: lowest wins.
+          The planner goes state by state, most important first: so, it assigns every
+          partition's primary first, then assigns every partition's replicas. Within
+          that outer loop, it loops partition by partition, and for each one it
+          gives every node [[a score]]: the lowest scoring node wins (is assigned the partition). Lets walk through it...
 
       - id: decision
         view: { at: fresh.1~row, target: deciding }
@@ -112,26 +112,25 @@ chapters:
         text: |
           So each step of the planner is one decision, about one
           partition in one state. The first: [[partition 0]]'s primary,
-          its row outlined on the board.
+          where partition 0's row is outlined in the partition map.
 
       - id: first
         view: { at: fresh.1, target: winner, focus: strip }
         code: [blance.nodeLess]
         expect: ["fact:fresh.1.a=0.0000", "fact:fresh.1.winner=a"]
         text: |
-          Under the board, each node's score for it, in the node's own
+          Under the partition map, we calculate each node's score, in each node's
           column. Nothing is placed anywhere yet, so every node scores
           0. A tie goes to the node that comes first in the node list,
-          here the leftmost: [[a]] gets partition 0's primary, and its
-          chip appears in a's column, above.
+          here the leftmost: node [[a]] wins and is assigned to be partition 0's primary, so its
+          chip appears in node a's column, above.
 
       - id: next
         view: { at: fresh.2~row, target: deciding }
         expect: ["fact:fresh.2.partition=1"]
         text: |
-          The next decision: [[partition 1]]'s primary. The bars start
-          again at 0. The planner scores the nodes one at a time, each
-          a term at a time, so this time let's follow along.
+          The next decision: [[partition 1]]'s primary. The scores at the bottom start
+          again at 0. The planner scores the nodes one at a time, so let's follow along.
 
       - id: count
         view: { at: fresh.2~a.count, target: bar.a, focus: col.a }
@@ -139,7 +138,7 @@ chapters:
         expect: ["fact:fresh.2.a.count=1"]
         text: |
           Node a first, and the main term: how many partitions the node
-          already holds in this state. a holds one primary, partition
+          already holds in this state. Node a holds one primary, partition
           0's, so [[a's bar]] rises to 1.
 
       - id: spread
@@ -157,8 +156,7 @@ chapters:
         text: |
           And a tie-breaker, too small to see: 0.001 × all the
           partitions on the node ÷ the number of partitions, 0.0001 for
-          a. [[a's score]]: 1.1251. (A node that already held partition
-          1 would now have the stickiness taken off; none does.)
+          node a. Node [[a's final score]]: 1.1251.
 
       - id: count-pick
         view: { at: fresh.2, target: winner, focus: strip }
@@ -166,14 +164,14 @@ chapters:
         text: |
           Then b, and then c, the same way: they hold nothing, so both
           score 0. The lowest wins: b and c tie, and [[b]] is first in
-          the list.
+          the list, so node b wins.
 
       - id: round
         view: { at: fresh.8, target: tally.a, focus: tallies }
         expect: ["fact:fresh.8.counts=a3/0 b3/0 c2/0"]
         text: |
-          And so on, round the nodes: a, b, c, a, b, c, a, b. Eight
-          primaries on three nodes: [[a has 3]], b 3, and c 2.
+          And so on, round the nodes: a, b, c, a, b, c, a, b, c, etc. Eight
+          primaries on three nodes: node [[a has 3]], b 3, and c 2.
 
   # ------------------------------------------------------------------
   - id: replicas
