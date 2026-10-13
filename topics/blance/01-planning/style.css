@@ -68,3 +68,19 @@
 .diagram .pscore-line { stroke: var(--ink); stroke-width: 2; }
 .diagram .pwon { font: 600 12px var(--font-body); fill: var(--accent); }
 .diagram .staken { fill: var(--bg); opacity: 0.65; }
+
+/* arrows from the board to the strip: where each term comes from */
+.diagram .sarc { fill: none; stroke-width: 1.6; stroke-linecap: round; }
+.diagram .sarc-head { stroke: none; }
+.diagram .sarc-count.sarc-primary { stroke: var(--primary); }
+.diagram .sarc-head.sarc-count.sarc-primary { fill: var(--primary); }
+.diagram .sarc-count.sarc-replica { stroke: var(--replica); }
+.diagram .sarc-head.sarc-count.sarc-replica { fill: var(--replica); }
+.diagram .sarc-spread { stroke: var(--sec-groups); }
+.diagram .sarc-head.sarc-spread { fill: var(--sec-groups); }
+.diagram .sarc-fill { stroke: var(--muted); stroke-width: 1; stroke-opacity: 0.55; }
+.diagram .sarc-head.sarc-fill { fill: var(--muted); }
+.diagram .sarc-sticky { stroke: var(--join); stroke-dasharray: none; }
+.diagram .sarc-head.sarc-sticky { fill: var(--join); }
+.diagram .sarc-pick { stroke: var(--accent); stroke-width: 2; }
+.diagram .sarc-head.sarc-pick { fill: var(--accent); }

@@ -9,7 +9,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01 } from '../../../engine/js/ui/util/anim.js';
 import { calcPartitionMoves } from '../lib/moves.js';
-import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, tally } from './scenarios.js';
+import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, STAGES, tally, sourcesOf } from './scenarios.js';
 import {
   CANVAS, BOARD, PANEL, TREE, STRIP, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y,
   scoreY, movesRowY, stickRowY,
@@ -29,7 +29,17 @@ function nodeStatus(scn, node, frame) {
   if (scn.joining.includes(node) && placed(scn.prev)) return 'joining';
   return 'in';
 }
-const STATUS_TAG = { absent: 'not in the cluster', leaving: 'leaving', gone: 'leaving', joining: 'joining' };
+// the board's width, to its last node's column, in a scenario
+const boardW = (scn) => colX(NODES.filter((n) => scn.nodes.includes(n)).pop()) + BOARD.colW / 2 - BOARD.x0 + 10;
+// what each stage of a decision adds to the strip
+const STAGE_NOTE = {
+  row: 'every node starts at 0',
+  count: (st) => `+ the ${st === 'primary' ? 'primaries' : 'replicas'} each node already holds`,
+  spread: '+ how often it already backs the same primary',
+  fill: '+ a tie-breaker: all the partitions it holds',
+  sticky: '− stickiness, for the node that holds it now',
+  pick: 'the lowest wins',
+};
 
 export class Diagram {
   constructor(svg) {
@@ -44,6 +54,9 @@ export class Diagram {
     this._board(g);
     this.panelG = el('g', {}, g);
     this.panels = new Map(); // content key -> <g>
+    this.strip = this._buildStrip(g);
+    this.arcG = el('g', {}, g);
+    this.arcs = new Map(); // key -> {path, head, len}
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
     this.cur = null;
   }
@@ -61,10 +74,11 @@ export class Diagram {
       el('path', { d: `M${xa},${GROUP_Y + 7} V${GROUP_Y} H${xb} V${GROUP_Y + 7}`, class: 'bgroup' }, this.groupG);
       txt(this.groupG, (xa + xb) / 2, GROUP_Y - 6, `server group ${grp}`, 'bgroup-label', 'middle');
     }
-    // rows
+    // rows (as wide as the scenario's nodes)
+    this.rowRects = [];
     for (const p of PARTITIONS) {
       const y = rowY(p);
-      if (PARTITIONS.indexOf(p) % 2 === 0) el('rect', { x: BOARD.x0, y: y - BOARD.rowH / 2, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, class: 'brow' }, g);
+      if (PARTITIONS.indexOf(p) % 2 === 0) this.rowRects.push(el('rect', { x: BOARD.x0, y: y - BOARD.rowH / 2, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, class: 'brow' }, g));
       txt(g, BOARD.labelX, y + 5, `partition ${p}`, 'brow-label');
     }
     this.band = el('rect', { x: BOARD.x0, y: 0, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, rx: 6, class: 'bband', opacity: 0 }, g);
@@ -76,7 +90,7 @@ export class Diagram {
       el('line', { x1: x - BOARD.colW / 2, y1: BOARD.y0, x2: x - BOARD.colW / 2, y2: BOARD.y1, class: 'bcol-line' }, cg);
       txt(cg, x, HEAD_Y, `node ${n}`, 'bnode', 'middle');
       const tags = {};
-      for (const [k, s] of Object.entries({ absent: STATUS_TAG.absent, joining: 'joining', leaving: 'leaving' })) {
+      for (const [k, s] of Object.entries({ joining: 'joining', leaving: 'leaving' })) {
         tags[k] = txt(g, x, HEAD_Y + 16, s, `btag btag-${k}`, 'middle');
         op(tags[k], 0);
       }
@@ -128,11 +142,14 @@ export class Diagram {
       this.band.setAttribute('y', (lerp(ya, yb, q) - BOARD.rowH / 2).toFixed(1));
       op(this.band, lerp(da ? 1 : 0, db ? 1 : 0, q));
     } else op(this.band, 0);
-    const chosen = q < 0.5 ? da : db;
-    if (chosen) {
+    // the winner's chip, ringed once it's picked
+    const picked = (f) => (f.decision ? clamp01((f.stage ?? 5) - 4) : 0);
+    const ra = picked(FA) * (1 - q), rb = picked(FB) * q;
+    const chosen = ra > rb ? da : db;
+    if (chosen && Math.max(ra, rb) > 0) {
       this.chosenRing.setAttribute('x', chipX(chosen.chosen[0], chosen.state) - 20);
       this.chosenRing.setAttribute('y', rowY(chosen.partition) - 14);
-      op(this.chosenRing, Math.abs(q - 0.5) * 2);
+      op(this.chosenRing, da === db ? lerp(picked(FA), picked(FB), q) : Math.max(ra, rb));
     } else op(this.chosenRing, 0);
 
     // nodes: in the cluster or not, joining, leaving
@@ -141,7 +158,8 @@ export class Diagram {
     for (const n of NODES) {
       const col = this.cols[n];
       const st = (s, f) => nodeStatus(s, n, f);
-      const dim = (x) => (x === 'absent' || x === 'gone' ? 0.3 : 1);
+      // (a node not in the cluster isn't shown; one that's left, dimmed)
+      const dim = (x) => (x === 'absent' ? 0 : x === 'gone' ? 0.3 : 1);
       op(col.g, lerp(dim(st(sa, FA)), dim(st(sb, FB)), q));
       const tag = (x) => (x === 'gone' ? 'leaving' : x);
       for (const [k, e] of Object.entries(col.tags)) op(e, lerp(tag(st(sa, FA)) === k ? 1 : 0, tag(st(sb, FB)) === k ? 1 : 0, q));
@@ -152,6 +170,10 @@ export class Diagram {
       setText(col.tText, `${t[n].primary} P · ${t[n].replica} R`);
     }
     op(this.groupG, lerp(sa.groups ? 1 : 0, sb.groups ? 1 : 0, q));
+    const w = lerp(boardW(sa), boardW(sb), q).toFixed(1);
+    for (const r of this.rowRects) r.setAttribute('width', w);
+    this.band.setAttribute('width', w);
+    this.boardW = +w;
     setText(this.subA, sa.title);
     setText(this.subB, sb.title);
     op(this.subA, sa === sb ? 1 : 1 - q);
@@ -161,17 +183,15 @@ export class Diagram {
   // ---- the panel: one <g> per content, built when first shown ----
 
   _content(kind, frame) {
-    if (kind === 'none') return null;
-    const key = kind === 'score' ? `score:${frame.decision ? frame.key : `${frame.scenario}:${frame.done ? 'done' : 'start'}`}`
-      : kind === 'moves' ? `moves:${frame.key}`
+    if (kind === 'none' || kind === 'score') return null;
+    const key = kind === 'moves' ? `moves:${frame.key}`
         : kind === 'tree' ? `tree:${SCENARIOS[frame.scenario].id === 'groups' ? 'rule' : 'plain'}`
           : kind;
     let g = this.panels.get(key);
     if (!g) {
       g = el('g', { opacity: 0 }, this.panelG);
-      if (kind !== 'score') el('rect', { x: PANEL.x0, y: PANEL.y0, width: PANEL.x1 - PANEL.x0, height: 470, rx: 10, class: 'panel' }, g);
-      if (kind === 'score') this._strip(g, frame);
-      else if (kind === 'moves') this._moves(g, frame);
+      el('rect', { x: PANEL.x0, y: PANEL.y0, width: PANEL.x1 - PANEL.x0, height: 470, rx: 10, class: 'panel' }, g);
+      if (kind === 'moves') this._moves(g, frame);
       else if (kind === 'tree') this._tree(g, key === 'tree:rule');
       else this._stick(g);
       this.panels.set(key, g);
@@ -179,79 +199,145 @@ export class Diagram {
     return { key, g };
   }
 
-  // The score strip, for frame f's decision: each node's score, as a
-  // bar up from zero in its own column (lowest wins), its terms
-  // stacked, stickiness an arrow down to the score, and the number
-  // under it.
-  _strip(g, f) {
-    const d = f.decision;
-    const scn = SCENARIOS[f.scenario];
-    const x0 = BOARD.col0, x1 = BOARD.x1;
-    if (!d) {
-      txt(g, BOARD.x0, STRIP.titleY, 'the planner\'s scores', 'ptitle');
-      const msg = f.done ? `pass ${scn.iterations} changed nothing: done, in ${scn.iterations} passes`
-        : f.k < 0 ? (scn.id === 'add' ? `nodes to add: ${scn.joining.join(', ')}` : scn.leaving.length ? `nodes to remove: ${scn.leaving.join(', ')}` : 'one decision at a time: a partition, a state')
-          : `${scn.leaving.join(', ')} taken out of every partition`;
-      txt(g, BOARD.x0, STRIP.titleY + 30, msg, 'pnote');
-      return;
-    }
-    txt(g, BOARD.x0, STRIP.titleY, `scoring partition ${d.partition}'s ${d.state}: lowest wins`, 'ptitle');
-    if (d.state === 'replica') txt(g, x1 + 10, STRIP.titleY, `its primary is on ${d.topPriorityNode}`, 'pnote', 'end');
-    // the axis: partitions' worth
-    for (const v of [0, 1, 2, 3]) {
-      el('line', { x1: x0, y1: scoreY(v), x2: x1, y2: scoreY(v), class: v ? 'pgrid' : 'paxis' }, g);
-      txt(g, x0 - 8, scoreY(v) + 4, String(v), 'paxis-label', 'end');
-    }
-    txt(g, BOARD.x0, scoreY(1.5) + 4, 'score', 'brow-label');
+  // ---- the score strip: built once, drawn each frame ----
+
+  _buildStrip(g) {
+    const S = { g: el('g', { opacity: 0 }, g) };
+    const sg = S.g;
+    S.titleA = txt(sg, BOARD.x0, STRIP.titleY, '', 'ptitle');
+    S.titleB = txt(sg, BOARD.x0, STRIP.titleY, '', 'ptitle');
+    S.subA = txt(sg, BOARD.x1 + 10, STRIP.titleY, '', 'pnote', 'end');
+    S.subB = txt(sg, BOARD.x1 + 10, STRIP.titleY, '', 'pnote', 'end');
+    S.noteA = txt(sg, BOARD.x0, STRIP.titleY + 26, '', 'pnote');
+    S.noteB = txt(sg, BOARD.x0, STRIP.titleY + 26, '', 'pnote');
+    S.axis = el('g', {}, sg);
+    S.grid = [0, 1, 2, 3].map((v) => {
+      const line = el('line', { x1: BOARD.col0, y1: scoreY(v), x2: BOARD.x1, y2: scoreY(v), class: v ? 'pgrid' : 'paxis' }, S.axis);
+      txt(S.axis, BOARD.col0 - 8, scoreY(v) + 4, String(v), 'paxis-label', 'end');
+      return line;
+    });
+    txt(S.axis, BOARD.x0, scoreY(1.5) + 4, 'score', 'brow-label');
     const W = STRIP.barW;
-    const scored = Object.fromEntries(d.scored.map((c) => [c.node, c]));
-    const excluded = d.state === 'replica' ? f.board[d.partition].primary : [];
+    S.cols = {};
     for (const n of NODES) {
       const x = colX(n);
-      const c = scored[n];
-      if (!c) {
-        const why = excluded.includes(n) ? 'its primary' : scn.leaving.includes(n) ? 'leaving' : 'not in it';
-        txt(g, x, STRIP.zeroY - 12, why, 'pterm', 'middle');
-        continue;
-      }
-      const won = d.chosen.includes(n);
-      const w = c.weight;
-      const h0 = c.count / w, h1 = (c.count + c.lowerPriorityBalanceFactor) / w;
-      const pre = (c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / w;
-      const seg = (a, b, cls) => el('rect', { x: x - W / 2, y: scoreY(b), width: W, height: Math.max(0, scoreY(a) - scoreY(b)), class: cls }, g);
-      if (won) el('rect', { x: x - 34, y: scoreY(Math.max(pre, c.score, 0.3)) - 10, width: 68, height: STRIP.labelY + 22 - scoreY(Math.max(pre, c.score, 0.3)) + 10, rx: 8, class: 'swon' }, g);
-      seg(0, h0, `pbar pbar-count pbar-${d.state}`);
-      seg(h0, h1, 'pbar pbar-spread');
-      seg(h1, Math.max(pre, h1 + 0.04), 'pbar pbar-fill');
-      if (c.currentFactor) {
-        // stickiness, taken off: the stack above the score fades, and
-        // an arrow goes down from its top to the score
-        const lo = Math.max(c.score, 0);
-        el('rect', { x: x - W / 2, y: scoreY(pre), width: W, height: Math.max(0, scoreY(lo) - scoreY(pre)), class: 'staken' }, g);
-        el('path', { d: `M${x + W / 2 + 6},${scoreY(pre)} V${scoreY(c.score)}`, class: 'psticky' }, g);
-        txt(g, x + 38, (scoreY(pre) + scoreY(c.score)) / 2 + 4, `−${+c.currentFactor.toFixed(3)} sticky`, 'pterm pterm-sticky');
-      }
-      el('line', { x1: x - W / 2 - 4, y1: scoreY(c.score), x2: x + W / 2 + 4, y2: scoreY(c.score), class: 'pscore-line' }, g);
-      txt(g, x, STRIP.labelY, c.score.toFixed(4), won ? 'pscore pscore-won' : 'pscore', 'middle');
-      if (won) txt(g, x, STRIP.labelY + 16, 'lowest', 'pwon', 'middle');
+      const cg = el('g', {}, sg);
+      const ring = el('rect', { x: x - 34, width: 68, rx: 8, class: 'swon', opacity: 0 }, cg);
+      const bar = (cls) => el('rect', { x: x - W / 2, width: W, height: 0, y: STRIP.zeroY, class: cls }, cg);
+      const col = {
+        g: cg, ring,
+        count: bar('pbar pbar-count pbar-primary'), spread: bar('pbar pbar-spread'), fill: bar('pbar pbar-fill'), taken: bar('staken'),
+        sticky: el('path', { class: 'psticky', d: '' }, cg),
+        stickyLabel: txt(cg, x + W / 2 + 12, 0, '', 'pterm pterm-sticky'),
+        line: el('line', { x1: x - W / 2 - 4, x2: x + W / 2 + 4, y1: STRIP.zeroY, y2: STRIP.zeroY, class: 'pscore-line' }, cg),
+        num: txt(cg, x, STRIP.labelY, '', 'pscore', 'middle'),
+        lowest: txt(cg, x, STRIP.labelY + 16, 'lowest', 'pwon', 'middle'),
+        why: txt(cg, x, STRIP.zeroY - 12, '', 'pterm', 'middle'),
+      };
+      S.cols[n] = col;
     }
-    // the key
     const ky = STRIP.labelY + 42;
     let kx = BOARD.x0;
-    for (const [cls, label] of [[`pbar-count pbar-${d.state}`, d.state === 'primary' ? 'primaries held' : 'replicas held'], ['pbar-spread', 'backing the same primary'], ['pbar-fill', 'all partitions (tie-breaker)']]) {
-      el('rect', { x: kx, y: ky - 9, width: 14, height: 10, class: `pbar ${cls}` }, g);
-      txt(g, kx + 20, ky, label, 'pkey');
+    S.keyCount = null;
+    for (const [cls, label] of [['pbar-count pbar-primary', 'held, in this state'], ['pbar-spread', 'backing the same primary'], ['pbar-fill', 'all partitions (tie-breaker)']]) {
+      const r = el('rect', { x: kx, y: ky - 9, width: 14, height: 10, class: `pbar ${cls}` }, sg);
+      if (!S.keyCount) S.keyCount = r;
+      txt(sg, kx + 20, ky, label, 'pkey');
       kx += 20 + label.length * 6.4 + 22;
     }
+    return S;
   }
 
-  // The top of node n's bar in the strip, for frame f's decision.
-  barTop(f, n) {
-    const d = f && f.decision;
+  // One node's bar, for decision d at stage s (0..5, partway through
+  // the stages): its parts' tops, its score so far, and whether it won.
+  static barAt(d, s, n) {
     const c = d && d.scored.find((x) => x.node === n);
     if (!c) return null;
-    const pre = (c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / c.weight;
-    return [colX(n) - STRIP.barW / 2, scoreY(Math.max(pre, c.score))];
+    const g = (k) => clamp01(s - k);
+    const w = c.weight;
+    const count = (c.count / w) * g(0);
+    const spread = count + (c.lowerPriorityBalanceFactor / w) * g(1);
+    const fill = spread + (c.filledFactor / w) * g(2);
+    // (the tie-breaker's sliver, at least visible)
+    const fillShown = spread + Math.max(c.filledFactor / w, 0.04) * g(2);
+    const taken = c.currentFactor * g(3);
+    return { count, spread, fill, fillShown, taken, score: fill - taken, won: d.chosen.includes(n) ? g(4) : 0, sticky: c.currentFactor };
+  }
+
+  // What can't take it, and why.
+  static whyNot(f, d, n) {
+    const scn = SCENARIOS[f.scenario];
+    if (!scn.nodes.includes(n) || d.scored.some((c) => c.node === n)) return '';
+    if (d.state === 'replica' && f.board[d.partition].primary.includes(n)) return 'its primary';
+    return scn.leaving.includes(n) ? 'leaving' : '';
+  }
+
+  _drawStrip(FA, FB, q) {
+    const S = this.strip;
+    const da = FA.decision, db = FB.decision;
+    const sa = FA.stage ?? 5, sb = FB.stage ?? 5;
+    // the same decision: one state, partway through its stages; else
+    // the bars go from one decision's to the other's
+    const same = da && da === db;
+    const sNow = same ? lerp(sa, sb, q) : null;
+    const scn = SCENARIOS[(q < 0.5 ? FA : FB).scenario];
+    const text = (f, d, s) => {
+      if (!d) {
+        const sc = SCENARIOS[f.scenario];
+        return ['the planner\'s scores', f.done ? `pass ${sc.iterations} changed nothing: done, in ${sc.iterations} passes`
+          : f.k < 0 ? (sc.id === 'add' ? `nodes to add: ${sc.joining.join(', ')}` : sc.leaving.length ? `nodes to remove: ${sc.leaving.join(', ')}` : 'one decision at a time: a partition, a state')
+            : `${sc.leaving.join(', ')} taken out of every partition`, ''];
+      }
+      const st = STAGES[Math.min(5, Math.round(s))];
+      const note = typeof STAGE_NOTE[st] === 'function' ? STAGE_NOTE[st](d.state) : STAGE_NOTE[st];
+      return [`scoring partition ${d.partition}'s ${d.state}`, note, d.state === 'replica' ? `its primary is on ${d.topPriorityNode}` : ''];
+    };
+    const [ta, na, ua] = text(FA, da, same ? sNow : sa), [tb, nb, ub] = text(FB, db, same ? sNow : sb);
+    setText(S.titleA, ta); setText(S.titleB, tb);
+    setText(S.noteA, na); setText(S.noteB, nb);
+    setText(S.subA, ua); setText(S.subB, ub);
+    const cross = (eA, eB, a, b) => { op(eA, a === b ? 1 : 1 - q * 2); op(eB, a === b ? 0 : q * 2 - 1); };
+    cross(S.titleA, S.titleB, ta, tb); cross(S.noteA, S.noteB, na, nb); cross(S.subA, S.subB, ua, ub);
+    // the axis, as wide as the board
+    for (const l of S.grid) l.setAttribute('x2', (BOARD.x0 + (this.boardW || BOARD.x1 - BOARD.x0)).toFixed(1));
+    const state = (same ? da : q < 0.5 ? da || db : db || da);
+    S.keyCount.setAttribute('class', `pbar pbar-count pbar-${state ? state.state : 'primary'}`);
+    this.stripTops = {};
+    for (const n of NODES) {
+      const col = S.cols[n];
+      const A = da ? Diagram.barAt(da, same ? sNow : sa, n) : null;
+      const B = same ? A : db ? Diagram.barAt(db, sb, n) : null;
+      const zero = { count: 0, spread: 0, fill: 0, fillShown: 0, taken: 0, score: 0, won: 0, sticky: 0 };
+      const a = A || zero, b = B || zero;
+      const v = Object.fromEntries(Object.keys(zero).map((k) => [k, same ? a[k] : lerp(a[k], b[k], q)]));
+      const shown = same ? (A ? 1 : 0) : lerp(A ? 1 : 0, B ? 1 : 0, q);
+      const st = (same ? da : q < 0.5 ? da : db) || da || db;
+      col.count.setAttribute('class', `pbar pbar-count pbar-${st ? st.state : 'primary'}`);
+      const seg = (r, lo, hi) => { r.setAttribute('y', scoreY(hi).toFixed(1)); r.setAttribute('height', Math.max(0, scoreY(lo) - scoreY(hi)).toFixed(1)); };
+      seg(col.count, 0, v.count); seg(col.spread, v.count, v.spread); seg(col.fill, v.spread, v.fillShown);
+      seg(col.taken, Math.max(v.score, 0), v.fill);
+      op(col.taken, v.taken > 0.001 ? 1 : 0);
+      const stickyOn = v.taken > 0.001;
+      col.sticky.setAttribute('d', stickyOn ? `M${colX(n) + STRIP.barW / 2 + 6},${scoreY(v.fill).toFixed(1)} V${scoreY(v.score).toFixed(1)}` : '');
+      col.stickyLabel.setAttribute('y', ((scoreY(v.fill) + scoreY(v.score)) / 2 + 4).toFixed(1));
+      setText(col.stickyLabel, stickyOn ? `−${+v.sticky.toFixed(3)}` : '');
+      for (const e of [col.count, col.spread, col.fill, col.line, col.num]) op(e, shown);
+      col.line.setAttribute('y1', scoreY(v.score).toFixed(1));
+      col.line.setAttribute('y2', scoreY(v.score).toFixed(1));
+      const near = (same || q < 0.5 ? A : B) || A || B;
+      setText(col.num, near ? (same ? v.score : near.score).toFixed(4) : '');
+      col.num.setAttribute('class', v.won > 0.5 ? 'pscore pscore-won' : 'pscore');
+      const top = Math.max(v.fillShown, v.score, 0.3);
+      col.ring.setAttribute('y', (scoreY(top) - 10).toFixed(1));
+      col.ring.setAttribute('height', (STRIP.labelY + 22 - scoreY(top) + 10).toFixed(1));
+      op(col.ring, v.won); op(col.lowest, v.won);
+      const wa = da ? Diagram.whyNot(FA, da, n) : '', wb = db ? Diagram.whyNot(FB, db, n) : '';
+      setText(col.why, (q < 0.5 ? wa : wb) || wa || wb);
+      op(col.why, same ? (wa ? 1 : 0) : lerp(wa ? 1 : 0, wb ? 1 : 0, q));
+      // (a node not in the cluster has no column at all)
+      op(col.g, scn.nodes.includes(n) ? 1 : 0);
+      if (shown > 0.5) this.stripTops[n] = [colX(n) - STRIP.barW / 2, scoreY(Math.max(v.fillShown, v.score))];
+    }
   }
 
   _moves(g, f) {
@@ -328,6 +414,62 @@ export class Diagram {
     }
   }
 
+  // ---- arrows: where each term comes from ----
+
+  _arc(key, from, to, bow, cls) {
+    let a = this.arcs.get(key);
+    if (!a) {
+      const [x0, y0] = from, [x1, y1] = to;
+      const d = `M${x0},${y0} C${x0 + bow},${y0 + (y1 - y0) * 0.35} ${x1 + bow},${y1 - (y1 - y0) * 0.35} ${x1},${y1}`;
+      const path = el('path', { d, class: `sarc ${cls}` }, this.arcG);
+      const head = el('circle', { r: 3.5, class: `sarc-head ${cls}` }, this.arcG);
+      a = { path, head, len: path.getTotalLength() };
+      path.setAttribute('stroke-dasharray', `${a.len} ${a.len}`);
+      this.arcs.set(key, a);
+    }
+    return a;
+  }
+
+  // Decision d at stage s (0..5): each stage's arrows draw along their
+  // path as it goes, stay while it's settled, and fade in the next.
+  _drawArcs(scnId, d, s, o) {
+    const shown = new Set();
+    if (d && o > 0.001) {
+      const scn = SCENARIOS[scnId];
+      const src = sourcesOf(scn, d, d.before);
+      const W = STRIP.barW;
+      const stageArcs = [];
+      for (const n of NODES) {
+        const c = d.scored.find((x) => x.node === n);
+        if (!c) continue;
+        const b = Diagram.barAt(d, 5, n);
+        const chipAt = ([p, nn, st]) => [chipX(nn, st), rowY(p) + 12];
+        // count: chip i to the bar's ith unit
+        src[n].count.forEach((ch, i) => stageArcs.push([0, `c:${ch}`, chipAt(ch), [colX(n) - W / 2 + 4, scoreY(i + 0.5)], -44 - 12 * i, `sarc-count sarc-${d.state}`]));
+        src[n].spread.forEach((ch, i) => stageArcs.push([1, `s:${n}:${ch}`, chipAt(ch), [colX(n) + W / 2 - 4, scoreY((b.count + b.spread) / 2)], 44 + 12 * i, 'sarc-spread']));
+        src[n].fill.forEach((ch, i) => stageArcs.push([2, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.fillShown) - 2], 30 + 8 * i, 'sarc-fill']));
+        src[n].sticky.forEach((ch) => stageArcs.push([3, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill)], 56, 'sarc-sticky']));
+      }
+      // pick: from the winner's bar up to where its chip goes
+      const wn = d.chosen[0], wb = Diagram.barAt(d, 5, wn);
+      stageArcs.push([4, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], -40, 'sarc-pick']);
+      for (const [k, key0, from, to, bow, cls] of stageArcs) {
+        const key = `${d.k}:${key0}`;
+        const t = clamp01(s - k);
+        const fade = s <= k + 1 ? 1 : clamp01(1 - (s - (k + 1)) * 2);
+        if (t <= 0.001 || fade <= 0.001) continue;
+        const a = this._arc(key, from, to, bow, cls);
+        a.path.setAttribute('stroke-dashoffset', (a.len * (1 - t)).toFixed(1));
+        const h = a.path.getPointAtLength(a.len * t);
+        a.head.setAttribute('cx', h.x.toFixed(1));
+        a.head.setAttribute('cy', h.y.toFixed(1));
+        op(a.path, o * fade); op(a.head, o * fade);
+        shown.add(key);
+      }
+    }
+    for (const [key, a] of this.arcs) if (!shown.has(key)) { op(a.path, 0); op(a.head, 0); }
+  }
+
   // ---- what main.js calls ----
 
   // Frames FA to FB (scenarios.js), partway (q); panels kindA to kindB,
@@ -335,6 +477,14 @@ export class Diagram {
   draw(FA, FB, q, kindA, kindB, pq, PA = FA, PB = FB) {
     this._drawBoard(FA, FB, q);
     this._drawPanel(kindA, PA, kindB, PB, pq);
+    const so = lerp(kindA === 'score' ? 1 : 0, kindB === 'score' ? 1 : 0, pq);
+    op(this.strip.g, so);
+    this._drawStrip(FA, FB, q);
+    // the arrows: of the decision in hand, or the one before, fading
+    const da = FA.decision, db = FB.decision;
+    if (da && da === db) this._drawArcs(FA.scenario, da, lerp(FA.stage ?? 5, FB.stage ?? 5, q), so);
+    else if (da) this._drawArcs(FA.scenario, da, FA.stage ?? 5, so * clamp01(1 - q * 2));
+    else this._drawArcs(null, null, 0, 0);
     this.cur = { frame: q < 0.5 ? FA : FB, panel: pq < 0.5 ? kindA : kindB };
   }
 
@@ -350,7 +500,7 @@ export class Diagram {
     const d = cur.frame.decision;
     const strip = cur.panel === 'score';
     if (id === 'winner' || id.startsWith('bar.')) {
-      const p = d && this.barTop(cur.frame, id === 'winner' ? d.chosen[0] : id.slice(4));
+      const p = d && (this.stripTops || {})[id === 'winner' ? d.chosen[0] : id.slice(4)];
       return p ? { p, visible: strip } : { p: [0, 0], visible: false };
     }
     if (id === 'deciding') return d ? { p: [BOARD.x0 + 4, rowY(d.partition)], visible: true } : { p: [0, 0], visible: false };

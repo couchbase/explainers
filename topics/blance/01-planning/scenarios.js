@@ -37,25 +37,42 @@ function apply(board, d) {
   return b;
 }
 
+// The stages of one decision, as the page builds it up: its row
+// outlined, then each node's score, term by term (the count, the
+// spread, the tie-breaker, and stickiness off), then the pick.
+export const STAGES = ['row', 'count', 'spread', 'fill', 'sticky', 'pick'];
+
 // Runs a scenario: {id, title, nodes (all of them), joining, leaving,
-// groups (shown), prev and result (boards), frames: [{key, board,
-// decision, k}], moves (per partition, prev to result), iterations,
-// decisions}.
+// groups (shown), prev and result (boards), frames, moves (per
+// partition, prev to result), iterations, decisions}.
+//
+// A frame: {key, i (its place in the scenario), board, decision, k
+// (decisions made), stage (0..5, STAGES)}. Each decision has its stages'
+// frames, "fresh.2~count", on the board as it was before it, and then
+// its pick, "fresh.2", with it made. (The sticky stage only when some
+// node holds the partition.)
 function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {}, groups = false }) {
   const r = planNextMap(mapOf(prev), mapOf(prev), nodesAll, remove, add, MODEL, opts, { trace: true });
-  const frames = [{ key: `${id}.prev`, board: prev, decision: null, k: -1 }];
+  const frames = [{ key: `${id}.prev`, board: prev, decision: null, k: -1, i: 0 }];
+  const push = (f) => frames.push({ ...f, i: frames.length });
   let board = without(prev, remove);
-  frames.push({ key: `${id}.0`, board, decision: null, k: 0 });
+  push({ key: `${id}.0`, board, decision: null, k: 0 });
   let k = 0;
   for (const t of r.passes[0].trace) {
     if (t.begin) continue;
+    const decision = { ...t, k: k + 1, before: board };
+    for (const [si, stage] of STAGES.entries()) {
+      if (stage === 'pick') break;
+      if (stage === 'sticky' && !t.scored.some((c) => c.currentFactor)) continue;
+      push({ key: `${id}.${k + 1}~${stage}`, board, decision, k, stage: si, sub: true });
+    }
     board = apply(board, t);
     k++;
-    frames.push({ key: `${id}.${k}`, board, decision: { ...t, k }, k });
+    push({ key: `${id}.${k}`, board, decision, k, stage: STAGES.indexOf('pick') });
   }
   const result = boardOf(r.nextMap);
   if (JSON.stringify(board) !== JSON.stringify(result)) throw new Error(`${id}: replaying the trace doesn't give the plan`);
-  frames.push({ key: `${id}.end`, board: result, decision: null, k: k + 1, done: true });
+  push({ key: `${id}.end`, board: result, decision: null, k: k + 1, done: true });
   const moves = Object.fromEntries(PARTITIONS.map((p) => [p, calcPartitionMoves(STATES, mapOf(prev)[p].nodesByState, r.nextMap[p].nodesByState, false)]));
   return {
     id, title, nodes: nodesAll, joining: add, leaving: remove, groups,
@@ -102,3 +119,35 @@ export function tally(board) {
   return t;
 }
 export { countMoves };
+
+// ---- where a score's terms come from, on the board ----
+
+// For decision d (of scenario scn), made on board `board` (as it was
+// before d): per node, the chips each term counts, as [partition,
+// node, state]: `count`, the node's chips in d's state; `spread`, the
+// partitions already given to it in this pass, in this state, whose
+// primary node (at their decision) was d's; `fill`, all its chips;
+// `sticky`, the chip of d's own partition it holds in d's state.
+// (The tests check these against blance's own terms.)
+export function sourcesOf(scn, d, board) {
+  const out = {};
+  const earlier = scn.frames.filter((f) => !f.sub && f.decision && f.decision.k < d.k && f.decision.state === d.state && f.decision.topPriorityNode === d.topPriorityNode && f.decision.k > lastBegin(scn, d));
+  for (const n of NODES) {
+    const chips = (states) => PARTITIONS.flatMap((p) => states.filter((s) => board[p][s].includes(n)).map((s) => [p, n, s]));
+    out[n] = {
+      count: chips([d.state]),
+      spread: earlier.filter((f) => f.decision.chosen.includes(n)).map((f) => [f.decision.partition, n, d.state]),
+      fill: chips(STATES),
+      sticky: board[d.partition][d.state].includes(n) ? [[d.partition, n, d.state]] : [],
+    };
+  }
+  return out;
+}
+
+// The last decision before d's state began (its pass's first decision
+// of that state comes after it).
+function lastBegin(scn, d) {
+  const ds = scn.frames.filter((f) => !f.sub && f.decision).map((f) => f.decision);
+  const first = ds.find((x) => x.state === d.state);
+  return first ? first.k - 1 : 0;
+}

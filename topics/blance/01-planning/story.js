@@ -30,13 +30,19 @@ function facts() {
   const out = {};
   for (const [key, f] of Object.entries(FRAMES)) {
     const s = SCENARIOS[f.scenario];
+    if (f.sub) continue;
     out[`${key}.counts`] = counts(s, f.board);
     if (!f.decision) continue;
     // a decision: its partition, state, winner, and each candidate's score
     out[`${key}.partition`] = f.decision.partition;
     out[`${key}.state`] = f.decision.state;
     out[`${key}.winner`] = f.decision.chosen.join(',');
-    for (const c of f.decision.scored) out[`${key}.${c.node}`] = fmt(c.score);
+    for (const c of f.decision.scored) {
+      out[`${key}.${c.node}`] = fmt(c.score);
+      // before stickiness: the count, spread and tie-breaker
+      out[`${key}.${c.node}.pre`] = fmt((c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / c.weight);
+      out[`${key}.${c.node}.count`] = c.count;
+    }
   }
   for (const s of Object.values(SCENARIOS)) {
     out[`${s.id}.iterations`] = s.iterations;
@@ -76,8 +82,8 @@ export function sceneAt(views, i) {
 // otherwise just [a, b].
 export function framePath(a, b) {
   const fa = FRAMES[a], fb = FRAMES[b];
-  if (!fa || fa.scenario !== fb.scenario || fb.k <= fa.k) return [a, b];
-  return SCENARIOS[fa.scenario].frames.filter((f) => f.k >= fa.k && f.k <= fb.k).map((f) => f.key);
+  if (!fa || fa.scenario !== fb.scenario || fb.i <= fa.i) return [a, b];
+  return SCENARIOS[fa.scenario].frames.filter((f) => f.i >= fa.i && f.i <= fb.i).map((f) => f.key);
 }
 
 // Callout ends the page works out: the winner's bar in the score strip,

@@ -74,7 +74,7 @@ chapters:
           gives every node [[a score]]: lowest wins.
 
       - id: decision
-        view: { at: fresh.1, target: deciding }
+        view: { at: fresh.1~row, target: deciding }
         expect: ["fact:fresh.1.partition=0", "fact:fresh.1.state=primary"]
         text: |
           So each step of the planner is one decision, about one
@@ -82,34 +82,57 @@ chapters:
           its row outlined on the board.
 
       - id: first
-        view: { target: winner }
+        view: { at: fresh.1, target: winner }
         code: [blance.nodeLess]
         expect: ["fact:fresh.1.a=0.0000", "fact:fresh.1.winner=a"]
         text: |
-          Under the board, each node's score for that decision, in the
-          node's own column. Nothing is placed anywhere yet, so every
-          node scores 0. A tie goes to the node that comes first in the
-          node list, here the leftmost: [[a]] gets partition 0's
-          primary, and its chip appears in a's column, above.
+          Under the board, each node's score for it, in the node's own
+          column. Nothing is placed anywhere yet, so every node scores
+          0. A tie goes to the node that comes first in the node list,
+          here the leftmost: [[a]] gets partition 0's primary, and its
+          chip appears in a's column, above.
+
+      - id: next
+        view: { at: fresh.2~row, target: deciding }
+        expect: ["fact:fresh.2.partition=1"]
+        text: |
+          The next decision: [[partition 1]]'s primary. The bars start
+          again at 0, and this time we'll add up the score a term at a
+          time.
 
       - id: count
-        view: { at: fresh.2, target: winner }
+        view: { at: fresh.2~count, target: bar.a }
         code: [blance.nodeScore]
-        expect: ["fact:fresh.2.partition=1", "fact:fresh.2.a=1.1251", "fact:fresh.2.winner=b"]
+        expect: ["fact:fresh.2.a.count=1", "fact:fresh.2.b.count=0"]
         text: |
-          Partition 1. Now a holds a primary, and its score is 1.1251.
-          b and c still score 0, and of those, [[b]] is first.
+          The main term: how many partitions a node already holds in
+          this state. a holds one primary, partition 0's, so [[a's bar]]
+          rises to 1; b and c hold none.
 
-      - id: terms
-        view: { target: bar.a }
-        expect: ["fact:fresh.2.a=1.1251"]
+      - id: spread
+        view: { at: fresh.2~spread, target: bar.a }
         text: |
-          [[a's bar]], from the bottom up, is the score's terms. The
-          solid part is the main one: how many partitions the node
-          already holds in this state, 1. The hatched part, 1/8 for
-          each partition placed so far, is a term that matters for
-          replicas, coming up. The thin top is a tie-breaker, 0.0001
-          here. They add up to the line, 1.1251.
+          Then [[a hatched part]]: how often the node already backs the
+          same primary node, ÷ the number of partitions. It's for
+          replicas, coming up; for a primary there's no primary node
+          yet, so it counts the partitions already placed, 1/8 per
+          partition, and only on a.
+
+      - id: fill
+        view: { at: fresh.2~fill, target: bar.a }
+        expect: ["fact:fresh.2.a.pre=1.1251", "fact:fresh.2.b.pre=0.0000"]
+        text: |
+          And a tie-breaker, too small to see: 0.001 × all the
+          partitions on the node ÷ the number of partitions, 0.0001 for
+          a. [[a's score]]: 1.1251. (A node that already held partition
+          1 would now have the stickiness taken off; none does.)
+
+      - id: count-pick
+        view: { at: fresh.2, target: winner }
+        expect: ["fact:fresh.2.winner=b"]
+        text: |
+          The lowest wins: b and c tie at 0, and [[b]] is first in the
+          list.
 
       - id: round
         view: { at: fresh.8, target: tally.a }
@@ -178,16 +201,28 @@ chapters:
           from the current one, with d as a node to add.
 
       - id: order
-        view: { at: add.1, target: winner }
+        view: { at: add.1~fill, target: bar.a }
         code: [blance.partitionOrder, blance.nodeScore]
-        expect: ["fact:add.1.partition=0", "fact:add.1.a=1.5008", "fact:add.1.d=0.0000", "fact:add.1.winner=d"]
+        expect: ["fact:add.1.partition=0", "fact:add.1.a.pre=3.0008", "fact:add.1.d.pre=0.0000"]
         text: |
-          Partitions not yet on a new node go first. Partition 0's
-          primary is on a, which holds 3. Staying put is worth 1.5,
-          the stickiness, taken off the score of the node that already
-          holds the partition in this state (the faded top of a's bar),
-          so a scores 1.5008. d, with nothing, scores 0: [[d]] gets
-          partition 0's primary.
+          Partitions not yet on a new node go first, so partition 0's
+          primary. Before stickiness, [[a]], which holds 3 primaries,
+          scores 3.0008, and d, with none, 0.
+
+      - id: stickiness
+        view: { at: add.1~sticky, target: bar.a }
+        expect: ["fact:add.1.a=1.5008"]
+        text: |
+          But a holds partition 0's primary now, and staying put is
+          worth 1.5, the stickiness, taken off the score of the node
+          that already holds the partition in this state: [[a]] scores
+          1.5008.
+
+      - id: d-wins
+        view: { at: add.1, target: winner }
+        expect: ["fact:add.1.d=0.0000", "fact:add.1.winner=d"]
+        text: |
+          Still more than d's 0: [[d]] gets partition 0's primary.
 
       - id: sticky
         view: { at: add.3, target: winner }

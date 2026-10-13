@@ -47,17 +47,21 @@ After changing the ports or moving to a newer blance, `npm run golden
 partition map as a board (a row per partition, a column per node, a P
 or R chip per primary and replica, and each node's tallies); under it,
 the score strip: for the decision at hand (the outlined row), each
-node's score as a bar in its own column, its terms stacked, lowest
-wins; and beside it, a panel: the moves a plan takes, the server
+node's score as a bar in its own column, built up term by term (the
+count, the spread, the tie-breaker, stickiness off, then the pick),
+with arrows from the chips each term counts down to the bar they add
+to (`sourcesOf` in scenarios.js, which `test/sources.test.mjs` checks
+against blance's own terms, decision by decision); and beside it, a panel: the moves a plan takes, the server
 groups' tree, or a stickiness table.
 
 `scenarios.js` runs its scenarios through the port, with traces: a new
 index on nodes a, b and c; node d joining; node b leaving; all four
 without and then with server groups. Each scenario is cut into frames,
 the map after each of the planner's decisions, and a step's `at`
-names one (`fresh.12`: after the 12th decision of the first). A step
-whose `at` is several decisions on plays them one after another over
-its scroll. `story.js` has the view keys (`at`, `panel`), and the
+names one (`fresh.12`: after the 12th decision of the first), or a
+stage of one (`fresh.12~count`). A step whose `at` is several
+decisions on plays them, stage by stage, one after another over its
+scroll. A node not in the cluster has no column until it joins. `story.js` has the view keys (`at`, `panel`), and the
 facts that `expect: ["fact:..."]` checks the text's numbers against:
 every candidate's score at every decision (`add.1.a`), each frame's
 tallies (`add.16.counts`), each scenario's moves.
