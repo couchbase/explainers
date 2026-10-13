@@ -415,7 +415,25 @@ export class Diagram {
       const ya = y + 17, xa = x0 + dir * 10, xb = x1 - dir * 12;
       V.line.setAttribute('d', `M${x0},${y + 12} Q${x0},${ya} ${xa + dir * 6},${ya} L${xb},${ya}`);
       V.head.setAttribute('transform', `translate(${xb + dir * 4} ${ya}) rotate(${dir > 0 ? 0 : 180})`);
-      V.label.setAttribute('x', ((x0 + x1) / 2).toFixed(1)); V.label.setAttribute('y', (y - 13).toFixed(1));
+      // Level with the chip where it lands, on a side that's free: away
+      // from the arrow if it can, else the other; failing both, above.
+      const W = 84; // "reassigned!", 14px
+      const after = f.decision === d && f.stage === undefined ? f.board : null;
+      const board = after || (() => { const b = JSON.parse(JSON.stringify(d.before)); for (const st of STATES) b[d.partition][st] = b[d.partition][st].filter((n) => !d.chosen.includes(n)); b[d.partition][d.state] = [...d.chosen]; return b; })();
+      const taken = STATES.flatMap((st) => board[d.partition][st].map((n) => [chipX(n, st) - 18, chipX(n, st) + 18]))
+        .filter(([a]) => Math.abs(a + 18 - x1) > 1)
+        .concat([[x0 - 18, x0 + 18], [BOARD.x0, BOARD.col0 - 4]]);
+      const free = ([a, b]) => taken.every(([u, v]) => b <= u || a >= v);
+      const right = [x1 + 23, x1 + 23 + W], left = [x1 - 23 - W, x1 - 23];
+      const sides = dir > 0 ? [[right, 'start', x1 + 23], [left, 'end', x1 - 23]] : [[left, 'end', x1 - 23], [right, 'start', x1 + 23]];
+      const side = sides.find(([span]) => free(span));
+      if (side) {
+        V.label.setAttribute('x', side[2].toFixed(1)); V.label.setAttribute('y', (y + 5).toFixed(1));
+        V.label.setAttribute('text-anchor', side[1]);
+      } else {
+        V.label.setAttribute('x', x1.toFixed(1)); V.label.setAttribute('y', (y - 14).toFixed(1));
+        V.label.setAttribute('text-anchor', 'middle');
+      }
       setText(V.label, 'reassigned!');
       V.label.setAttribute('class', 'vlabel vlabel-moved');
       for (const e of [V.ghost, V.line, V.head]) op(e, 1);
@@ -423,6 +441,7 @@ export class Diagram {
       for (const e of [V.ghost, V.line, V.head]) op(e, 0);
       V.label.setAttribute('x', (chipX(v.goes, d.state) + (d.state === 'primary' ? -6 : 6)).toFixed(1));
       V.label.setAttribute('y', (y - 14).toFixed(1));
+      V.label.setAttribute('text-anchor', 'middle');
       setText(V.label, 'stays put!');
       V.label.setAttribute('class', 'vlabel vlabel-stays');
     }
