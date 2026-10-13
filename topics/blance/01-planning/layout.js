@@ -21,7 +21,14 @@ export const CANVAS = [0, 0, 780, 960];
 export const BOARD = { x0: 40, labelX: 70, y0: 112, rowH: 50, colW: 104, col0: 200 };
 BOARD.y1 = BOARD.y0 + PARTITIONS.length * BOARD.rowH;
 BOARD.x1 = BOARD.col0 + NODES.length * BOARD.colW;
-export const colX = (node) => BOARD.col0 + NODES.indexOf(node) * BOARD.colW + BOARD.colW / 2;
+// Each node's column slot, from the left: its place in NODES, unless a
+// node before it has left the cluster, when the columns after it close
+// up. The diagram sets the slots for the frame it draws (setSlots), and
+// every x follows; colX0 is where a column is built.
+const SLOTS = Object.fromEntries(NODES.map((n, i) => [n, i]));
+export const setSlots = (s) => Object.assign(SLOTS, s);
+export const colX0 = (node) => BOARD.col0 + NODES.indexOf(node) * BOARD.colW + BOARD.colW / 2;
+export const colX = (node) => BOARD.col0 + SLOTS[node] * BOARD.colW + BOARD.colW / 2;
 export const rowY = (p) => BOARD.y0 + PARTITIONS.indexOf(p) * BOARD.rowH + BOARD.rowH / 2;
 // a cell's chip: primary on the left of the cell, replica on the right
 export const chipX = (node, state) => colX(node) + (state === 'primary' ? -20 : 20);

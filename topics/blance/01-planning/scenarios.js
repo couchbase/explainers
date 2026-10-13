@@ -66,7 +66,8 @@ function seqOf(t) {
 // decision in hand, nothing left over from the last one). Each
 // decision has a frame per stage, "fresh.2~row", "fresh.2~a.count", on
 // the board as it was before it, and then its pick, "fresh.2", with it
-// made.
+// made. A scenario that removes nodes ends with "remove.after": the
+// same board, with the nodes removed out of the cluster.
 function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {}, groups = false }) {
   const r = planNextMap(mapOf(prev), mapOf(prev), nodesAll, remove, add, MODEL, opts, { trace: true });
   const frames = [{ key: `${id}.prev`, board: prev, decision: null, k: -1, i: 0 }];
@@ -92,6 +93,8 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
   const result = boardOf(r.nextMap);
   if (JSON.stringify(board) !== JSON.stringify(result)) throw new Error(`${id}: replaying the trace doesn't give the plan`);
   push({ key: `${id}.end`, board: result, decision: null, k: k + 1, done: true });
+  // (and once the rebalance is over, the nodes removed are gone: "remove.after")
+  if (remove.length) push({ key: `${id}.after`, board: result, decision: null, k: k + 1, done: true, departed: true });
   const moves = Object.fromEntries(PARTITIONS.map((p) => [p, calcPartitionMoves(STATES, mapOf(prev)[p].nodesByState, r.nextMap[p].nodesByState, false)]));
   return {
     id, title, nodes: nodesAll, joining: add, leaving: remove, groups,

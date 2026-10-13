@@ -12,7 +12,7 @@ import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { calcPartitionMoves } from '../lib/moves.js';
 import { NODES, PARTITIONS, STATES, GROUPS, SCENARIOS, TERMS, tally, sourcesOf } from './scenarios.js';
 import {
-  CANVAS, BOARD, STRIP, SEP_Y, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y, scoreY, MOVE_UNIT,
+  CANVAS, BOARD, STRIP, SEP_Y, ANCHORS, colX, colX0, setSlots, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y, scoreY, MOVE_UNIT,
 } from './layout.js';
 
 const f4 = (x) => x.toFixed(4);
@@ -24,7 +24,7 @@ const chipsOf = (board) => PARTITIONS.flatMap((p) => STATES.flatMap((s) => board
 // has partitions placed already, leaving (and, once dropped, gone), or in
 const placed = (board) => PARTITIONS.some((p) => STATES.some((s) => board[p][s].length));
 function nodeStatus(scn, node, frame) {
-  if (!scn.nodes.includes(node)) return 'absent';
+  if (!scn.nodes.includes(node) || (frame.departed && scn.leaving.includes(node))) return 'absent';
   if (scn.leaving.includes(node)) return frame.k < 0 ? 'leaving' : 'gone';
   if (scn.joining.includes(node) && placed(scn.prev)) return 'joining';
   return 'in';
@@ -64,7 +64,13 @@ function dashesTo(drawn, len) {
 }
 
 // the board's width, to its last node's column, in a scenario
-const boardW = (scn) => colX(NODES.filter((n) => scn.nodes.includes(n)).pop()) + BOARD.colW / 2 - BOARD.x0 + 10;
+const boardW = (scn, f) => colX(NODES.filter((n) => nodeStatus(scn, n, f) !== 'absent').pop()) + BOARD.colW / 2 - BOARD.x0 + 10;
+// each node's column slot in a frame: the nodes before it still shown
+const slotsOf = (f) => {
+  const scn = SCENARIOS[f.scenario];
+  let i = 0;
+  return Object.fromEntries(NODES.map((n) => [n, nodeStatus(scn, n, f) === 'absent' ? i : i++]));
+};
 // what each stage of a decision adds to the strip
 const TERM_NOTE = {
   count: (st) => `+ the ${st === 'primary' ? 'primaries' : 'replicas'} it already holds`,
@@ -128,6 +134,7 @@ export class Diagram {
     this.bandLine2 = txt(this.bandLabel, 0, 12, '', 'bband-label');
     // columns
     this.cols = {};
+    this.present = {};
     for (const n of NODES) {
       const x = colX(n);
       const cg = el('g', {}, g);
@@ -229,9 +236,12 @@ export class Diagram {
       const st = (s, f) => nodeStatus(s, n, f);
       // (a node not in the cluster isn't shown; one that's left, dimmed)
       const dim = (x) => (x === 'absent' ? 0 : x === 'gone' ? 0.3 : 1);
-      op(col.g, lerp(dim(st(sa, FA)), dim(st(sb, FB)), q));
+      const qf = this.closing ? clamp01(q * 2) : q;
+      op(col.g, lerp(dim(st(sa, FA)), dim(st(sb, FB)), qf));
+      // (and how much it's in the cluster at all, for the moves)
+      this.present[n] = lerp(st(sa, FA) === 'absent' ? 0 : 1, st(sb, FB) === 'absent' ? 0 : 1, qf);
       const tag = (x) => (x === 'gone' ? 'leaving' : x);
-      for (const [k, e] of Object.entries(col.tags)) op(e, lerp(tag(st(sa, FA)) === k ? 1 : 0, tag(st(sb, FB)) === k ? 1 : 0, q));
+      for (const [k, e] of Object.entries(col.tags)) op(e, lerp(tag(st(sa, FA)) === k ? 1 : 0, tag(st(sb, FB)) === k ? 1 : 0, qf));
       const w = (t, s) => t[n][s] * 14;
       col.pBar.setAttribute('width', lerp(w(ta, 'primary'), w(tb, 'primary'), qc).toFixed(1));
       col.rBar.setAttribute('width', lerp(w(ta, 'replica'), w(tb, 'replica'), qc).toFixed(1));
@@ -239,7 +249,7 @@ export class Diagram {
       setText(col.tText, `${t[n].primary} P · ${t[n].replica} R`);
     }
     op(this.groupG, lerp(sa.groups ? 1 : 0, sb.groups ? 1 : 0, q));
-    const w = lerp(boardW(sa), boardW(sb), q).toFixed(1);
+    const w = lerp(boardW(sa, FA), boardW(sb, FB), q).toFixed(1);
     for (const r of this.rowRects) r.setAttribute('width', w);
     this.sep.setAttribute('x2', (BOARD.x0 + +w).toFixed(1));
     this.band.setAttribute('width', w);
@@ -572,13 +582,15 @@ export class Diagram {
     setText(M.title, `the moves: ${scn.title}`);
     setText(M.note, built.length + deleted.length ? `${built.length + deleted.length} moves: ${built.length} copies built, ${deleted.length} deleted, over ${moved.size} partitions` : 'none yet');
     M.axis.setAttribute('x2', (BOARD.x0 + (this.boardW || BOARD.x1 - BOARD.x0)).toFixed(1));
+    // (as its node's column: faded and moved with it)
+    const colShown = (n) => this.present[n] ?? 1;
     for (const n of NODES) {
       const c = M.cols[n];
       const a = built.filter((x) => x[2] === n).length, d = deleted.filter((x) => x[2] === n).length;
       c.add.setAttribute('y', (STRIP.zeroY - a * MOVE_UNIT).toFixed(1)); c.add.setAttribute('height', (a * MOVE_UNIT).toFixed(1));
       c.del.setAttribute('y', (STRIP.zeroY - d * MOVE_UNIT).toFixed(1)); c.del.setAttribute('height', (d * MOVE_UNIT).toFixed(1));
       setText(c.label, a || d ? `+${a} −${d}` : '');
-      op(c.g, scn.nodes.includes(n) ? 1 : 0);
+      op(c.g, colShown(n));
     }
     // on the board: copies built ringed green, deleted ones left as ghosts
     const shown = new Set();
@@ -589,7 +601,8 @@ export class Diagram {
         m = el('rect', { x: chipX(n, s) - 21, y: rowY(p) - 16, width: 42, height: 32, rx: 9, class: `mmark-${kind}` }, this.movesOnBoard);
         this.moveMarks.set(key, m);
       }
-      op(m, o);
+      m.setAttribute('x', (chipX(n, s) - 21).toFixed(1));
+      op(m, o * colShown(n));
       shown.add(key);
     };
     built.forEach((x) => mark(x, 'built'));
@@ -730,6 +743,17 @@ export class Diagram {
   // Frames FA to FB (scenarios.js), partway (q); panels kindA to kindB,
   // partway (pq).
   draw(FA, FB, q, kindA, kindB, pq, PA = FA, PB = FB) {
+    // the columns' slots, partway, and each column's parts moved to its
+    // (when columns close up, the node leaving fades first, then the
+    // others slide over: this.closing, for _drawBoard's fade)
+    const sa = slotsOf(FA), sb = slotsOf(FB);
+    this.closing = NODES.some((n) => sa[n] !== sb[n]);
+    const qs = this.closing ? easeQuad(clamp01(q * 2 - 1)) : q;
+    setSlots(Object.fromEntries(NODES.map((n) => [n, lerp(sa[n], sb[n], qs)])));
+    for (const n of NODES) {
+      const t = `translate(${(colX(n) - colX0(n)).toFixed(1)} 0)`;
+      for (const e of [this.cols[n].g, ...Object.values(this.cols[n].tags), this.strip.cols[n].g, this.movesArea.cols[n].g]) e.setAttribute('transform', t);
+    }
     const sameD = FA.decision && FA.decision === FB.decision;
     const stageOf = (f) => f.stage ?? (f.decision ? pickOf(f.decision) : 0);
     this._drawBoard(FA, FB, q, sameD ? lerp(stageOf(FA), stageOf(FB), q) : null);
@@ -777,6 +801,11 @@ export class Diagram {
     const panelOf = { moves: 'moves', tree: 'tree', scores: 'score' };
     if (id === 'moves.total' || id === 'tree') return { p: a.p, visible: cur.panel === panelOf[id.split('.')[0]] };
     const kind = id.split('.')[0];
+    // (a node's name and tallies: where its column is now)
+    if (kind === 'node' || kind === 'tally') {
+      const n = id.slice(kind.length + 1);
+      return { p: [a.p[0] + colX(n) - colX0(n), a.p[1]], visible: true };
+    }
     return { p: a.p, visible: kind in panelOf ? cur.panel === panelOf[kind] : true };
   }
 }
