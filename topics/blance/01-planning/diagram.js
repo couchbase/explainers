@@ -118,6 +118,10 @@ export class Diagram {
       txt(g, BOARD.labelX, y + 5, `partition ${p}`, 'brow-label');
     }
     this.band = el('rect', { x: BOARD.x0, y: 0, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, rx: 6, class: 'bband', opacity: 0 }, g);
+    // what the outlined row is about, to its right, following it down
+    this.bandLabel = el('g', { opacity: 0 }, g);
+    this.bandLine1 = txt(this.bandLabel, 0, -3, '', 'bband-label');
+    this.bandLine2 = txt(this.bandLabel, 0, 12, '', 'bband-label');
     // columns
     this.cols = {};
     for (const n of NODES) {
@@ -188,9 +192,19 @@ export class Diagram {
     const da = FA.decision, db = FB.decision;
     if (da || db) {
       const ya = da ? rowY(da.partition) : rowY(db.partition), yb = db ? rowY(db.partition) : ya;
-      this.band.setAttribute('y', (lerp(ya, yb, q) - BOARD.rowH / 2).toFixed(1));
-      op(this.band, lerp(da ? 1 : 0, db ? 1 : 0, q));
-    } else op(this.band, 0);
+      const y = lerp(ya, yb, q);
+      this.band.setAttribute('y', (y - BOARD.rowH / 2).toFixed(1));
+      const o = lerp(da ? 1 : 0, db ? 1 : 0, q);
+      op(this.band, o);
+      // the label: "assigning", then once the pick's chip lands, where to
+      const d = q < 0.5 ? da || db : db || da;
+      const f = q < 0.5 ? FA : FB;
+      const landed = sNow !== null ? within(through(sNow, pickOf(d)), PICK.chip) > 0.5 : f.stage === undefined || f.stage === pickOf(d);
+      setText(this.bandLine1, `${landed ? 'assigned' : 'assigning'} ${d.state}`);
+      setText(this.bandLine2, `for partition ${d.partition}${landed ? ` → ${d.chosen[0]}` : '…'}`);
+      this.bandLabel.setAttribute('transform', `translate(${(BOARD.x0 + (this.boardW || BOARD.x1 - BOARD.x0) + 10).toFixed(1)} ${y.toFixed(1)})`);
+      op(this.bandLabel, o);
+    } else { op(this.band, 0); op(this.bandLabel, 0); }
     // the winner's chip, ringed once it's picked
     // (as its chip: once the pick's arrow lands)
     const picked = (d, st) => within(through(st, pickOf(d)), PICK.chip);
@@ -422,7 +436,9 @@ export class Diagram {
       const board = after || (() => { const b = JSON.parse(JSON.stringify(d.before)); for (const st of STATES) b[d.partition][st] = b[d.partition][st].filter((n) => !d.chosen.includes(n)); b[d.partition][d.state] = [...d.chosen]; return b; })();
       const taken = STATES.flatMap((st) => board[d.partition][st].map((n) => [chipX(n, st) - 18, chipX(n, st) + 18]))
         .filter(([a]) => Math.abs(a + 18 - x1) > 1)
-        .concat([[x0 - 18, x0 + 18], [BOARD.x0, BOARD.col0 - 4]]);
+        // (and the row's label, and past the board's right edge, where
+        // the outlined row's label goes)
+        .concat([[x0 - 18, x0 + 18], [BOARD.x0, BOARD.col0 - 4], [BOARD.x0 + (this.boardW || BOARD.x1 - BOARD.x0), Infinity]]);
       const free = ([a, b]) => taken.every(([u, v]) => b <= u || a >= v);
       const right = [x1 + 23, x1 + 23 + W], left = [x1 - 23 - W, x1 - 23];
       const sides = dir > 0 ? [[right, 'start', x1 + 23], [left, 'end', x1 - 23]] : [[left, 'end', x1 - 23], [right, 'start', x1 + 23]];

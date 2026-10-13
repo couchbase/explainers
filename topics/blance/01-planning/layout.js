@@ -14,7 +14,7 @@
 
 import { NODES, PARTITIONS, STICKINESS } from './scenarios.js';
 
-export const CANVAS = [0, 0, 720, 920];
+export const CANVAS = [0, 0, 780, 920];
 
 // ---- the board ----
 
@@ -51,7 +51,7 @@ export const BUBBLES = {};
 
 // (the board, and the area under it: all there is)
 export const CAMERAS = {
-  overview: { rect: [20, 10, 710, 910], label: '', section: null },
+  overview: { rect: [20, 10, 770, 910], label: '', section: null },
 };
 export const cameraFor = () => CAMERAS.overview.rect;
 
