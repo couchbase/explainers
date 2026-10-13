@@ -112,6 +112,10 @@
 
 /* what the outlined row is about */
 .diagram .bband-label { font: 600 12.5px var(--font-display); fill: var(--accent); }
+.diagram .bband.pick-primary { stroke: var(--primary); }
+.diagram .bband.pick-replica { stroke: var(--replica); }
+.diagram .bband-label.pick-primary { fill: var(--primary); }
+.diagram .bband-label.pick-replica { fill: var(--replica); }
 
 /* the pick, in the color of the state being placed: primary or replica */
 .diagram .swon.pick-primary { fill: color-mix(in srgb, var(--primary) 10%, transparent); stroke: var(--primary); }

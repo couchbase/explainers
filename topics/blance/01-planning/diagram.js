@@ -245,6 +245,9 @@ export class Diagram {
       const d = q < 0.5 ? da || db : db || da;
       const f = q < 0.5 ? FA : FB;
       const landed = sNow !== null ? within(through(sNow, pickOf(d)), PICK.chip) > 0.5 : f.stage === undefined || f.stage === pickOf(d);
+      // (in the color of the state being assigned)
+      this.band.setAttribute('class', `bband pick-${d.state}`);
+      for (const e of [this.bandLine1, this.bandLine2]) e.setAttribute('class', `bband-label pick-${d.state}`);
       setText(this.bandLine1, `${landed ? 'assigned' : 'assigning'} ${d.state}`);
       setText(this.bandLine2, `for partition ${d.partition}${landed ? ` → ${d.chosen[0]}` : '…'}`);
       this.bandLabel.setAttribute('transform', `translate(${(BOARD.x0 + (this.boardW || BOARD.x1 - BOARD.x0) + 10).toFixed(1)} ${y.toFixed(1)})`);
