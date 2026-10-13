@@ -318,15 +318,54 @@ chapters:
       - id: moves
         view: { panel: moves, target: moves.total, focus: strip }
         code: [blance.CalcPartitionMoves]
-        expect: ["fact:add.moves=10", "fact:add.moved=5", "fact:add.moves.2=add d:replica, del b", "fact:add.moves.5=add b:replica, del a"]
+        expect: ["fact:add.moves=10", "fact:add.moved=5"]
         text: |
           As moves, from the old partition map to the new one (blance's
-          `CalcPartitionMoves()`): [[10 moves]], over 5 partitions. Node
-          d needs 4 partitions, so 8 moves would do: partition 2's
-          replica went from node b to node d, then partition 5's replica
-          from node a to node b, where node a to node d would have been
-          one move. The planner is greedy: one partition at a time, with
-          no look ahead.
+          `CalcPartitionMoves()`): [[10 moves]], over 5 partitions.
+
+      - id: optimal
+        view: { target: tally.d, focus: tallies }
+        expect: ["fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
+        text: |
+          But this isn't the best partition map possible. Node d needs
+          [[4 partitions]], 2 primaries and 2 replicas, and each one
+          takes 2 moves: a copy built on node d, and a copy deleted from
+          another node. So 8 moves would do. Where do the other 2 moves
+          come from?
+
+      - id: detour-out
+        view: { target: row.2, focus: board }
+        expect: ["fact:add.moves.2=add d:replica, del b"]
+        text: |
+          [[Partition 2]]'s replica moved from node b to node d: a copy
+          built on node d, and a copy deleted from node b.
+
+      - id: detour-back
+        view: { target: row.5, focus: board }
+        expect: ["fact:add.moves.5=add b:replica, del a"]
+        text: |
+          Then [[partition 5]]'s replica moved from node a to node b, to
+          make up for the replica that node b gave up: a copy built on
+          node b, and a copy deleted from node a.
+
+      - id: detour
+        view: { target: tally.b, focus: tallies }
+        expect: ["fact:add.prev.counts=a3/3 b3/2 c2/3 d0/0", "fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
+        text: |
+          So [[node b]] ends where it started, with 2 replicas, and 2
+          of the moves bought nothing. Moving partition 5's replica
+          straight from node a to node d, and leaving partition 2's
+          replica on node b, gives the same tallies in 8 moves.
+
+      - id: greedy
+        view: { target: moves.total, focus: strip }
+        text: |
+          Why doesn't blance find that? The planner is greedy: one
+          partition at a time, with no look ahead. When the planner
+          decided partition 2's replica, node d held no replicas and
+          scored the lowest, and the planner couldn't know that
+          partition 5's replica, decided later, could go to node d
+          instead. So blance settles for [[10 moves]].
 
   # ------------------------------------------------------------------
   - id: leave
