@@ -5,9 +5,9 @@
 // same scenarios, run through the port of blance's planner that its
 // golden cases check against the real blance.
 
-import { FRAMES, SCENARIOS, STICKINESS, GROUPS, NODES, PARTITIONS, tally, countMoves } from './scenarios.js';
+import { FRAMES, SCENARIOS, GROUPS, NODES, PARTITIONS, tally, countMoves } from './scenarios.js';
 
-export const PANELS = ['none', 'score', 'moves', 'tree', 'stick'];
+export const PANELS = ['none', 'score', 'moves', 'tree'];
 // the regions a step's `focus` can box: the board, the tallies, the
 // area under them (the strip), or one node's column, chips to bar
 export const FOCUS_REGIONS = ['board', 'tallies', 'strip', ...NODES.map((n) => `col.${n}`)];
@@ -58,7 +58,6 @@ function facts() {
     for (const p of PARTITIONS) out[`${s.id}.moves.${p}`] = movesText(s.moves[p]);
     out[`${s.id}.sameGroup`] = sameGroup(s.result);
   }
-  for (const x of STICKINESS) out[`stick.${x.key}`] = x.moves;
   return out;
 }
 export const FACTS = facts();

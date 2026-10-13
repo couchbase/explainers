@@ -381,43 +381,71 @@ chapters:
           for a partition with no surviving replica.)
 
   # ------------------------------------------------------------------
-  - id: sticky
-    title: "Stickiness, and a quirk"
+  - id: knobs
+    title: "Knobs"
     color: neutral
     steps:
 
-      - id: default
-        view: { panel: stick, target: stick.default, focus: strip }
-        expect: ["fact:stick.default=10"]
+      - id: options
+        view: { panel: score, target: board.title, focus: board }
+        code: [blance.options]
         text: |
-          Stickiness is 1.5 unless the app says otherwise: staying put
-          is worth one and a half partitions of imbalance. An app can
-          set the stickiness per state, say very high for primaries, to
-          keep primaries in place. Adding node d to the first partition
-          map, [[as before]]: 10 moves.
+          `PlanNextMapEx()` also takes options, knobs that an app can
+          set to shape [[the partition map]]:
 
-      - id: ignored
-        view: { target: stick.nil, focus: strip }
-        code: [blance.stickiness]
-        expect: ["fact:stick.nil=10"]
-        text: |
-          But [[set the stickiness to 100000]] for both states, and the
-          rebalance still takes 10 moves: blance only reads the
-          per-state stickiness when the partition weights option isn't
-          nil (and then a partition's weight, if the partition has one,
-          is the partition's stickiness).
+          - the stickiness per state, `StateStickiness`: say, higher
+            for primaries, to keep primaries in place;
+          - partition weights, `PartitionWeights`: a heavier partition
+            counts as more than one partition;
+          - node weights, `NodeWeights`: a node's score is divided by
+            the node's weight, so a bigger node gets more partitions;
+          - how many nodes each state wants, `ModelStateConstraints`:
+            say, 2 replicas instead of the model's 1;
+          - and a tree of the nodes with rules for the replicas,
+            `NodeHierarchy` and `HierarchyRules`, for server groups such
+            as racks or zones ([the third explainer](03-groups.html)).
 
-      - id: honored
-        view: { target: stick.empty, focus: strip }
-        expect: ["fact:stick.empty=0", "fact:stick.zero=13"]
-        text: |
-          Pass [[an empty partition weights map]] instead, and the same
-          stickiness keeps every partition where it is: 0 moves. (A
-          stickiness of 0 gives 13 moves.)
+  # ------------------------------------------------------------------
+  - id: summary
+    title: "Summary"
+    color: map
+    steps:
 
-      - id: so
+      - id: loops
+        view: { at: fresh.12, target: scores, focus: strip }
+        code: [blance.assign, blance.nodeScore]
         text: |
-          So an app that sets per-state stickiness, and no partition
-          weights, quietly gets the default stickiness. The behavior
-          looks like a bug in blance, and one easy to work around: pass
-          an empty partition weights map.
+          Whether blance is assigning primaries or replicas, and
+          whether nodes are joining or leaving, the planner is two
+          nested for-loops: for each state, and for each partition, sum
+          up a score for every node, then assign the partition to the
+          node with the lowest score, as in [[the scores]].
+
+          ```
+          for each state, most important first:
+            for each partition:
+              for each candidate node:
+                score = count + spread
+                      + tie-breaker - stickiness
+              assign the lowest scoring node
+          ```
+
+          A state that wants more than one node, say 2 replicas, gets
+          the lowest scoring nodes. And around both loops, a third loop
+          runs the whole pass again, up to 10 times, until a pass
+          changes nothing.
+
+      - id: takeaway
+        view: { at: fresh.end, target: board.title, focus: board }
+        expect: ["fact:add.moves=10"]
+        text: |
+          Joining and leaving nodes only change the inputs to the
+          loops: which nodes are candidates, which partitions go first,
+          and which nodes get the stickiness. So the takeaway: blance is
+          simple. There's no search over possible partition maps and no
+          look ahead, just a greedy pass that fills in
+          [[the partition map]] one partition at a time, with a score
+          that is mostly a count of what each node already holds. The
+          result is fast, predictable and close to even, though not
+          always the fewest moves: when node d joined, the rebalance
+          took 10 moves where 8 would do.

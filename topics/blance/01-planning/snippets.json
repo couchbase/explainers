@@ -185,19 +185,22 @@
   "url": "https://github.com/couchbase/cbgt/blob/d0afea68bde6f1a1dca67847499a588777076db7/cmd/planner.go#L158-L179",
   "code": "\t\t\t\t// Failover'ed node used to be a primary for this\n\t\t\t\t// pindex, so find a replica to promote.\n\t\t\t\tpromoted := \"\"\n\n\t\t\tPROMOTE_REPLICA:\n\t\t\t\tfor nodePro, ppnPro := range planPIndex.Nodes {\n\t\t\t\t\tif mapNodesFailover[nodePro] {\n\t\t\t\t\t\tcontinue\n\t\t\t\t\t}\n\n\t\t\t\t\tif ppnPro.Priority >= 1 {\n\t\t\t\t\t\tppnPro.Priority = 0\n\t\t\t\t\t\tplanPIndex.Nodes[nodePro] = ppnPro\n\t\t\t\t\t\tpromoted = nodePro\n\t\t\t\t\t\t// this index will need a warning because it doesn't have\n\t\t\t\t\t\t// at least 1 replica.\n\t\t\t\t\t\tplanPIndexesNext.Warnings[planPIndex.IndexName] =\n\t\t\t\t\t\t\tappend(planPIndexesNext.Warnings[planPIndex.IndexName],\n\t\t\t\t\t\t\t\tplanPIndexesCalc.Warnings[planPIndex.IndexName]...)\n\t\t\t\t\t\tbreak PROMOTE_REPLICA\n\t\t\t\t\t}\n\t\t\t\t}"
  },
- "blance.stickiness": {
-  "id": "blance.stickiness",
+ "blance.options": {
+  "id": "blance.options",
   "repo": "blance",
-  "path": "plan.go",
-  "title": "blance findBestNodes() — stickiness, read only with partition weights",
-  "start": 104,
-  "end": 115,
+  "path": "api.go",
+  "title": "blance PlanNextMapOptions — the knobs an app can set",
+  "start": 183,
+  "end": 190,
   "highlight": [
-   105,
-   108,
-   112
+   184,
+   185,
+   186,
+   187,
+   188,
+   189
   ],
-  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L104-L115",
-  "code": "\t\tstickiness := 1.5\n\t\tif opts.PartitionWeights != nil {\n\t\t\tw, exists := opts.PartitionWeights[partition.Name]\n\t\t\tif exists {\n\t\t\t\tstickiness = float64(w)\n\t\t\t} else if opts.StateStickiness != nil {\n\t\t\t\ts, exists := opts.StateStickiness[stateName]\n\t\t\t\tif exists {\n\t\t\t\t\tstickiness = float64(s)\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/api.go#L183-L190",
+  "code": "type PlanNextMapOptions struct {\n\tModelStateConstraints map[string]int    // Keyed by stateName.\n\tPartitionWeights      map[string]int    // Keyed by partitionName.\n\tStateStickiness       map[string]int    // Keyed by stateName.\n\tNodeWeights           map[string]int    // Keyed by node.\n\tNodeHierarchy         map[string]string // Keyed by node; value is node's parent.\n\tHierarchyRules        HierarchyRules\n}"
  }
 }

@@ -4,15 +4,15 @@
 // as the story needs: the scores for the decision at hand (each node's,
 // under its own column), the moves a plan takes (on the board, the
 // copies built and deleted; below, each node's counts), the server
-// groups' rule, or the stickiness table, as bars. Built once; main.js draws it partway between
-// two frames, as the scroll says.
+// groups' rule. Built once; main.js draws it partway between two frames,
+// as the scroll says.
 
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { calcPartitionMoves } from '../lib/moves.js';
-import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, TERMS, tally, sourcesOf } from './scenarios.js';
+import { NODES, PARTITIONS, STATES, GROUPS, SCENARIOS, TERMS, tally, sourcesOf } from './scenarios.js';
 import {
-  CANVAS, BOARD, STRIP, SEP_Y, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y, scoreY, MOVE_UNIT, stickBarX, STICK_UNIT,
+  CANVAS, BOARD, STRIP, SEP_Y, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y, scoreY, MOVE_UNIT,
 } from './layout.js';
 
 const f4 = (x) => x.toFixed(4);
@@ -91,7 +91,6 @@ export class Diagram {
     this.moveMarks = new Map(); // chip key -> {ghost, ring}
     this.strip = this._buildStrip(g);
     this.movesArea = this._buildMoves(g);
-    this.stickArea = this._buildStick(g);
     this.treeArea = this._buildTree(g);
     this.focusBox = el('rect', { rx: 14, class: 'sfocus', opacity: 0 }, g);
     this.arcG = el('g', {}, g);
@@ -598,26 +597,6 @@ export class Diagram {
     for (const [key, m] of this.moveMarks) if (!shown.has(key)) op(m, 0);
   }
 
-  // ---- stickiness: moves for each setting, as bars ----
-
-  _buildStick(g) {
-    const S = { g: el('g', { opacity: 0 }, g) };
-    txt(S.g, BOARD.x0, STRIP.titleY, 'adding d to the first map: how many moves', 'ptitle');
-    el('line', { x1: BOARD.col0, y1: STRIP.zeroY, x2: BOARD.x1, y2: STRIP.zeroY, class: 'paxis' }, S.g);
-    // (two short rows under the bars: each setting's stickiness, and its PartitionWeights)
-    const labels = [['1.5', 'nil'], ['100000', 'nil'], ['100000', '{}'], ['0', '{}']];
-    txt(S.g, BOARD.x0, STRIP.labelY - 6, 'stickiness', 'pkey');
-    txt(S.g, BOARD.x0, STRIP.labelY + 10, 'PartitionWeights', 'pkey');
-    STICKINESS.forEach((x, i) => {
-      const cx = stickBarX(i), h = x.moves * STICK_UNIT;
-      el('rect', { x: cx - 15, y: STRIP.zeroY - h, width: 30, height: h, class: 'pbar pbar-moves' }, S.g);
-      txt(S.g, cx, STRIP.zeroY - h - 8, String(x.moves), 'pscore', 'middle');
-      txt(S.g, cx, STRIP.labelY - 6, labels[i][0], 'pterm', 'middle');
-      txt(S.g, cx, STRIP.labelY + 10, labels[i][1], 'pterm', 'middle');
-    });
-    return S;
-  }
-
   // ---- server groups: the rule, in words, under the board's brackets ----
 
   _buildTree(g) {
@@ -758,7 +737,6 @@ export class Diagram {
     // what the area under the board shows: one fades out as the next fades in
     const w = (k) => clamp01(kindA === k ? (kindB === k ? 1 : 1 - pq * 2) : kindB === k ? pq * 2 - 1 : 0);
     this._drawMoves(pq < 0.5 ? PA : PB, w('moves'));
-    op(this.stickArea.g, w('stick'));
     op(this.treeArea.g, w('tree'));
     const so = w('score');
     // (the decision's marks on the board, the outlined row and its label,
@@ -796,8 +774,8 @@ export class Diagram {
     if (id === 'chosen') return d ? { p: [chipX(d.chosen[0], d.state) - 20, rowY(d.partition)], visible: true } : { p: [0, 0], visible: false };
     const a = ANCHORS[id];
     if (!a) return null;
-    const panelOf = { moves: 'moves', stick: 'stick', tree: 'tree', scores: 'score' };
-    if (id === 'moves.total' || id === 'tree' || id.startsWith('stick.')) return { p: a.p, visible: cur.panel === panelOf[id.split('.')[0]] };
+    const panelOf = { moves: 'moves', tree: 'tree', scores: 'score' };
+    if (id === 'moves.total' || id === 'tree') return { p: a.p, visible: cur.panel === panelOf[id.split('.')[0]] };
     const kind = id.split('.')[0];
     return { p: a.p, visible: kind in panelOf ? cur.panel === panelOf[kind] : true };
   }

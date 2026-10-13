@@ -108,10 +108,10 @@ cbgt.failover:
   title: cbgt Failover() — promote a surviving replica, outside blance
   highlight: ["ppnPro.Priority = 0"]
 
-blance.stickiness:
+blance.options:
   repo: blance
-  path: plan.go
-  anchor: "stickiness := 1.5"
-  extent: 12
-  title: blance findBestNodes() — stickiness, read only with partition weights
-  highlight: ["if opts.PartitionWeights != nil {", "stickiness = float64(w)", "stickiness = float64(s)"]
+  path: api.go
+  anchor: "type PlanNextMapOptions struct {"
+  extent: func
+  title: blance PlanNextMapOptions — the knobs an app can set
+  highlight: ["ModelStateConstraints", "PartitionWeights", "StateStickiness", "NodeWeights", "NodeHierarchy", "HierarchyRules"]

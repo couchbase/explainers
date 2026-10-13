@@ -12,7 +12,7 @@
 // stickiness table, as bars. There are no lids or bubbles, and no panel
 // beside the board.
 
-import { NODES, PARTITIONS, STICKINESS } from './scenarios.js';
+import { NODES, PARTITIONS } from './scenarios.js';
 
 export const CANVAS = [0, 0, 780, 960];
 
@@ -42,9 +42,6 @@ export const scoreY = (v) => STRIP.zeroY - v * STRIP.unit;
 
 // the moves, under each node: px a move
 export const MOVE_UNIT = 36;
-// the stickiness bars, across the board: where each is, and px a move
-export const STICK_UNIT = 11;
-export const stickBarX = (i) => BOARD.col0 + (i + 0.5) * BOARD.colW;
 
 // ---- the engine's names ----
 
@@ -69,7 +66,6 @@ export const ANCHORS = {
   'groups': { p: [BOARD.col0 + 10, GROUP_Y], needs: [] },
   'scores': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
   'moves.total': { p: [BOARD.x0, STRIP.titleY + 20], needs: [] },
-  ...Object.fromEntries(STICKINESS.map((s, i) => [`stick.${s.key}`, { p: [stickBarX(i) - 20, STRIP.zeroY - s.moves * STICK_UNIT - 4], needs: [] }])),
   'tree': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
 };
 

@@ -114,23 +114,9 @@ export const SCENARIOS = { fresh, add, remove, nogroups, groups };
 // Every frame, by key ("fresh.3"), with its scenario.
 export const FRAMES = Object.fromEntries(Object.values(SCENARIOS).flatMap((s) => s.frames.map((f) => [f.key, { ...f, scenario: s.id }])));
 
-// ---- stickiness, and its quirk: adding d to the fresh map ----
+// ---- counts, for the tallies and the facts ----
 
 const countMoves = (moves) => Object.values(moves).reduce((n, ms) => n + ms.length, 0);
-function addD(opts) {
-  const r = planNextMap(mapOf(fresh.result), mapOf(fresh.result), NODES, [], ['d'], MODEL, opts);
-  const m = mapOf(fresh.result);
-  return countMoves(Object.fromEntries(PARTITIONS.map((p) => [p, calcPartitionMoves(STATES, m[p].nodesByState, r.nextMap[p].nodesByState)])));
-}
-const HIGH = { primary: 100000, replica: 100000 };
-export const STICKINESS = [
-  { key: 'default', label: 'defaults (stickiness 1.5)', opts: {}, moves: addD({}) },
-  { key: 'nil', label: 'stickiness 100000, PartitionWeights nil', opts: { stateStickiness: HIGH }, moves: addD({ stateStickiness: HIGH }) },
-  { key: 'empty', label: 'stickiness 100000, PartitionWeights {}', opts: { stateStickiness: HIGH, partitionWeights: {} }, moves: addD({ stateStickiness: HIGH, partitionWeights: {} }) },
-  { key: 'zero', label: 'stickiness 0, PartitionWeights {}', opts: { stateStickiness: { primary: 0, replica: 0 }, partitionWeights: {} }, moves: addD({ stateStickiness: { primary: 0, replica: 0 }, partitionWeights: {} }) },
-];
-
-// ---- counts, for the tallies and the facts ----
 
 export function tally(board) {
   const t = Object.fromEntries(NODES.map((n) => [n, { primary: 0, replica: 0 }]));
