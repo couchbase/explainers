@@ -738,6 +738,12 @@ export class Diagram {
     op(this.stickArea.g, w('stick'));
     op(this.treeArea.g, w('tree'));
     const so = w('score');
+    // (the decision's marks on the board, the outlined row and its label,
+    // the chosen chip's ring and the verdict, go with the scores: not
+    // when the area under the board is about the moves, say)
+    for (const e of [this.band, this.bandLabel, this.chosenRing, this.verdict.g]) {
+      op(e, +(e.getAttribute('opacity') || 0) * so);
+    }
     op(this.strip.g, so);
     this._drawStrip(FA, FB, q);
     // the arrows: of the decision in hand, or the one before, fading
