@@ -88,3 +88,9 @@
 
 /* the attention box: what to look at, this step */
 .diagram .sfocus { fill: color-mix(in srgb, var(--focus) 5%, transparent); stroke: var(--focus); stroke-opacity: 0.6; stroke-width: 3; pointer-events: none; }
+
+/* the moves: each node's copies built and deleted, and on the board */
+.diagram .mbar-add { fill: color-mix(in srgb, var(--join) 70%, var(--panel)); }
+.diagram .mbar-del { fill: color-mix(in srgb, var(--leave) 70%, var(--panel)); }
+.diagram .mmark-built { fill: none; stroke: var(--join); stroke-width: 2.5; }
+.diagram .mmark-deleted { fill: color-mix(in srgb, var(--leave) 8%, transparent); stroke: var(--leave); stroke-width: 1.5; stroke-dasharray: 4 3; }

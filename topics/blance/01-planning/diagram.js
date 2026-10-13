@@ -1,9 +1,10 @@
 // The 01-planning explainer's diagram: the partition map as a board
 // (a row per partition, a column per node, a chip per primary and
-// replica), each node's tallies, the score strip (for the decision at
-// hand, each node's score, under its own column), and the panel on the
-// right: the moves a plan takes, the server groups' tree, or the
-// stickiness table. Built once; main.js draws it partway between
+// replica), each node's tallies, and under them one area that shows,
+// as the story needs: the scores for the decision at hand (each node's,
+// under its own column), the moves a plan takes (on the board, the
+// copies built and deleted; below, each node's counts), the server
+// groups' rule, or the stickiness table, as bars. Built once; main.js draws it partway between
 // two frames, as the scroll says.
 
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
@@ -11,8 +12,7 @@ import { lerp, clamp01 } from '../../../engine/js/ui/util/anim.js';
 import { calcPartitionMoves } from '../lib/moves.js';
 import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, TERMS, tally, sourcesOf } from './scenarios.js';
 import {
-  CANVAS, BOARD, PANEL, TREE, STRIP, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y,
-  scoreY, movesRowY, stickRowY,
+  CANVAS, BOARD, STRIP, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y, scoreY, MOVE_UNIT, stickBarX, STICK_UNIT,
 } from './layout.js';
 
 const f4 = (x) => x.toFixed(4);
@@ -84,9 +84,12 @@ export class Diagram {
     el('line', { x1: 0, y1: 0, x2: 0, y2: 6, class: 'bspread-line' }, pat);
     const g = el('g', {}, svg);
     this._board(g);
-    this.panelG = el('g', {}, g);
-    this.panels = new Map(); // content key -> <g>
+    this.movesOnBoard = el('g', {}, g);
+    this.moveMarks = new Map(); // chip key -> {ghost, ring}
     this.strip = this._buildStrip(g);
+    this.movesArea = this._buildMoves(g);
+    this.stickArea = this._buildStick(g);
+    this.treeArea = this._buildTree(g);
     this.focusBox = el('rect', { rx: 14, class: 'sfocus', opacity: 0 }, g);
     this.arcG = el('g', {}, g);
     this.arcs = new Map(); // key -> {path, head, len}
@@ -215,25 +218,6 @@ export class Diagram {
     setText(this.subB, sb.title);
     op(this.subA, sa === sb ? 1 : 1 - q);
     op(this.subB, sa === sb ? 0 : q);
-  }
-
-  // ---- the panel: one <g> per content, built when first shown ----
-
-  _content(kind, frame) {
-    if (kind === 'none' || kind === 'score') return null;
-    const key = kind === 'moves' ? `moves:${frame.key}`
-        : kind === 'tree' ? `tree:${SCENARIOS[frame.scenario].id === 'groups' ? 'rule' : 'plain'}`
-          : kind;
-    let g = this.panels.get(key);
-    if (!g) {
-      g = el('g', { opacity: 0 }, this.panelG);
-      el('rect', { x: PANEL.x0, y: PANEL.y0, width: PANEL.x1 - PANEL.x0, height: 470, rx: 10, class: 'panel' }, g);
-      if (kind === 'moves') this._moves(g, frame);
-      else if (kind === 'tree') this._tree(g, key === 'tree:rule');
-      else this._stick(g);
-      this.panels.set(key, g);
-    }
-    return { key, g };
   }
 
   // ---- the score strip: built once, drawn each frame ----
@@ -389,78 +373,115 @@ export class Diagram {
     }
   }
 
-  _moves(g, f) {
+  // ---- the moves: on the board, and each node's counts below ----
+
+  _buildMoves(g) {
+    const M = { g: el('g', { opacity: 0 }, g), cols: {} };
+    M.title = txt(M.g, BOARD.x0, STRIP.titleY, '', 'ptitle');
+    M.note = txt(M.g, BOARD.x0, STRIP.titleY + 26, '', 'pnote');
+    M.axis = el('line', { x1: BOARD.col0, y1: STRIP.zeroY, x2: BOARD.x1, y2: STRIP.zeroY, class: 'paxis' }, M.g);
+    for (const n of NODES) {
+      const x = colX(n);
+      const cg = el('g', {}, M.g);
+      M.cols[n] = {
+        g: cg,
+        add: el('rect', { x: x - 18, width: 16, y: STRIP.zeroY, height: 0, class: 'mbar-add' }, cg),
+        del: el('rect', { x: x + 2, width: 16, y: STRIP.zeroY, height: 0, class: 'mbar-del' }, cg),
+        label: txt(cg, x, STRIP.labelY, '', 'pscore', 'middle'),
+      };
+    }
+    const ky = STRIP.labelY + 42;
+    el('rect', { x: BOARD.x0, y: ky - 9, width: 14, height: 10, class: 'mbar-add' }, M.g);
+    txt(M.g, BOARD.x0 + 20, ky, 'copies built on it (add)', 'pkey');
+    el('rect', { x: BOARD.x0 + 220, y: ky - 9, width: 14, height: 10, class: 'mbar-del' }, M.g);
+    txt(M.g, BOARD.x0 + 240, ky, 'copies deleted from it (del)', 'pkey');
+    return M;
+  }
+
+  // The moves from frame f's scenario's map before to f's: per chip,
+  // built or deleted.
+  static movesOf(f) {
     const scn = SCENARIOS[f.scenario];
-    const x0 = PANEL.x0 + 20;
-    const moves = Object.fromEntries(PARTITIONS.map((p) => [p, calcPartitionMoves(STATES, scn.prev[p], f.board[p])]));
-    txt(g, x0, PANEL.titleY, `the moves: ${scn.title}`, 'ptitle');
-    let total = 0, moved = 0;
-    for (const p of PARTITIONS) {
-      const y = movesRowY(p);
-      txt(g, x0, y + 5, `partition ${p}`, moves[p].length ? 'prow-node' : 'prow-node prow-out');
-      let x = x0 + 110;
-      if (!moves[p].length) txt(g, x, y + 5, 'stays', 'pterm');
-      for (const m of moves[p]) {
-        const label = m.op === 'del' ? `del ${m.node}` : `${m.op} ${m.node} as ${m.state}`;
-        const w = label.length * 7.4 + 18;
-        el('rect', { x, y: y - 10, width: w, height: 22, rx: 11, class: `pmove pmove-${m.op}` }, g);
-        txt(g, x + w / 2, y + 5, label, 'pmove-label', 'middle');
-        x += w + 8;
+    const has = (b, p, s, n) => b[p][s].includes(n);
+    const built = [], deleted = [];
+    for (const p of PARTITIONS) for (const s of STATES) {
+      for (const n of f.board[p][s]) if (!has(scn.prev, p, s, n)) built.push([p, s, n]);
+      for (const n of scn.prev[p][s]) if (!has(f.board, p, s, n)) deleted.push([p, s, n]);
+    }
+    return { built, deleted };
+  }
+
+  _drawMoves(F, o) {
+    const M = this.movesArea;
+    op(M.g, o);
+    const scn = SCENARIOS[F.scenario];
+    const { built, deleted } = Diagram.movesOf(F);
+    // (a copy moving from one node to another in the same state is two
+    // moves, an add and a del, as CalcPartitionMoves counts them; one
+    // changing state on its node, a promote or demote, one)
+    const moved = new Set([...built, ...deleted].map(([p]) => p));
+    setText(M.title, `the moves: ${scn.title}`);
+    setText(M.note, built.length + deleted.length ? `${built.length + deleted.length} moves: ${built.length} copies built, ${deleted.length} deleted, over ${moved.size} partitions` : 'none yet');
+    M.axis.setAttribute('x2', (BOARD.x0 + (this.boardW || BOARD.x1 - BOARD.x0)).toFixed(1));
+    for (const n of NODES) {
+      const c = M.cols[n];
+      const a = built.filter((x) => x[2] === n).length, d = deleted.filter((x) => x[2] === n).length;
+      c.add.setAttribute('y', (STRIP.zeroY - a * MOVE_UNIT).toFixed(1)); c.add.setAttribute('height', (a * MOVE_UNIT).toFixed(1));
+      c.del.setAttribute('y', (STRIP.zeroY - d * MOVE_UNIT).toFixed(1)); c.del.setAttribute('height', (d * MOVE_UNIT).toFixed(1));
+      setText(c.label, a || d ? `+${a} −${d}` : '');
+      op(c.g, scn.nodes.includes(n) ? 1 : 0);
+    }
+    // on the board: copies built ringed green, deleted ones left as ghosts
+    const shown = new Set();
+    const mark = ([p, s, n], kind) => {
+      const key = `${kind}:${p}:${s}:${n}`;
+      let m = this.moveMarks.get(key);
+      if (!m) {
+        m = el('rect', { x: chipX(n, s) - 21, y: rowY(p) - 16, width: 42, height: 32, rx: 9, class: `mmark-${kind}` }, this.movesOnBoard);
+        this.moveMarks.set(key, m);
       }
-      total += moves[p].length;
-      if (moves[p].length) moved++;
-    }
-    txt(g, x0, movesRowY(PARTITIONS[PARTITIONS.length - 1]) + 50, `${total} moves, over ${moved} partitions`, 'ptotal');
+      op(m, o);
+      shown.add(key);
+    };
+    built.forEach((x) => mark(x, 'built'));
+    deleted.forEach((x) => mark(x, 'deleted'));
+    for (const [key, m] of this.moveMarks) if (!shown.has(key)) op(m, 0);
   }
 
-  _tree(g, rule) {
-    const x0 = PANEL.x0 + 20;
-    txt(g, x0, PANEL.titleY, 'the node hierarchy: each node\'s parent', 'ptitle');
-    const pos = { dc: [915, TREE.y0 + 10], g1: [805, TREE.y0 + 100], g2: [1025, TREE.y0 + 100], a: [760, TREE.y0 + 190], b: [850, TREE.y0 + 190], c: [980, TREE.y0 + 190], d: [1070, TREE.y0 + 190] };
-    for (const [child, parent] of Object.entries(GROUPS)) {
-      el('line', { x1: pos[child][0], y1: pos[child][1] - 14, x2: pos[parent][0], y2: pos[parent][1] + 12, class: 'tedge' }, g);
-    }
-    for (const [n, [x, y]] of Object.entries(pos)) {
-      const leaf = NODES.includes(n);
-      const cls = rule ? (n === 'a' ? 'tnode tnode-from' : ['c', 'd'].includes(n) ? 'tnode tnode-in' : leaf ? 'tnode tnode-out' : 'tnode') : 'tnode';
-      el('rect', { x: x - 30, y: y - 14, width: 60, height: 26, rx: 13, class: cls }, g);
-      txt(g, x, y + 4, leaf ? `node ${n}` : n, 'tnode-label', 'middle');
-    }
-    const y = TREE.y0 + 250;
-    if (rule) {
-      txt(g, x0, y, 'replica rule: include level 2, exclude level 1', 'pnote');
-      txt(g, x0, y + 26, 'from a: up 2 levels, dc → a, b, c, d', 'pterm');
-      txt(g, x0, y + 46, 'minus up 1 level, g1 → a, b', 'pterm');
-      txt(g, x0, y + 66, '= c, d: the other group', 'pterm pterm-strong');
-    } else {
-      txt(g, x0, y, 'a: g1, b: g1, c: g2, d: g2, g1: dc, g2: dc', 'pterm');
-    }
-  }
+  // ---- stickiness: moves for each setting, as bars ----
 
-  _stick(g) {
-    const x0 = PANEL.x0 + 20;
-    txt(g, x0, PANEL.titleY, 'adding d to the first map: how many moves', 'ptitle');
-    STICKINESS.forEach((s, i) => {
-      const y = stickRowY(i);
-      txt(g, x0, y, s.label, 'prow-node');
-      el('rect', { x: x0, y: y + 8, width: Math.max(2, s.moves * 18), height: 12, rx: 3, class: 'pbar pbar-moves' }, g);
-      txt(g, x0 + Math.max(2, s.moves * 18) + 8, y + 19, String(s.moves), 'pscore');
+  _buildStick(g) {
+    const S = { g: el('g', { opacity: 0 }, g) };
+    txt(S.g, BOARD.x0, STRIP.titleY, 'adding d to the first map: how many moves', 'ptitle');
+    el('line', { x1: BOARD.col0, y1: STRIP.zeroY, x2: BOARD.x1, y2: STRIP.zeroY, class: 'paxis' }, S.g);
+    // (two short rows under the bars: each setting's stickiness, and its PartitionWeights)
+    const labels = [['1.5', 'nil'], ['100000', 'nil'], ['100000', '{}'], ['0', '{}']];
+    txt(S.g, BOARD.x0, STRIP.labelY - 6, 'stickiness', 'pkey');
+    txt(S.g, BOARD.x0, STRIP.labelY + 10, 'PartitionWeights', 'pkey');
+    STICKINESS.forEach((x, i) => {
+      const cx = stickBarX(i), h = x.moves * STICK_UNIT;
+      el('rect', { x: cx - 15, y: STRIP.zeroY - h, width: 30, height: h, class: 'pbar pbar-moves' }, S.g);
+      txt(S.g, cx, STRIP.zeroY - h - 8, String(x.moves), 'pscore', 'middle');
+      txt(S.g, cx, STRIP.labelY - 6, labels[i][0], 'pterm', 'middle');
+      txt(S.g, cx, STRIP.labelY + 10, labels[i][1], 'pterm', 'middle');
     });
+    return S;
   }
 
-  _drawPanel(kindA, FA, kindB, FB, q) {
-    const a = this._content(kindA, FA), b = this._content(kindB, FB);
-    const same = a && b && a.key === b.key;
-    for (const [key, g] of this.panels) {
-      let o = 0;
-      if (same && key === a.key) o = 1;
-      else {
-        if (a && key === a.key) o = Math.max(o, 1 - q * 2);
-        if (b && key === b.key) o = Math.max(o, q * 2 - 1);
-      }
-      op(g, o);
-      g.style.display = o > 0.001 ? '' : 'none';
-    }
+  // ---- server groups: the rule, in words, under the board's brackets ----
+
+  _buildTree(g) {
+    const T = { g: el('g', { opacity: 0 }, g) };
+    txt(T.g, BOARD.x0, STRIP.titleY, 'server groups, to blance: each node\'s parent', 'ptitle');
+    const lines = [
+      ['a, b → g1;  c, d → g2;  g1, g2 → dc', 'pnote'],
+      ['a rule for replicas: include level 2, exclude level 1', 'pnote'],
+      ['from a: up 2 levels, to dc: a, b, c, d', 'pterm'],
+      ['minus up 1 level, to g1: a, b', 'pterm'],
+      ['= c, d: the other group', 'pterm pterm-strong'],
+    ];
+    lines.forEach(([t, cls], i) => txt(T.g, BOARD.x0, STRIP.titleY + 34 + i * 26, t, cls));
+    return T;
   }
 
   // ---- arrows: where each term comes from ----
@@ -554,7 +575,6 @@ export class Diagram {
     if (name === 'board') return [BOARD.x0 - 8, top, bw + 16, BOARD.y1 - top + 8];
     if (name === 'tallies') return [BOARD.col0 - 6, TALLY_Y - 22, BOARD.x0 + bw - BOARD.col0 + 12, 62];
     if (name === 'strip') return [BOARD.x0 - 8, STRIP.titleY - 30, bw + 16, STRIP.labelY + 56 - (STRIP.titleY - 30)];
-    if (name === 'panel') return [PANEL.x0 - 8, PANEL.y0 - 8, PANEL.x1 - PANEL.x0 + 16, 486];
     const n = name.slice(4);
     return [colX(n) - BOARD.colW / 2 + 3, top, BOARD.colW - 6, STRIP.labelY + 28 - top];
   }
@@ -578,8 +598,12 @@ export class Diagram {
     const sameD = FA.decision && FA.decision === FB.decision;
     const stageOf = (f) => f.stage ?? (f.decision ? pickOf(f.decision) : 0);
     this._drawBoard(FA, FB, q, sameD ? lerp(stageOf(FA), stageOf(FB), q) : null);
-    this._drawPanel(kindA, PA, kindB, PB, pq);
-    const so = lerp(kindA === 'score' ? 1 : 0, kindB === 'score' ? 1 : 0, pq);
+    // what the area under the board shows: one fades out as the next fades in
+    const w = (k) => clamp01(kindA === k ? (kindB === k ? 1 : 1 - pq * 2) : kindB === k ? pq * 2 - 1 : 0);
+    this._drawMoves(pq < 0.5 ? PA : PB, w('moves'));
+    op(this.stickArea.g, w('stick'));
+    op(this.treeArea.g, w('tree'));
+    const so = w('score');
     op(this.strip.g, so);
     this._drawStrip(FA, FB, q);
     // the arrows: of the decision in hand, or the one before, fading
@@ -610,6 +634,7 @@ export class Diagram {
     const a = ANCHORS[id];
     if (!a) return null;
     const panelOf = { moves: 'moves', stick: 'stick', tree: 'tree', scores: 'score' };
+    if (id === 'moves.total' || id === 'tree' || id.startsWith('stick.')) return { p: a.p, visible: cur.panel === panelOf[id.split('.')[0]] };
     const kind = id.split('.')[0];
     return { p: a.p, visible: kind in panelOf ? cur.panel === panelOf[kind] : true };
   }

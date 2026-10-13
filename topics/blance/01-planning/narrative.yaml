@@ -273,7 +273,7 @@ chapters:
           The rest stay. Every node ends with [[2 primaries and 2 replicas]].
 
       - id: moves
-        view: { panel: moves, target: moves.total, focus: panel }
+        view: { panel: moves, target: moves.total, focus: strip }
         code: [blance.CalcPartitionMoves]
         expect: ["fact:add.moves=10", "fact:add.moved=5", "fact:add.moves.2=add d:replica, del b", "fact:add.moves.5=add b:replica, del a"]
         text: |
@@ -325,7 +325,7 @@ chapters:
           and 3.
 
       - id: moves
-        view: { panel: moves, target: moves.4, focus: panel }
+        view: { panel: moves, target: row.4, focus: strip }
         code: [cbgt.failover]
         expect: ["fact:remove.moves=8", "fact:remove.moves.4=add a:primary, del b"]
         text: |
@@ -340,33 +340,36 @@ chapters:
     color: groups
     steps:
 
-      - id: tree
-        view: { panel: tree, target: tree, focus: panel }
-        code: [blance.HierarchyRule]
-        text: |
-          Nodes can sit in server groups, say racks or availability
-          zones. blance takes them as [[a tree]]: each node's parent.
-          Here, a and b are in group g1, and c and d in g2.
-
       - id: without
         view: { at: nogroups.end, target: row.0, focus: board }
         expect: ["fact:nogroups.sameGroup=4"]
         text: |
-          Planned without the groups, on all four nodes, [[partition 0]] gets its primary on a and its replica on b, both in g1,
-          and so do 4 of the 8 partitions: lose g1, and partitions 0
-          and 1 are gone.
+          Nodes can sit in server groups, say racks or availability
+          zones: here a and b in group g1, and c and d in g2. Planned
+          from scratch without telling blance, [[partition 0]] gets its
+          primary on a and its replica on b, both in g1, and so do 4 of
+          the 8 partitions: lose g1, and partitions 0 and 1 are gone.
+
+      - id: tree
+        view: { panel: tree, target: tree, focus: strip }
+        code: [blance.HierarchyRule]
+        text: |
+          The app tells blance about them as [[a tree]]: each node's
+          parent (a and b's is g1, c and d's g2, and the groups' is the
+          datacenter, dc), and a rule for where replicas go, as levels
+          up that tree.
 
       - id: with
         view: { at: groups.end, target: row.0, focus: board }
         code: [cbgt.groupsRule]
         expect: ["fact:groups.sameGroup=0"]
         text: |
-          A rule for replicas (the app's to give; this one is cbgt's
-          default when there are groups): include level 2, exclude
-          level 1. From the primary's node, go up 2 levels (to dc) for
-          the candidates, and take away everything up 1 level (its own
-          group). Now [[partition 0]]'s replica is on c,
-          and every replica is in the other group from its primary.
+          The rule here (cbgt's default when there are groups):
+          include level 2, exclude level 1. From the primary's node, go
+          up 2 levels (to dc) for the candidates, and take away
+          everything up 1 level (its own group). Planned with it, [[partition 0]]'s
+          replica is on c, and every replica is in the other group
+          from its primary.
 
   # ------------------------------------------------------------------
   - id: sticky
@@ -375,7 +378,7 @@ chapters:
     steps:
 
       - id: default
-        view: { panel: stick, target: stick.default, focus: panel }
+        view: { panel: stick, target: stick.default, focus: strip }
         expect: ["fact:stick.default=10"]
         text: |
           Stickiness is 1.5 unless the app says otherwise: staying put
@@ -385,7 +388,7 @@ chapters:
           moves.
 
       - id: ignored
-        view: { target: stick.nil, focus: panel }
+        view: { target: stick.nil, focus: strip }
         code: [blance.stickiness]
         expect: ["fact:stick.nil=10"]
         text: |
@@ -395,7 +398,7 @@ chapters:
           weight, if it has one, is its stickiness).
 
       - id: honored
-        view: { target: stick.empty, focus: panel }
+        view: { target: stick.empty, focus: strip }
         expect: ["fact:stick.empty=0", "fact:stick.zero=13"]
         text: |
           Pass [[an empty partition weights map]] instead, and the same

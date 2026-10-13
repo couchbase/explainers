@@ -45,15 +45,18 @@ After changing the ports or moving to a newer blance, `npm run golden
 
 "Inside blance: how a plan places partitions". Its diagram is the
 partition map as a board (a row per partition, a column per node, a P
-or R chip per primary and replica, and each node's tallies); under it,
-the score strip: for the decision at hand (the outlined row), each
-node's score as a bar in its own column, built up as blance computes
-it: one node at a time, and each node's terms in turn (the count, the
-spread, the tie-breaker, stickiness off), then the pick; dashed arrows
-fly, one at a time, from the chips each term counts down to the top
-of the bar, which grows only once each lands (`sourcesOf` in scenarios.js, which `test/sources.test.mjs` checks
-against blance's own terms, decision by decision); and beside it, a panel: the moves a plan takes, the server
-groups' tree, or a stickiness table.
+or R chip per primary and replica, and each node's tallies), and one
+area under it, which shows, as the story needs: the score strip (for
+the decision at hand, the outlined row, each node's score as a bar in
+its own column, built up as blance computes it: one node at a time,
+and each node's terms in turn, then the pick; arrows fly, one at a
+time, from the chips each term counts down to the top of the bar,
+which grows only once each lands (`sourcesOf` in scenarios.js, which
+`test/sources.test.mjs` checks against blance's own terms, and
+`test/arrows.test.mjs` the timing); the moves a plan takes (each
+node's copies built and deleted, with the copies marked on the board);
+the server groups' rule; or a stickiness table, as bars. There's no
+panel beside the board.
 
 `scenarios.js` runs its scenarios through the port, with traces: a new
 index on nodes a, b and c; node d joining; node b leaving; all four

@@ -9,13 +9,13 @@ import { FRAMES, SCENARIOS, STICKINESS, GROUPS, NODES, PARTITIONS, tally, countM
 
 export const PANELS = ['none', 'score', 'moves', 'tree', 'stick'];
 // the regions a step's `focus` can box: the board, the tallies, the
-// score strip, the panel, or one node's column, chips to bar
-export const FOCUS_REGIONS = ['board', 'tallies', 'strip', 'panel', ...NODES.map((n) => `col.${n}`)];
+// area under them (the strip), or one node's column, chips to bar
+export const FOCUS_REGIONS = ['board', 'tallies', 'strip', ...NODES.map((n) => `col.${n}`)];
 
 export const VIEW_KEYS = {
   // the frame shown; carried over, and each move counts as the step's change
   at: { values: Object.keys(FRAMES), sticky: true, initial: 'fresh.prev', counts: () => true },
-  // what the panel on the right shows
+  // what the area under the board shows
   panel: { values: PANELS, sticky: true, initial: 'none', counts: () => true },
   // a box around what to look at, for this step only: a reading aid, so
   // not the step's one change

@@ -6,13 +6,15 @@
 // partition and a column per node, with a chip in a cell for each
 // primary (P) and replica (R); under each column, its tallies, and
 // under those, the score strip: for the decision at hand (the outlined
-// row), each node's score, as a bar in its own column. On the right, a
-// panel: the moves a plan takes, the server groups' tree, or the
-// stickiness table. There are no lids or bubbles.
+// row), each node's score, as a bar in its own column; or, there too,
+// the moves a plan takes (each node's copies built and deleted, with
+// the copies marked on the board), the server groups' rule, or the
+// stickiness table, as bars. There are no lids or bubbles, and no panel
+// beside the board.
 
 import { NODES, PARTITIONS, STICKINESS } from './scenarios.js';
 
-export const CANVAS = [0, 0, 1220, 920];
+export const CANVAS = [0, 0, 680, 920];
 
 // ---- the board ----
 
@@ -36,23 +38,22 @@ export const scoreY = (v) => STRIP.zeroY - v * STRIP.unit;
 
 // ---- the panel ----
 
-export const PANEL = { x0: 640, x1: 1190, y0: 60, titleY: 84, rowY0: 150 };
-export const movesRowY = (p) => PANEL.rowY0 - 20 + PARTITIONS.indexOf(p) * 34;
-export const stickRowY = (i) => PANEL.rowY0 + i * 46;
-export const TREE = { y0: 150, x0: PANEL.x0 + 40 };
+// the moves, under each node: px a move
+export const MOVE_UNIT = 36;
+// the stickiness bars, across the board: where each is, and px a move
+export const STICK_UNIT = 11;
+export const stickBarX = (i) => BOARD.col0 + (i + 0.5) * BOARD.colW;
 
 // ---- the engine's names ----
 
 export const LIDS = {};
 export const BUBBLES = {};
 
-// (main.js frames the board and strip alone while the panel's empty:
-// see cameraFor)
+// (the board, and the area under it: all there is)
 export const CAMERAS = {
-  overview: { rect: [0, 10, 1220, 910], label: '', section: null },
-  board: { rect: [20, 10, 640, 910], label: 'the partition map', section: null },
+  overview: { rect: [20, 10, 640, 910], label: '', section: null },
 };
-export const cameraFor = (panel) => (panel === 'none' || panel === 'score' ? CAMERAS.board.rect : CAMERAS.overview.rect);
+export const cameraFor = () => CAMERAS.overview.rect;
 
 // Static callout ends (the page computes `winner` and `chosen`).
 export const ANCHORS = {
@@ -62,10 +63,9 @@ export const ANCHORS = {
   ...Object.fromEntries(PARTITIONS.map((p) => [`row.${p}`, { p: [BOARD.labelX - 8, rowY(p)], needs: [] }])),
   'groups': { p: [BOARD.col0 + 10, GROUP_Y], needs: [] },
   'scores': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
-  ...Object.fromEntries(PARTITIONS.map((p) => [`moves.${p}`, { p: [PANEL.x0 + 10, movesRowY(p)], needs: [] }])),
-  'moves.total': { p: [PANEL.x0 + 10, movesRowY(PARTITIONS[PARTITIONS.length - 1]) + 46], needs: [] },
-  ...Object.fromEntries(STICKINESS.map((s, i) => [`stick.${s.key}`, { p: [PANEL.x0 + 10, stickRowY(i)], needs: [] }])),
-  'tree': { p: [TREE.x0, TREE.y0 + 4], needs: [] },
+  'moves.total': { p: [BOARD.x0, STRIP.titleY + 20], needs: [] },
+  ...Object.fromEntries(STICKINESS.map((s, i) => [`stick.${s.key}`, { p: [stickBarX(i) - 20, STRIP.zeroY - s.moves * STICK_UNIT - 4], needs: [] }])),
+  'tree': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
 };
 
 export const SECTION_COLORS = ['map', 'primary', 'replica', 'change', 'groups', 'neutral'];
