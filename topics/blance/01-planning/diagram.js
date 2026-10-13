@@ -139,6 +139,16 @@ export class Diagram {
     this.chipG = el('g', {}, g);
     this.chips = new Map();
     this.chosenRing = el('rect', { width: 40, height: 28, rx: 8, class: 'bchosen', opacity: 0 }, g);
+    // what the pick did to a partition that had a place: reassigned (a
+    // ghost where it was, an arrow across to where it goes) or stays put
+    const vg = el('g', { opacity: 0 }, g);
+    this.verdict = {
+      g: vg,
+      ghost: el('rect', { width: 34, height: 24, rx: 6, class: 'vghost' }, vg),
+      line: el('path', { class: 'varrow' }, vg),
+      head: el('path', { d: 'M0,0 L-10,-5 L-10,5 Z', class: 'varrow-head' }, vg),
+      label: txt(vg, 0, 0, '', 'vlabel', 'middle'),
+    };
   }
 
   _chip(key, state) {
@@ -373,6 +383,51 @@ export class Diagram {
     }
   }
 
+  // ---- the pick's verdict: reassigned, or stays put ----
+
+  // For decision d of scenario scn: where its partition was in d's state
+  // before the plan (the map it started from), and where it goes.
+  static verdictOf(scn, d) {
+    const was = scn.prev[d.partition][d.state][0];
+    const goes = d.chosen[0];
+    if (!was || !goes) return null;
+    return { was, goes, moved: was !== goes };
+  }
+
+  _drawVerdict(FA, FB, q, sNow) {
+    const V = this.verdict;
+    // the decision whose pick shows: this one, once its chip lands; or
+    // the one before, fading as the next begins
+    let d, f, o;
+    if (sNow !== null) { d = FA.decision; f = FA; o = within(through(sNow, pickOf(d)), PICK.chip); }
+    else if (FA.decision && (FA.stage ?? pickOf(FA.decision)) === pickOf(FA.decision)) { d = FA.decision; f = FA; o = clamp01(1 - q * 2); }
+    else if (FB.decision && FB.stage === undefined) { d = FB.decision; f = FB; o = clamp01(q * 2 - 1); }
+    const v = d && Diagram.verdictOf(SCENARIOS[f.scenario], d);
+    if (!v || o <= 0.001) { op(V.g, 0); return; }
+    op(V.g, o);
+    const y = rowY(d.partition);
+    if (v.moved) {
+      const x0 = chipX(v.was, d.state), x1 = chipX(v.goes, d.state);
+      const dir = Math.sign(x1 - x0);
+      V.ghost.setAttribute('x', x0 - 17); V.ghost.setAttribute('y', y - 12);
+      V.ghost.setAttribute('class', `vghost vghost-${d.state}`);
+      // across the row, just under the chips
+      const ya = y + 17, xa = x0 + dir * 10, xb = x1 - dir * 12;
+      V.line.setAttribute('d', `M${x0},${y + 12} Q${x0},${ya} ${xa + dir * 6},${ya} L${xb},${ya}`);
+      V.head.setAttribute('transform', `translate(${xb + dir * 4} ${ya}) rotate(${dir > 0 ? 0 : 180})`);
+      V.label.setAttribute('x', ((x0 + x1) / 2).toFixed(1)); V.label.setAttribute('y', (y - 13).toFixed(1));
+      setText(V.label, 'reassigned!');
+      V.label.setAttribute('class', 'vlabel vlabel-moved');
+      for (const e of [V.ghost, V.line, V.head]) op(e, 1);
+    } else {
+      for (const e of [V.ghost, V.line, V.head]) op(e, 0);
+      V.label.setAttribute('x', (chipX(v.goes, d.state) + (d.state === 'primary' ? -6 : 6)).toFixed(1));
+      V.label.setAttribute('y', (y - 14).toFixed(1));
+      setText(V.label, 'stays put!');
+      V.label.setAttribute('class', 'vlabel vlabel-stays');
+    }
+  }
+
   // ---- the moves: on the board, and each node's counts below ----
 
   _buildMoves(g) {
@@ -598,6 +653,7 @@ export class Diagram {
     const sameD = FA.decision && FA.decision === FB.decision;
     const stageOf = (f) => f.stage ?? (f.decision ? pickOf(f.decision) : 0);
     this._drawBoard(FA, FB, q, sameD ? lerp(stageOf(FA), stageOf(FB), q) : null);
+    this._drawVerdict(FA, FB, q, sameD ? lerp(stageOf(FA), stageOf(FB), q) : null);
     // what the area under the board shows: one fades out as the next fades in
     const w = (k) => clamp01(kindA === k ? (kindB === k ? 1 : 1 - pq * 2) : kindB === k ? pq * 2 - 1 : 0);
     this._drawMoves(pq < 0.5 ? PA : PB, w('moves'));
