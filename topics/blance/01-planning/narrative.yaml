@@ -400,10 +400,10 @@ chapters:
           - node weights, `NodeWeights`: a node's score is divided by
             the node's weight, so a bigger node gets more partitions;
           - how many nodes each state wants, `ModelStateConstraints`:
-            say, 2 replicas instead of the model's 1;
+            say, 2 replicas instead of 1;
           - and a tree of the nodes with rules for the replicas,
             `NodeHierarchy` and `HierarchyRules`, for server groups such
-            as racks or zones ([the third explainer](03-groups.html)).
+            as for dealing with server racks, rows, cloud regions, etc. (see: [the third explainer](03-groups.html))
 
   # ------------------------------------------------------------------
   - id: summary
@@ -447,5 +447,6 @@ chapters:
           [[the partition map]] one partition at a time, with a score
           that is mostly a count of what each node already holds. The
           result is fast, predictable and close to even, though not
-          always the fewest moves: when node d joined, the rebalance
-          took 10 moves where 8 would do.
+          always the fewest moves: when node d joined, rebalancing the partitions
+          led to 10 moves where 8 theoretically would do. So, the
+          simple, greedy approach of blance does have tradeoffs.
