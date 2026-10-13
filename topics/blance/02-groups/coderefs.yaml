@@ -1,0 +1,36 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields as in ../01-planning/coderefs.yaml.
+
+blance.HierarchyRule:
+  repo: blance
+  path: api.go
+  anchor: "type HierarchyRule struct {"
+  extent: func
+  title: blance HierarchyRule — up how many levels to include, and to exclude
+  highlight: ["IncludeLevel int", "ExcludeLevel int"]
+
+cbgt.groupsRule:
+  repo: cbgt
+  path: manager_planner.go
+  anchor: "indexDef.PlanParams.HierarchyRules = blance.HierarchyRules{"
+  extent: 4
+  title: cbgt — by default, a replica in another server group
+  highlight: ["IncludeLevel: 2,", "ExcludeLevel: 1}}}"]
+
+
+blance.includeExclude:
+  repo: blance
+  path: plan.go
+  anchor: "func includeExcludeNodes(node string,"
+  extent: func
+  title: blance includeExcludeNodes() — up the tree to include, and to exclude
+  highlight: ["findAncestor(node, mapParents, includeLevel)", "findAncestor(node, mapParents, excludeLevel)", "return StringsRemoveStrings(incNodes, excNodes)"]
+
+blance.hierarchyPicks:
+  repo: blance
+  path: plan.go
+  anchor: "if opts.HierarchyRules != nil {"
+  extent: 53
+  title: blance findBestNodes() — the rule's candidates first, best scoring first
+  highlight: ["hierarchyCandidates := includeExcludeNodesIntersect(", "hierarchyNodes = append(hierarchyNodes,", "candidateNodes = append(hierarchyNodes, candidateNodes...)"]

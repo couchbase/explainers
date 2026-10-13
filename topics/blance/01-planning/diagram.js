@@ -73,7 +73,8 @@ const TERM_NOTE = {
   sticky: () => '− stickiness: it holds this partition now',
 };
 const stageNote = (d, x) => (x.stage === 'row' ? 'every node starts at 0, and they\'re scored one at a time'
-  : x.stage === 'pick' ? 'the lowest wins' : `node ${x.node}: ${TERM_NOTE[x.term](d.state)}`);
+  : x.stage === 'pick' ? (d.hierarchyPicks.length ? 'the lowest of the rule\'s candidates wins' : 'the lowest wins')
+    : `node ${x.node}: ${TERM_NOTE[x.term](d.state)}`);
 
 export class Diagram {
   constructor(svg) {
@@ -330,8 +331,15 @@ export class Diagram {
     return { count, spread, fill: done ? (c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / w : fill, fillShown, taken, score: done ? c.score : fill - taken, won: d.chosen.includes(n) ? within(through(s, pickOf(d)), PICK.ring) : 0, sticky: c.currentFactor, computed };
   }
 
+  // Whether a scored node is outside the decision's hierarchy rule (its
+  // candidates, server groups say, go first: it can't win).
+  static ruledOut(d, n) {
+    return d.hierarchyPicks.length > 0 && !d.hierarchyPicks.some((h) => h.candidates.includes(n));
+  }
+
   // What can't take it, and why.
   static whyNot(f, d, n) {
+    if (d.scored.some((c) => c.node === n) && Diagram.ruledOut(d, n)) return 'same group';
     const scn = SCENARIOS[f.scenario];
     if (!scn.nodes.includes(n) || d.scored.some((c) => c.node === n)) return '';
     if (d.state === 'replica' && f.board[d.partition].primary.includes(n)) return 'its primary';
@@ -391,7 +399,10 @@ export class Diagram {
       const stState = st ? st.state : 'primary';
       col.sticky.setAttribute('class', `psticky pick-${stState}`);
       col.stickyLabel.setAttribute('class', `pterm pterm-sticky pick-${stState}`);
-      for (const e of [col.count, col.spread, col.fill, col.line]) op(e, shown);
+      // (a node outside the rule: scored, but it can't win)
+      const outA = da && Diagram.ruledOut(da, n), outB = db && Diagram.ruledOut(db, n);
+      const dim = same ? (outA ? 0.35 : 1) : lerp(outA ? 0.35 : 1, outB ? 0.35 : 1, q);
+      for (const e of [col.count, col.spread, col.fill, col.line]) op(e, shown * dim);
       // its number: faint till it's being computed, solid once it is
       op(col.num, shown * (0.15 + 0.85 * v.computed));
       col.line.setAttribute('y1', scoreY(v.score).toFixed(1));
@@ -424,10 +435,12 @@ export class Diagram {
     else if (FA.decision && (FA.stage ?? pickOf(FA.decision)) === pickOf(FA.decision)) { d = FA.decision; u = 1; o = clamp01(1 - q * 2); }
     if (!d || u <= 0) { op(box, 0); return; }
     const L = pickOf(d);
-    const tops = d.scored.map((c) => { const b = Diagram.barAt(d, L, c.node); return Math.max(b.fillShown, b.score, 0.3); });
-    const xs = d.scored.map((c) => colX(c.node));
+    // (the candidates it compares: with a hierarchy rule, the rule's)
+    const cands = d.scored.filter((c) => !Diagram.ruledOut(d, c.node));
+    const tops = cands.map((c) => { const b = Diagram.barAt(d, L, c.node); return Math.max(b.fillShown, b.score, 0.3); });
+    const xs = cands.map((c) => colX(c.node));
     const wide = [Math.min(...xs) - 34, scoreY(Math.max(...tops)) - 10, Math.max(...xs) + 34];
-    const w = d.chosen[0], wt = tops[d.scored.findIndex((c) => c.node === w)];
+    const w = d.chosen[0], wt = tops[cands.findIndex((c) => c.node === w)];
     const narrow = [colX(w) - 34, scoreY(wt) - 10, colX(w) + 34];
     box.setAttribute('class', `swon pick-${d.state}`);
     const e = easeQuad(within(u, PICK.narrow));

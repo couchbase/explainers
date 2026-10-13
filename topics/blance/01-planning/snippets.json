@@ -185,34 +185,6 @@
   "url": "https://github.com/couchbase/cbgt/blob/d0afea68bde6f1a1dca67847499a588777076db7/cmd/planner.go#L158-L179",
   "code": "\t\t\t\t// Failover'ed node used to be a primary for this\n\t\t\t\t// pindex, so find a replica to promote.\n\t\t\t\tpromoted := \"\"\n\n\t\t\tPROMOTE_REPLICA:\n\t\t\t\tfor nodePro, ppnPro := range planPIndex.Nodes {\n\t\t\t\t\tif mapNodesFailover[nodePro] {\n\t\t\t\t\t\tcontinue\n\t\t\t\t\t}\n\n\t\t\t\t\tif ppnPro.Priority >= 1 {\n\t\t\t\t\t\tppnPro.Priority = 0\n\t\t\t\t\t\tplanPIndex.Nodes[nodePro] = ppnPro\n\t\t\t\t\t\tpromoted = nodePro\n\t\t\t\t\t\t// this index will need a warning because it doesn't have\n\t\t\t\t\t\t// at least 1 replica.\n\t\t\t\t\t\tplanPIndexesNext.Warnings[planPIndex.IndexName] =\n\t\t\t\t\t\t\tappend(planPIndexesNext.Warnings[planPIndex.IndexName],\n\t\t\t\t\t\t\t\tplanPIndexesCalc.Warnings[planPIndex.IndexName]...)\n\t\t\t\t\t\tbreak PROMOTE_REPLICA\n\t\t\t\t\t}\n\t\t\t\t}"
  },
- "blance.HierarchyRule": {
-  "id": "blance.HierarchyRule",
-  "repo": "blance",
-  "path": "api.go",
-  "title": "blance HierarchyRule — up how many levels to include, and to exclude",
-  "start": 96,
-  "end": 105,
-  "highlight": [
-   99,
-   104
-  ],
-  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/api.go#L96-L105",
-  "code": "type HierarchyRule struct {\n\t// IncludeLevel defines how many parents or ancestors to traverse\n\t// upwards in a containment hierarchy to find candidate nodes.\n\tIncludeLevel int `json:\"includeLevel\"`\n\n\t// ExcludeLevel defines how many parents or ancestors to traverse\n\t// upwards in a containment hierarchy to find an exclusion set of\n\t// nodes.\n\tExcludeLevel int `json:\"excludeLevel\"`\n}"
- },
- "cbgt.groupsRule": {
-  "id": "cbgt.groupsRule",
-  "repo": "cbgt",
-  "path": "manager_planner.go",
-  "title": "cbgt — by default, a replica in another server group",
-  "start": 912,
-  "end": 915,
-  "highlight": [
-   914,
-   915
-  ],
-  "url": "https://github.com/couchbase/cbgt/blob/d0afea68bde6f1a1dca67847499a588777076db7/manager_planner.go#L912-L915",
-  "code": "\t\tindexDef.PlanParams.HierarchyRules = blance.HierarchyRules{\n\t\t\t\"replica\": []*blance.HierarchyRule{{\n\t\t\t\tIncludeLevel: 2,\n\t\t\t\tExcludeLevel: 1}}}"
- },
  "blance.stickiness": {
   "id": "blance.stickiness",
   "repo": "blance",

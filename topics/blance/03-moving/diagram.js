@@ -1,4 +1,4 @@
-// The 02-moving explainer's diagram: the partition map as a board at a
+// The 03-moving explainer's diagram: the partition map as a board at a
 // moment of a run (a copy being built fills in place; a copy being
 // deleted fades), each node's mover under its column, and the panel:
 // each partition's moves, or the movers' timeline. Built once; main.js

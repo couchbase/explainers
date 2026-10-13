@@ -1,4 +1,4 @@
-// The 02-moving explainer's diagram geometry, with no DOM, so the build
+// The 03-moving explainer's diagram geometry, with no DOM, so the build
 // can validate narrative references (cameras, anchors) against it.
 //
 // The picture: on the left, the partition map as a board, as in

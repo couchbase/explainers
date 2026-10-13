@@ -1,4 +1,4 @@
-// The 02-moving explainer's story vocabulary, for the engine. There's
+// The 03-moving explainer's story vocabulary, for the engine. There's
 // no simulation running in the page: a step's state is a moment of one
 // of the runs (`at`: "one@270") and what the panel shows (`panel`).
 // Facts, for `expect`, come from the same runs, made by the simulation

@@ -1,0 +1,60 @@
+{
+ "blance.HierarchyRule": {
+  "id": "blance.HierarchyRule",
+  "repo": "blance",
+  "path": "api.go",
+  "title": "blance HierarchyRule — up how many levels to include, and to exclude",
+  "start": 96,
+  "end": 105,
+  "highlight": [
+   99,
+   104
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/api.go#L96-L105",
+  "code": "type HierarchyRule struct {\n\t// IncludeLevel defines how many parents or ancestors to traverse\n\t// upwards in a containment hierarchy to find candidate nodes.\n\tIncludeLevel int `json:\"includeLevel\"`\n\n\t// ExcludeLevel defines how many parents or ancestors to traverse\n\t// upwards in a containment hierarchy to find an exclusion set of\n\t// nodes.\n\tExcludeLevel int `json:\"excludeLevel\"`\n}"
+ },
+ "cbgt.groupsRule": {
+  "id": "cbgt.groupsRule",
+  "repo": "cbgt",
+  "path": "manager_planner.go",
+  "title": "cbgt — by default, a replica in another server group",
+  "start": 912,
+  "end": 915,
+  "highlight": [
+   914,
+   915
+  ],
+  "url": "https://github.com/couchbase/cbgt/blob/d0afea68bde6f1a1dca67847499a588777076db7/manager_planner.go#L912-L915",
+  "code": "\t\tindexDef.PlanParams.HierarchyRules = blance.HierarchyRules{\n\t\t\t\"replica\": []*blance.HierarchyRule{{\n\t\t\t\tIncludeLevel: 2,\n\t\t\t\tExcludeLevel: 1}}}"
+ },
+ "blance.includeExclude": {
+  "id": "blance.includeExclude",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance includeExcludeNodes() — up the tree to include, and to exclude",
+  "start": 723,
+  "end": 734,
+  "highlight": [
+   729,
+   731,
+   733
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L723-L734",
+  "code": "func includeExcludeNodes(node string,\n\tincludeLevel int,\n\texcludeLevel int,\n\tmapParents map[string]string,\n\tmapChildren map[string][]string) []string {\n\tincNodes :=\n\t\tfindLeaves(findAncestor(node, mapParents, includeLevel), mapChildren)\n\texcNodes :=\n\t\tfindLeaves(findAncestor(node, mapParents, excludeLevel), mapChildren)\n\n\treturn StringsRemoveStrings(incNodes, excNodes)\n}"
+ },
+ "blance.hierarchyPicks": {
+  "id": "blance.hierarchyPicks",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance findBestNodes() — the rule's candidates first, best scoring first",
+  "start": 174,
+  "end": 226,
+  "highlight": [
+   188,
+   215,
+   224
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L174-L226",
+  "code": "\t\tif opts.HierarchyRules != nil {\n\t\t\thierarchyNodes := []string{}\n\n\t\t\tfor _, hierarchyRule := range opts.HierarchyRules[stateName] {\n\t\t\t\th := topPriorityNode\n\t\t\t\tif h == \"\" && len(hierarchyNodes) > 0 {\n\t\t\t\t\th = hierarchyNodes[0]\n\t\t\t\t}\n\n\t\t\t\t// Pick the nodes for the partition until the given constaint is met.\n\t\t\t\t// {h} + {hierarchyNodes} contains the list of the nodes assigned for the\n\t\t\t\t// partition so far, so that the hierarchial inclusion or exclusion of\n\t\t\t\t// future node selections can be cognizant of the previous node assignments.\n\t\t\t\tfor i := 0; i < constraints; i++ {\n\t\t\t\t\thierarchyCandidates := includeExcludeNodesIntersect(\n\t\t\t\t\t\tappend([]string{h}, hierarchyNodes...),\n\t\t\t\t\t\thierarchyRule.IncludeLevel,\n\t\t\t\t\t\thierarchyRule.ExcludeLevel,\n\t\t\t\t\t\topts.NodeHierarchy, hierarchyChildren)\n\t\t\t\t\thierarchyCandidates =\n\t\t\t\t\t\tStringsIntersectStrings(hierarchyCandidates, nodesNext)\n\t\t\t\t\thierarchyCandidates =\n\t\t\t\t\t\texcludeHigherPriorityNodes(hierarchyCandidates)\n\n\t\t\t\t\tconfig := &NodeSorterConfig{\n\t\t\t\t\t\tStateName:           stateName,\n\t\t\t\t\t\tPartition:           partition,\n\t\t\t\t\t\tNumPartitions:       len(prevMap),\n\t\t\t\t\t\tTopPriorityNode:     topPriorityNode,\n\t\t\t\t\t\tStateNodeCounts:     stateNodeCounts,\n\t\t\t\t\t\tNodeToNodeCounts:    nodeToNodeCounts,\n\t\t\t\t\t\tNodePartitionCounts: nodePartitionCounts,\n\t\t\t\t\t\tNodePositions:       nodePositions,\n\t\t\t\t\t\tNodeWeights:         opts.NodeWeights,\n\t\t\t\t\t\tStickiness:          stickiness,\n\t\t\t\t\t\tNodes:               hierarchyCandidates,\n\t\t\t\t\t}\n\t\t\t\t\tnodeSorter := CustomNodeSorter(config)\n\t\t\t\t\tsort.Sort(nodeSorter)\n\n\t\t\t\t\tif len(hierarchyCandidates) > 0 {\n\t\t\t\t\t\thierarchyNodes = append(hierarchyNodes,\n\t\t\t\t\t\t\thierarchyCandidates[0])\n\t\t\t\t\t} else if len(candidateNodes) > 0 {\n\t\t\t\t\t\thierarchyNodes = append(hierarchyNodes,\n\t\t\t\t\t\t\tcandidateNodes[0])\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tcandidateNodes = append(hierarchyNodes, candidateNodes...)\n\t\t\tcandidateNodes = stringsDeduplicate(candidateNodes)\n\t\t}"
+ }
+}

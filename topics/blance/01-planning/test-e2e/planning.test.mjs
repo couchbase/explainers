@@ -36,7 +36,7 @@ for (const scheme of ['light', 'dark']) {
 }
 
 test('planning page: deep links land on their step', async () => {
-  for (const hash of ['replicas--spread', 'join--sticky', 'groups--with', 'sticky--honored']) {
+  for (const hash of ['replicas--spread', 'join--sticky', 'leave--no-promote', 'sticky--honored']) {
     const { page, errors } = await openPage(browser, { page: planning, hash });
     await page.waitForTimeout(500);
     const id = await page.evaluate(() => { const s = window.explainer.steps[window.explainer.ctl.current]; return `${s.chapterId}--${s.id}`; });

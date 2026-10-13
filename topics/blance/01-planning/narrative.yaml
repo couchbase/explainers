@@ -7,7 +7,7 @@
 # the real blance.
 
 sources: [blance, cbgt]
-next: 02-moving
+next: 02-groups
 title: "Inside blance: how a plan places partitions"
 subtitle: >-
   How blance, a library for placing partitions on nodes, decides which
@@ -356,43 +356,6 @@ chapters:
           then delete b. (An app can handle a failed node outside
           blance: cbgt, for one, promotes a surviving replica itself,
           and uses blance's plan only for a partition with none.)
-
-  # ------------------------------------------------------------------
-  - id: groups
-    title: "Server groups"
-    color: groups
-    steps:
-
-      - id: without
-        view: { at: nogroups.end, target: row.0, focus: board }
-        expect: ["fact:nogroups.sameGroup=4"]
-        text: |
-          Nodes can sit in server groups, say racks or availability
-          zones: here a and b in group g1, and c and d in g2. Planned
-          from scratch without telling blance, [[partition 0]] gets its
-          primary on a and its replica on b, both in g1, and so do 4 of
-          the 8 partitions: lose g1, and partitions 0 and 1 are gone.
-
-      - id: tree
-        view: { panel: tree, target: tree, focus: strip }
-        code: [blance.HierarchyRule]
-        text: |
-          The app tells blance about them as [[a tree]]: each node's
-          parent (a and b's is g1, c and d's g2, and the groups' is the
-          datacenter, dc), and a rule for where replicas go, as levels
-          up that tree.
-
-      - id: with
-        view: { at: groups.end, target: row.0, focus: board }
-        code: [cbgt.groupsRule]
-        expect: ["fact:groups.sameGroup=0"]
-        text: |
-          The rule here (cbgt's default when there are groups):
-          include level 2, exclude level 1. From the primary's node, go
-          up 2 levels (to dc) for the candidates, and take away
-          everything up 1 level (its own group). Planned with it, [[partition 0]]'s
-          replica is on c, and every replica is in the other group
-          from its primary.
 
   # ------------------------------------------------------------------
   - id: sticky
