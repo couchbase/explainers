@@ -103,7 +103,7 @@ builds to `dist/<topic>/<name>.html`:
 | `coderefs.yaml`, `snippets.json` | the source code it shows, and those snippets resolved (`npm run snippets`) |
 | `domain.js` | everything the engine reads from it (below) |
 | `entry.js`, `use.js` | the page's entry point, which picks the explainer before anything else runs |
-| `main.js` | its page: the engine's parts, put together with its diagram |
+| `main.js` | its page: the engine's story runner (`runStory()`, in `engine/js/ui/story.js`) with its diagram, and what moves in it per step and per scroll position |
 | `style.css` | its styles, appended to the engine's |
 | `test/`, `test-e2e/` | its tests |
 
@@ -262,7 +262,7 @@ sources; only refreshing the snippets does.
 engine/                  the engine
   js/domain.js           the seam: useDomain(), and D, the explainer the engine reads
   js/story/timeline.js   narrative semantics: steps, views, change counting, expectations
-  js/ui/                 the page's parts: page.js (story, toolbar DOM), camera.js and
+  js/ui/                 the page's parts: story.js (runStory: the page, run), page.js (story, toolbar DOM), camera.js and
                          gestures.js, scroll.js, overlay.js (callout lines), anchors.js,
                          code.js and toc.js (the drawers), util/
   css/style.css          the engine's styles: palette, layout, story, toolbar, drawers
