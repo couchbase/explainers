@@ -93,11 +93,14 @@
 .diagram .mbar-add { fill: color-mix(in srgb, var(--join) 70%, var(--panel)); }
 .diagram .mbar-del { fill: color-mix(in srgb, var(--leave) 70%, var(--panel)); }
 .diagram .mmark-built { fill: none; stroke: var(--join); stroke-width: 2.5; }
-.diagram .lghost-label { font: 600 13px var(--font-mono); fill: var(--leave); fill-opacity: 0.6; }
+.diagram .lghost-label { font: 600 13px var(--font-mono); fill: var(--leave); fill-opacity: 0.85; }
 .diagram .mmark-deleted { fill: color-mix(in srgb, var(--leave) 8%, transparent); stroke: var(--leave); stroke-width: 1.5; stroke-dasharray: 4 3; }
 
 /* the pick's verdict on the board */
 .diagram .vghost { fill: none; stroke-width: 1.5; stroke-dasharray: 4 3; }
+.diagram .vghost-label { font: 600 13px var(--font-mono); stroke: none; fill-opacity: 0.7; }
+.diagram .vghost-label.vghost-primary { fill: var(--primary); stroke: none; }
+.diagram .vghost-label.vghost-replica { fill: var(--replica); stroke: none; }
 .diagram .vghost-primary { stroke: var(--primary); }
 .diagram .vghost-replica { stroke: var(--replica); }
 .diagram .varrow { fill: none; stroke: var(--accent); stroke-width: 2; stroke-dasharray: 5 3; }

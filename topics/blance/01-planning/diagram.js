@@ -162,6 +162,7 @@ export class Diagram {
     this.verdict = {
       g: vg,
       ghost: el('rect', { width: 34, height: 24, rx: 6, class: 'vghost' }, vg),
+      ghostLabel: txt(vg, 0, 0, '', 'vghost-label', 'middle'),
       line: el('path', { class: 'varrow' }, vg),
       head: el('path', { d: 'M0,0 L-10,-5 L-10,5 Z', class: 'varrow-head' }, vg),
       label: txt(vg, 0, 0, '', 'vlabel', 'middle'),
@@ -519,6 +520,9 @@ export class Diagram {
       const dir = Math.sign(x1 - x0);
       V.ghost.setAttribute('x', x0 - 17); V.ghost.setAttribute('y', y - 12);
       V.ghost.setAttribute('class', `vghost vghost-${d.state}`);
+      V.ghostLabel.setAttribute('x', x0); V.ghostLabel.setAttribute('y', y + 5);
+      V.ghostLabel.setAttribute('class', `vghost-label vghost-${d.state}`);
+      setText(V.ghostLabel, d.state === 'primary' ? 'P' : 'R');
       // across the row, just under the chips
       const ya = y + 17, xa = x0 + dir * 10, xb = x1 - dir * 12;
       V.line.setAttribute('d', `M${x0},${y + 12} Q${x0},${ya} ${xa + dir * 6},${ya} L${xb},${ya}`);
@@ -548,9 +552,9 @@ export class Diagram {
       V.label.setAttribute('class', `vlabel vlabel-moved pick-${d.state}`);
       V.line.setAttribute('class', `varrow pick-${d.state}`);
       V.head.setAttribute('class', `varrow-head pick-${d.state}`);
-      for (const e of [V.ghost, V.line, V.head]) op(e, 1);
+      for (const e of [V.ghost, V.ghostLabel, V.line, V.head]) op(e, 1);
     } else {
-      for (const e of [V.ghost, V.line, V.head]) op(e, 0);
+      for (const e of [V.ghost, V.ghostLabel, V.line, V.head]) op(e, 0);
       V.label.setAttribute('x', (chipX(v.goes, d.state) + (d.state === 'primary' ? -6 : 6)).toFixed(1));
       V.label.setAttribute('y', (y - 14).toFixed(1));
       V.label.setAttribute('text-anchor', 'middle');
@@ -627,10 +631,13 @@ export class Diagram {
       const key = `${kind}:${p}:${s}:${n}`;
       let m = this.moveMarks.get(key);
       if (!m) {
-        m = el('rect', { x: chipX(n, s) - 21, y: rowY(p) - 16, width: 42, height: 32, rx: 9, class: `mmark-${kind}` }, this.movesOnBoard);
+        // (a deleted copy's ghost keeps its P or R)
+        m = el('g', {}, this.movesOnBoard);
+        el('rect', { x: -21, y: -16, width: 42, height: 32, rx: 9, class: `mmark-${kind}` }, m);
+        if (kind === 'deleted') txt(m, 0, 5, s === 'primary' ? 'P' : 'R', 'lghost-label', 'middle');
         this.moveMarks.set(key, m);
       }
-      m.setAttribute('x', (chipX(n, s) - 21).toFixed(1));
+      m.setAttribute('transform', `translate(${chipX(n, s).toFixed(1)} ${rowY(p)})`);
       op(m, o * colShown(n));
       shown.add(key);
     };
