@@ -60,7 +60,7 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 [hidden] { display: none !important; }
 
 .sec-neutral { --sec: var(--sec-neutral); }
-.next-card { margin: 0 0 40vh; }
+.next-card { margin: 85vh 0 40vh; } /* (the last step scrolled off before it) */
 .next-link { font: 600 1.15rem var(--font-display); color: var(--accent); text-decoration: none; }
 .next-link:hover { text-decoration: underline; }
 .next-link + .up-link { margin-top: 1rem; }
@@ -320,6 +320,9 @@ a.eyebrow:hover { text-decoration: underline; }
   .story { width: auto; margin-left: 0; padding-block: 1rem 60vh; pointer-events: auto; }
   .step { min-height: 50vh; scroll-margin-top: 58vh; }
   .step.step-scrub > .card { top: 60vh; }
+  /* (the next card stops under the diagram, not behind it) */
+  .story:has(> .next-card) { padding-bottom: 6vh; }
+  .next-card { margin-bottom: 0; }
   .hero h1 { font-size: 1.8rem; }
 }
 @media (prefers-reduced-motion: reduce) {
