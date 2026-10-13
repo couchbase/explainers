@@ -1,12 +1,10 @@
 # explainers
 
-Scrollytelling explainers of how software works inside: a story column
-you scroll, beside one large diagram that the story zooms around and
-opens up section by section, and the real source code each step is
-about.
+A project to build standalone, self-contained "explainer" HTML pages,
+such as for how software algorithms and systems work.
 
 This repo has a generic engine (`engine/`) and domain specific content
-or explainers grouped by topic in (`topics/`).
+grouped by topic in (`topics/`).
 
 ## Quick start
 
@@ -19,7 +17,7 @@ open dist/index.html # open it in a browser
 ```
 
 Each page is a **self-contained HTML file**, with no server and no
-external scripts, so it can be emailed or Slacked.
+external scripts, so it can be easily emailed or slacked around.
 
 `npm run dev` rebuilds on every change under `engine/` and `topics/`.
 
@@ -30,10 +28,9 @@ You can also navigate the diagram like a google map:
 - drag to pan;
 - ⌘, Ctrl or ⌥ + scroll, or pinch, to zoom at the cursor;
 - double-click to zoom in, ⌥/Shift + double-click to zoom out;
-- two fingers to pinch and pan on touchscreens;
-- ⟲ to return to the story's view (the next step also eases back to it).
+- two fingers to pinch and pan on touchscreens / touchpads;
 
-The Code drawer shows the source code for each step, if available,
+The Code drawer shows related source code, if any, for each step
 with links to GitHub at pinned commits.
 
 ## Tests
@@ -50,23 +47,20 @@ every explainer's narrative: its schema, its code refs, and each
 step's `expect`.
 
 Where an explainer models real code in JS (e.g., a planner, a merge policy,
-etc.), it checks the JS model against the real thing: a **golden
-tool**, `tools/<name>-golden/` beside it, runs the real code (in Go)
-on many cases and writes what it did, and the explainer's tests
-compare. `npm run golden` reruns them all (`npm run golden -- blance`
-just those whose path matches); each tool's `golden.yaml` says how to
-run it. The go on your PATH must be new enough for the code it runs.
+etc.), and checks the JS model against the real thing via a **golden
+tool**, `tools/<name>-golden/` that runs the real code (e.g., in Go)
+and compares the explainer's data. `npm run golden` to rerun (`npm run golden -- blance`
+just those whose path matches); see each tool's `golden.yaml`.
+The go on your PATH must be new enough for the code it runs.
 
-Append `?debug=1` to a page's URL for its explainer's debug checks
-(the cbft simulation's invariants, on every frame).
+Append `?debug=1` to a page's URL for each explainer's debug checks.
 
-CI (`.github/workflows/ci.yml`) runs the build and both test suites
-on every push and pull request.
+CI is via `.github/workflows/ci.yml`.
 
 ## Publishing
 
-Each built page carries a version stamp from `git describe --long` of
-the sources it was built from, plus `-dirty` if they had uncommitted
+Each built page carries a version stamp from `git describe --long`,
+plus `-dirty` if they had uncommitted
 changes (changes under `dist/` don't count).
 
 To publish a new version:
@@ -78,20 +72,19 @@ git add dist && git commit -m "Build dist"
 git push
 ```
 
-Tag a release (`git tag v0.2.0`) before building to get a friendlier
-stamp.
+Tag a release (`git tag v0.2.0`) before building to get a friendlier git describe.
 
 **GitHub Pages.** `.github/workflows/pages.yml` publishes the committed
-`dist/` (but not the drafts pages) whenever `dist/` changes on `main`
-or `master`, or when run by hand from the Actions tab. To turn it on,
-once, in the GitHub repo: **Settings → Pages → Build and deployment →
+`dist/` (but not draft pages) whenever `dist/` changes on `main`
+or `master`, or when run by hand from the github's Actions tab. To enable,
+in the GitHub repo: **Settings → Pages → Build and deployment →
 Source: GitHub Actions**. The pages are then at
 `https://<owner>.github.io/<repo>/`, e.g.
 `https://<owner>.github.io/<repo>/cbft/01-indexing.html`.
 
 ## Engine and explainers
 
-An explainer lives in one directory, `topics/<topic>/<name>/`, and
+A content specific explainer lives in a directory like `topics/<topic>/<name>/`, and
 builds to `dist/<topic>/<name>.html`:
 
 | file | what it is |
@@ -105,28 +98,24 @@ builds to `dist/<topic>/<name>.html`:
 | `test/`, `test-e2e/` | its tests |
 
 Anything else it needs (its diagram, a simulator, example data, tools
-that generate it) goes beside these. A topic's directory holds what its
-explainers share: `topic.yaml` (its `title`; a short `label`, shown
-atop each explainer page as a link up to the topic's index; and a
-`subtitle` for that index page; and optionally its `fonts`, as Google
-Fonts families), `style.css` (its look: palette, section colors, and
-the engine's `--font-*` set to its fonts; after the engine's styles,
-before each explainer's), `sources.yaml` (the source repos they link
-into, pinned), and any shared notes or code. With no fonts or
-`style.css`, a topic looks like the engine: neutral, in IBM Plex. The build gives each
+that generate it) goes beside the above. A topic's directory might
+share: `topic.yaml` (its `title`; a short `label`, shown
+atop each explainer page as a link up to the topic level index; and a
+`subtitle` for that index page; optionally, `fonts`, as Google
+Fonts families), `style.css` (palette, section colors, and
+the engine's `--font-*`, which come after the engine's styles,
+and before each explainer's), `sources.yaml` (the pinned source repos,
+if any), and any shared notes or code. With no fonts or
+`style.css`, a topic uses the engine's default style. The build gives each
 topic an index page, `dist/<topic>/index.html`, listing its explainers
-with their subtitles; each explainer links back up to it, from its
-header and from its last card. Those links, the one to the next
-explainer, and links in a step's text to sibling pages, work only where
-they'd lead somewhere: when the page is served, or opened from disk
-still in its topic's directory (as in `dist/`), but not from a copy
-that was emailed or Slacked around (they're left out, or plain text). Code
-shared across topics goes in the engine.
+with their subtitles. Those nav links work only when served
+or opened from folder with topic's directory (as in `dist/`), but not from a HTML
+that was emailed or slacked around.
 
-The engine reaches an explainer only through one seam,
-`engine/js/domain.js`: the explainer's entry point calls `useDomain()`
-with its `domain.js`, and the engine reads that as `D`. The build and
-the tests do the same for each explainer. The engine reads:
+The engine's entry point to a specific explainer is via
+`engine/js/domain.js`: the explainer's entry point calls `useDomain()`.
+
+The domain may provide to the engine:
 
 - **geometry:** `CANVAS`, `CAMERAS`, `LIDS`, `BUBBLES`, `ANCHORS`,
   `DYNAMIC_ANCHORS` (anchors whose place the page works out) and
@@ -136,21 +125,21 @@ the tests do the same for each explainer. The engine reads:
   told over steps;
 - **expectations:** `EXPECTATIONS` and `EXPECTATION_PARAMS`
   (`<name>:<arg>`);
-- **a simulation, if it has one:** `makeModel`, `makeConfig` and
+- **a simulation, if any:** `makeModel`, `makeConfig` and
   `applyConfig`, and `SIM`: the step directives besides `reset`, how
   they're checked, and how they drive the model; and optionally
   `checkInvariants`, which the tests run at every step.
 
-`useDomain()` fills in empty defaults for what an explainer leaves out.
+`useDomain()` has defaults for what a specific explainer leaves out.
 With no `makeModel`, a narrative has no `sim` directives, and the page
 builds no simulation controls (`buildPage(..., { simulation: true })`
 asks for them).
 
-The engine provides the rest: the narrative schema
+The engine provides driving the narrative schema
 (`engine/build/schema.mjs`), the step/view folding and change counting
 (`engine/js/story/timeline.js`), and the page's parts (`engine/js/ui/`):
 story column, camera and gestures, scroll position, callout lines,
-contents, code drawer.
+contents, code drawer -- the reusable generic stuff.
 
 ## Design principles
 
