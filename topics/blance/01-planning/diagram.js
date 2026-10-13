@@ -492,7 +492,9 @@ export class Diagram {
         V.label.setAttribute('text-anchor', 'middle');
       }
       setText(V.label, 'reassigned!');
-      V.label.setAttribute('class', 'vlabel vlabel-moved');
+      V.label.setAttribute('class', `vlabel vlabel-moved pick-${d.state}`);
+      V.line.setAttribute('class', `varrow pick-${d.state}`);
+      V.head.setAttribute('class', `varrow-head pick-${d.state}`);
       for (const e of [V.ghost, V.line, V.head]) op(e, 1);
     } else {
       for (const e of [V.ghost, V.line, V.head]) op(e, 0);
