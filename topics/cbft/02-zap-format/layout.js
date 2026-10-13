@@ -14,6 +14,9 @@ import SEG from './segment.json' with { type: 'json' };
 
 export { SEG };
 
+// where quiet's postings list starts, for its lens's title
+const QUIET_AT = SEG.fields.find((f) => f.name === 'description').terms.find((t) => t.term === 'quiet').postingsStart;
+
 // ---- the strip, and the lenses beside it ----
 
 export const STRIP = { x0: 120, x1: 360, y0: 90 };
@@ -37,7 +40,7 @@ const LENS_DEFS = {
   record: { size: [450, 170], region: 'sectionBodies', title: 'description: its inverted-index record' },
   fst: { size: [900, 470], region: 'sectionBodies', title: 'city\'s term dictionary: a vellum FST' },
   walk: { size: [1200, 230], region: 'sectionBodies', title: 'looking up "quiet" in description\'s FST' },
-  postings: { size: [540, 230], region: 'sectionBodies', title: '"quiet": its postings list' },
+  postings: { size: [540, 230], region: 'sectionBodies', title: `"quiet": its postings list, at byte ${QUIET_AT}` },
   freq: { size: [640, 230], region: 'sectionBodies', title: '"quiet": freq/norm, chunked' },
   and: { size: [1200, 170], region: 'sectionBodies', title: 'quiet AND hotel' },
   sections: { size: [540, 330], region: 'sectionsIndex', title: 'the sections index, and each field\'s info' },
