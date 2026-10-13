@@ -60,6 +60,14 @@ own `test/` and `test-e2e/`. `engine/test/narratives.test.mjs` checks
 every explainer's narrative: its schema, its code refs, and each
 step's `expect`.
 
+Where an explainer models real code in JS (a planner, a merge policy,
+a file format), it checks the model against the real thing: a **golden
+tool**, `tools/<name>-golden/` beside it, runs the real code (in Go)
+on many cases and writes what it did, and the explainer's tests
+compare. `npm run golden` reruns them all (`npm run golden -- blance`
+just those whose path matches); each tool's `golden.yaml` says how to
+run it. The go on your PATH must be new enough for the code it runs.
+
 Append `?debug=1` to a page's URL for its explainer's debug checks
 (the cbft simulation's invariants, on every frame).
 
@@ -271,7 +279,7 @@ engine/                  the engine
                          code.js and toc.js (the drawers), util/
   css/style.css          the engine's styles: neutral palette, default fonts, layout, story, toolbar, drawers
   page.html              the page template
-  build/                 build.mjs, explainers.mjs (finding them), look.mjs (topic styles and fonts), indexes.mjs (the index pages), schema.mjs, snippets.mjs
+  build/                 build.mjs, explainers.mjs (finding them), look.mjs (topic styles and fonts), indexes.mjs (the index pages), schema.mjs, snippets.mjs, golden.mjs
   test/, test-e2e/       its tests; helpers for explainers' browser tests
 topics/
   cbft/                  Couchbase full-text search (see its README.md)
@@ -280,6 +288,8 @@ topics/
     02-zap-format/       inside a zap segment, with tools/zap-golden
   blance/                partition planning and moves (see its README.md)
     topic.yaml, sources.yaml, research/
+    lib/                 a JS port of blance's planner and moves, checked against the
+                         real Go by tools/plan-golden; shared by its explainers
 dist/                    the built pages (committed; published by GitHub Pages)
 .github/workflows/       CI, and GitHub Pages publishing
 ```

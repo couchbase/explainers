@@ -1,6 +1,6 @@
 // Generates golden merge plans from bleve's real mergeplan package, so
 // test/mergeplan.test.mjs can check that the JS port picks the same
-// merges. Run via: npm run golden:mergeplan
+// merges. Run via: npm run golden -- mergeplan (see golden.yaml)
 package main
 
 import (

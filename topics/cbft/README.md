@@ -119,8 +119,8 @@ elsewhere with `EXPLAINERS_SRC_<NAME>`, e.g. `EXPLAINERS_SRC_CBGT`.
 
 To move to newer versions, bump the commits/versions in
 `sources.yaml`, run `npm run snippets`, and fix any anchors it
-reports. Then run `npm run golden:mergeplan` and `npm run golden:zap`
-(they need a Go toolchain new enough for bleve's `go.mod`), and
-`npm test`. (zapx writes each field's section slots in Go map order,
-so `golden:zap` gives a segment with the same layout but varying bytes
-and CRC from run to run.)
+reports. Then run `npm run golden -- cbft` (both golden tools; they
+need a Go toolchain new enough for bleve's `go.mod`), and `npm test`.
+(zapx writes each field's section slots in Go map order, so the zap
+tool gives a segment with the same layout but varying bytes and CRC
+from run to run.)
