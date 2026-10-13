@@ -213,6 +213,7 @@ export class Diagram {
     const ra = da ? picked(da, FA.stage ?? pickOf(da)) * (1 - q) : 0, rb = db ? picked(db, FB.stage ?? pickOf(db)) * q : 0;
     const chosen = ra > rb ? da : db;
     if (chosen && (sNow !== null || Math.max(ra, rb) > 0)) {
+      this.chosenRing.setAttribute('class', `bchosen pick-${chosen.state}`);
       this.chosenRing.setAttribute('x', chipX(chosen.chosen[0], chosen.state) - 20);
       this.chosenRing.setAttribute('y', rowY(chosen.partition) - 14);
       op(this.chosenRing, sNow !== null ? picked(chosen, sNow) : Math.max(ra, rb));
@@ -387,7 +388,8 @@ export class Diagram {
       col.line.setAttribute('y2', scoreY(v.score).toFixed(1));
       const near = (same || q < 0.5 ? A : B) || A || B;
       setText(col.num, near ? (same ? v.score : near.score).toFixed(4) : '');
-      col.num.setAttribute('class', v.won > 0.5 ? 'pscore pscore-won' : 'pscore');
+      col.num.setAttribute('class', v.won > 0.5 ? `pscore pscore-won pick-${st ? st.state : 'primary'}` : 'pscore');
+      col.lowest.setAttribute('class', `pwon pick-${st ? st.state : 'primary'}`);
       const top = Math.max(v.fillShown, v.score, 0.3);
       col.ring.setAttribute('y', (scoreY(top) - 10).toFixed(1));
       col.ring.setAttribute('height', (STRIP.labelY + 22 - scoreY(top) + 10).toFixed(1));
@@ -417,6 +419,7 @@ export class Diagram {
     const wide = [Math.min(...xs) - 34, scoreY(Math.max(...tops)) - 10, Math.max(...xs) + 34];
     const w = d.chosen[0], wt = tops[d.scored.findIndex((c) => c.node === w)];
     const narrow = [colX(w) - 34, scoreY(wt) - 10, colX(w) + 34];
+    box.setAttribute('class', `swon pick-${d.state}`);
     const e = easeQuad(within(u, PICK.narrow));
     const [x0, y0, x1] = wide.map((v, k) => lerp(v, narrow[k], e));
     box.setAttribute('x', x0.toFixed(1)); box.setAttribute('y', y0.toFixed(1));
@@ -655,7 +658,7 @@ export class Diagram {
       }
       // pick: from the winner's bar up to where its chip goes
       const wn = d.chosen[0], wb = Diagram.barAt(d, L, wn);
-      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], 40, 'sarc-pick', 1]);
+      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], 40, `sarc-pick pick-${d.state}`, 1]);
       for (const [j, i, n, key0, from, to, bow, cls, adds] of stageArcs) {
         if (j < 0) continue;
         const key = `${d.k}:${key0}`;
