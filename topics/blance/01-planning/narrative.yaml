@@ -156,11 +156,12 @@ chapters:
       - id: spread
         view: { at: fresh.2~a.spread, target: bar.a, focus: col.a }
         text: |
-          Then [[a hatched part]]: how often the node already backs the
-          same primary node, ÷ the number of partitions. This term is
-          for replicas, coming up. For a primary, there's no primary
-          node yet, so the term counts the partitions already placed,
-          1/8 per partition, and only node a has any.
+          Then [[a hatched part]], which matters for replicas, coming
+          up: how many partitions with the same primary node the node
+          already backs up, ÷ the number of partitions. For a primary
+          there's no primary node yet, so it counts every primary
+          assigned so far in this pass, 1/8 each, and only node a has
+          one.
 
       - id: fill
         view: { at: fresh.2~a.fill, target: bar.a, focus: col.a }
@@ -193,18 +194,25 @@ chapters:
     color: replica
     steps:
 
+      - id: greyed
+        view: { at: fresh.9~row, target: node.a, focus: col.a }
+        code: [blance.exclude]
+        expect: ["fact:fresh.9.partition=0", "fact:fresh.9.state=replica"]
+        text: |
+          The replicas start again at partition 0. Partition 0's
+          primary is on node a, so [[node a's column]] is greyed out:
+          a replica never goes on its own primary's node, where it would
+          be no help if that node failed. So the planner doesn't score
+          node a at all.
+
       - id: exclude
         view: { at: fresh.9, target: winner, focus: strip }
-        code: [blance.exclude]
         expect: ["fact:fresh.9.partition=0", "fact:fresh.9.b=0.0004", "fact:fresh.9.c=0.0003", "fact:fresh.9.winner=c"]
         text: |
-          Partition 0's replica. Partition 0's primary is on node a, so
-          node a isn't a candidate (node a's column says "its
-          primary"): a replica never goes on its primary's node. Nodes b
-          and c hold no replicas yet, and node c wins by 0.0001. The
-          tie-breaker, 0.001 × all the partitions on the node ÷ the
-          number of partitions, favours the emptier node, and node
-          [[c]] holds 2 primaries to node b's 3.
+          Nodes b and c hold no replicas yet, and node c wins by
+          0.0001. The tie-breaker, 0.001 × all the partitions on the
+          node ÷ the number of partitions, favours the emptier node,
+          and node [[c]] holds 2 primaries to node b's 3.
 
       - id: spread
         view: { at: fresh.12, target: winner, focus: strip }
@@ -212,12 +220,11 @@ chapters:
         expect: ["fact:fresh.12.partition=3", "fact:fresh.12.b=1.0005", "fact:fresh.12.c=1.1254", "fact:fresh.12.winner=b"]
         text: |
           Partition 3's primary is on node a, too, and node c already
-          holds the replica of partition 0, another of node a's
-          primaries. So node c gets 1/8 more: the hatched term counts
-          how often a node already backs the same primary node, so that
-          if node a fails, the replicas taking over for node a are
-          spread over several nodes. Node [[b]] wins, at 1.0005 to node
-          c's 1.1254.
+          backs up partition 0, another of node a's primaries. So node c
+          gets the hatched 1/8 more. That's what the hatched term is
+          for: spreading node a's replicas over several nodes, so that
+          if node a fails, several nodes share taking over for it, not
+          just one. Node [[b]] wins, at 1.0005 to node c's 1.1254.
 
       - id: done
         view: { at: fresh.replicas, target: tally.b, focus: tallies }

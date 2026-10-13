@@ -87,6 +87,7 @@
 .diagram .sarc-head.sarc-pick { fill: var(--accent); }
 
 /* the attention box: what to look at, this step */
+.diagram .bgreyed { fill: color-mix(in srgb, var(--muted) 22%, var(--bg)); fill-opacity: 0.75; }
 .diagram .sfocus { fill: color-mix(in srgb, var(--focus) 5%, transparent); stroke: var(--focus); stroke-opacity: 0.6; stroke-width: 3; pointer-events: none; }
 
 /* the moves: each node's copies built and deleted, and on the board */

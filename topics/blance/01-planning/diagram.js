@@ -94,6 +94,10 @@ export class Diagram {
     this._board(g);
     this.movesOnBoard = el('g', {}, g);
     this.moveMarks = new Map(); // chip key -> {ghost, ring}
+    // (a column greyed out, chips and all: a replica's primary's node,
+    // which can't take the replica; under the strip, whose label for it
+    // stays readable)
+    this.greyed = Object.fromEntries(NODES.map((n) => [n, el('rect', { rx: 10, class: 'bgreyed', opacity: 0 }, g)]));
     this.strip = this._buildStrip(g);
     this.movesArea = this._buildMoves(g);
     this.treeArea = this._buildTree(g);
@@ -780,6 +784,23 @@ export class Diagram {
     op(b, ra && rb ? 1 : ra ? 1 - q : q);
   }
 
+  // ---- the primary's node, greyed out while its replica is scored ----
+
+  _drawGreyed(FA, FB, q) {
+    const on = (f, n) => (f.decision && Diagram.whyNot(f, f.decision, n) === 'its primary' ? 1 : 0);
+    const top = HEAD_Y - 28;
+    for (const n of NODES) {
+      const r = this.greyed[n];
+      const a = on(FA, n), b = on(FB, n);
+      // (between decisions on the same node, it stays)
+      op(r, a === b ? a : lerp(a, b, q));
+      r.setAttribute('x', (colX(n) - BOARD.colW / 2 + 3).toFixed(1));
+      r.setAttribute('y', top);
+      r.setAttribute('width', BOARD.colW - 6);
+      r.setAttribute('height', STRIP.labelY + 28 - top);
+    }
+  }
+
   // ---- a partition's moves, as arrows across its row ----
 
   // Scene A's traced partition to scene B's, partway (q): each arrow
@@ -847,6 +868,7 @@ export class Diagram {
     }
     op(this.strip.g, so);
     this._drawStrip(FA, FB, q);
+    this._drawGreyed(FA, FB, q);
     // the arrows: of the decision in hand, or the one before, fading
     const da = FA.decision, db = FB.decision;
     if (da && da === db) this._drawArcs(FA.scenario, da, lerp(stageOf(FA), stageOf(FB), q), so);
