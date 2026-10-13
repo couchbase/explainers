@@ -1,0 +1,126 @@
+{
+ "blance.CalcPartitionMoves": {
+  "id": "blance.CalcPartitionMoves",
+  "repo": "blance",
+  "path": "moves.go",
+  "title": "blance CalcPartitionMoves() — one partition's moves, old map to new",
+  "start": 41,
+  "end": 119,
+  "highlight": [
+   66,
+   82,
+   88
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/moves.go#L41-L119",
+  "code": "func CalcPartitionMoves(\n\tstates []string,\n\tbegNodesByState map[string][]string,\n\tendNodesByState map[string][]string,\n\tfavorMinNodes bool,\n) []NodeStateOp {\n\tvar moves []NodeStateOp\n\n\tseen := map[string]bool{}\n\n\taddMoves := func(nodes []string, state, op string) {\n\t\tfor _, node := range nodes {\n\t\t\tif !seen[node] {\n\t\t\t\tseen[node] = true\n\t\t\t\tmoves = append(moves, NodeStateOp{node, state, op})\n\t\t\t}\n\t\t}\n\t}\n\n\tbegNodes := flattenNodesByState(begNodesByState)\n\tendNodes := flattenNodesByState(endNodesByState)\n\n\tadds := StringsRemoveStrings(endNodes, begNodes)\n\tdels := StringsRemoveStrings(begNodes, endNodes)\n\n\tif !favorMinNodes {\n\t\tfor statei, state := range states {\n\t\t\t// Handle promotions of inferiorTo(state) to state.\n\t\t\taddMoves(findStateChanges(statei+1, len(states),\n\t\t\t\tstate, states, begNodesByState, endNodesByState),\n\t\t\t\tstate, \"promote\")\n\n\t\t\t// Handle demotions of superiorTo(state) to state.\n\t\t\taddMoves(findStateChanges(0, statei,\n\t\t\t\tstate, states, begNodesByState, endNodesByState),\n\t\t\t\tstate, \"demote\")\n\n\t\t\t// Handle clean additions of state.\n\t\t\taddMoves(StringsIntersectStrings(StringsRemoveStrings(\n\t\t\t\tendNodesByState[state], begNodesByState[state]),\n\t\t\t\tadds),\n\t\t\t\tstate, \"add\")\n\n\t\t\t// Handle clean deletions of state.\n\t\t\taddMoves(StringsIntersectStrings(StringsRemoveStrings(\n\t\t\t\tbegNodesByState[state], endNodesByState[state]),\n\t\t\t\tdels),\n\t\t\t\t\"\", \"del\")\n\t\t}\n\t} else {\n\t\tfor statei := len(states) - 1; statei >= 0; statei-- {\n\t\t\tstate := states[statei]\n\n\t\t\t// Handle clean deletions of state.\n\t\t\taddMoves(StringsIntersectStrings(StringsRemoveStrings(\n\t\t\t\tbegNodesByState[state], endNodesByState[state]),\n\t\t\t\tdels),\n\t\t\t\t\"\", \"del\")\n\n\t\t\t// Handle demotions of superiorTo(state) to state.\n\t\t\taddMoves(findStateChanges(0, statei,\n\t\t\t\tstate, states, begNodesByState, endNodesByState),\n\t\t\t\tstate, \"demote\")\n\n\t\t\t// Handle promotions of inferiorTo(state) to state.\n\t\t\taddMoves(findStateChanges(statei+1, len(states),\n\t\t\t\tstate, states, begNodesByState, endNodesByState),\n\t\t\t\tstate, \"promote\")\n\n\t\t\t// Handle clean additions of state.\n\t\t\taddMoves(StringsIntersectStrings(StringsRemoveStrings(\n\t\t\t\tendNodesByState[state], begNodesByState[state]),\n\t\t\t\tadds),\n\t\t\t\tstate, \"add\")\n\t\t}\n\t}\n\n\treturn moves\n}"
+ },
+ "blance.analogy": {
+  "id": "blance.analogy",
+  "repo": "blance",
+  "path": "orchestrate.go",
+  "title": "blance OrchestrateMoves() — flight plans, airports, and one controller",
+  "start": 268,
+  "end": 337,
+  "highlight": [
+   320,
+   335
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/orchestrate.go#L268-L337",
+  "code": "\t// As an analogy, this step calculates a bunch of airplane flight\n\t// plans, without consideration to what the other airplanes are\n\t// doing, where each flight plan has multi-city, multi-leg hops.\n\tmapPartitionToNextMoves := map[string]*NextMoves{}\n\n\tfor partitionName, begPartition := range begMap {\n\t\tendPartition := endMap[partitionName]\n\n\t\tmoves := CalcPartitionMoves(states,\n\t\t\tbegPartition.NodesByState,\n\t\t\tendPartition.NodesByState,\n\t\t\toptions.FavorMinNodes,\n\t\t)\n\n\t\tmapPartitionToNextMoves[partitionName] = &NextMoves{\n\t\t\tPartition: partitionName,\n\t\t\tNext:      0,\n\t\t\tMoves:     moves,\n\t\t}\n\t}\n\n\to := &Orchestrator{\n\t\tmodel:            model,\n\t\toptions:          options,\n\t\tnodesAll:         nodesAll,\n\t\tbegMap:           begMap,\n\t\tendMap:           endMap,\n\t\tassignPartitions: assignPartitions,\n\t\tfindMove:         findMove,\n\t\tprogressCh:       make(chan OrchestratorProgress),\n\n\t\tmapNodeToPartitionMoveReqCh: mapNodeToPartitionMoveReqCh,\n\n\t\tstopCh:  make(chan struct{}),\n\t\tpauseCh: nil,\n\n\t\tmapPartitionToNextMoves: mapPartitionToNextMoves,\n\t}\n\n\tstopCh := o.stopCh\n\n\trunMoverDoneCh := make(chan error)\n\n\t// Start a concurrent mover per node.\n\t//\n\t// Following the airplane analogy, a runMover() represents\n\t// a takeoff runway at a city airport (or node).\n\t// A single runMover is capable of dispatching multiple\n\t// partition move requests in a batch.\n\t// All the partitions in a batch steps together through the\n\t// various stages of movement like replica add, primary promote etc.\n\tfor _, node := range o.nodesAll {\n\t\tgo o.runMover(stopCh, runMoverDoneCh, node)\n\t}\n\n\t// Supply moves to movers.\n\t//\n\t// Following the airplane/airport analogy, a runSupplyMoves()\n\t// goroutine is like some global, supreme airport controller,\n\t// remotely controlling all the city airports across the entire\n\t// realm, and deciding which plane can take off next at each\n\t// airport.  Each plane is following its multi-leg flight plan\n\t// that was computed from earlier (via CalcPartitionMoves), but\n\t// when multiple planes are concurrently ready to takeoff from a\n\t// city's airport (or node), this global, supreme airport\n\t// controller chooses which plane (or partition) gets to takeoff\n\t// next.\n\tgo o.runSupplyMoves(stopCh, runMoverDoneCh)\n\n\treturn o, nil"
+ },
+ "blance.supply": {
+  "id": "blance.supply",
+  "repo": "blance",
+  "path": "orchestrate.go",
+  "title": "blance runSupplyMoves() — round after round, each node's next moves",
+  "start": 509,
+  "end": 591,
+  "highlight": [
+   521,
+   551,
+   571
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/orchestrate.go#L509-L591",
+  "code": "func (o *Orchestrator) runSupplyMoves(stopCh chan struct{},\n\trunMoverDoneCh chan error) {\n\tvar errOuter error\n\n\tfor errOuter == nil {\n\t\to.updateProgress(func() {\n\t\t\to.progress.TotRunSupplyMovesLoop++\n\t\t})\n\n\t\to.m.Lock()\n\n\t\t// The availableMoves is keyed by node name.\n\t\tavailableMoves := o.findAvailableMovesUnlocked()\n\n\t\tpauseCh := o.pauseCh\n\n\t\to.m.Unlock()\n\n\t\tif len(availableMoves) <= 0 {\n\t\t\tbreak\n\t\t}\n\n\t\t// The main pause/resume handling is via pausing/resuming the\n\t\t// runSupplyMoves loop.  If caller needs to rebalancer.Stop()\n\t\t// while paused, they should resume before Stop()'ing.\n\t\tif pauseCh != nil {\n\t\t\to.updateProgress(func() {\n\t\t\t\to.progress.TotRunSupplyMovesPause++\n\t\t\t})\n\n\t\t\t<-pauseCh\n\n\t\t\to.updateProgress(func() {\n\t\t\t\to.progress.TotRunSupplyMovesResume++\n\t\t\t})\n\t\t}\n\n\t\t// Broadcast to every node mover their next, best move.\n\t\tbroadcastStopCh := make(chan struct{})\n\t\tbroadcastDoneCh := make(chan error)\n\n\t\tfor node, nextMovesArr := range availableMoves {\n\t\t\tnxtMoves := o.filterNextPlausibleMovesForNode(node, nextMovesArr)\n\n\t\t\tgo o.runSupplyMove(stopCh, node,\n\t\t\t\tnxtMoves,\n\t\t\t\tbroadcastStopCh, broadcastDoneCh)\n\t\t}\n\n\t\to.updateProgress(func() {\n\t\t\to.progress.TotRunSupplyMovesFeeding++\n\t\t})\n\n\t\t// When the one or more node movers is successfully \"fed\" (via\n\t\t// broadcastDoneCh), then stop the broadcast (via\n\t\t// broadcastStopCh) so that we can repeat the outer loop to\n\t\t// re-calculate another round of available moves.\n\t\tbroadcastStopChClosed := false\n\n\t\tfor range availableMoves {\n\t\t\terr := <-broadcastDoneCh\n\t\t\tif err == nil && !broadcastStopChClosed {\n\t\t\t\tclose(broadcastStopCh)\n\t\t\t\tbroadcastStopChClosed = true\n\t\t\t}\n\n\t\t\tif err != nil &&\n\t\t\t\terr != ErrorInterrupt &&\n\t\t\t\terrOuter == nil {\n\t\t\t\terrOuter = err\n\t\t\t}\n\t\t}\n\n\t\to.updateProgress(func() {\n\t\t\to.progress.TotRunSupplyMovesFeedingDone++\n\t\t})\n\n\t\tif !broadcastStopChClosed {\n\t\t\tclose(broadcastStopCh)\n\t\t}\n\n\t\tclose(broadcastDoneCh)\n\t}"
+ },
+ "blance.supplyMove": {
+  "id": "blance.supplyMove",
+  "repo": "blance",
+  "path": "orchestrate.go",
+  "title": "blance runSupplyMove() — offer a node its batch, or wait for one in flight",
+  "start": 622,
+  "end": 696,
+  "highlight": [
+   632,
+   667,
+   689
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/orchestrate.go#L622-L696",
+  "code": "func (o *Orchestrator) runSupplyMove(stopCh chan struct{},\n\tnode string, nextMoves []*NextMoves,\n\tbroadcastStopCh chan struct{},\n\tbroadcastDoneCh chan error) {\n\tvar nextDoneCh chan error\n\t// check whether any of the nextMoves entry is already in flight,\n\t// If so, then wait for that movement to complete before\n\t// submitting any subsequent partition movement requests.\n\to.m.Lock()\n\tfor _, nm := range nextMoves {\n\t\tif nm.nextDoneCh != nil {\n\t\t\tnextDoneCh = nm.nextDoneCh\n\t\t\tbreak\n\t\t}\n\t}\n\to.m.Unlock()\n\n\tif nextDoneCh == nil {\n\t\tnextDoneCh = make(chan error)\n\n\t\tpmr := partitionMoveReq{\n\t\t\tpartitionMove: make([]PartitionMove, 0, len(nextMoves)),\n\t\t\tdoneCh:        nextDoneCh,\n\t\t}\n\n\t\to.m.Lock()\n\t\tfor _, nm := range nextMoves {\n\t\t\tpmr.partitionMove = append(pmr.partitionMove, PartitionMove{\n\t\t\t\tPartition: nm.Partition,\n\t\t\t\tNode:      nm.Moves[nm.Next].Node,\n\t\t\t\tState:     nm.Moves[nm.Next].State,\n\t\t\t\tOp:        nm.Moves[nm.Next].Op,\n\t\t\t})\n\t\t}\n\t\to.m.Unlock()\n\n\t\tselect {\n\t\tcase <-stopCh:\n\t\t\tbroadcastDoneCh <- ErrorStopped\n\t\t\treturn\n\n\t\tcase <-broadcastStopCh:\n\t\t\tbroadcastDoneCh <- ErrorInterrupt\n\t\t\treturn\n\n\t\tcase o.mapNodeToPartitionMoveReqCh[node] <- pmr:\n\t\t\to.m.Lock()\n\t\t\tfor i := range nextMoves {\n\t\t\t\tnextMoves[i].nextDoneCh = nextDoneCh\n\t\t\t}\n\t\t\to.m.Unlock()\n\t\t}\n\t}\n\n\tselect {\n\tcase <-stopCh:\n\t\tbroadcastDoneCh <- ErrorStopped\n\n\tcase <-broadcastStopCh:\n\t\tbroadcastDoneCh <- ErrorInterrupt\n\n\tcase err := <-nextDoneCh:\n\t\to.m.Lock()\n\t\tfor i := range nextMoves {\n\t\t\t// check the inflight status.\n\t\t\tif nextMoves[i].nextDoneCh == nextDoneCh {\n\t\t\t\tnextMoves[i].nextDoneCh = nil\n\t\t\t\tnextMoves[i].Next++\n\t\t\t}\n\t\t}\n\t\to.m.Unlock()\n\n\t\tbroadcastDoneCh <- err\n\t}\n}"
+ },
+ "blance.mover": {
+  "id": "blance.mover",
+  "repo": "blance",
+  "path": "orchestrate.go",
+  "title": "blance moverLoop() — a node's mover, one batch at a time",
+  "start": 426,
+  "end": 480,
+  "highlight": [
+   455,
+   476
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/orchestrate.go#L426-L480",
+  "code": "func (o *Orchestrator) moverLoop(stopCh chan struct{},\n\tpartitionMoveReqCh chan partitionMoveReq, node string) error {\n\tfor {\n\t\to.updateProgress(func() {\n\t\t\to.progress.TotMoverLoop++\n\t\t})\n\n\t\tselect {\n\t\tcase <-stopCh:\n\t\t\treturn nil\n\n\t\tcase partitionMoveReqVal, ok := <-partitionMoveReqCh:\n\t\t\tif !ok {\n\t\t\t\treturn nil\n\t\t\t}\n\n\t\t\t// batch all the partition moves requested.\n\t\t\tvar partitions, states, ops []string\n\t\t\tpartitionMove := partitionMoveReqVal.partitionMove\n\t\t\tfor _, pm := range partitionMove {\n\t\t\t\tpartitions = append(partitions, pm.Partition)\n\t\t\t\tstates = append(states, pm.State)\n\t\t\t\tops = append(ops, pm.Op)\n\t\t\t}\n\n\t\t\to.updateProgress(func() {\n\t\t\t\to.progress.TotMoverAssignPartition++\n\t\t\t})\n\n\t\t\terr := o.assignPartitions(stopCh, node, partitions,\n\t\t\t\tstates, ops)\n\n\t\t\to.updateProgress(func() {\n\t\t\t\tif err != nil {\n\t\t\t\t\to.progress.TotMoverAssignPartitionErr++\n\t\t\t\t} else {\n\t\t\t\t\to.progress.TotMoverAssignPartitionOk++\n\t\t\t\t}\n\t\t\t})\n\n\t\t\tif partitionMoveReqVal.doneCh != nil {\n\t\t\t\tif err != nil {\n\t\t\t\t\tselect {\n\t\t\t\t\tcase <-stopCh:\n\t\t\t\t\t\t// NO-OP.\n\t\t\t\t\tcase partitionMoveReqVal.doneCh <- err:\n\t\t\t\t\t\t// NO-OP.\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tclose(partitionMoveReqVal.doneCh)\n\t\t\t}\n\t\t}\n\t}\n}"
+ },
+ "blance.weights": {
+  "id": "blance.weights",
+  "repo": "blance",
+  "path": "orchestrate.go",
+  "title": "blance LowestWeightPartitionMoveForNode() — promote first, delete last",
+  "start": 177,
+  "end": 194,
+  "highlight": [
+   190,
+   193
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/orchestrate.go#L177-L194",
+  "code": "func LowestWeightPartitionMoveForNode(\n\tnode string, moves []PartitionMove) int {\n\tr := 0\n\tfor i, move := range moves {\n\t\tif MoveOpWeight[moves[r].Op] > MoveOpWeight[move.Op] {\n\t\t\tr = i\n\t\t}\n\t}\n\treturn r\n}\n\n// MoveOpWeight sets the weight associated with each op\nvar MoveOpWeight = map[string]int{\n\t\"promote\": 1,\n\t\"demote\":  2,\n\t\"add\":     3,\n\t\"del\":     4,\n}"
+ },
+ "blance.batch": {
+  "id": "blance.batch",
+  "repo": "blance",
+  "path": "orchestrate.go",
+  "title": "blance filterNextPlausibleMovesForNode() — up to the max per node, best first",
+  "start": 482,
+  "end": 504,
+  "highlight": [
+   484
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/orchestrate.go#L482-L504",
+  "code": "func (o *Orchestrator) filterNextPlausibleMovesForNode(node string,\n\tnextMovesArr []*NextMoves) (nxtMoves []*NextMoves) {\n\tcount := o.options.MaxConcurrentPartitionMovesPerNode\n\tif count <= 0 {\n\t\tcount = 1\n\t}\n\tif count > len(nextMovesArr) {\n\t\tcount = len(nextMovesArr)\n\t}\n\n\t// pick sufficient number of the best possible moves per node.\n\tfor count > 0 {\n\t\ti := o.findNextMoves(node, nextMovesArr)\n\t\tnxtMoves = append(nxtMoves, nextMovesArr[i])\n\n\t\tcount--\n\t\tnextMovesArr[i] = nextMovesArr[len(nextMovesArr)-1]\n\t\tnextMovesArr[len(nextMovesArr)-1] = nil\n\t\tnextMovesArr = nextMovesArr[:len(nextMovesArr)-1]\n\t}\n\n\treturn nxtMoves\n}"
+ },
+ "cbgt.assign": {
+  "id": "cbgt.assign",
+  "repo": "cbgt",
+  "path": "rebalance/rebalance.go",
+  "title": "cbgt assignPIndexes() — a batch is done when all its partitions are",
+  "start": 960,
+  "end": 979,
+  "highlight": [
+   979
+  ],
+  "url": "https://github.com/couchbase/cbgt/blob/d0afea68bde6f1a1dca67847499a588777076db7/rebalance/rebalance.go#L960-L979",
+  "code": "\t\t// start workers per pindex for tracking the partition assignment\n\t\t// completion.\n\t\tvar wg sync.WaitGroup\n\t\tdoneCh := make(chan error, len(pindexesMoves))\n\n\t\tfor i := 0; i < len(pindexesMoves); i++ {\n\t\t\twg.Add(1)\n\t\t\tgo func(pm *pindexMoves, formerPrimaryNode string) {\n\t\t\t\terr := r.waitAssignPIndexDone(stopCh, stopCh2,\n\t\t\t\t\tindexDef, planPIndexes, pm.name, node,\n\t\t\t\t\tpm.stateOps[next].State,\n\t\t\t\t\tpm.stateOps[next].Op,\n\t\t\t\t\tformerPrimaryNode,\n\t\t\t\t\tlen(pm.stateOps) > 1)\n\t\t\t\tdoneCh <- err\n\t\t\t\twg.Done()\n\t\t\t}(pindexesMoves[i], formerPrimaryNodes[i])\n\t\t}\n\n\t\twg.Wait()"
+ },
+ "blance.pause": {
+  "id": "blance.pause",
+  "repo": "blance",
+  "path": "orchestrate.go",
+  "title": "blance PauseNewAssignments(), ResumeNewAssignments() — in-flight moves finish",
+  "start": 367,
+  "end": 388,
+  "highlight": [],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/orchestrate.go#L367-L388",
+  "code": "func (o *Orchestrator) PauseNewAssignments() error {\n\to.m.Lock()\n\tif o.pauseCh == nil {\n\t\to.pauseCh = make(chan struct{})\n\t\to.progress.TotPauseNewAssignments++\n\t}\n\to.m.Unlock()\n\treturn nil\n}\n\n// ResumeNewAssignments tells the orchestrator that it may resume\n// assignments of partitions to nodes, and is idempotent.\nfunc (o *Orchestrator) ResumeNewAssignments() error {\n\to.m.Lock()\n\tif o.pauseCh != nil {\n\t\to.progress.TotResumeNewAssignments++\n\t\tclose(o.pauseCh)\n\t\to.pauseCh = nil\n\t}\n\to.m.Unlock()\n\treturn nil\n}"
+ }
+}

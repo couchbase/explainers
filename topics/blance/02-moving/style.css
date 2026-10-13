@@ -1,0 +1,52 @@
+/* The 02-moving explainer's diagram. Appended to the engine's styles
+   and the blance topic's (../style.css), which has its palette. */
+
+.diagram .btitle { font: 600 22px var(--font-display); fill: var(--ink); }
+.diagram .bsub { font: 400 16px var(--font-body); fill: var(--muted); }
+.diagram .brow { fill: var(--faint); opacity: 0.6; }
+.diagram .brow-label { font: 500 14px var(--font-body); fill: var(--muted); }
+.diagram .bnoprimary { fill: color-mix(in srgb, var(--leave) 12%, transparent); stroke: var(--leave); stroke-dasharray: 5 4; }
+.diagram .bcol-line { stroke: var(--line); }
+.diagram .bnode { font: 600 16px var(--font-display); fill: var(--ink); }
+.diagram .btag { font: 500 12px var(--font-body); }
+.diagram .btag-joining { fill: var(--join); }
+.diagram .chip { stroke-width: 1.5; }
+.diagram .chip-primary { fill: var(--primary); stroke: var(--primary); }
+.diagram .chip-replica { fill: var(--replica-bg); stroke: var(--replica); }
+.diagram .chip-ghost { fill: none; stroke-width: 1.5; stroke-dasharray: 3 3; }
+.diagram .chip-ghost-primary { stroke: var(--primary); }
+.diagram .chip-ghost-replica { stroke: var(--replica); }
+.diagram .chip-label { font: 600 13px var(--font-mono); }
+.diagram .chip-label-primary { fill: var(--ink); }
+.diagram .chip-label-replica { fill: var(--replica); }
+.diagram .mover { fill: var(--panel); stroke: var(--line); }
+.diagram .mover-fill { fill: color-mix(in srgb, var(--accent) 22%, transparent); }
+.diagram .mover-label { font: 500 12px var(--font-mono); fill: var(--ink); }
+
+.diagram .panel { fill: var(--panel); stroke: var(--line); }
+.diagram .ptitle { font: 600 18px var(--font-display); fill: var(--ink); }
+.diagram .prow-node { font: 600 14px var(--font-display); fill: var(--ink); }
+.diagram .prow-out { fill: var(--muted); font-weight: 400; }
+.diagram .pterm { font: 400 12px var(--font-mono); fill: var(--muted); }
+.diagram .ptotal { font: 600 16px var(--font-display); fill: var(--accent); }
+.diagram .pgrid { stroke: var(--line); stroke-dasharray: 3 4; }
+.diagram .paxis { stroke: var(--muted); }
+.diagram .paxis-label { font: 11px var(--font-mono); fill: var(--muted); }
+.diagram .pmove { stroke-width: 1.2; fill: var(--panel); }
+.diagram .pmove-add { stroke: var(--join); }
+.diagram .pmove-del { stroke: var(--leave); }
+.diagram .pmove-promote, .diagram .pmove-demote { stroke: var(--muted); }
+.diagram .pmove-done { stroke-width: 2; }
+.diagram .pmove-flying { stroke-width: 2; stroke-dasharray: 4 3; }
+.diagram .pmove-prog { pointer-events: none; }
+.diagram .pmove-prog-add { fill: color-mix(in srgb, var(--join) 22%, transparent); }
+.diagram .pmove-prog-del { fill: color-mix(in srgb, var(--leave) 20%, transparent); }
+.diagram .pmove-label { font: 500 12px var(--font-mono); fill: var(--ink); }
+.diagram .tround { fill: var(--accent); }
+.diagram .tbar { stroke-width: 1.2; }
+.diagram .tbar-add { fill: color-mix(in srgb, var(--join) 30%, var(--panel)); stroke: var(--join); }
+.diagram .tbar-del { fill: color-mix(in srgb, var(--leave) 25%, var(--panel)); stroke: var(--leave); }
+.diagram .tbar-promote, .diagram .tbar-demote { fill: var(--panel-2); stroke: var(--muted); }
+.diagram .tbar-label { font: 500 11px var(--font-mono); fill: var(--ink); }
+.diagram .tnow { stroke: var(--accent); stroke-width: 1.5; }
+.diagram .tnow-label { font: 600 12px var(--font-mono); fill: var(--accent); }

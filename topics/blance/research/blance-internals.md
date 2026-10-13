@@ -196,6 +196,15 @@ both Less(a, b) and Less(b, a) are true, and the order depends on Go's
 map iteration. cbgt's "primary"/"replica" sort the same both ways, so
 it's never bitten.
 
+**The orchestrator isn't deterministic, even with a deterministic
+FindMoveFunc.** When two moves finish at about the same moment, which
+completion the controller hears of first is a goroutine race, and it
+changes what nodes do next: running the real OrchestrateMoves 8 times
+on node d joining, with equal move times, gave 4 or 5 different
+schedules per setting. (cbgt's LowestWeightPartitionMoveForNode also
+breaks ties between equal moves by Go map order.) The golden tool
+for lib/orchestrate.js times moves so none finish together.
+
 ## Explainer material, in order of payoff
 
 1. **Planning** (plan.go): the greedy loop, the score, stickiness,

@@ -1,0 +1,74 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields as in ../01-planning/coderefs.yaml.
+
+blance.CalcPartitionMoves:
+  repo: blance
+  path: moves.go
+  anchor: "func CalcPartitionMoves("
+  extent: func
+  title: blance CalcPartitionMoves() — one partition's moves, old map to new
+  highlight: ["state, \"add\")", "\"\", \"del\")", "if !favorMinNodes {"]
+
+blance.analogy:
+  repo: blance
+  path: orchestrate.go
+  anchor: "// As an analogy, this step calculates a bunch of airplane flight"
+  extent: 70
+  title: blance OrchestrateMoves() — flight plans, airports, and one controller
+  highlight: ["go o.runMover(stopCh, runMoverDoneCh, node)", "go o.runSupplyMoves(stopCh, runMoverDoneCh)"]
+
+blance.supply:
+  repo: blance
+  path: orchestrate.go
+  anchor: "func (o *Orchestrator) runSupplyMoves(stopCh chan struct{},"
+  extent: 83
+  title: blance runSupplyMoves() — round after round, each node's next moves
+  highlight: ["availableMoves := o.findAvailableMovesUnlocked()", "o.filterNextPlausibleMovesForNode(node, nextMovesArr)", "close(broadcastStopCh)"]
+
+blance.supplyMove:
+  repo: blance
+  path: orchestrate.go
+  anchor: "func (o *Orchestrator) runSupplyMove(stopCh chan struct{},"
+  extent: func
+  title: blance runSupplyMove() — offer a node its batch, or wait for one in flight
+  highlight: ["if nm.nextDoneCh != nil {", "case o.mapNodeToPartitionMoveReqCh[node] <- pmr:", "nextMoves[i].Next++"]
+
+blance.mover:
+  repo: blance
+  path: orchestrate.go
+  anchor: "func (o *Orchestrator) moverLoop(stopCh chan struct{},"
+  extent: func
+  title: blance moverLoop() — a node's mover, one batch at a time
+  highlight: ["err := o.assignPartitions(stopCh, node, partitions,", "close(partitionMoveReqVal.doneCh)"]
+
+blance.weights:
+  repo: blance
+  path: orchestrate.go
+  anchor: "func LowestWeightPartitionMoveForNode("
+  extent: 18
+  title: blance LowestWeightPartitionMoveForNode() — promote first, delete last
+  highlight: ["\"promote\": 1,", "\"del\":     4,"]
+
+blance.batch:
+  repo: blance
+  path: orchestrate.go
+  anchor: "func (o *Orchestrator) filterNextPlausibleMovesForNode(node string,"
+  extent: func
+  title: blance filterNextPlausibleMovesForNode() — up to the max per node, best first
+  highlight: ["count := o.options.MaxConcurrentPartitionMovesPerNode"]
+
+cbgt.assign:
+  repo: cbgt
+  path: rebalance/rebalance.go
+  anchor: "// start workers per pindex for tracking the partition assignment"
+  extent: 20
+  title: cbgt assignPIndexes() — a batch is done when all its partitions are
+  highlight: ["wg.Wait()"]
+
+blance.pause:
+  repo: blance
+  path: orchestrate.go
+  anchor: "func (o *Orchestrator) PauseNewAssignments() error {"
+  extent: 22
+  title: blance PauseNewAssignments(), ResumeNewAssignments() — in-flight moves finish

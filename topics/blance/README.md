@@ -60,10 +60,18 @@ facts that `expect: ["fact:..."]` checks the text's numbers against:
 every candidate's score at every decision (`add.1.a`), each frame's
 tallies (`add.16.counts`), each scenario's moves.
 
-## Planned
+## 02-moving
 
-- **02-moving**: from a plan to a rebalance: each partition's moves
-  (`CalcPartitionMoves`), then `OrchestrateMoves`: a mover per node,
-  the controller that picks each node's next move (promote first),
-  concurrency per node, pause and stop. A small simulation over time,
-  in the code's own airport analogy.
+"Inside blance: how a rebalance moves partitions". The same board, at
+a moment of a rebalance (copies being built fill in place, deletes
+fade, a partition with no primary is marked), each node's mover under
+its column, and a panel: each partition's moves, or the movers'
+timeline, a lane per node, with the controller's rounds.
+
+`scenarios.js` runs node d joining (01-planning's second plan) through
+`lib/orchestrate.js` three ways: one move at a time per node, up to
+four, and deletes first (`FavorMinNodes`), with partitions of
+different sizes, timed as `lib/tools/orchestrate-golden`'s story cases
+are, so the real orchestrator's runs of them are checked to match. A
+step's `at` names a run and a moment in it (`one@270`); the scroll
+moves time from one step's moment to the next's.

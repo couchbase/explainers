@@ -24,6 +24,10 @@ topic (`topics/`):
   - **01-planning**, "Inside blance: how a plan places partitions":
     the planner's real decisions, score by score, as nodes join and
     leave, with server groups and stickiness.
+  - **02-moving**, "Inside blance: how a rebalance moves partitions":
+    each partition's moves, a mover per node and the controller's
+    rounds, over time, one move at a time, four at a time, and deletes
+    first.
 
 ## Quick start
 
@@ -294,6 +298,7 @@ topics/
     lib/                 a JS port of blance's planner and moves, checked against the
                          real Go by tools/plan-golden; shared by its explainers
     01-planning/         the planner, decision by decision (scenarios.js)
+    02-moving/           a rebalance over time, from the orchestrator's simulation
 dist/                    the built pages (committed; published by GitHub Pages)
 .github/workflows/       CI, and GitHub Pages publishing
 ```
