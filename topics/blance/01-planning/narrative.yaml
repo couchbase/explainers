@@ -363,7 +363,8 @@ chapters:
           But this isn't the best partition map possible. Node d needs
           [[4 partitions]], 2 primaries and 2 replicas, and each one
           takes 2 moves: a copy built on node d, and a copy deleted from
-          another node. So 8 moves would do. Where do the other 2 moves
+          another node. So, theoretically 8 moves would be enough
+          instead of 10 moves. Where do the other 2 moves
           come from?
 
       - id: detour-out
@@ -388,17 +389,18 @@ chapters:
           So [[node b]] ends where it started, with 2 replicas, and 2
           of the moves bought nothing. Moving partition 5's replica
           straight from node a to node d, and leaving partition 2's
-          replica on node b, gives the same tallies in 8 moves.
+          replica on node b would have meant just 8 moves instead of 10.
 
       - id: greedy
         view: { target: moves.total, focus: strip }
         text: |
-          Why doesn't blance find that? The planner is greedy: one
+          Why does blance find 10 moves instead of 8 moves?
+          Its planner is greedy: one
           partition at a time, with no look ahead. When the planner
           decided partition 2's replica, node d held no replicas and
           scored the lowest, and the planner couldn't know that
           partition 5's replica, decided later, could go to node d
-          instead. So blance settles for [[10 moves]].
+          instead. So blance ends up computing [[10 moves]].
 
   # ------------------------------------------------------------------
   - id: leave
@@ -529,11 +531,8 @@ chapters:
           look ahead, just a greedy pass that fills in the partition
           map one partition at a time, with a score that is mostly a
           count of what each node already holds. The result is fast,
-          easy to calculate and [[close to even]], though not always the
-          fewest moves: when node d joined, rebalancing the partitions
-          led to 10 moves where 8 theoretically would do.
+          easy to calculate and [[close to balanced]].
 
           Although blance might not produce the most optimally perfect
-          partition maps in 100% of all situations,
-          it's simple, straightforward approach has usually
-          been good enough.
+          partition maps in all situations,
+          it's simple, straightforward and relatively easy to understand.
