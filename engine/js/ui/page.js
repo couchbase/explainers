@@ -77,7 +77,7 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
   if (links) end.append(
     h('a', { class: 'up-link', href: data.topic.href, text: `All the explainers in “${data.topic.title}” ↑` }));
   // and back to the top of this one (a jump: no replaying every step)
-  const top = h('a', { class: 'up-link top-link', href: '#', text: 'Back to the top ↑' });
+  const top = h('a', { class: 'top-link', href: '#', text: 'Back to the top ↑' });
   top.addEventListener('click', (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'instant' }); });
   end.append(top);
   story.append(end);

@@ -32,11 +32,13 @@ chapters:
           or shards, and place each partition on some of the cluster's
           nodes: a primary on one node, replicas on others. Deciding
           where is a problem of its own, and
-          [blance](https://github.com/couchbase/blance) is a small
-          library for just that, for any system with partitions to
-          place. What blance decides is [[the partition map]]: here, a
-          partition map that blance computed for eight partitions on
-          three nodes. First, how to read the partition map; then, how
+          [blance](https://github.com/couchbase/blance) is a small,
+          open-source library in Go for just that, for distributed systems with partitions to
+          place.
+
+          What blance computes is [[the partition map]]: here, we see a
+          partition map that blance computed with eight partitions across
+          three nodes. First, let's go over how to read this partition map; then, how
           blance computes it.
 
       - id: model
