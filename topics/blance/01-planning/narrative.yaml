@@ -291,28 +291,59 @@ chapters:
           The other primaries stay where they are, and node [[d has 2]]
           primaries, like every node.
 
+      - id: replica-order
+        view: { at: add.9~row, target: deciding, focus: board }
+        code: [blance.partitionOrder]
+        expect: ["fact:add.9.partition=2", "fact:add.15.partition=0", "fact:add.16.partition=1"]
+        text: |
+          Then the replicas, and the planner orders the partitions
+          again, the same way: partitions not yet on the new node go
+          first. Partitions 0 and 1 now have their primaries on node d,
+          so they go last, and the first decision is
+          [[partition 2]]'s replica.
+
       - id: replica-d
         view: { at: add.9, target: winner, focus: strip }
         expect: ["fact:add.9.partition=2", "fact:add.9.b=0.5005", "fact:add.9.d=0.0003", "fact:add.9.winner=d"]
         text: |
-          Then the replicas. Partition 2's replica is on node b, which
-          holds 2 replicas; node d holds none, so even with node b's
-          stickiness, node [[d]] is assigned partition 2's replica.
+          Partition 2's replica is on node b, which holds 2 replicas;
+          node d holds none, so even with node b's stickiness, node
+          [[d]] is assigned partition 2's replica.
+
+      - id: replica-stays
+        view: { at: add.10, target: winner, focus: strip }
+        expect: ["fact:add.10.partition=3", "fact:add.10.b.pre=1.0004", "fact:add.10.d=1.0004", "fact:add.10.b=-0.4996", "fact:add.10.winner=b"]
+        text: |
+          Partition 3's replica is on node b, too. Node b and node d
+          now hold 1 replica each, and both score 1.0004 before
+          stickiness. But stickiness takes 1.5 off node b's score, so
+          node [[b]] scores -0.4996, and partition 3's replica stays on
+          node b.
+
+      - id: replica-c-d
+        view: { at: add.11, target: winner, focus: strip }
+        expect: ["fact:add.11.partition=4", "fact:add.11.c=1.5006", "fact:add.11.d=1.0004", "fact:add.11.winner=d"]
+        text: |
+          Partition 4's replica is on node c, which holds 3 replicas.
+          Even with stickiness, node c scores 1.5006, and node [[d]],
+          holding 1 replica, scores 1.0004: partition 4's replica is
+          reassigned from node c to node d.
 
       - id: replica-b
         view: { at: add.12, target: winner, focus: strip }
         expect: ["fact:add.12.partition=5", "fact:add.12.a=1.5006", "fact:add.12.b=1.0004", "fact:add.12.winner=b"]
         text: |
           Partition 5's replica is on node a, which holds 3 replicas,
-          the most. Node b, having just given one replica up, holds only
-          1, and node [[b]] is assigned partition 5's replica, from node
-          a.
+          the most. Node b, having given partition 2's replica up,
+          holds only 1, and node [[b]] is assigned partition 5's
+          replica, from node a.
 
       - id: balanced
         view: { at: add.replicas, target: tally.d, focus: tallies }
         expect: ["fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
         text: |
-          The rest of the replicas stay. Every node ends with
+          The rest of the replicas stay where they are, with partitions
+          0 and 1 last of all. Every node ends with
           [[2 primaries and 2 replicas]].
 
       - id: moves
