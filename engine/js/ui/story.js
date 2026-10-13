@@ -109,7 +109,7 @@ export function runStory({ simulation = false, setup }) {
     if (hooks.render) hooks.render({ i, p, u, t, v, pv });
     overlay.begin();
     if (i > 0 && p < 1) drawCallout(i - 1, pv, 1 - t);
-    drawCallout(i, v, i === 0 ? 1 : t);
+    drawCallout(i, v, t);
     if (hooks.overlay) hooks.overlay(overlay);
     overlay.end();
     const target = v.target ? diagram.anchor(v.target) : null;

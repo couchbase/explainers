@@ -36,9 +36,10 @@ export function scrollState(stepEls, reduceMotion) {
   const next = stepEls[i + 1];
   const span = next ? next.getBoundingClientRect().top - top : stepEls[i].getBoundingClientRect().height;
   const u = Math.max(0, Math.min(1, (enterY - top) / Math.max(1, span)));
-  const p = i === 0 ? 1
-    : isScrub(stepEls[i]) ? Math.min(1, u / SCRUB_END)
-      : Math.max(0, Math.min(1, (enterY - top) / (enterY - settleY)));
+  // (the first step too: before it's scrolled in, under the title,
+  // it's at 0, and nothing it points at shows yet)
+  const p = isScrub(stepEls[i]) ? Math.min(1, u / SCRUB_END)
+    : Math.max(0, Math.min(1, (enterY - top) / (enterY - settleY)));
   return { i, p: reduceMotion ? 1 : p, u: reduceMotion ? 1 : u };
 }
 
