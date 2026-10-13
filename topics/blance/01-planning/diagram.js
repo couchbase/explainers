@@ -422,7 +422,8 @@ export class Diagram {
       const [x0, y0] = from, [x1, y1] = to;
       const d = `M${x0},${y0} C${x0 + bow},${y0 + (y1 - y0) * 0.35} ${x1 + bow},${y1 - (y1 - y0) * 0.35} ${x1},${y1}`;
       const path = el('path', { d, class: `sarc ${cls}` }, this.arcG);
-      const head = el('circle', { r: 3.5, class: `sarc-head ${cls}` }, this.arcG);
+      // a triangle, pointing along the path (see _drawArcs)
+      const head = el('path', { d: 'M0,0 L-9,-4.5 L-9,4.5 Z', class: `sarc-head ${cls}` }, this.arcG);
       a = { path, head, len: path.getTotalLength() };
       path.setAttribute('stroke-dasharray', `${a.len} ${a.len}`);
       this.arcs.set(key, a);
@@ -461,8 +462,9 @@ export class Diagram {
         const a = this._arc(key, from, to, bow, cls);
         a.path.setAttribute('stroke-dashoffset', (a.len * (1 - t)).toFixed(1));
         const h = a.path.getPointAtLength(a.len * t);
-        a.head.setAttribute('cx', h.x.toFixed(1));
-        a.head.setAttribute('cy', h.y.toFixed(1));
+        const b = a.path.getPointAtLength(Math.max(0, a.len * t - 2));
+        const angle = Math.atan2(h.y - b.y, h.x - b.x) * 180 / Math.PI;
+        a.head.setAttribute('transform', `translate(${h.x.toFixed(1)} ${h.y.toFixed(1)}) rotate(${angle.toFixed(1)})`);
         op(a.path, o * fade); op(a.head, o * fade);
         shown.add(key);
       }
