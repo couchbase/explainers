@@ -1,0 +1,64 @@
+/* The 01-planning explainer's diagram. Appended to the engine's styles
+   and the blance topic's (../style.css), which has its palette. */
+
+.diagram .btitle { font: 600 22px var(--font-display); fill: var(--ink); }
+.diagram .bsub { font: 400 16px var(--font-body); fill: var(--muted); }
+.diagram .brow { fill: var(--faint); opacity: 0.6; }
+.diagram .brow-label { font: 500 14px var(--font-body); fill: var(--muted); }
+.diagram .bband { fill: none; stroke: var(--accent); stroke-width: 2; }
+.diagram .bcol-line { stroke: var(--line); }
+.diagram .bnode { font: 600 16px var(--font-display); fill: var(--ink); }
+.diagram .btag { font: 500 12px var(--font-body); }
+.diagram .btag-absent { fill: var(--muted); }
+.diagram .btag-joining { fill: var(--join); }
+.diagram .btag-leaving { fill: var(--leave); }
+.diagram .bgroup { fill: none; stroke: var(--sec-groups); stroke-width: 1.5; }
+.diagram .bgroup-label { font: 600 13px var(--font-display); fill: var(--sec-groups); }
+.diagram .chip { stroke-width: 1.5; }
+.diagram .chip-primary { fill: var(--primary); stroke: var(--primary); }
+.diagram .chip-replica { fill: var(--replica-bg); stroke: var(--replica); }
+.diagram .chip-label { font: 600 13px var(--font-mono); }
+.diagram .chip-label-primary { fill: var(--on-primary); }
+.diagram .chip-label-replica { fill: var(--replica); }
+.diagram .bchosen { fill: none; stroke: var(--accent); stroke-width: 2.5; }
+.diagram .tbar-primary { fill: var(--primary); }
+.diagram .tbar-replica { fill: var(--replica); }
+.diagram .tcount { font: 500 13px var(--font-mono); fill: var(--ink); }
+
+.diagram .panel { fill: var(--panel); stroke: var(--line); }
+.diagram .ptitle { font: 600 18px var(--font-display); fill: var(--ink); }
+.diagram .pnote { font: 400 15px var(--font-body); fill: var(--muted); }
+.diagram .paxis { stroke: var(--muted); }
+.diagram .pgrid { stroke: var(--line); stroke-dasharray: 3 4; }
+.diagram .paxis-label { font: 11px var(--font-mono); fill: var(--muted); }
+.diagram .prow-node { font: 600 14px var(--font-display); fill: var(--ink); }
+.diagram .prow-out { fill: var(--muted); font-weight: 400; }
+.diagram .prow-won-bg { fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); }
+.diagram .pbar-primary { fill: var(--primary); }
+.diagram .pbar-replica { fill: var(--replica); }
+.diagram .pbar-spread { fill: url(#bspread); stroke: var(--sec-groups); stroke-width: 0.8; }
+.diagram .bspread-bg { fill: var(--panel); }
+.diagram .bspread-line { stroke: var(--sec-groups); stroke-width: 2.5; }
+.diagram .pbar-fill { fill: var(--muted); }
+.diagram .pbar-moves { fill: var(--accent); }
+.diagram .psticky { stroke: var(--join); stroke-width: 2.5; stroke-dasharray: 5 3; fill: none; }
+.diagram .pscore-dot { fill: var(--ink); }
+.diagram .pscore { font: 500 14px var(--font-mono); fill: var(--ink); }
+.diagram .pscore-won { fill: var(--accent); font-weight: 600; }
+.diagram .pterm { font: 400 12px var(--font-mono); fill: var(--muted); }
+.diagram .pterm-strong { fill: var(--ink); font-weight: 600; }
+.diagram .pterm-sticky { fill: var(--join); }
+.diagram .pkey { font: 400 12px var(--font-body); fill: var(--muted); }
+.diagram .pmove { stroke-width: 1.2; }
+.diagram .pmove-add { fill: color-mix(in srgb, var(--join) 14%, var(--panel)); stroke: var(--join); }
+.diagram .pmove-del { fill: color-mix(in srgb, var(--leave) 12%, var(--panel)); stroke: var(--leave); }
+.diagram .pmove-promote, .diagram .pmove-demote { fill: var(--panel-2); stroke: var(--muted); }
+.diagram .pmove-label { font: 500 12px var(--font-mono); fill: var(--ink); }
+.diagram .ptotal { font: 600 16px var(--font-display); fill: var(--accent); }
+.diagram .tedge { stroke: var(--muted); }
+.diagram .tnode { fill: var(--panel-2); stroke: var(--line); }
+.diagram .tnode-from { fill: var(--primary); stroke: var(--primary); }
+.diagram .tnode-in { fill: color-mix(in srgb, var(--join) 18%, var(--panel)); stroke: var(--join); }
+.diagram .tnode-out { opacity: 0.45; }
+.diagram .tnode-label { font: 500 13px var(--font-body); fill: var(--ink); }
+.diagram .tnode-from + .tnode-label { fill: var(--on-primary); }

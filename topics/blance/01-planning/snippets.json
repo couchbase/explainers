@@ -1,0 +1,231 @@
+{
+ "blance.PartitionMap": {
+  "id": "blance.PartitionMap",
+  "repo": "blance",
+  "path": "api.go",
+  "title": "blance PartitionMap — each partition's nodes, by state",
+  "start": 24,
+  "end": 36,
+  "highlight": [
+   35
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/api.go#L24-L36",
+  "code": "type PartitionMap map[string]*Partition // Keyed by Partition.Name.\n\n// A Partition represents a distinct, non-overlapping subset (or a\n// shard) of some logical resource.\ntype Partition struct {\n\t// The Name of a Partition must be unique within a PartitionMap.\n\tName string `json:\"name\"`\n\n\t// NodesByState is keyed is stateName, and the values are an array\n\t// of node names.  For example, {\"primary\": [\"a\"], \"replica\": [\"b\",\n\t// \"c\"]}.\n\tNodesByState map[string][]string `json:\"nodesByState\"`\n}"
+ },
+ "blance.PartitionModel": {
+  "id": "blance.PartitionModel",
+  "repo": "blance",
+  "path": "api.go",
+  "title": "blance PartitionModelState — a state's priority, and how many nodes",
+  "start": 46,
+  "end": 62,
+  "highlight": [
+   50,
+   61
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/api.go#L46-L62",
+  "code": "type PartitionModelState struct {\n\t// Priority of zero is the highest.  e.g., \"primary\" Priority\n\t// should be < than \"replica\" Priority, so we can define that\n\t// as \"primary\" Priority of 0 and \"replica\" priority of 1.\n\tPriority int `json:\"priority\"`\n\n\t// A Constraint defines how many nodes the algorithm strives to\n\t// assign a partition.  For example, for any given partition,\n\t// perhaps the application wants 1 node to have \"primary\" state and\n\t// wants 2 nodes to have \"replica\" state.  That is, the \"primary\"\n\t// state has Constraints of 1, and the \"replica\" state has\n\t// Constraints of 2.  Continuing the example, when the \"primary\"\n\t// state has Priority of 0 and the \"replica\" state has Priority of\n\t// 1, then \"primary\" partitions will be assigned to nodes before\n\t// \"replica\" partitions.\n\tConstraints int `json:\"constraints\"`\n}"
+ },
+ "cbgt.model": {
+  "id": "cbgt.model",
+  "repo": "cbgt",
+  "path": "manager_planner.go",
+  "title": "cbgt BlancePartitionModel() — primary and replicas",
+  "start": 1015,
+  "end": 1031,
+  "highlight": [
+   1023,
+   1024,
+   1028
+  ],
+  "url": "https://github.com/couchbase/cbgt/blob/d0afea68bde6f1a1dca67847499a588777076db7/manager_planner.go#L1015-L1031",
+  "code": "func BlancePartitionModel(indexDef *IndexDef) (\n\tmodel blance.PartitionModel,\n\tmodelConstraints map[string]int,\n) {\n\t// We're using multiple model states to better utilize blance's\n\t// node hierarchy features (shelf/rack/zone/row awareness).\n\treturn blance.PartitionModel{\n\t\t\"primary\": &blance.PartitionModelState{\n\t\t\tPriority:    0,\n\t\t\tConstraints: 1,\n\t\t},\n\t\t\"replica\": &blance.PartitionModelState{\n\t\t\tPriority:    1,\n\t\t\tConstraints: indexDef.PlanParams.NumReplicas,\n\t\t},\n\t}, map[string]int(nil)\n}"
+ },
+ "blance.PlanNextMapEx": {
+  "id": "blance.PlanNextMapEx",
+  "repo": "blance",
+  "path": "api.go",
+  "title": "blance PlanNextMapEx() — the next partition map",
+  "start": 147,
+  "end": 157,
+  "highlight": [
+   148,
+   151,
+   152
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/api.go#L147-L157",
+  "code": "func PlanNextMapEx(\n\tprevMap PartitionMap,\n\tpartitionsToAssign PartitionMap,\n\tnodesAll []string, // Union of nodesBefore, nodesToAdd, nodesToRemove.\n\tnodesToRemove []string,\n\tnodesToAdd []string,\n\tmodel PartitionModel,\n\toptions PlanNextMapOptions) (nextMap PartitionMap, warnings map[string][]string) {\n\treturn planNextMapEx(prevMap, partitionsToAssign, nodesAll, nodesToRemove, nodesToAdd,\n\t\tmodel, options)\n}"
+ },
+ "blance.states": {
+  "id": "blance.states",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance planNextMapInnerEx() — state by state, by priority",
+  "start": 307,
+  "end": 324,
+  "highlight": [
+   322
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L307-L324",
+  "code": "\tfor _, stateName := range sortStateNames(model) {\n\t\tconstraints := 0\n\n\t\tmodelState, exists := model[stateName]\n\t\tif exists && modelState != nil {\n\t\t\tconstraints = modelState.Constraints\n\t\t}\n\t\tif opts.ModelStateConstraints != nil {\n\t\t\tmodelStateConstraints, exists := opts.ModelStateConstraints[stateName]\n\t\t\tif exists {\n\t\t\t\tconstraints = modelStateConstraints\n\t\t\t}\n\t\t}\n\n\t\tif constraints > 0 {\n\t\t\tassignStateToPartitions(stateName, constraints)\n\t\t}\n\t}"
+ },
+ "blance.assign": {
+  "id": "blance.assign",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance assignStateToPartitions() — partition by partition, the best nodes",
+  "start": 253,
+  "end": 303,
+  "highlight": [
+   263,
+   287,
+   299
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L253-L303",
+  "code": "\tassignStateToPartitions := func(stateName string, constraints int) {\n\t\t// Sort the partitions to help reach a better assignment.\n\t\tp := &partitionSorter{\n\t\t\tstateName:        stateName,\n\t\t\tprevMap:          prevMap,\n\t\t\tnodesToRemove:    nodesToRemove,\n\t\t\tnodesToAdd:       nodesToAdd,\n\t\t\tpartitionWeights: opts.PartitionWeights,\n\t\t\ta:                append([]*Partition(nil), nextPartitions...),\n\t\t}\n\t\tsort.Sort(p)\n\n\t\t// Key is higherPriorityNode, value is {lowerPriorityNode: count}.\n\t\tnodeToNodeCounts := make(map[string]map[string]int)\n\n\t\tfor _, partition := range p.a {\n\t\t\tpartitionWeight := 1\n\t\t\tif opts.PartitionWeights != nil {\n\t\t\t\tw, exists := opts.PartitionWeights[partition.Name]\n\t\t\t\tif exists {\n\t\t\t\t\tpartitionWeight = w\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tincStateNodeCounts := func(stateName string, nodes []string) {\n\t\t\t\tadjustStateNodeCounts(stateNodeCounts, stateName, nodes,\n\t\t\t\t\tpartitionWeight)\n\t\t\t}\n\t\t\tdecStateNodeCounts := func(stateName string, nodes []string) {\n\t\t\t\tadjustStateNodeCounts(stateNodeCounts, stateName, nodes,\n\t\t\t\t\t-partitionWeight)\n\t\t\t}\n\n\t\t\tnodesToAssign :=\n\t\t\t\tfindBestNodes(partition,\n\t\t\t\t\tstateName, constraints, nodeToNodeCounts)\n\n\t\t\tpartition.NodesByState =\n\t\t\t\tremoveNodesFromNodesByState(partition.NodesByState,\n\t\t\t\t\tpartition.NodesByState[stateName],\n\t\t\t\t\tdecStateNodeCounts)\n\t\t\tpartition.NodesByState =\n\t\t\t\tremoveNodesFromNodesByState(partition.NodesByState,\n\t\t\t\t\tnodesToAssign,\n\t\t\t\t\tdecStateNodeCounts)\n\n\t\t\tpartition.NodesByState[stateName] = nodesToAssign\n\n\t\t\tincStateNodeCounts(stateName, nodesToAssign)\n\t\t}\n\t}"
+ },
+ "blance.nodeLess": {
+  "id": "blance.nodeLess",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance nodeSorter.Less() — by score, then by place in the node list",
+  "start": 617,
+  "end": 628,
+  "highlight": [
+   627
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L617-L628",
+  "code": "func (ns *nodeSorter) Less(i, j int) bool {\n\tsi := ns.Score(i)\n\tsj := ns.Score(j)\n\tif si < sj {\n\t\treturn true\n\t}\n\tif si > sj {\n\t\treturn false\n\t}\n\n\treturn ns.nodePositions[ns.a[i]] < ns.nodePositions[ns.a[j]]\n}"
+ },
+ "blance.nodeScore": {
+  "id": "blance.nodeScore",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance nodeSorter.Score() — a node's score for a partition and state",
+  "start": 634,
+  "end": 689,
+  "highlight": [
+   641,
+   650,
+   659,
+   668,
+   679,
+   686
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L634-L689",
+  "code": "func (ns *nodeSorter) Score(i int) float64 {\n\tnode := ns.a[i]\n\n\tlowerPriorityBalanceFactor := 0.0\n\tif ns.nodeToNodeCounts != nil && ns.numPartitions > 0 {\n\t\tm, exists := ns.nodeToNodeCounts[ns.topPriorityNode]\n\t\tif exists {\n\t\t\tlowerPriorityBalanceFactor =\n\t\t\t\tfloat64(m[node]) / float64(ns.numPartitions)\n\t\t}\n\t}\n\n\tfilledFactor := 0.0\n\tif ns.nodePartitionCounts != nil && ns.numPartitions > 0 {\n\t\tc, exists := ns.nodePartitionCounts[node]\n\t\tif exists {\n\t\t\tfilledFactor = (0.001 * float64(c)) / float64(ns.numPartitions)\n\t\t}\n\t}\n\n\tcurrentFactor := 0.0\n\tif ns.partition != nil {\n\t\tfor _, stateNode := range ns.partition.NodesByState[ns.stateName] {\n\t\t\tif stateNode == node {\n\t\t\t\t// Minimise movement.\n\t\t\t\tcurrentFactor = ns.stickiness\n\t\t\t}\n\t\t}\n\t}\n\n\tr := 0.0\n\tif ns.stateNodeCounts != nil {\n\t\tnodeCounts, exists := ns.stateNodeCounts[ns.stateName]\n\t\tif exists && nodeCounts != nil {\n\t\t\tr = float64(nodeCounts[node])\n\t\t}\n\t}\n\n\tr = r + lowerPriorityBalanceFactor\n\tr = r + filledFactor\n\n\tif ns.nodeWeights != nil {\n\t\tw, exists := ns.nodeWeights[node]\n\t\tif exists {\n\t\t\tif w > 0 {\n\t\t\t\tr = r / float64(w)\n\t\t\t} else if w < 0 && NodeScoreBooster != nil {\n\t\t\t\tr += NodeScoreBooster(w, currentFactor)\n\t\t\t}\n\t\t}\n\t}\n\n\tr = r - currentFactor\n\n\treturn r\n}"
+ },
+ "blance.exclude": {
+  "id": "blance.exclude",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance findBestNodes() — no replica on its own primary's node",
+  "start": 146,
+  "end": 154,
+  "highlight": [
+   148
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L146-L154",
+  "code": "\t\texcludeHigherPriorityNodes := func(remainingNodes []string) []string {\n\t\t\tfor stateName, stateNodes := range partition.NodesByState {\n\t\t\t\tif model[stateName].Priority < statePriority {\n\t\t\t\t\tremainingNodes =\n\t\t\t\t\t\tStringsRemoveStrings(remainingNodes, stateNodes)\n\t\t\t\t}\n\t\t\t}\n\t\t\treturn remainingNodes\n\t\t}"
+ },
+ "blance.converge": {
+  "id": "blance.converge",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance planNextMapEx() — again, until a pass changes nothing",
+  "start": 32,
+  "end": 56,
+  "highlight": [
+   43,
+   50
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L32-L56",
+  "code": "\tfor i := 0; i < MaxIterationsPerPlan; i++ { // Loop for convergence.\n\t\tnextMap, warnings = planNextMapInnerEx(prevMap, partitionsToAssign,\n\t\t\tnodesAll, nodesToRemove, nodesToAdd, model, opts)\n\t\t// Only check if the partitions to be assigned match.\n\t\tnotMatch := false\n\t\tfor _, partition := range nextMap {\n\t\t\tif !reflect.DeepEqual(partition, prevMap[partition.Name]) {\n\t\t\t\tnotMatch = true\n\t\t\t\tbreak\n\t\t\t}\n\t\t}\n\t\tif !notMatch {\n\t\t\tbreak\n\t\t}\n\t\t// If there's nothing to be changed since it's the best fit heuristically,\n\t\t// then abort.\n\t\t// Need to replace only the _new_ partitions - not truncate them all.\n\t\tfor _, partition := range nextMap {\n\t\t\tprevMap[partition.Name] = partition\n\t\t\tpartitionsToAssign[partition.Name] = partition\n\t\t}\n\t\tnodesAll = StringsRemoveStrings(nodesAll, nodesToRemove)\n\t\tnodesToRemove = []string{}\n\t\tnodesToAdd = []string{}\n\t}"
+ },
+ "blance.partitionOrder": {
+  "id": "blance.partitionOrder",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance partitionSorter.Score() — which partitions go first",
+  "start": 519,
+  "end": 562,
+  "highlight": [
+   548,
+   557
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L519-L562",
+  "code": "func (r *partitionSorter) Score(i int) []string {\n\tpartitionName := r.a[i].Name\n\tpartitionNameStr := partitionName\n\n\t// If the partitionName looks like a positive integer, then\n\t// zero-pad it for sortability.\n\tpartitionN, err := strconv.Atoi(partitionName)\n\tif err == nil && partitionN >= 0 {\n\t\tpartitionNameStr = fmt.Sprintf(\"%10d\", partitionN)\n\t}\n\n\t// Calculate partition weight, and zero-pad it for sortability,\n\t// where the nine 9's magic number is to to allow heavier\n\t// partitions to come first.\n\tpartitionWeight := 1\n\tif r.partitionWeights != nil {\n\t\tif w, exists := r.partitionWeights[partitionName]; exists {\n\t\t\tpartitionWeight = w\n\t\t}\n\t}\n\tpartitionWeightStr := fmt.Sprintf(\"%10d\", 999999999-partitionWeight)\n\n\t// First, favor partitions on nodes that are to-be-removed.\n\tif r.prevMap != nil &&\n\t\tr.nodesToRemove != nil && len(r.nodesToRemove) > 0 {\n\t\tlastPartition := r.prevMap[partitionName]\n\t\tlpnbs := lastPartition.NodesByState[r.stateName]\n\t\tif lpnbs != nil &&\n\t\t\tlen(StringsIntersectStrings(lpnbs, r.nodesToRemove)) > 0 {\n\t\t\treturn []string{\"0\", partitionWeightStr, partitionNameStr}\n\t\t}\n\t}\n\n\t// Then, favor partitions who haven't yet been assigned to any\n\t// newly added nodes yet for any state.\n\tif r.nodesToAdd != nil {\n\t\tfnbs := flattenNodesByState(r.a[i].NodesByState)\n\t\tif len(StringsIntersectStrings(fnbs, r.nodesToAdd)) <= 0 {\n\t\t\treturn []string{\"1\", partitionWeightStr, partitionNameStr}\n\t\t}\n\t}\n\n\treturn []string{\"2\", partitionWeightStr, partitionNameStr}\n}"
+ },
+ "blance.CalcPartitionMoves": {
+  "id": "blance.CalcPartitionMoves",
+  "repo": "blance",
+  "path": "moves.go",
+  "title": "blance CalcPartitionMoves() — one partition's moves, old map to new",
+  "start": 41,
+  "end": 119,
+  "highlight": [
+   71,
+   76,
+   82,
+   88
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/moves.go#L41-L119",
+  "code": "func CalcPartitionMoves(\n\tstates []string,\n\tbegNodesByState map[string][]string,\n\tendNodesByState map[string][]string,\n\tfavorMinNodes bool,\n) []NodeStateOp {\n\tvar moves []NodeStateOp\n\n\tseen := map[string]bool{}\n\n\taddMoves := func(nodes []string, state, op string) {\n\t\tfor _, node := range nodes {\n\t\t\tif !seen[node] {\n\t\t\t\tseen[node] = true\n\t\t\t\tmoves = append(moves, NodeStateOp{node, state, op})\n\t\t\t}\n\t\t}\n\t}\n\n\tbegNodes := flattenNodesByState(begNodesByState)\n\tendNodes := flattenNodesByState(endNodesByState)\n\n\tadds := StringsRemoveStrings(endNodes, begNodes)\n\tdels := StringsRemoveStrings(begNodes, endNodes)\n\n\tif !favorMinNodes {\n\t\tfor statei, state := range states {\n\t\t\t// Handle promotions of inferiorTo(state) to state.\n\t\t\taddMoves(findStateChanges(statei+1, len(states),\n\t\t\t\tstate, states, begNodesByState, endNodesByState),\n\t\t\t\tstate, \"promote\")\n\n\t\t\t// Handle demotions of superiorTo(state) to state.\n\t\t\taddMoves(findStateChanges(0, statei,\n\t\t\t\tstate, states, begNodesByState, endNodesByState),\n\t\t\t\tstate, \"demote\")\n\n\t\t\t// Handle clean additions of state.\n\t\t\taddMoves(StringsIntersectStrings(StringsRemoveStrings(\n\t\t\t\tendNodesByState[state], begNodesByState[state]),\n\t\t\t\tadds),\n\t\t\t\tstate, \"add\")\n\n\t\t\t// Handle clean deletions of state.\n\t\t\taddMoves(StringsIntersectStrings(StringsRemoveStrings(\n\t\t\t\tbegNodesByState[state], endNodesByState[state]),\n\t\t\t\tdels),\n\t\t\t\t\"\", \"del\")\n\t\t}\n\t} else {\n\t\tfor statei := len(states) - 1; statei >= 0; statei-- {\n\t\t\tstate := states[statei]\n\n\t\t\t// Handle clean deletions of state.\n\t\t\taddMoves(StringsIntersectStrings(StringsRemoveStrings(\n\t\t\t\tbegNodesByState[state], endNodesByState[state]),\n\t\t\t\tdels),\n\t\t\t\t\"\", \"del\")\n\n\t\t\t// Handle demotions of superiorTo(state) to state.\n\t\t\taddMoves(findStateChanges(0, statei,\n\t\t\t\tstate, states, begNodesByState, endNodesByState),\n\t\t\t\tstate, \"demote\")\n\n\t\t\t// Handle promotions of inferiorTo(state) to state.\n\t\t\taddMoves(findStateChanges(statei+1, len(states),\n\t\t\t\tstate, states, begNodesByState, endNodesByState),\n\t\t\t\tstate, \"promote\")\n\n\t\t\t// Handle clean additions of state.\n\t\t\taddMoves(StringsIntersectStrings(StringsRemoveStrings(\n\t\t\t\tendNodesByState[state], begNodesByState[state]),\n\t\t\t\tadds),\n\t\t\t\tstate, \"add\")\n\t\t}\n\t}\n\n\treturn moves\n}"
+ },
+ "cbgt.failover": {
+  "id": "cbgt.failover",
+  "repo": "cbgt",
+  "path": "cmd/planner.go",
+  "title": "cbgt Failover() — promote a surviving replica, outside blance",
+  "start": 158,
+  "end": 179,
+  "highlight": [
+   169
+  ],
+  "url": "https://github.com/couchbase/cbgt/blob/d0afea68bde6f1a1dca67847499a588777076db7/cmd/planner.go#L158-L179",
+  "code": "\t\t\t\t// Failover'ed node used to be a primary for this\n\t\t\t\t// pindex, so find a replica to promote.\n\t\t\t\tpromoted := \"\"\n\n\t\t\tPROMOTE_REPLICA:\n\t\t\t\tfor nodePro, ppnPro := range planPIndex.Nodes {\n\t\t\t\t\tif mapNodesFailover[nodePro] {\n\t\t\t\t\t\tcontinue\n\t\t\t\t\t}\n\n\t\t\t\t\tif ppnPro.Priority >= 1 {\n\t\t\t\t\t\tppnPro.Priority = 0\n\t\t\t\t\t\tplanPIndex.Nodes[nodePro] = ppnPro\n\t\t\t\t\t\tpromoted = nodePro\n\t\t\t\t\t\t// this index will need a warning because it doesn't have\n\t\t\t\t\t\t// at least 1 replica.\n\t\t\t\t\t\tplanPIndexesNext.Warnings[planPIndex.IndexName] =\n\t\t\t\t\t\t\tappend(planPIndexesNext.Warnings[planPIndex.IndexName],\n\t\t\t\t\t\t\t\tplanPIndexesCalc.Warnings[planPIndex.IndexName]...)\n\t\t\t\t\t\tbreak PROMOTE_REPLICA\n\t\t\t\t\t}\n\t\t\t\t}"
+ },
+ "blance.HierarchyRule": {
+  "id": "blance.HierarchyRule",
+  "repo": "blance",
+  "path": "api.go",
+  "title": "blance HierarchyRule — up how many levels to include, and to exclude",
+  "start": 96,
+  "end": 105,
+  "highlight": [
+   99,
+   104
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/api.go#L96-L105",
+  "code": "type HierarchyRule struct {\n\t// IncludeLevel defines how many parents or ancestors to traverse\n\t// upwards in a containment hierarchy to find candidate nodes.\n\tIncludeLevel int `json:\"includeLevel\"`\n\n\t// ExcludeLevel defines how many parents or ancestors to traverse\n\t// upwards in a containment hierarchy to find an exclusion set of\n\t// nodes.\n\tExcludeLevel int `json:\"excludeLevel\"`\n}"
+ },
+ "cbgt.groupsRule": {
+  "id": "cbgt.groupsRule",
+  "repo": "cbgt",
+  "path": "manager_planner.go",
+  "title": "cbgt — by default, a replica in another server group",
+  "start": 912,
+  "end": 915,
+  "highlight": [
+   914,
+   915
+  ],
+  "url": "https://github.com/couchbase/cbgt/blob/d0afea68bde6f1a1dca67847499a588777076db7/manager_planner.go#L912-L915",
+  "code": "\t\tindexDef.PlanParams.HierarchyRules = blance.HierarchyRules{\n\t\t\t\"replica\": []*blance.HierarchyRule{{\n\t\t\t\tIncludeLevel: 2,\n\t\t\t\tExcludeLevel: 1}}}"
+ },
+ "blance.stickiness": {
+  "id": "blance.stickiness",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance findBestNodes() — stickiness, read only with partition weights",
+  "start": 104,
+  "end": 115,
+  "highlight": [
+   105,
+   108,
+   112
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L104-L115",
+  "code": "\t\tstickiness := 1.5\n\t\tif opts.PartitionWeights != nil {\n\t\t\tw, exists := opts.PartitionWeights[partition.Name]\n\t\t\tif exists {\n\t\t\t\tstickiness = float64(w)\n\t\t\t} else if opts.StateStickiness != nil {\n\t\t\t\ts, exists := opts.StateStickiness[stateName]\n\t\t\t\tif exists {\n\t\t\t\t\tstickiness = float64(s)\n\t\t\t\t}\n\t\t\t}\n\t\t}"
+ }
+}

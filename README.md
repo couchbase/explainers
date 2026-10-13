@@ -19,8 +19,10 @@ topic (`topics/`):
 - **[blance](topics/blance/README.md):** how
   [blance](https://github.com/couchbase/blance), the library under
   cbgt, plans which node holds each partition's primary and replicas,
-  and moves them in a rebalance. Started: research notes and the
-  planned explainers, none built yet.
+  and moves them in a rebalance:
+  - **01-planning**, "Inside blance: how a plan places partitions":
+    the planner's real decisions, score by score, as nodes join and
+    leave, with server groups and stickiness.
 
 ## Quick start
 
@@ -287,9 +289,10 @@ topics/
     01-indexing/         goroutines and backpressure, with a simulator (sim/)
     02-zap-format/       inside a zap segment, with tools/zap-golden
   blance/                partition planning and moves (see its README.md)
-    topic.yaml, sources.yaml, research/
+    topic.yaml, style.css (its own palette and fonts), sources.yaml, research/
     lib/                 a JS port of blance's planner and moves, checked against the
                          real Go by tools/plan-golden; shared by its explainers
+    01-planning/         the planner, decision by decision (scenarios.js)
 dist/                    the built pages (committed; published by GitHub Pages)
 .github/workflows/       CI, and GitHub Pages publishing
 ```

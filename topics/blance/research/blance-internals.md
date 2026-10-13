@@ -188,6 +188,14 @@ failover promotes replicas outside blance, so the effect there is
 small. Worth raising with blance's maintainers before an explainer
 states it as fact.
 
+**Another, smaller one: the state sort's Less isn't a strict order.**
+stateNameSorter.Less (plan.go:459-470) returns true when i's priority
+is lower *or* i's name sorts first, so for a model where the names
+sort against the priorities (say "a" with priority 1 and "b" with 0)
+both Less(a, b) and Less(b, a) are true, and the order depends on Go's
+map iteration. cbgt's "primary"/"replica" sort the same both ways, so
+it's never bitten.
+
 ## Explainer material, in order of payoff
 
 1. **Planning** (plan.go): the greedy loop, the score, stickiness,

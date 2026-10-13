@@ -8,3 +8,8 @@ subtitle: >-
   How blance, the partition-assignment library under cbgt and Couchbase
   full-text search, decides which node holds each partition's primary
   and replicas, and how a rebalance then moves them there.
+# its fonts (Google Fonts families), set as the engine's --font-* in style.css
+fonts:
+  - "Space Grotesk:wght@500;600"
+  - "Source Serif 4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400"
+  - "JetBrains Mono:wght@400;500;600"

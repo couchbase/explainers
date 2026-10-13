@@ -1,0 +1,339 @@
+# The first blance explainer: how its planner places partitions. No
+# simulation: each step moves `at` (a frame of a scenario, the
+# partition map after that many of the planner's decisions) or changes
+# the `panel`. Every number in the text is checked, by
+# `expect: ["fact:<name>=<value>"]`, against the scenarios as run by
+# the port of blance's planner, which the golden cases check against
+# the real blance.
+
+sources: [blance, cbgt]
+title: "Inside blance: how a plan places partitions"
+subtitle: >-
+  How cbgt's planner decides which node gets each index partition's
+  primary and replicas: greedily, one partition at a time, and what
+  that means when nodes join and leave.
+audience: Couchbase engineers and support
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: map
+    title: "The partition map"
+    color: map
+    steps:
+
+      - id: intro
+        view: { target: board.title }
+        code: [blance.PartitionMap]
+        text: |
+          A Couchbase full-text index is split into partitions (cbgt
+          calls them pindexes), and each one lives on a node of the
+          cluster. Which node gets which is decided by
+          [blance](https://github.com/couchbase/blance), the library
+          under cbgt, and what it decides is [[the partition map]]: for
+          each partition, its nodes, by state.
+
+      - id: model
+        view: { target: row.0 }
+        code: [blance.PartitionModel, cbgt.model]
+        text: |
+          The states come from the app's model. cbgt's has two: a
+          primary, with priority 0 and a constraint of 1 node, and
+          replicas, with priority 1 and as many nodes as the index
+          has replicas. Here, an index with eight partitions and one
+          replica: [[partition 0]] needs a primary and a replica, on
+          different nodes, and so does each of the others.
+
+      - id: call
+        view: { target: node.a }
+        code: [blance.PlanNextMapEx]
+        text: |
+          blance's `PlanNextMapEx` takes the map as it is, all the
+          nodes, the ones joining and the ones leaving, the model and
+          some options, and returns the next map. Here the index is
+          new: nothing is placed yet, and [[nodes a, b and c]] are all
+          joining.
+
+  # ------------------------------------------------------------------
+  - id: primaries
+    title: "Primaries first"
+    color: primary
+    steps:
+
+      - id: states
+        view: { panel: score, target: panel.title }
+        code: [blance.states, blance.assign]
+        text: |
+          The planner goes state by state, most important first: every
+          partition's primary, then every partition's replicas. For
+          each partition in turn, it sorts the candidate nodes by
+          [[a score]], lowest first, and takes as many as the state
+          needs: here, one.
+
+      - id: first
+        view: { at: fresh.1, target: winner }
+        code: [blance.nodeLess]
+        expect: ["fact:fresh.1.partition=0", "fact:fresh.1.winner=a"]
+        text: |
+          Partition 0. Nothing is placed anywhere, so every node scores
+          0, and a tie goes to whichever comes first in the node list:
+          [[a]].
+
+      - id: count
+        view: { at: fresh.2, target: winner }
+        code: [blance.nodeScore]
+        expect: ["fact:fresh.2.partition=1", "fact:fresh.2.a=1.1251", "fact:fresh.2.winner=b"]
+        text: |
+          Partition 1. Now a holds a primary, and that's the score's
+          main term: how many partitions the node already holds in this
+          state. a scores 1.1251, and [[b]] wins, tied with c at 0 and
+          ahead of it in the list. (The 0.125 is a term that matters
+          for replicas, and the last 0.0001 a tie-breaker, both coming
+          up.)
+
+      - id: round
+        view: { at: fresh.8, target: tally.a }
+        expect: ["fact:fresh.8.counts=a3/0 b3/0 c2/0"]
+        text: |
+          And so on, round the nodes: a, b, c, a, b, c, a, b. Eight
+          primaries on three nodes: [[a has 3]], b 3, and c 2.
+
+  # ------------------------------------------------------------------
+  - id: replicas
+    title: "Then the replicas"
+    color: replica
+    steps:
+
+      - id: exclude
+        view: { at: fresh.9, target: winner }
+        code: [blance.exclude]
+        expect: ["fact:fresh.9.partition=0", "fact:fresh.9.b=0.0004", "fact:fresh.9.c=0.0003", "fact:fresh.9.winner=c"]
+        text: |
+          Partition 0's replica. Its primary is on a, so a isn't a
+          candidate: a replica never goes on its primary's node. b and
+          c hold no replicas yet, and c wins by 0.0001: the tie-breaker,
+          0.001 × all the partitions on the node ÷ the number of
+          partitions, favours the emptier node, and [[c]] holds 2
+          primaries to b's 3.
+
+      - id: spread
+        view: { at: fresh.12, target: winner }
+        code: [blance.nodeScore]
+        expect: ["fact:fresh.12.partition=3", "fact:fresh.12.b=1.0005", "fact:fresh.12.c=1.1254", "fact:fresh.12.winner=b"]
+        text: |
+          Partition 3's primary is on a, too, and c already holds the
+          replica of partition 0, another of a's. So c gets 1/8 more:
+          that term counts how often a node already backs the same
+          primary node, so that if a fails, the replicas taking over
+          for it are spread over several nodes. [[b]] wins, at 1.0005
+          to c's 1.1254.
+
+      - id: done
+        view: { at: fresh.16, target: tally.b }
+        expect: ["fact:fresh.16.counts=a3/3 b3/2 c2/3"]
+        text: |
+          The rest go the same way. Every node ends up with 5 or 6
+          partitions: a with 3 primaries and 3 replicas, [[b with 3 and 2]], c with 2 and 3.
+
+      - id: again
+        view: { at: fresh.end, target: panel.title }
+        code: [blance.converge]
+        expect: ["fact:fresh.iterations=2"]
+        text: |
+          Then blance does it all again, starting from its result, up
+          to 10 times, until a pass changes nothing. Here the second
+          pass changes nothing: [[done]], in 2 passes.
+
+  # ------------------------------------------------------------------
+  - id: join
+    title: "A node joins"
+    color: change
+    steps:
+
+      - id: joins
+        view: { at: add.prev, target: node.d }
+        text: |
+          Now [[node d]] joins, and a rebalance asks for the next map:
+          from the current one, with d as a node to add.
+
+      - id: order
+        view: { at: add.1, target: winner }
+        code: [blance.partitionOrder, blance.nodeScore]
+        expect: ["fact:add.1.partition=0", "fact:add.1.a=1.5008", "fact:add.1.d=0.0000", "fact:add.1.winner=d"]
+        text: |
+          Partitions not yet on a new node go first. Partition 0's
+          primary is on a, which holds 3. Staying put is worth 1.5,
+          the stickiness, taken off the node that already holds the
+          partition in this state, so a scores 1.5008. d, with nothing,
+          scores 0: [[d]] gets partition 0's primary.
+
+      - id: sticky
+        view: { at: add.3, target: winner }
+        expect: ["fact:add.3.partition=2", "fact:add.3.c=0.5006", "fact:add.3.d=2.0002", "fact:add.3.winner=c"]
+        text: |
+          Partition 1's primary goes to d, too. But by partition 2, d
+          holds 2 and scores 2.0002, while c, holding it, scores 0.5006:
+          it [[stays on c]].
+
+      - id: primaries-done
+        view: { at: add.8, target: tally.d }
+        expect: ["fact:add.8.counts=a2/3 b2/2 c2/3 d2/0"]
+        text: |
+          The other primaries stay where they are, and [[d has 2]], like
+          every node.
+
+      - id: replica-d
+        view: { at: add.9, target: winner }
+        expect: ["fact:add.9.partition=2", "fact:add.9.b=0.5005", "fact:add.9.d=0.0003", "fact:add.9.winner=d"]
+        text: |
+          Then the replicas. Partition 2's is on b, which holds 2; d
+          holds none, so even with b's stickiness, [[d]] gets it.
+
+      - id: replica-b
+        view: { at: add.12, target: winner }
+        expect: ["fact:add.12.partition=5", "fact:add.12.a=1.5006", "fact:add.12.b=1.0004", "fact:add.12.winner=b"]
+        text: |
+          Partition 5's replica is on a, which holds 3, the most. b,
+          having just given one up, holds only 1, and [[b]] takes it
+          from a.
+
+      - id: balanced
+        view: { at: add.16, target: tally.d }
+        expect: ["fact:add.16.counts=a2/2 b2/2 c2/2 d2/2"]
+        text: |
+          The rest stay. Every node ends with [[2 primaries and 2 replicas]].
+
+      - id: moves
+        view: { panel: moves, target: moves.total }
+        code: [blance.CalcPartitionMoves]
+        expect: ["fact:add.moves=10", "fact:add.moved=5", "fact:add.moves.2=add d:replica, del b", "fact:add.moves.5=add b:replica, del a"]
+        text: |
+          As moves, from the old map to the new (blance's
+          `CalcPartitionMoves`): [[10 moves]], over 5 partitions. d
+          needs 4 partitions, so 8 would do: partition 2's replica went
+          from b to d, then partition 5's from a to b, where a to d
+          would have been one move. The planner is greedy: one
+          partition at a time, with no look ahead.
+
+  # ------------------------------------------------------------------
+  - id: leave
+    title: "A node leaves"
+    color: change
+    steps:
+
+      - id: leaves
+        view: { at: remove.prev, target: node.b }
+        text: |
+          Now [[node b]] leaves, in a rebalance that removes it.
+
+      - id: drop
+        view: { at: remove.0, target: row.4 }
+        text: |
+          First the planner takes b out of every partition: [[partition 4]] loses its primary, as does partition 7, and partitions 3
+          and 5 their replicas.
+
+      - id: scores
+        view: { panel: score, target: panel.title }
+        text: |
+          Partitions that were on a leaving node go first, before the
+          rest. Back to [[the scores]].
+
+      - id: no-promote
+        view: { at: remove.1, target: winner }
+        expect: ["fact:remove.1.partition=4", "fact:remove.1.a=2.0005", "fact:remove.1.d=2.0005", "fact:remove.1.winner=a"]
+        text: |
+          Partition 4's replica is on d, so promoting d would be cheap,
+          with no data to copy. But stickiness only counts for a node
+          already in the same state: d is one of three nodes tied at
+          2.0005, and [[a]], first in the list, gets partition 4's
+          primary, as a whole new copy.
+
+      - id: left
+        view: { at: remove.16, target: tally.a }
+        expect: ["fact:remove.16.counts=a3/3 c3/2 d2/3"]
+        text: |
+          The rest: [[a with 3 and 3]], c with 3 and 2, and d with 2
+          and 3.
+
+      - id: moves
+        view: { panel: moves, target: moves.4 }
+        code: [cbgt.failover]
+        expect: ["fact:remove.moves=8", "fact:remove.moves.4=add a:primary, del b"]
+        text: |
+          8 moves, among them [[partition 4]]'s: add a as its primary,
+          then delete b. (cbgt's failover doesn't leave this to blance:
+          it promotes a surviving replica itself, and uses blance's plan
+          only for a partition with none.)
+
+  # ------------------------------------------------------------------
+  - id: groups
+    title: "Server groups"
+    color: groups
+    steps:
+
+      - id: tree
+        view: { panel: tree, target: tree }
+        code: [blance.HierarchyRule]
+        text: |
+          Nodes can sit in server groups, say racks or availability
+          zones. blance takes them as [[a tree]]: each node's parent.
+          Here, a and b are in group g1, and c and d in g2.
+
+      - id: without
+        view: { at: nogroups.end, target: row.0 }
+        expect: ["fact:nogroups.sameGroup=4"]
+        text: |
+          Planned without the groups, on all four nodes, [[partition 0]] gets its primary on a and its replica on b, both in g1,
+          and so do 4 of the 8 partitions: lose g1, and partitions 0
+          and 1 are gone.
+
+      - id: with
+        view: { at: groups.end, target: row.0 }
+        code: [cbgt.groupsRule]
+        expect: ["fact:groups.sameGroup=0"]
+        text: |
+          cbgt's rule for replicas when there are groups: include level
+          2, exclude level 1. From the primary's node, go up 2 levels
+          (to dc) for the candidates, and take away everything up 1
+          level (its own group). Now [[partition 0]]'s replica is on c,
+          and every replica is in the other group from its primary.
+
+  # ------------------------------------------------------------------
+  - id: sticky
+    title: "Stickiness, and a quirk"
+    color: neutral
+    steps:
+
+      - id: default
+        view: { panel: stick, target: stick.default }
+        expect: ["fact:stick.default=10"]
+        text: |
+          Stickiness is 1.5 unless the app says otherwise: staying put
+          is worth one and a half partitions of imbalance. An app can
+          set it per state (cbgt does, in failover: 100000 for
+          primaries). Adding d to the first map, [[as before]]: 10
+          moves.
+
+      - id: ignored
+        view: { target: stick.nil }
+        code: [blance.stickiness]
+        expect: ["fact:stick.nil=10"]
+        text: |
+          But [[set it to 100000]] for both states, and it's still 10
+          moves: blance only reads the per-state stickiness when the
+          partition weights option isn't nil (and then a partition's
+          weight, if it has one, is its stickiness).
+
+      - id: honored
+        view: { target: stick.empty }
+        expect: ["fact:stick.empty=0", "fact:stick.zero=13"]
+        text: |
+          Pass [[an empty partition weights map]] instead, and the same
+          stickiness keeps everything where it is: 0 moves. (A
+          stickiness of 0 gives 13.)
+
+      - id: so
+        text: |
+          For cbft this matters little, as its failover promotes
+          replicas itself. But an app that sets per-state stickiness
+          alone gets the default, which looks like a bug in blance.

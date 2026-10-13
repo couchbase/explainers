@@ -1,0 +1,58 @@
+/* The blance topic's look, shared by its explainers: warm paper and
+   ink, teal primaries and amber replicas, and its own fonts (named in
+   topic.yaml). After the engine's styles, before each explainer's. */
+:root {
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --bg: #f5f0e6;
+  --panel: #fffcf5;
+  --panel-2: #f8f3e8;
+  --ink: #1f1c17;
+  --muted: #6b6253;
+  --line: #ddd2bd;
+  --faint: #ece4d3;
+  --accent: #b3264f;
+  --flow: #8a8172;
+
+  --primary: #0e6b6b;
+  --on-primary: #ffffff;
+  --replica: #a86a00;
+  --replica-bg: #fdf1d8;
+  --join: #2f7d32;
+  --leave: #c0392b;
+
+  --sec-map: #5a5146;
+  --sec-primary: #0e6b6b;
+  --sec-replica: #a86a00;
+  --sec-change: #b3264f;
+  --sec-groups: #5b4fa8;
+  --sec-neutral: #6b6253;
+
+  --code-bg: #f8f3e8;
+  --code-hl: #fbe9c4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15130f; --panel: #1e1b16; --panel-2: #191612; --ink: #ede6d8; --muted: #a89f8e; --line: #3a342a; --faint: #26221b;
+    --accent: #f06b93; --flow: #8f8676;
+    --primary: #3bb3ad; --on-primary: #0d1716; --replica: #e6ad45; --replica-bg: #2c2414; --join: #6cc070; --leave: #ef6f61;
+    --sec-map: #b5ab98; --sec-primary: #3bb3ad; --sec-replica: #e6ad45; --sec-change: #f06b93; --sec-groups: #a99cf0; --sec-neutral: #a89f8e;
+    --code-bg: #191612; --code-hl: #3a3018;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15130f; --panel: #1e1b16; --panel-2: #191612; --ink: #ede6d8; --muted: #a89f8e; --line: #3a342a; --faint: #26221b;
+  --accent: #f06b93; --flow: #8f8676;
+  --primary: #3bb3ad; --on-primary: #0d1716; --replica: #e6ad45; --replica-bg: #2c2414; --join: #6cc070; --leave: #ef6f61;
+  --sec-map: #b5ab98; --sec-primary: #3bb3ad; --sec-replica: #e6ad45; --sec-change: #f06b93; --sec-groups: #a99cf0; --sec-neutral: #a89f8e;
+  --code-bg: #191612; --code-hl: #3a3018;
+}
+
+/* its chapters' colors */
+.sec-map { --sec: var(--sec-map); }
+.sec-primary { --sec: var(--sec-primary); }
+.sec-replica { --sec: var(--sec-replica); }
+.sec-change { --sec: var(--sec-change); }
+.sec-groups { --sec: var(--sec-groups); }

@@ -1,0 +1,133 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields: repo, path, anchor (a unique line),
+# extent (lines, or func: up to the next "}" at column 0), title,
+# highlight (lines to mark, by a substring).
+
+blance.PartitionMap:
+  repo: blance
+  path: api.go
+  anchor: "type PartitionMap map[string]*Partition // Keyed by Partition.Name."
+  extent: 13
+  title: blance PartitionMap — each partition's nodes, by state
+  highlight: ["NodesByState map[string][]string"]
+
+blance.PartitionModel:
+  repo: blance
+  path: api.go
+  anchor: "type PartitionModelState struct {"
+  extent: func
+  title: blance PartitionModelState — a state's priority, and how many nodes
+  highlight: ["Priority int", "Constraints int"]
+
+cbgt.model:
+  repo: cbgt
+  path: manager_planner.go
+  anchor: "func BlancePartitionModel(indexDef *IndexDef) ("
+  extent: func
+  title: cbgt BlancePartitionModel() — primary and replicas
+  highlight: ["Priority:    0,", "Constraints: 1,", "Constraints: indexDef.PlanParams.NumReplicas,"]
+
+blance.PlanNextMapEx:
+  repo: blance
+  path: api.go
+  anchor: "func PlanNextMapEx("
+  extent: func
+  title: blance PlanNextMapEx() — the next partition map
+  highlight: ["prevMap PartitionMap,", "nodesToRemove []string,", "nodesToAdd []string,"]
+
+blance.states:
+  repo: blance
+  path: plan.go
+  anchor: "for _, stateName := range sortStateNames(model) {"
+  extent: 18
+  title: blance planNextMapInnerEx() — state by state, by priority
+  highlight: ["assignStateToPartitions(stateName, constraints)"]
+
+blance.assign:
+  repo: blance
+  path: plan.go
+  anchor: "assignStateToPartitions := func(stateName string, constraints int) {"
+  extent: 51
+  title: blance assignStateToPartitions() — partition by partition, the best nodes
+  highlight: ["sort.Sort(p)", "findBestNodes(partition,", "partition.NodesByState[stateName] = nodesToAssign"]
+
+blance.nodeLess:
+  repo: blance
+  path: plan.go
+  anchor: "func (ns *nodeSorter) Less(i, j int) bool {"
+  extent: func
+  title: blance nodeSorter.Less() — by score, then by place in the node list
+  highlight: ["return ns.nodePositions[ns.a[i]] < ns.nodePositions[ns.a[j]]"]
+
+blance.nodeScore:
+  repo: blance
+  path: plan.go
+  anchor: "func (ns *nodeSorter) Score(i int) float64 {"
+  extent: func
+  title: blance nodeSorter.Score() — a node's score for a partition and state
+  highlight: ["lowerPriorityBalanceFactor =", "filledFactor = (0.001", "currentFactor = ns.stickiness", "r = float64(nodeCounts[node])", "r = r / float64(w)", "r = r - currentFactor"]
+
+blance.exclude:
+  repo: blance
+  path: plan.go
+  anchor: "excludeHigherPriorityNodes := func(remainingNodes []string) []string {"
+  extent: 9
+  title: blance findBestNodes() — no replica on its own primary's node
+  highlight: ["model[stateName].Priority < statePriority"]
+
+blance.converge:
+  repo: blance
+  path: plan.go
+  anchor: "for i := 0; i < MaxIterationsPerPlan; i++ { // Loop for convergence."
+  extent: 25
+  title: blance planNextMapEx() — again, until a pass changes nothing
+  highlight: ["if !notMatch {", "prevMap[partition.Name] = partition"]
+
+blance.partitionOrder:
+  repo: blance
+  path: plan.go
+  anchor: "func (r *partitionSorter) Score(i int) []string {"
+  extent: func
+  title: blance partitionSorter.Score() — which partitions go first
+  highlight: ["return []string{\"0\", partitionWeightStr, partitionNameStr}", "return []string{\"1\", partitionWeightStr, partitionNameStr}"]
+
+blance.CalcPartitionMoves:
+  repo: blance
+  path: moves.go
+  anchor: "func CalcPartitionMoves("
+  extent: func
+  title: blance CalcPartitionMoves() — one partition's moves, old map to new
+  highlight: ["\"promote\")", "\"demote\")", "state, \"add\")", "\"\", \"del\")"]
+
+cbgt.failover:
+  repo: cbgt
+  path: cmd/planner.go
+  anchor: "// Failover'ed node used to be a primary for this"
+  extent: 22
+  title: cbgt Failover() — promote a surviving replica, outside blance
+  highlight: ["ppnPro.Priority = 0"]
+
+blance.HierarchyRule:
+  repo: blance
+  path: api.go
+  anchor: "type HierarchyRule struct {"
+  extent: func
+  title: blance HierarchyRule — up how many levels to include, and to exclude
+  highlight: ["IncludeLevel int", "ExcludeLevel int"]
+
+cbgt.groupsRule:
+  repo: cbgt
+  path: manager_planner.go
+  anchor: "indexDef.PlanParams.HierarchyRules = blance.HierarchyRules{"
+  extent: 4
+  title: cbgt — by default, a replica in another server group
+  highlight: ["IncludeLevel: 2,", "ExcludeLevel: 1}}}"]
+
+blance.stickiness:
+  repo: blance
+  path: plan.go
+  anchor: "stickiness := 1.5"
+  extent: 12
+  title: blance findBestNodes() — stickiness, read only with partition weights
+  highlight: ["if opts.PartitionWeights != nil {", "stickiness = float64(w)", "stickiness = float64(s)"]
