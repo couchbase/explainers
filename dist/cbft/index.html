@@ -184,6 +184,8 @@ a.eyebrow:hover { text-decoration: underline; }
   max-width: 62ch;
 }
 .step.step-long { min-height: 170vh; }
+/* a scrubbing step's text stays in view while it plays */
+.step.step-scrub > .card { position: sticky; top: 18vh; }
 .step .card { opacity: 0.55; transition: opacity 0.4s ease; }
 .step.active .card { opacity: 1; }
 .step p { margin: 0 0 0.9em; }
@@ -326,6 +328,7 @@ a.eyebrow:hover { text-decoration: underline; }
   .tools, .controls { display: flex; flex-wrap: wrap; gap: 0.4rem; min-width: 0; }
   .story { width: auto; margin-left: 0; padding-block: 1rem 60vh; pointer-events: auto; }
   .step { min-height: 50vh; scroll-margin-top: 58vh; }
+  .step.step-scrub > .card { top: 60vh; }
   .hero h1 { font-size: 1.8rem; }
 }
 @media (prefers-reduced-motion: reduce) {
