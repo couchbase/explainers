@@ -668,8 +668,9 @@ export class Diagram {
         const chipAt = ([p, nn, st]) => [chipX(nn, st), rowY(p) + 12];
         // each lands on the top of the bar as it is when it arrives
         const cn = src[n].count.length, sn = src[n].spread.length, fn = src[n].fill.length;
-        // (each with what it adds to the score; and, counter-clockwise, every arrow down bows west, as the pick's
-        // up bows east, by more for each so they don't overlap)
+        // (each with what it adds to the score; and, counter-clockwise,
+        // every arrow down bows west, as the pick's up bows east, by more
+        // for each so they don't overlap)
         src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`, 1 / w]));
         src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], -38 - 10 * i, 'sarc-spread', 1 / np / w]));
         src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], -30 - 8 * i, 'sarc-fill', 0.001 / np / w]));
