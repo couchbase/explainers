@@ -43,6 +43,11 @@ const grown = (u, i, n) => clamp01((u - (i + FLY) / n) / ((1 - FLY) / n));
 const PICK = { ring: [0, 0.3], flight: [0.2, 0.65], chip: [0.65, 0.9] };
 const within = (t, [a, b]) => clamp01((t - a) / (b - a));
 
+// An arrow's thickness, by what it adds to the score: by its square
+// root, so the tie-breaker's (0.000125) still shows beside stickiness's
+// (1.5): about 0.8px to 3.7px.
+const arcWidth = (adds) => 0.8 + 2.4 * Math.sqrt(Math.max(0, adds));
+
 // A dash pattern that draws `drawn` px of a path of length `len` as
 // dashes, and leaves the rest blank.
 const DASH = 6, GAP = 4;
@@ -81,6 +86,7 @@ export class Diagram {
     this.panelG = el('g', {}, g);
     this.panels = new Map(); // content key -> <g>
     this.strip = this._buildStrip(g);
+    this.focusBox = el('rect', { rx: 14, class: 'sfocus', opacity: 0 }, g);
     this.arcG = el('g', {}, g);
     this.arcs = new Map(); // key -> {path, head, len}
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
@@ -458,17 +464,19 @@ export class Diagram {
 
   // ---- arrows: where each term comes from ----
 
-  _arc(key, from, to, bow, cls) {
+  _arc(key, from, to, bow, cls, width = 1.8) {
     let a = this.arcs.get(key);
     if (!a) {
       const [x0, y0] = from, [x1, y1] = to;
       const d = `M${x0},${y0} C${x0 + bow},${y0 + (y1 - y0) * 0.35} ${x1 + bow},${y1 - (y1 - y0) * 0.35} ${x1},${y1}`;
       // (a halo under it, in the background's color, so it shows even
       // over a bar of its own color)
-      const halo = el('path', { d, class: 'sarc-halo' }, this.arcG);
-      const path = el('path', { d, class: `sarc ${cls}` }, this.arcG);
+      const halo = el('path', { d, class: 'sarc-halo', 'stroke-width': (width + 2.6).toFixed(2) }, this.arcG);
+      const path = el('path', { d, class: `sarc ${cls}`, 'stroke-width': width.toFixed(2) }, this.arcG);
       // a triangle, pointing along the path (see _drawArcs)
-      const head = el('path', { d: 'M0,0 L-9,-4.5 L-9,4.5 Z', class: `sarc-head ${cls}` }, this.arcG);
+      // (as big as the arrow is thick)
+      const hl = 6 + 1.6 * width, hw = 3 + 0.9 * width;
+      const head = el('path', { d: `M0,0 L${-hl},${-hw} L${-hl},${hw} Z`, class: `sarc-head ${cls}` }, this.arcG);
       // (styled as the part of the bar it adds to: solid for the count
       // and the tie-breaker, dashed for the hatched spread, the dashed
       // stickiness line, and the pick)
@@ -497,15 +505,16 @@ export class Diagram {
         const chipAt = ([p, nn, st]) => [chipX(nn, st), rowY(p) + 12];
         // each lands on the top of the bar as it is when it arrives
         const cn = src[n].count.length, sn = src[n].spread.length, fn = src[n].fill.length;
-        src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`]));
-        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], 44 + 12 * i, 'sarc-spread']));
-        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], 30 + 8 * i, 'sarc-fill']));
-        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], 56, 'sarc-sticky']));
+        // (each with what it adds to the score, for its thickness)
+        src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`, 1 / w]));
+        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], 44 + 12 * i, 'sarc-spread', 1 / np / w]));
+        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], 30 + 8 * i, 'sarc-fill', 0.001 / np / w]));
+        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], 56, 'sarc-sticky', c.currentFactor]));
       }
       // pick: from the winner's bar up to where its chip goes
       const wn = d.chosen[0], wb = Diagram.barAt(d, L, wn);
-      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], -40, 'sarc-pick']);
-      for (const [j, i, n, key0, from, to, bow, cls] of stageArcs) {
+      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], -40, 'sarc-pick', 1]);
+      for (const [j, i, n, key0, from, to, bow, cls, adds] of stageArcs) {
         if (j < 0) continue;
         const key = `${d.k}:${key0}`;
         const u = through(s, j);
@@ -514,7 +523,7 @@ export class Diagram {
         // (they stay while their stage is settled, and fade in the next)
         const fade = s <= j ? 1 : clamp01(1 - (s - j) * 2);
         if (t <= 0.001 || fade <= 0.001) continue;
-        const a = this._arc(key, from, to, bow, cls);
+        const a = this._arc(key, from, to, bow, cls, arcWidth(adds));
         // drawn up to its head
         a.path.setAttribute('stroke-dasharray', a.solid ? `${(a.len * t).toFixed(1)} ${(a.len + 10).toFixed(1)}` : dashesTo(a.len * t, a.len));
         a.halo.setAttribute('stroke-dasharray', `${(a.len * t).toFixed(1)} ${(a.len + 10).toFixed(1)}`);
@@ -531,6 +540,31 @@ export class Diagram {
       }
     }
     for (const [key, a] of this.arcs) if (!shown.has(key)) { op(a.path, 0); op(a.head, 0); op(a.halo, 0); }
+  }
+
+  // ---- the attention box ----
+
+  // A focus region's box: [x, y, w, h].
+  regionBox(name) {
+    const bw = this.boardW || BOARD.x1 - BOARD.x0 + 10;
+    const top = HEAD_Y - 28;
+    if (name === 'board') return [BOARD.x0 - 8, top, bw + 16, BOARD.y1 - top + 8];
+    if (name === 'tallies') return [BOARD.col0 - 6, TALLY_Y - 22, BOARD.x0 + bw - BOARD.col0 + 12, 62];
+    if (name === 'strip') return [BOARD.x0 - 8, STRIP.titleY - 30, bw + 16, STRIP.labelY + 56 - (STRIP.titleY - 30)];
+    if (name === 'panel') return [PANEL.x0 - 8, PANEL.y0 - 8, PANEL.x1 - PANEL.x0 + 16, 486];
+    const n = name.slice(4);
+    return [colX(n) - BOARD.colW / 2 + 3, top, BOARD.colW - 6, STRIP.labelY + 28 - top];
+  }
+
+  // From step A's focus to step B's, partway (q): the box glides from
+  // one region to the other, or fades in or out.
+  setFocus(fa, fb, q) {
+    const b = this.focusBox;
+    if (!fa && !fb) { op(b, 0); return; }
+    const ra = fa && this.regionBox(fa), rb = fb && this.regionBox(fb);
+    const r = ra && rb ? ra.map((v, k) => lerp(v, rb[k], q)) : ra || rb;
+    ['x', 'y', 'width', 'height'].forEach((k, i) => b.setAttribute(k, r[i].toFixed(1)));
+    op(b, ra && rb ? 1 : ra ? 1 - q : q);
   }
 
   // ---- what main.js calls ----

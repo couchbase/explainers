@@ -8,12 +8,18 @@
 import { FRAMES, SCENARIOS, STICKINESS, GROUPS, NODES, PARTITIONS, tally, countMoves } from './scenarios.js';
 
 export const PANELS = ['none', 'score', 'moves', 'tree', 'stick'];
+// the regions a step's `focus` can box: the board, the tallies, the
+// score strip, the panel, or one node's column, chips to bar
+export const FOCUS_REGIONS = ['board', 'tallies', 'strip', 'panel', ...NODES.map((n) => `col.${n}`)];
 
 export const VIEW_KEYS = {
   // the frame shown; carried over, and each move counts as the step's change
   at: { values: Object.keys(FRAMES), sticky: true, initial: 'fresh.prev', counts: () => true },
   // what the panel on the right shows
   panel: { values: PANELS, sticky: true, initial: 'none', counts: () => true },
+  // a box around what to look at, for this step only: a reading aid, so
+  // not the step's one change
+  focus: { values: FOCUS_REGIONS },
 };
 
 // ---- facts, for `expect: ["fact:<name>=<value>"]` ----
@@ -74,7 +80,7 @@ export const factModel = () => ({});
 export function sceneAt(views, i) {
   const v = views[i];
   const f = FRAMES[v.at];
-  return { at: v.at, frame: f, scenario: SCENARIOS[f.scenario], panel: v.panel };
+  return { at: v.at, frame: f, scenario: SCENARIOS[f.scenario], panel: v.panel, focus: v.focus };
 }
 
 // The frames from a to b, in order, when b is later in the same

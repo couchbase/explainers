@@ -72,6 +72,8 @@ runStory({
         const FA = FRAMES[path[j]], FB = FRAMES[path[j + 1]];
         // (the panel follows the board's frame, or changes on its own)
         diagram.draw(FA, FB, scrub ? clamp01(f) : easeQuad(clamp01(f)), A.panel, B.panel, p, FA, FB);
+        // the attention box: early in a long step, with the transition in a short one
+        diagram.setFocus(i > 0 ? A.focus : null, B.focus, easeQuad(scrub ? clamp01(p * 5) : clamp01(p)));
       },
       expose: { scenes, plans },
     };

@@ -24,7 +24,7 @@ chapters:
     steps:
 
       - id: intro
-        view: { target: board.title }
+        view: { target: board.title, focus: board }
         code: [blance.PartitionMap]
         text: |
           Many distributed systems split their data into partitions,
@@ -59,7 +59,7 @@ chapters:
           joining.
 
       - id: tallies
-        view: { target: tally.a }
+        view: { target: tally.a, focus: tallies }
         expect: ["fact:fresh.prev.counts=a0/0 b0/0 c0/0"]
         text: |
           Under each node's column, [[its tallies]]: how many primaries
@@ -75,7 +75,7 @@ chapters:
     steps:
 
       - id: states
-        view: { panel: score, target: scores }
+        view: { panel: score, target: scores, focus: strip }
         code: [blance.states, blance.assign]
         text: |
           The planner goes state by state, most important first: every
@@ -92,7 +92,7 @@ chapters:
           its row outlined on the board.
 
       - id: first
-        view: { at: fresh.1, target: winner }
+        view: { at: fresh.1, target: winner, focus: strip }
         code: [blance.nodeLess]
         expect: ["fact:fresh.1.a=0.0000", "fact:fresh.1.winner=a"]
         text: |
@@ -111,7 +111,7 @@ chapters:
           a term at a time, so this time let's follow along.
 
       - id: count
-        view: { at: fresh.2~a.count, target: bar.a }
+        view: { at: fresh.2~a.count, target: bar.a, focus: col.a }
         code: [blance.nodeScore]
         expect: ["fact:fresh.2.a.count=1"]
         text: |
@@ -120,7 +120,7 @@ chapters:
           0's, so [[a's bar]] rises to 1.
 
       - id: spread
-        view: { at: fresh.2~a.spread, target: bar.a }
+        view: { at: fresh.2~a.spread, target: bar.a, focus: col.a }
         text: |
           Then [[a hatched part]]: how often the node already backs the
           same primary node, ÷ the number of partitions. It's for
@@ -129,7 +129,7 @@ chapters:
           partition, and only on a.
 
       - id: fill
-        view: { at: fresh.2~a.fill, target: bar.a }
+        view: { at: fresh.2~a.fill, target: bar.a, focus: col.a }
         expect: ["fact:fresh.2.a.pre=1.1251"]
         text: |
           And a tie-breaker, too small to see: 0.001 × all the
@@ -138,7 +138,7 @@ chapters:
           1 would now have the stickiness taken off; none does.)
 
       - id: count-pick
-        view: { at: fresh.2, target: winner }
+        view: { at: fresh.2, target: winner, focus: strip }
         expect: ["fact:fresh.2.b=0.0000", "fact:fresh.2.c=0.0000", "fact:fresh.2.winner=b"]
         text: |
           Then b, and then c, the same way: they hold nothing, so both
@@ -146,7 +146,7 @@ chapters:
           the list.
 
       - id: round
-        view: { at: fresh.8, target: tally.a }
+        view: { at: fresh.8, target: tally.a, focus: tallies }
         expect: ["fact:fresh.8.counts=a3/0 b3/0 c2/0"]
         text: |
           And so on, round the nodes: a, b, c, a, b, c, a, b. Eight
@@ -159,7 +159,7 @@ chapters:
     steps:
 
       - id: exclude
-        view: { at: fresh.9, target: winner }
+        view: { at: fresh.9, target: winner, focus: strip }
         code: [blance.exclude]
         expect: ["fact:fresh.9.partition=0", "fact:fresh.9.b=0.0004", "fact:fresh.9.c=0.0003", "fact:fresh.9.winner=c"]
         text: |
@@ -172,7 +172,7 @@ chapters:
           primaries to b's 3.
 
       - id: spread
-        view: { at: fresh.12, target: winner }
+        view: { at: fresh.12, target: winner, focus: strip }
         code: [blance.nodeScore]
         expect: ["fact:fresh.12.partition=3", "fact:fresh.12.b=1.0005", "fact:fresh.12.c=1.1254", "fact:fresh.12.winner=b"]
         text: |
@@ -184,14 +184,14 @@ chapters:
           to c's 1.1254.
 
       - id: done
-        view: { at: fresh.16, target: tally.b }
+        view: { at: fresh.16, target: tally.b, focus: tallies }
         expect: ["fact:fresh.16.counts=a3/3 b3/2 c2/3"]
         text: |
           The rest go the same way. Every node ends up with 5 or 6
           partitions: a with 3 primaries and 3 replicas, [[b with 3 and 2]], c with 2 and 3.
 
       - id: again
-        view: { at: fresh.end, target: scores }
+        view: { at: fresh.end, target: scores, focus: strip }
         code: [blance.converge]
         expect: ["fact:fresh.iterations=2"]
         text: |
@@ -206,13 +206,13 @@ chapters:
     steps:
 
       - id: joins
-        view: { at: add.prev, target: node.d }
+        view: { at: add.prev, target: node.d, focus: col.d }
         text: |
           Now [[node d]] joins, and a rebalance asks for the next map:
           from the current one, with d as a node to add.
 
       - id: order
-        view: { at: add.1~a.fill, target: bar.a }
+        view: { at: add.1~a.fill, target: bar.a, focus: col.a }
         code: [blance.partitionOrder, blance.nodeScore]
         expect: ["fact:add.1.partition=0", "fact:add.1.a.pre=3.0008"]
         text: |
@@ -221,7 +221,7 @@ chapters:
           stickiness [[a]] scores 3.0008.
 
       - id: stickiness
-        view: { at: add.1~a.sticky, target: bar.a }
+        view: { at: add.1~a.sticky, target: bar.a, focus: col.a }
         expect: ["fact:add.1.a=1.5008"]
         text: |
           But a holds partition 0's primary now, and staying put is
@@ -230,7 +230,7 @@ chapters:
           1.5008.
 
       - id: d-wins
-        view: { at: add.1, target: winner }
+        view: { at: add.1, target: winner, focus: strip }
         expect: ["fact:add.1.b=3.0006", "fact:add.1.c=2.0006", "fact:add.1.d=0.0000", "fact:add.1.winner=d"]
         text: |
           Then b scores 3.0006, c 2.0006, and d, holding nothing, 0:
@@ -245,21 +245,21 @@ chapters:
           it [[stays on c]].
 
       - id: primaries-done
-        view: { at: add.8, target: tally.d }
+        view: { at: add.8, target: tally.d, focus: tallies }
         expect: ["fact:add.8.counts=a2/3 b2/2 c2/3 d2/0"]
         text: |
           The other primaries stay where they are, and [[d has 2]], like
           every node.
 
       - id: replica-d
-        view: { at: add.9, target: winner }
+        view: { at: add.9, target: winner, focus: strip }
         expect: ["fact:add.9.partition=2", "fact:add.9.b=0.5005", "fact:add.9.d=0.0003", "fact:add.9.winner=d"]
         text: |
           Then the replicas. Partition 2's is on b, which holds 2; d
           holds none, so even with b's stickiness, [[d]] gets it.
 
       - id: replica-b
-        view: { at: add.12, target: winner }
+        view: { at: add.12, target: winner, focus: strip }
         expect: ["fact:add.12.partition=5", "fact:add.12.a=1.5006", "fact:add.12.b=1.0004", "fact:add.12.winner=b"]
         text: |
           Partition 5's replica is on a, which holds 3, the most. b,
@@ -267,13 +267,13 @@ chapters:
           from a.
 
       - id: balanced
-        view: { at: add.16, target: tally.d }
+        view: { at: add.16, target: tally.d, focus: tallies }
         expect: ["fact:add.16.counts=a2/2 b2/2 c2/2 d2/2"]
         text: |
           The rest stay. Every node ends with [[2 primaries and 2 replicas]].
 
       - id: moves
-        view: { panel: moves, target: moves.total }
+        view: { panel: moves, target: moves.total, focus: panel }
         code: [blance.CalcPartitionMoves]
         expect: ["fact:add.moves=10", "fact:add.moved=5", "fact:add.moves.2=add d:replica, del b", "fact:add.moves.5=add b:replica, del a"]
         text: |
@@ -291,24 +291,24 @@ chapters:
     steps:
 
       - id: leaves
-        view: { at: remove.prev, target: node.b }
+        view: { at: remove.prev, target: node.b, focus: col.b }
         text: |
           Now [[node b]] leaves, in a rebalance that removes it.
 
       - id: drop
-        view: { at: remove.0, target: row.4 }
+        view: { at: remove.0, target: row.4, focus: board }
         text: |
           First the planner takes b out of every partition: [[partition 4]] loses its primary, as does partition 7, and partitions 3
           and 5 their replicas.
 
       - id: scores
-        view: { panel: score, target: scores }
+        view: { panel: score, target: scores, focus: strip }
         text: |
           Partitions that were on a leaving node go first, before the
           rest. Back to [[the scores]].
 
       - id: no-promote
-        view: { at: remove.1, target: winner }
+        view: { at: remove.1, target: winner, focus: strip }
         expect: ["fact:remove.1.partition=4", "fact:remove.1.a=2.0005", "fact:remove.1.d=2.0005", "fact:remove.1.winner=a"]
         text: |
           Partition 4's replica is on d, so promoting d would be cheap,
@@ -318,14 +318,14 @@ chapters:
           primary, as a whole new copy.
 
       - id: left
-        view: { at: remove.16, target: tally.a }
+        view: { at: remove.16, target: tally.a, focus: tallies }
         expect: ["fact:remove.16.counts=a3/3 c3/2 d2/3"]
         text: |
           The rest: [[a with 3 and 3]], c with 3 and 2, and d with 2
           and 3.
 
       - id: moves
-        view: { panel: moves, target: moves.4 }
+        view: { panel: moves, target: moves.4, focus: panel }
         code: [cbgt.failover]
         expect: ["fact:remove.moves=8", "fact:remove.moves.4=add a:primary, del b"]
         text: |
@@ -341,7 +341,7 @@ chapters:
     steps:
 
       - id: tree
-        view: { panel: tree, target: tree }
+        view: { panel: tree, target: tree, focus: panel }
         code: [blance.HierarchyRule]
         text: |
           Nodes can sit in server groups, say racks or availability
@@ -349,7 +349,7 @@ chapters:
           Here, a and b are in group g1, and c and d in g2.
 
       - id: without
-        view: { at: nogroups.end, target: row.0 }
+        view: { at: nogroups.end, target: row.0, focus: board }
         expect: ["fact:nogroups.sameGroup=4"]
         text: |
           Planned without the groups, on all four nodes, [[partition 0]] gets its primary on a and its replica on b, both in g1,
@@ -357,7 +357,7 @@ chapters:
           and 1 are gone.
 
       - id: with
-        view: { at: groups.end, target: row.0 }
+        view: { at: groups.end, target: row.0, focus: board }
         code: [cbgt.groupsRule]
         expect: ["fact:groups.sameGroup=0"]
         text: |
@@ -375,7 +375,7 @@ chapters:
     steps:
 
       - id: default
-        view: { panel: stick, target: stick.default }
+        view: { panel: stick, target: stick.default, focus: panel }
         expect: ["fact:stick.default=10"]
         text: |
           Stickiness is 1.5 unless the app says otherwise: staying put
@@ -385,7 +385,7 @@ chapters:
           moves.
 
       - id: ignored
-        view: { target: stick.nil }
+        view: { target: stick.nil, focus: panel }
         code: [blance.stickiness]
         expect: ["fact:stick.nil=10"]
         text: |
@@ -395,7 +395,7 @@ chapters:
           weight, if it has one, is its stickiness).
 
       - id: honored
-        view: { target: stick.empty }
+        view: { target: stick.empty, focus: panel }
         expect: ["fact:stick.empty=0", "fact:stick.zero=13"]
         text: |
           Pass [[an empty partition weights map]] instead, and the same

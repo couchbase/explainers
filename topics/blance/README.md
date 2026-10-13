@@ -62,7 +62,13 @@ the map after each of the planner's decisions, and a step's `at`
 names one (`fresh.12`: after the 12th decision of the first), or a
 stage of one (`fresh.12~a.count`: node a's count). A step whose `at` is several
 decisions on plays them, stage by stage, one after another over its
-scroll. A node not in the cluster has no column until it joins. `story.js` has the view keys (`at`, `panel`), and the
+scroll. A node not in the cluster has no column until it joins. An arrow's
+thickness goes with what it adds to the score (by its square root, so
+the tie-breaker's still show). A step's `focus` (the board, the
+tallies, the strip, the panel, or one node's column, `col.a`) puts a
+soft box around what to look at; it glides from one step's region to
+the next's, and as a reading aid it doesn't count as the step's one
+change. `story.js` has the view keys (`at`, `panel`), and the
 facts that `expect: ["fact:..."]` checks the text's numbers against:
 every candidate's score at every decision (`add.1.a`), each frame's
 tallies (`add.16.counts`), each scenario's moves.
