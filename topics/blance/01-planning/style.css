@@ -131,3 +131,6 @@
 .diagram .vlabel-moved.pick-replica, .diagram .varrow-head.pick-replica { fill: var(--replica); }
 .diagram .varrow.pick-primary { stroke: var(--primary); }
 .diagram .varrow.pick-replica { stroke: var(--replica); }
+
+/* between the board and the area under it */
+.diagram .bsep { stroke: var(--line); stroke-width: 1; }

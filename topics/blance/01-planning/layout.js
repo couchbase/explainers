@@ -14,7 +14,7 @@
 
 import { NODES, PARTITIONS, STICKINESS } from './scenarios.js';
 
-export const CANVAS = [0, 0, 780, 920];
+export const CANVAS = [0, 0, 780, 960];
 
 // ---- the board ----
 
@@ -31,7 +31,9 @@ export const TALLY_Y = BOARD.y1 + 34;
 
 // ---- the score strip: a bar per node column, up from zero ----
 
-export const STRIP = { titleY: 612, zeroY: 800, unit: 48, barW: 30 };
+export const STRIP = { titleY: 650, zeroY: 838, unit: 48, barW: 30 };
+// the faint rule between the board (and its tallies) and the area under it
+export const SEP_Y = 612;
 STRIP.labelY = STRIP.zeroY + 40;
 // (a score's height: `unit` px per partition's worth)
 export const scoreY = (v) => STRIP.zeroY - v * STRIP.unit;
@@ -51,7 +53,7 @@ export const BUBBLES = {};
 
 // (the board, and the area under it: all there is)
 export const CAMERAS = {
-  overview: { rect: [20, 10, 770, 910], label: '', section: null },
+  overview: { rect: [20, 10, 770, 950], label: '', section: null },
 };
 export const cameraFor = () => CAMERAS.overview.rect;
 

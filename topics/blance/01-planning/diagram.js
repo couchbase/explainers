@@ -12,7 +12,7 @@ import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { calcPartitionMoves } from '../lib/moves.js';
 import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, TERMS, tally, sourcesOf } from './scenarios.js';
 import {
-  CANVAS, BOARD, STRIP, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y, scoreY, MOVE_UNIT, stickBarX, STICK_UNIT,
+  CANVAS, BOARD, STRIP, SEP_Y, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y, scoreY, MOVE_UNIT, stickBarX, STICK_UNIT,
 } from './layout.js';
 
 const f4 = (x) => x.toFixed(4);
@@ -120,6 +120,8 @@ export class Diagram {
       if (PARTITIONS.indexOf(p) % 2 === 0) this.rowRects.push(el('rect', { x: BOARD.x0, y: y - BOARD.rowH / 2, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, class: 'brow' }, g));
       txt(g, BOARD.labelX, y + 5, `partition ${p}`, 'brow-label');
     }
+    // the board, apart from the area under it
+    this.sep = el('line', { x1: BOARD.x0, y1: SEP_Y, x2: BOARD.x1 + 10, y2: SEP_Y, class: 'bsep' }, g);
     this.band = el('rect', { x: BOARD.x0, y: 0, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, rx: 6, class: 'bband', opacity: 0 }, g);
     // what the outlined row is about, to its right, following it down
     this.bandLabel = el('g', { opacity: 0 }, g);
@@ -240,6 +242,7 @@ export class Diagram {
     op(this.groupG, lerp(sa.groups ? 1 : 0, sb.groups ? 1 : 0, q));
     const w = lerp(boardW(sa), boardW(sb), q).toFixed(1);
     for (const r of this.rowRects) r.setAttribute('width', w);
+    this.sep.setAttribute('x2', (BOARD.x0 + +w).toFixed(1));
     this.band.setAttribute('width', w);
     this.boardW = +w;
     setText(this.subA, sa.title);
