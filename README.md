@@ -7,7 +7,7 @@ about. The style is inspired by
 [r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
 
 This repo has a generic engine (`engine/`) and explainers grouped by
-topic (`topics/`). An example topic:
+topic (`topics/`):
 
 - **[cbft](topics/cbft/README.md):** how Couchbase's full-text search
   service, [cbft](https://github.com/couchbase/cbft), works under the
@@ -16,6 +16,11 @@ topic (`topics/`). An example topic:
     merger": one batch of mutations, from KV through cbft and onto disk;
   - **02-zap-format**, "Inside a zap segment": one query, followed byte
     by byte through a real segment file.
+- **[blance](topics/blance/README.md):** how
+  [blance](https://github.com/couchbase/blance), the library under
+  cbgt, plans which node holds each partition's primary and replicas,
+  and moves them in a rebalance. Started: research notes and the
+  planned explainers, none built yet.
 
 ## Quick start
 
@@ -269,6 +274,8 @@ topics/
     topic.yaml, sources.yaml, research/
     01-indexing/         goroutines and backpressure, with a simulator (sim/)
     02-zap-format/       inside a zap segment, with tools/zap-golden
+  blance/                partition planning and moves (see its README.md)
+    topic.yaml, sources.yaml, research/
 dist/                    the built pages (committed; published by GitHub Pages)
 .github/workflows/       CI, and GitHub Pages publishing
 ```

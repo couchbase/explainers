@@ -1,0 +1,16 @@
+# Source repos the blance explainers link into, pinned to what cbgt
+# master depends on (cbgt's go.mod: blance v0.1.6). `local` lists
+# candidate checkouts used by `npm run snippets`; the first that exists
+# wins ($HOME and env vars are expanded).
+blance:
+  github: https://github.com/couchbase/blance
+  commit: a63f0a3c43ed2794d965d6b869220010ed4b72b7
+  version: v0.1.6
+  local:
+    - $HOME/go/pkg/mod/github.com/couchbase/blance@v0.1.6
+cbgt:
+  github: https://github.com/couchbase/cbgt
+  commit: d0afea68bde6f1a1dca67847499a588777076db7
+  local:
+    - $CBFT_EXPLAINER_CB_SRC/cbgt
+    - ../couchbase-server.master/cbgt

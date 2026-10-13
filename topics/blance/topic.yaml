@@ -1,0 +1,10 @@
+# blance: how Couchbase full-text search spreads index partitions
+# across nodes, and moves them when the cluster changes.
+title: "Inside blance: planning and moving partitions"
+# the short name in each explainer's header, linking up to the topic's index
+label: "blance / cbgt"
+# for the topic's index page
+subtitle: >-
+  How blance, the partition-assignment library under cbgt and Couchbase
+  full-text search, decides which node holds each partition's primary
+  and replicas, and how a rebalance then moves them there.
