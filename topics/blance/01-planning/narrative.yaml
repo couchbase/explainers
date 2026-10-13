@@ -26,6 +26,7 @@ chapters:
       - id: intro
         view: { target: board.title, focus: board }
         code: [blance.PartitionMap]
+        expect: ["fact:fresh.end.counts=a3/3 b3/2 c2/3"]
         text: |
           Many distributed systems split their data into partitions,
           or shards, and place each one on some of the cluster's nodes:
@@ -33,40 +34,44 @@ chapters:
           of its own, and [blance](https://github.com/couchbase/blance)
           is a small library for just that, for any system with
           partitions to place. What it decides is [[the partition map]]:
-          for each partition, its nodes, by state.
+          here, one it made for eight partitions on three nodes. First,
+          how to read it; then, how blance makes it.
 
       - id: model
         view: { target: row.0 }
         code: [blance.PartitionModel, cbgt.model]
         text: |
-          blance knows nothing about primaries or replicas: the states
-          come from the app's model, each with a priority and how many
-          nodes it wants. A common model, and the one here (it's what
-          Couchbase's cbgt uses for its search indexes): a primary, with
-          priority 0 and 1 node, and replicas, with priority 1 and one
-          node per replica. Here, eight partitions and one replica:
-          [[partition 0]] needs a primary and a replica, on different
-          nodes, and so does each of the others.
-
-      - id: call
-        view: { target: node.a }
-        code: [blance.PlanNextMapEx]
-        text: |
-          blance's `PlanNextMapEx` takes the map as it is, all the
-          nodes, the ones joining and the ones leaving, the model and
-          some options, and returns the next map. Here everything is
-          new: nothing is placed yet, and [[nodes a, b and c]] are all
-          joining.
+          A row per partition, a column per node, and in a cell, a chip
+          for each state the node holds the partition in. The states
+          come from the app's model: blance knows nothing about
+          primaries or replicas, only states, each with a priority and
+          how many nodes it wants. A common model, and the one here
+          (it's what Couchbase's cbgt uses for its search indexes): a
+          primary (P), priority 0, on 1 node, and replicas (R), priority
+          1, one node each. So [[partition 0]] has its primary on a and
+          its replica on c, never both on one node, and so on down.
 
       - id: tallies
         view: { target: tally.a, focus: tallies }
-        expect: ["fact:fresh.prev.counts=a0/0 b0/0 c0/0"]
+        expect: ["fact:fresh.end.counts=a3/3 b3/2 c2/3"]
         text: |
           Under each node's column, [[its tallies]]: how many primaries
           (P) and how many replicas (R) it holds, as two bars and as
-          counts. All 0, for now. Keeping these even, so that no node
-          holds much more than the others, is most of what the planner
-          is for.
+          counts. a holds 3 primaries and 3 replicas, b 3 and 2, c 2 and
+          3: as even as eight partitions on three nodes can be.
+          Keeping these even, so that no node holds much more than the
+          others, is most of what the planner is for.
+
+      - id: call
+        view: { at: fresh.prev, target: node.a, focus: board }
+        code: [blance.PlanNextMapEx]
+        expect: ["fact:fresh.prev.counts=a0/0 b0/0 c0/0"]
+        text: |
+          So how does blance arrive at it? Its `PlanNextMapEx` takes the
+          map as it is, all the nodes, the ones joining and the ones
+          leaving, the model and some options, and returns the next
+          map. Let's start from nothing: no partition placed yet, and
+          [[nodes a, b and c]] all joining.
 
   # ------------------------------------------------------------------
   - id: primaries

@@ -14,7 +14,8 @@ export const FOCUS_REGIONS = ['board', 'tallies', 'strip', ...NODES.map((n) => `
 
 export const VIEW_KEYS = {
   // the frame shown; carried over, and each move counts as the step's change
-  at: { values: Object.keys(FRAMES), sticky: true, initial: 'fresh.prev', counts: () => true },
+  // (it opens on the map the first scenario ends with, to read first)
+  at: { values: Object.keys(FRAMES), sticky: true, initial: 'fresh.end', counts: () => true },
   // what the area under the board shows
   panel: { values: PANELS, sticky: true, initial: 'none', counts: () => true },
   // a box around what to look at, for this step only: a reading aid, so
