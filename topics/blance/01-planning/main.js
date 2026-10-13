@@ -8,6 +8,7 @@
 import { runStory } from '../../../engine/js/ui/story.js';
 import { clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { FRAMES } from './scenarios.js';
+import { cameraFor } from './layout.js';
 import { sceneAt, framePath } from './story.js';
 import { Diagram } from './diagram.js';
 
@@ -19,8 +20,9 @@ runStory({
     return {
       diagram,
       render({ i, p, v, pv }) {
-        camera.show(camera.between(i > 0 ? pv.camera : null, v.camera, p));
         const A = scenes[i > 0 ? i - 1 : i], B = scenes[i];
+        // the board and strip alone, or with the panel on the right
+        camera.show(camera.between(i > 0 ? cameraFor(A.panel) : null, cameraFor(B.panel), p));
         // through each decision between the two frames, in turn
         const path = framePath(A.at, B.at);
         const s = clamp01(p) * (path.length - 1);

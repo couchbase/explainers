@@ -1,8 +1,9 @@
 // The 01-planning explainer's diagram: the partition map as a board
 // (a row per partition, a column per node, a chip per primary and
-// replica), each node's tallies, and the panel: the scores for the
-// decision at hand, the moves a plan takes, the server groups' tree, or
-// the stickiness table. Built once; main.js draws it partway between
+// replica), each node's tallies, the score strip (for the decision at
+// hand, each node's score, under its own column), and the panel on the
+// right: the moves a plan takes, the server groups' tree, or the
+// stickiness table. Built once; main.js draws it partway between
 // two frames, as the scroll says.
 
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
@@ -10,8 +11,8 @@ import { lerp, clamp01 } from '../../../engine/js/ui/util/anim.js';
 import { calcPartitionMoves } from '../lib/moves.js';
 import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, tally } from './scenarios.js';
 import {
-  CANVAS, BOARD, PANEL, TREE, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y,
-  scoreX, movesRowY, stickRowY,
+  CANVAS, BOARD, PANEL, TREE, STRIP, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y,
+  scoreY, movesRowY, stickRowY,
 } from './layout.js';
 
 const f4 = (x) => x.toFixed(4);
@@ -168,8 +169,8 @@ export class Diagram {
     let g = this.panels.get(key);
     if (!g) {
       g = el('g', { opacity: 0 }, this.panelG);
-      el('rect', { x: PANEL.x0, y: PANEL.y0, width: PANEL.x1 - PANEL.x0, height: 470, rx: 10, class: 'panel' }, g);
-      if (kind === 'score') this._score(g, frame);
+      if (kind !== 'score') el('rect', { x: PANEL.x0, y: PANEL.y0, width: PANEL.x1 - PANEL.x0, height: 470, rx: 10, class: 'panel' }, g);
+      if (kind === 'score') this._strip(g, frame);
       else if (kind === 'moves') this._moves(g, frame);
       else if (kind === 'tree') this._tree(g, key === 'tree:rule');
       else this._stick(g);
@@ -178,74 +179,79 @@ export class Diagram {
     return { key, g };
   }
 
-  _score(g, f) {
+  // The score strip, for frame f's decision: each node's score, as a
+  // bar up from zero in its own column (lowest wins), its terms
+  // stacked, stickiness an arrow down to the score, and the number
+  // under it.
+  _strip(g, f) {
     const d = f.decision;
     const scn = SCENARIOS[f.scenario];
-    const x0 = PANEL.x0 + 20;
+    const x0 = BOARD.col0, x1 = BOARD.x1;
     if (!d) {
-      txt(g, x0, PANEL.titleY, 'the planner', 'ptitle');
+      txt(g, BOARD.x0, STRIP.titleY, 'the planner\'s scores', 'ptitle');
       const msg = f.done ? `pass ${scn.iterations} changed nothing: done, in ${scn.iterations} passes`
-        : f.k < 0 ? (scn.joining.length && scn.id === 'add' ? `nodes to add: ${scn.joining.join(', ')}` : scn.leaving.length ? `nodes to remove: ${scn.leaving.join(', ')}` : 'nothing placed yet')
+        : f.k < 0 ? (scn.id === 'add' ? `nodes to add: ${scn.joining.join(', ')}` : scn.leaving.length ? `nodes to remove: ${scn.leaving.join(', ')}` : 'one decision at a time: a partition, a state')
           : `${scn.leaving.join(', ')} taken out of every partition`;
-      txt(g, x0, PANEL.titleY + 40, msg, 'pnote');
+      txt(g, BOARD.x0, STRIP.titleY + 30, msg, 'pnote');
       return;
     }
-    const top = d.topPriorityNode;
-    txt(g, x0, PANEL.titleY, `partition ${d.partition}: its ${d.state}`, 'ptitle');
-    txt(g, x0, PANEL.titleY + 22, d.state === 'replica' ? `its primary is on ${top}` : top ? `held by ${top} now` : 'not placed yet', 'pnote');
-    // the axis
-    el('line', { x1: PANEL.zeroX, y1: PANEL.rowY0 - 26, x2: PANEL.zeroX, y2: PANEL.rowY0 + 5 * PANEL.rowH - 20, class: 'paxis' }, g);
-    txt(g, PANEL.zeroX, PANEL.rowY0 - 32, '0', 'paxis-label', 'middle');
-    for (const v of [1, 2, 3]) {
-      el('line', { x1: scoreX(v), y1: PANEL.rowY0 - 26, x2: scoreX(v), y2: PANEL.rowY0 + 5 * PANEL.rowH - 20, class: 'pgrid' }, g);
-      txt(g, scoreX(v), PANEL.rowY0 - 32, String(v), 'paxis-label', 'middle');
+    txt(g, BOARD.x0, STRIP.titleY, `scoring partition ${d.partition}'s ${d.state}: lowest wins`, 'ptitle');
+    if (d.state === 'replica') txt(g, x1 + 10, STRIP.titleY, `its primary is on ${d.topPriorityNode}`, 'pnote', 'end');
+    // the axis: partitions' worth
+    for (const v of [0, 1, 2, 3]) {
+      el('line', { x1: x0, y1: scoreY(v), x2: x1, y2: scoreY(v), class: v ? 'pgrid' : 'paxis' }, g);
+      txt(g, x0 - 8, scoreY(v) + 4, String(v), 'paxis-label', 'end');
     }
-    txt(g, PANEL.x1 - 20, PANEL.rowY0 - 32, 'score', 'paxis-label', 'end');
-    const rows = [...d.scored];
-    // the nodes that can't take it: a replica's primary node
-    const excluded = d.state === 'replica' ? f.board[d.partition].primary.filter((n) => scn.nodes.includes(n) && !scn.leaving.includes(n)) : [];
-    const allowed = d.hierarchyPicks.length ? d.hierarchyPicks[0].candidates : null;
-    rows.forEach((s, i) => {
-      const y = PANEL.rowY0 + i * PANEL.rowH;
-      const won = d.chosen.includes(s.node);
-      const rg = el('g', { class: won ? 'prow prow-won' : 'prow' }, g);
-      if (won) el('rect', { x: PANEL.x0 + 8, y: y - 20, width: PANEL.x1 - PANEL.x0 - 16, height: PANEL.rowH - 6, rx: 6, class: 'prow-won-bg' }, rg);
-      txt(rg, x0, y, `node ${s.node}`, 'prow-node');
-      if (allowed && !allowed.includes(s.node)) txt(rg, x0, y + 16, 'other rule', 'pterm');
-      const pre = s.count + s.lowerPriorityBalanceFactor + s.filledFactor;
-      const preW = pre / s.weight;
-      // count, spread, fill, stacked from 0
-      const seg = (a, b, cls) => el('rect', { x: scoreX(a), y: y - 12, width: Math.max(0, scoreX(b) - scoreX(a)), height: 12, class: cls }, rg);
-      seg(0, s.count / s.weight, `pbar pbar-count pbar-${d.state}`);
-      seg(s.count / s.weight, (s.count + s.lowerPriorityBalanceFactor) / s.weight, 'pbar pbar-spread');
-      seg((s.count + s.lowerPriorityBalanceFactor) / s.weight, Math.max(preW, (s.count + s.lowerPriorityBalanceFactor) / s.weight + 0.02), 'pbar pbar-fill');
-      const terms = [`${s.count}`, `+ ${short(s.lowerPriorityBalanceFactor)}`, `+ ${short(s.filledFactor)}`]
-        .concat(s.weight !== 1 ? [`÷ ${s.weight}`] : []).join(' ');
-      if (s.currentFactor) {
-        // stickiness, taken off: back from the stack to the score, and
-        // its label under it, clear of the terms (12px mono: 7.2px a char)
-        el('path', { d: `M${scoreX(preW)},${y + 4} H${scoreX(s.score)}`, class: 'psticky' }, rg);
-        const label = `− ${short(s.currentFactor)} sticky`;
-        const x = Math.min(scoreX(Math.min(s.score, preW)), PANEL.x1 - 20 - terms.length * 7.2 - 12 - label.length * 7.2);
-        txt(rg, x, y + 16, label, 'pterm pterm-sticky');
+    txt(g, BOARD.x0, scoreY(1.5) + 4, 'score', 'brow-label');
+    const W = STRIP.barW;
+    const scored = Object.fromEntries(d.scored.map((c) => [c.node, c]));
+    const excluded = d.state === 'replica' ? f.board[d.partition].primary : [];
+    for (const n of NODES) {
+      const x = colX(n);
+      const c = scored[n];
+      if (!c) {
+        const why = excluded.includes(n) ? 'its primary' : scn.leaving.includes(n) ? 'leaving' : 'not in it';
+        txt(g, x, STRIP.zeroY - 12, why, 'pterm', 'middle');
+        continue;
       }
-      el('circle', { cx: scoreX(s.score), cy: y - 6, r: 4, class: 'pscore-dot' }, rg);
-      txt(rg, PANEL.x1 - 20, y, f4(s.score), won ? 'pscore pscore-won' : 'pscore', 'end');
-      txt(rg, PANEL.x1 - 20, y + 16, terms, 'pterm', 'end');
-    });
-    excluded.forEach((n, j) => {
-      const y = PANEL.rowY0 + (rows.length + j) * PANEL.rowH;
-      txt(g, x0, y, `node ${n}`, 'prow-node prow-out');
-      txt(g, PANEL.zeroX + 10, y, 'holds its primary: not a candidate', 'pterm');
-    });
-    const ly = PANEL.rowY0 + 5 * PANEL.rowH - 4;
-    const key = [['pbar-count pbar-' + d.state, d.state === 'primary' ? 'primaries held' : 'replicas held'], ['pbar-spread', 'backing the same primary'], ['pbar-fill', 'all partitions held']];
-    let kx = x0;
-    for (const [cls, label] of key) {
-      el('rect', { x: kx, y: ly, width: 14, height: 10, class: `pbar ${cls}` }, g);
-      txt(g, kx + 20, ly + 9, label, 'pkey');
+      const won = d.chosen.includes(n);
+      const w = c.weight;
+      const h0 = c.count / w, h1 = (c.count + c.lowerPriorityBalanceFactor) / w;
+      const pre = (c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / w;
+      const seg = (a, b, cls) => el('rect', { x: x - W / 2, y: scoreY(b), width: W, height: Math.max(0, scoreY(a) - scoreY(b)), class: cls }, g);
+      if (won) el('rect', { x: x - 34, y: scoreY(Math.max(pre, c.score, 0.3)) - 10, width: 68, height: STRIP.labelY + 22 - scoreY(Math.max(pre, c.score, 0.3)) + 10, rx: 8, class: 'swon' }, g);
+      seg(0, h0, `pbar pbar-count pbar-${d.state}`);
+      seg(h0, h1, 'pbar pbar-spread');
+      seg(h1, Math.max(pre, h1 + 0.04), 'pbar pbar-fill');
+      if (c.currentFactor) {
+        // stickiness, taken off: the stack above the score fades, and
+        // an arrow goes down from its top to the score
+        const lo = Math.max(c.score, 0);
+        el('rect', { x: x - W / 2, y: scoreY(pre), width: W, height: Math.max(0, scoreY(lo) - scoreY(pre)), class: 'staken' }, g);
+        el('path', { d: `M${x + W / 2 + 6},${scoreY(pre)} V${scoreY(c.score)}`, class: 'psticky' }, g);
+        txt(g, x + 38, (scoreY(pre) + scoreY(c.score)) / 2 + 4, `−${+c.currentFactor.toFixed(3)} sticky`, 'pterm pterm-sticky');
+      }
+      el('line', { x1: x - W / 2 - 4, y1: scoreY(c.score), x2: x + W / 2 + 4, y2: scoreY(c.score), class: 'pscore-line' }, g);
+      txt(g, x, STRIP.labelY, c.score.toFixed(4), won ? 'pscore pscore-won' : 'pscore', 'middle');
+      if (won) txt(g, x, STRIP.labelY + 16, 'lowest', 'pwon', 'middle');
+    }
+    // the key
+    const ky = STRIP.labelY + 42;
+    let kx = BOARD.x0;
+    for (const [cls, label] of [[`pbar-count pbar-${d.state}`, d.state === 'primary' ? 'primaries held' : 'replicas held'], ['pbar-spread', 'backing the same primary'], ['pbar-fill', 'all partitions (tie-breaker)']]) {
+      el('rect', { x: kx, y: ky - 9, width: 14, height: 10, class: `pbar ${cls}` }, g);
+      txt(g, kx + 20, ky, label, 'pkey');
       kx += 20 + label.length * 6.4 + 22;
     }
+  }
+
+  // The top of node n's bar in the strip, for frame f's decision.
+  barTop(f, n) {
+    const d = f && f.decision;
+    const c = d && d.scored.find((x) => x.node === n);
+    if (!c) return null;
+    const pre = (c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / c.weight;
+    return [colX(n) - STRIP.barW / 2, scoreY(Math.max(pre, c.score))];
   }
 
   _moves(g, f) {
@@ -342,20 +348,17 @@ export class Diagram {
     const cur = this.cur;
     if (!cur) return null;
     const d = cur.frame.decision;
-    if (id === 'winner') {
-      if (!d || cur.panel !== 'score') return { p: [0, 0], visible: false };
-      const i = d.scored.findIndex((s) => d.chosen.includes(s.node));
-      return { p: [PANEL.x0 + 14, PANEL.rowY0 + i * PANEL.rowH - 6], visible: true };
+    const strip = cur.panel === 'score';
+    if (id === 'winner' || id.startsWith('bar.')) {
+      const p = d && this.barTop(cur.frame, id === 'winner' ? d.chosen[0] : id.slice(4));
+      return p ? { p, visible: strip } : { p: [0, 0], visible: false };
     }
-    if (id === 'chosen') {
-      if (!d) return { p: [0, 0], visible: false };
-      return { p: [chipX(d.chosen[0], d.state) - 20, rowY(d.partition)], visible: true };
-    }
+    if (id === 'deciding') return d ? { p: [BOARD.x0 + 4, rowY(d.partition)], visible: true } : { p: [0, 0], visible: false };
+    if (id === 'chosen') return d ? { p: [chipX(d.chosen[0], d.state) - 20, rowY(d.partition)], visible: true } : { p: [0, 0], visible: false };
     const a = ANCHORS[id];
     if (!a) return null;
-    const panelOf = { moves: 'moves', stick: 'stick', tree: 'tree', panel: null };
+    const panelOf = { moves: 'moves', stick: 'stick', tree: 'tree', scores: 'score' };
     const kind = id.split('.')[0];
-    const visible = kind === 'panel' ? cur.panel !== 'none' : kind in panelOf ? cur.panel === panelOf[kind] : true;
-    return { p: a.p, visible };
+    return { p: a.p, visible: kind in panelOf ? cur.panel === panelOf[kind] : true };
   }
 }

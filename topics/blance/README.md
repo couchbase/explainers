@@ -45,9 +45,11 @@ After changing the ports or moving to a newer blance, `npm run golden
 
 "Inside blance: how a plan places partitions". Its diagram is the
 partition map as a board (a row per partition, a column per node, a P
-or R chip per primary and replica, and each node's tallies), beside a
-panel: the scores for the decision at hand, the moves a plan takes,
-the server groups' tree, or a stickiness table.
+or R chip per primary and replica, and each node's tallies); under it,
+the score strip: for the decision at hand (the outlined row), each
+node's score as a bar in its own column, its terms stacked, lowest
+wins; and beside it, a panel: the moves a plan takes, the server
+groups' tree, or a stickiness table.
 
 `scenarios.js` runs its scenarios through the port, with traces: a new
 index on nodes a, b and c; node d joining; node b leaving; all four

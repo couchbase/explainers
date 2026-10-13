@@ -80,6 +80,7 @@ export function framePath(a, b) {
   return SCENARIOS[fa.scenario].frames.filter((f) => f.k >= fa.k && f.k <= fb.k).map((f) => f.key);
 }
 
-// Callout ends the page works out: the winning row in the panel, and
-// the chip it puts on the board.
-export const DYNAMIC_ANCHORS = ['winner', 'chosen'];
+// Callout ends the page works out: the winner's bar in the score strip,
+// and each node's; the chip the winner gets on the board; and the row
+// being decided.
+export const DYNAMIC_ANCHORS = ['winner', 'chosen', 'deciding', ...NODES.map((n) => `bar.${n}`)];

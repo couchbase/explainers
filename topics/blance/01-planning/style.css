@@ -62,3 +62,9 @@
 .diagram .tnode-out { opacity: 0.45; }
 .diagram .tnode-label { font: 500 13px var(--font-body); fill: var(--ink); }
 .diagram .tnode-from + .tnode-label { fill: var(--on-primary); }
+
+/* the score strip */
+.diagram .swon { fill: color-mix(in srgb, var(--accent) 8%, transparent); stroke: var(--accent); stroke-width: 1.5; }
+.diagram .pscore-line { stroke: var(--ink); stroke-width: 2; }
+.diagram .pwon { font: 600 12px var(--font-body); fill: var(--accent); }
+.diagram .staken { fill: var(--bg); opacity: 0.65; }

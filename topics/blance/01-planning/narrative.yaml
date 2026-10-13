@@ -65,35 +65,51 @@ chapters:
     steps:
 
       - id: states
-        view: { panel: score, target: panel.title }
+        view: { panel: score, target: scores }
         code: [blance.states, blance.assign]
         text: |
           The planner goes state by state, most important first: every
-          partition's primary, then every partition's replicas. For
-          each partition in turn, it sorts the candidate nodes by
-          [[a score]], lowest first, and takes as many as the state
-          needs: here, one.
+          partition's primary, then every partition's replicas. Within
+          a state, it goes partition by partition, and for each one it
+          gives every node [[a score]]: lowest wins.
+
+      - id: decision
+        view: { at: fresh.1, target: deciding }
+        expect: ["fact:fresh.1.partition=0", "fact:fresh.1.state=primary"]
+        text: |
+          So each step of the planner is one decision, about one
+          partition in one state. The first: [[partition 0]]'s primary,
+          its row outlined on the board.
 
       - id: first
-        view: { at: fresh.1, target: winner }
+        view: { target: winner }
         code: [blance.nodeLess]
-        expect: ["fact:fresh.1.partition=0", "fact:fresh.1.winner=a"]
+        expect: ["fact:fresh.1.a=0.0000", "fact:fresh.1.winner=a"]
         text: |
-          Partition 0. Nothing is placed anywhere, so every node scores
-          0, and a tie goes to whichever comes first in the node list:
-          [[a]].
+          Under the board, each node's score for that decision, in the
+          node's own column. Nothing is placed anywhere yet, so every
+          node scores 0. A tie goes to the node that comes first in the
+          node list, here the leftmost: [[a]] gets partition 0's
+          primary, and its chip appears in a's column, above.
 
       - id: count
         view: { at: fresh.2, target: winner }
         code: [blance.nodeScore]
         expect: ["fact:fresh.2.partition=1", "fact:fresh.2.a=1.1251", "fact:fresh.2.winner=b"]
         text: |
-          Partition 1. Now a holds a primary, and that's the score's
-          main term: how many partitions the node already holds in this
-          state. a scores 1.1251, and [[b]] wins, tied with c at 0 and
-          ahead of it in the list. (The 0.125 is a term that matters
-          for replicas, and the last 0.0001 a tie-breaker, both coming
-          up.)
+          Partition 1. Now a holds a primary, and its score is 1.1251.
+          b and c still score 0, and of those, [[b]] is first.
+
+      - id: terms
+        view: { target: bar.a }
+        expect: ["fact:fresh.2.a=1.1251"]
+        text: |
+          [[a's bar]], from the bottom up, is the score's terms. The
+          solid part is the main one: how many partitions the node
+          already holds in this state, 1. The hatched part, 1/8 for
+          each partition placed so far, is a term that matters for
+          replicas, coming up. The thin top is a tie-breaker, 0.0001
+          here. They add up to the line, 1.1251.
 
       - id: round
         view: { at: fresh.8, target: tally.a }
@@ -114,7 +130,8 @@ chapters:
         expect: ["fact:fresh.9.partition=0", "fact:fresh.9.b=0.0004", "fact:fresh.9.c=0.0003", "fact:fresh.9.winner=c"]
         text: |
           Partition 0's replica. Its primary is on a, so a isn't a
-          candidate: a replica never goes on its primary's node. b and
+          candidate (its column says "its primary"): a replica never
+          goes on its primary's node. b and
           c hold no replicas yet, and c wins by 0.0001: the tie-breaker,
           0.001 × all the partitions on the node ÷ the number of
           partitions, favours the emptier node, and [[c]] holds 2
@@ -140,7 +157,7 @@ chapters:
           partitions: a with 3 primaries and 3 replicas, [[b with 3 and 2]], c with 2 and 3.
 
       - id: again
-        view: { at: fresh.end, target: panel.title }
+        view: { at: fresh.end, target: scores }
         code: [blance.converge]
         expect: ["fact:fresh.iterations=2"]
         text: |
@@ -167,9 +184,10 @@ chapters:
         text: |
           Partitions not yet on a new node go first. Partition 0's
           primary is on a, which holds 3. Staying put is worth 1.5,
-          the stickiness, taken off the node that already holds the
-          partition in this state, so a scores 1.5008. d, with nothing,
-          scores 0: [[d]] gets partition 0's primary.
+          the stickiness, taken off the score of the node that already
+          holds the partition in this state (the faded top of a's bar),
+          so a scores 1.5008. d, with nothing, scores 0: [[d]] gets
+          partition 0's primary.
 
       - id: sticky
         view: { at: add.3, target: winner }
@@ -237,7 +255,7 @@ chapters:
           and 5 their replicas.
 
       - id: scores
-        view: { panel: score, target: panel.title }
+        view: { panel: score, target: scores }
         text: |
           Partitions that were on a leaving node go first, before the
           rest. Back to [[the scores]].
