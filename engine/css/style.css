@@ -60,7 +60,10 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 [hidden] { display: none !important; }
 
 .sec-neutral { --sec: var(--sec-neutral); }
-.next-card { margin: 85vh 0 40vh; } /* (the last step scrolled off before it) */
+/* the end card: after the last step has scrolled off, and, at the
+   bottom of the page, stopped in the middle of the screen */
+.next-card { margin: 85vh 0 calc(50vh - 4.5rem); }
+.story:has(> .next-card) { padding-bottom: 0; }
 .next-link { font: 600 1.15rem var(--font-display); color: var(--accent); text-decoration: none; }
 .next-link:hover { text-decoration: underline; }
 .next-link + .up-link, .end-note + .up-link { margin-top: 1rem; }
