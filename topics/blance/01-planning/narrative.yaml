@@ -42,14 +42,32 @@ chapters:
         code: [blance.PartitionModel, cbgt.model]
         text: |
           A row per partition, a column per node, and in a cell, a chip
-          for each state the node holds the partition in. The states
+          for each state that node holds the partition in. The states
           come from the app's model: blance knows nothing about
           primaries or replicas, only states, each with a priority and
           how many nodes it wants. A common model, and the one here
           (it's what Couchbase's cbgt uses for its search indexes): a
-          primary (P), priority 0, on 1 node, and replicas (R), priority
-          1, one node each. So [[partition 0]] has its primary on a and
-          its replica on c, never both on one node, and so on down.
+          primary, priority 0, on one node, and replicas, priority 1,
+          one node each. So each of [[the partitions]] wants a primary
+          and a replica.
+
+      - id: primary
+        view: { target: chip.P }
+        expect: ["fact:fresh.end.counts=a3/3 b3/2 c2/3"]
+        text: |
+          A [[P]] chip, filled, is a partition's primary: its main
+          copy, the one the app normally works with. Partition 0's is
+          on node a. To blance it's just the state with the highest
+          priority (0), wanted on exactly one node.
+
+      - id: replica
+        view: { target: chip.R }
+        text: |
+          An [[R]] chip, outlined, is a replica: a further copy, on
+          another node, ready to take over (be promoted) if the
+          primary's node is lost. Partition 0's is on node c. So a
+          replica never goes on its own primary's node: that would be
+          no help at all when the node fails.
 
       - id: tallies
         view: { target: tally.a, focus: tallies }

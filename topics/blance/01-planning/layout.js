@@ -61,6 +61,9 @@ export const ANCHORS = {
   ...Object.fromEntries(NODES.map((n) => [`node.${n}`, { p: [colX(n) - 18, HEAD_Y - 6], needs: [] }])),
   ...Object.fromEntries(NODES.map((n) => [`tally.${n}`, { p: [colX(n) - 50, TALLY_Y + 25], needs: [] }])),
   ...Object.fromEntries(PARTITIONS.map((p) => [`row.${p}`, { p: [BOARD.labelX - 8, rowY(p)], needs: [] }])),
+  // partition 0's chips in the first map: its primary on a, its replica on c
+  'chip.P': { p: [chipX('a', 'primary') - 19, rowY('0')], needs: [] },
+  'chip.R': { p: [chipX('c', 'replica') - 19, rowY('0')], needs: [] },
   'groups': { p: [BOARD.col0 + 10, GROUP_Y], needs: [] },
   'scores': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
   'moves.total': { p: [BOARD.x0, STRIP.titleY + 20], needs: [] },
