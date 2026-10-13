@@ -93,6 +93,7 @@
 .diagram .mbar-add { fill: color-mix(in srgb, var(--join) 70%, var(--panel)); }
 .diagram .mbar-del { fill: color-mix(in srgb, var(--leave) 70%, var(--panel)); }
 .diagram .mmark-built { fill: none; stroke: var(--join); stroke-width: 2.5; }
+.diagram .lghost-label { font: 600 13px var(--font-mono); fill: var(--leave); fill-opacity: 0.6; }
 .diagram .mmark-deleted { fill: color-mix(in srgb, var(--leave) 8%, transparent); stroke: var(--leave); stroke-width: 1.5; stroke-dasharray: 4 3; }
 
 /* the pick's verdict on the board */

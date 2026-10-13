@@ -150,6 +150,9 @@ export class Diagram {
       const tText = txt(cg, x, TALLY_Y + 30, '', 'tcount', 'middle');
       this.cols[n] = { g: cg, tags, pBar, rBar, tText };
     }
+    // (a leaving node's copies, as ghosts: under the chips)
+    this.leftG = el('g', {}, g);
+    this.leftGhosts = new Map();
     this.chipG = el('g', {}, g);
     this.chips = new Map();
     this.chosenRing = el('rect', { width: 40, height: 28, rx: 8, class: 'bchosen', opacity: 0 }, g);
@@ -175,6 +178,31 @@ export class Diagram {
       this.chips.set(key, c);
     }
     return c;
+  }
+
+  // A leaving node's copies, left as ghosts where they were: from when
+  // the planner takes the node out of every partition until its column
+  // goes, so the partition map before stays in view.
+  _drawLeft(FA, FB, q) {
+    const on = (f) => { const s = SCENARIOS[f.scenario]; return s.leaving.length && f.k >= 0 ? s : null; };
+    const sa = on(FA), sb = on(FB), scn = sb || sa;
+    const o = lerp(sa ? 1 : 0, sb ? 1 : 0, q);
+    const shown = new Set();
+    if (scn && o > 0) for (const { key, p, state, node } of chipsOf(scn.prev)) {
+      if (!scn.leaving.includes(node)) continue;
+      const k = `${scn.id}:${key}`;
+      let gh = this.leftGhosts.get(k);
+      if (!gh) {
+        gh = el('g', {}, this.leftG);
+        el('rect', { x: -21, y: -16, width: 42, height: 32, rx: 9, class: 'mmark-deleted' }, gh);
+        txt(gh, 0, 5, state === 'primary' ? 'P' : 'R', 'lghost-label', 'middle');
+        this.leftGhosts.set(k, gh);
+      }
+      gh.setAttribute('transform', `translate(${chipX(node, state).toFixed(1)} ${rowY(p)})`);
+      op(gh, o * (this.present[node] ?? 1));
+      shown.add(k);
+    }
+    for (const [k, gh] of this.leftGhosts) if (!shown.has(k)) op(gh, 0);
   }
 
   _drawBoard(FA, FB, q, sNow = null) {
@@ -594,6 +622,8 @@ export class Diagram {
     // on the board: copies built ringed green, deleted ones left as ghosts
     const shown = new Set();
     const mark = ([p, s, n], kind) => {
+      // (a leaving node's copies are ghosts already: _drawLeft)
+      if (kind === 'deleted' && scn.leaving.includes(n)) return;
       const key = `${kind}:${p}:${s}:${n}`;
       let m = this.moveMarks.get(key);
       if (!m) {
@@ -756,6 +786,7 @@ export class Diagram {
     const sameD = FA.decision && FA.decision === FB.decision;
     const stageOf = (f) => f.stage ?? (f.decision ? pickOf(f.decision) : 0);
     this._drawBoard(FA, FB, q, sameD ? lerp(stageOf(FA), stageOf(FB), q) : null);
+    this._drawLeft(FA, FB, q);
     this._drawVerdict(FA, FB, q, sameD ? lerp(stageOf(FA), stageOf(FB), q) : null);
     // what the area under the board shows: one fades out as the next fades in
     const w = (k) => clamp01(kindA === k ? (kindB === k ? 1 : 1 - pq * 2) : kindB === k ? pq * 2 - 1 : 0);
