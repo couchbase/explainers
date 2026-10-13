@@ -89,16 +89,19 @@ export function runStory({ simulation = false, setup }) {
 
   // The story callout for step i's highlighted phrase, if it's in view.
   const anchorOf = hooks.anchor || ((id) => diagram.anchor(id));
+  // (whether it drew one)
   function drawCallout(i, view, opacity) {
-    if (!view.target || window.innerWidth <= 900) return;
+    if (!view.target || window.innerWidth <= 900) return false;
     const a = anchorOf(view.target, view);
     const hl = stepEls[i].querySelector('.hl');
-    if (!a || !a.visible || !hl) return;
+    if (!a || !a.visible || !hl) return false;
     const rects = hl.getClientRects();
     const last = rects[rects.length - 1];
-    if (!last || last.bottom < 0 || last.top > window.innerHeight) return;
+    if (!last || last.bottom < 0 || last.top > window.innerHeight) return false;
     const t = camera.toScreen(a.p);
-    if (camera.inViewport(t)) overlay.callout(last, page.story.getBoundingClientRect().right + 10, t, opacity);
+    if (!camera.inViewport(t)) return false;
+    overlay.callout(last, page.story.getBoundingClientRect().right + 10, t, opacity);
+    return true;
   }
 
   function render() {
@@ -109,11 +112,15 @@ export function runStory({ simulation = false, setup }) {
     if (hooks.render) hooks.render({ i, p, u, t, v, pv });
     overlay.begin();
     if (i > 0 && p < 1) drawCallout(i - 1, pv, 1 - t);
-    drawCallout(i, v, t);
+    const called = drawCallout(i, v, t);
     if (hooks.overlay) hooks.overlay(overlay);
     overlay.end();
+    // The target ring, as the step settles (a scrubbing step's, at its
+    // end), and with its callout line (except on narrow screens, which
+    // have none)
     const target = v.target ? diagram.anchor(v.target) : null;
-    diagram.setTarget(target && target.visible && p > 0.6 ? target.p : null);
+    const settled = p > (stepEls[i].classList.contains('step-scrub') ? 0.95 : 0.6);
+    diagram.setTarget(target && target.visible && settled && (called || window.innerWidth <= 900) ? target.p : null);
   }
 
   function frame(ts) {

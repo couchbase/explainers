@@ -70,7 +70,8 @@
 .diagram .staken { fill: var(--bg); opacity: 0.65; }
 
 /* arrows from the board to the strip: where each term comes from */
-.diagram .sarc { fill: none; stroke-width: 1.6; stroke-linecap: round; }
+.diagram .sarc { fill: none; stroke-width: 1.8; stroke-linecap: round; }
+.diagram .sarc-count { stroke-width: 2.4; }
 .diagram .sarc-head { stroke: var(--bg); stroke-width: 1.2; stroke-linejoin: round; }
 .diagram .sarc-halo { fill: none; stroke: var(--bg); stroke-width: 4.5; stroke-linecap: round; }
 .diagram .sarc-count.sarc-primary { stroke: var(--primary); }
@@ -79,9 +80,9 @@
 .diagram .sarc-head.sarc-count.sarc-replica { fill: var(--replica); }
 .diagram .sarc-spread { stroke: var(--sec-groups); }
 .diagram .sarc-head.sarc-spread { fill: var(--sec-groups); }
-.diagram .sarc-fill { stroke: var(--muted); stroke-width: 1; stroke-opacity: 0.55; }
+.diagram .sarc-fill { stroke: var(--muted); stroke-width: 1.2; stroke-opacity: 0.7; }
 .diagram .sarc-head.sarc-fill { fill: var(--muted); }
-.diagram .sarc-sticky { stroke: var(--join); stroke-dasharray: none; }
+.diagram .sarc-sticky { stroke: var(--join); }
 .diagram .sarc-head.sarc-sticky { fill: var(--join); }
 .diagram .sarc-pick { stroke: var(--accent); stroke-width: 2; }
 .diagram .sarc-head.sarc-pick { fill: var(--accent); }

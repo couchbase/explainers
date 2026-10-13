@@ -469,7 +469,10 @@ export class Diagram {
       const path = el('path', { d, class: `sarc ${cls}` }, this.arcG);
       // a triangle, pointing along the path (see _drawArcs)
       const head = el('path', { d: 'M0,0 L-9,-4.5 L-9,4.5 Z', class: `sarc-head ${cls}` }, this.arcG);
-      a = { halo, path, head, len: path.getTotalLength() };
+      // (styled as the part of the bar it adds to: solid for the count
+      // and the tie-breaker, dashed for the hatched spread, the dashed
+      // stickiness line, and the pick)
+      a = { halo, path, head, len: path.getTotalLength(), solid: /sarc-(count|fill)/.test(cls) };
       this.arcs.set(key, a);
     }
     return a;
@@ -512,8 +515,8 @@ export class Diagram {
         const fade = s <= j ? 1 : clamp01(1 - (s - j) * 2);
         if (t <= 0.001 || fade <= 0.001) continue;
         const a = this._arc(key, from, to, bow, cls);
-        // dashed, up to its head
-        a.path.setAttribute('stroke-dasharray', dashesTo(a.len * t, a.len));
+        // drawn up to its head
+        a.path.setAttribute('stroke-dasharray', a.solid ? `${(a.len * t).toFixed(1)} ${(a.len + 10).toFixed(1)}` : dashesTo(a.len * t, a.len));
         a.halo.setAttribute('stroke-dasharray', `${(a.len * t).toFixed(1)} ${(a.len + 10).toFixed(1)}`);
         const h = a.path.getPointAtLength(a.len * t);
         const b = a.path.getPointAtLength(Math.max(0, a.len * t - 2));
