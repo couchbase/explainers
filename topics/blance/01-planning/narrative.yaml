@@ -340,12 +340,21 @@ chapters:
           holds only 1, and node [[b]] is assigned partition 5's
           replica, from node a.
 
+      - id: wrap
+        view: { at: add.13~row, target: deciding, focus: board }
+        expect: ["fact:add.13.partition=6", "fact:add.14.partition=7", "fact:add.15.partition=0", "fact:add.16.partition=1"]
+        text: |
+          Let's run through the remaining partitions:
+          [[partition 6]], then partition 7. And since the replicas
+          started at partition 2, the planner then wraps around, back
+          to partitions 0 and 1.
+
       - id: balanced
         view: { at: add.replicas, target: tally.d, focus: tallies }
         expect: ["fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
         text: |
-          The rest of the replicas stay where they are, with partitions
-          0 and 1 last of all. Every node ends with
+          The rest of the replicas stay where they are, partitions 0
+          and 1 included. Every node ends with
           [[2 primaries and 2 replicas]].
 
       - id: moves
