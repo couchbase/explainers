@@ -642,9 +642,9 @@ export class Diagram {
       const hl = 6 + 1.6 * width, hw = 3 + 0.9 * width;
       const head = el('path', { d: `M0,0 L${-hl},${-hw} L${-hl},${hw} Z`, class: `sarc-head ${cls}` }, this.arcG);
       // (styled as the part of the bar it adds to: solid for the count
-      // and the tie-breaker, dashed for the hatched spread, the dashed
-      // stickiness line, and the pick)
-      a = { halo, path, head, len: path.getTotalLength(), solid: /sarc-(count|fill)/.test(cls) };
+      // and the tie-breaker, dashed for the hatched spread and the dashed
+      // stickiness line; the pick's, up, solid)
+      a = { halo, path, head, len: path.getTotalLength(), solid: /sarc-(count|fill|pick)/.test(cls) };
       this.arcs.set(key, a);
     }
     return a;
