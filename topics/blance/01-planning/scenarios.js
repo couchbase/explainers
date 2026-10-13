@@ -37,20 +37,33 @@ function apply(board, d) {
   return b;
 }
 
-// The stages of one decision, as the page builds it up: its row
-// outlined, then each node's score, term by term (the count, the
-// spread, the tie-breaker, and stickiness off), then the pick.
-export const STAGES = ['row', 'count', 'spread', 'fill', 'sticky', 'pick'];
+// The stages of one decision, as the page plays it, in the planner's
+// own order: its row outlined; then node by node (blance scores one
+// node at a time, nodeSorter.Score), that node's terms: the count, the
+// spread, the tie-breaker, and stickiness off if it holds the
+// partition; then the pick. Each decision's `seq`: [{stage: 'row'},
+// {node, term}, ..., {stage: 'pick'}].
+export const TERMS = ['count', 'spread', 'fill', 'sticky'];
+function seqOf(t) {
+  const seq = [{ stage: 'row' }];
+  for (const n of NODES) {
+    const c = t.scored.find((x) => x.node === n);
+    if (!c) continue;
+    for (const term of TERMS) if (term !== 'sticky' || c.currentFactor) seq.push({ node: n, term });
+  }
+  seq.push({ stage: 'pick' });
+  return seq;
+}
 
 // Runs a scenario: {id, title, nodes (all of them), joining, leaving,
 // groups (shown), prev and result (boards), frames, moves (per
 // partition, prev to result), iterations, decisions}.
 //
 // A frame: {key, i (its place in the scenario), board, decision, k
-// (decisions made), stage (0..5, STAGES)}. Each decision has its stages'
-// frames, "fresh.2~count", on the board as it was before it, and then
-// its pick, "fresh.2", with it made. (The sticky stage only when some
-// node holds the partition.)
+// (decisions made), stage (its place in the decision's seq)}. Each
+// decision has a frame per stage, "fresh.2~row", "fresh.2~a.count", on
+// the board as it was before it, and then its pick, "fresh.2", with it
+// made.
 function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {}, groups = false }) {
   const r = planNextMap(mapOf(prev), mapOf(prev), nodesAll, remove, add, MODEL, opts, { trace: true });
   const frames = [{ key: `${id}.prev`, board: prev, decision: null, k: -1, i: 0 }];
@@ -60,15 +73,15 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
   let k = 0;
   for (const t of r.passes[0].trace) {
     if (t.begin) continue;
-    const decision = { ...t, k: k + 1, before: board };
-    for (const [si, stage] of STAGES.entries()) {
-      if (stage === 'pick') break;
-      if (stage === 'sticky' && !t.scored.some((c) => c.currentFactor)) continue;
-      push({ key: `${id}.${k + 1}~${stage}`, board, decision, k, stage: si, sub: true });
-    }
+    const seq = seqOf(t);
+    const decision = { ...t, k: k + 1, before: board, seq };
+    seq.forEach((x, si) => {
+      if (x.stage === 'pick') return;
+      push({ key: `${id}.${k + 1}~${x.stage || `${x.node}.${x.term}`}`, board, decision, k, stage: si, sub: true });
+    });
     board = apply(board, t);
     k++;
-    push({ key: `${id}.${k}`, board, decision, k, stage: STAGES.indexOf('pick') });
+    push({ key: `${id}.${k}`, board, decision, k, stage: seq.length - 1 });
   }
   const result = boardOf(r.nextMap);
   if (JSON.stringify(board) !== JSON.stringify(result)) throw new Error(`${id}: replaying the trace doesn't give the plan`);

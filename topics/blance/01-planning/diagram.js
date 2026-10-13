@@ -9,7 +9,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01 } from '../../../engine/js/ui/util/anim.js';
 import { calcPartitionMoves } from '../lib/moves.js';
-import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, STAGES, tally, sourcesOf } from './scenarios.js';
+import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, TERMS, tally, sourcesOf } from './scenarios.js';
 import {
   CANVAS, BOARD, PANEL, TREE, STRIP, ANCHORS, colX, rowY, chipX, HEAD_Y, GROUP_Y, TALLY_Y,
   scoreY, movesRowY, stickRowY,
@@ -29,17 +29,43 @@ function nodeStatus(scn, node, frame) {
   if (scn.joining.includes(node) && placed(scn.prev)) return 'joining';
   return 'in';
 }
+// A decision's stages run from 0 to L (its seq's last, the pick); stage
+// j plays over (j - 1, j], and u is how far through it.
+const through = (s, j) => clamp01(s - (j - 1));
+const pickOf = (d) => d.seq.length - 1;
+// Cause, then effect, one at a time: within a stage (u from 0 to 1)
+// with n arrows, the ith flies, lands, and only then grows its part of
+// the bar, before the next one leaves.
+const FLY = 0.7;
+const flight = (u, i, n) => clamp01((u - i / n) / (FLY / n));
+const grown = (u, i, n) => clamp01((u - (i + FLY) / n) / ((1 - FLY) / n));
+// the pick: the winner's ring, then its arrow up to the board, then its chip
+const PICK = { ring: [0, 0.3], flight: [0.2, 0.65], chip: [0.65, 0.9] };
+const within = (t, [a, b]) => clamp01((t - a) / (b - a));
+
+// A dash pattern that draws `drawn` px of a path of length `len` as
+// dashes, and leaves the rest blank.
+const DASH = 6, GAP = 4;
+function dashesTo(drawn, len) {
+  const out = [];
+  let x = 0;
+  while (x + DASH + GAP <= drawn) { out.push(DASH, GAP); x += DASH + GAP; }
+  const last = Math.min(DASH, drawn - x);
+  out.push(last.toFixed(1), (len + DASH).toFixed(1));
+  return out.join(' ');
+}
+
 // the board's width, to its last node's column, in a scenario
 const boardW = (scn) => colX(NODES.filter((n) => scn.nodes.includes(n)).pop()) + BOARD.colW / 2 - BOARD.x0 + 10;
 // what each stage of a decision adds to the strip
-const STAGE_NOTE = {
-  row: 'every node starts at 0',
-  count: (st) => `+ the ${st === 'primary' ? 'primaries' : 'replicas'} each node already holds`,
-  spread: '+ how often it already backs the same primary',
-  fill: '+ a tie-breaker: all the partitions it holds',
-  sticky: '− stickiness, for the node that holds it now',
-  pick: 'the lowest wins',
+const TERM_NOTE = {
+  count: (st) => `+ the ${st === 'primary' ? 'primaries' : 'replicas'} it already holds`,
+  spread: () => '+ how often it already backs the same primary',
+  fill: () => '+ a tie-breaker: all the partitions it holds',
+  sticky: () => '− stickiness: it holds this partition now',
 };
+const stageNote = (d, x) => (x.stage === 'row' ? 'every node starts at 0, and they\'re scored one at a time'
+  : x.stage === 'pick' ? 'the lowest wins' : `node ${x.node}: ${TERM_NOTE[x.term](d.state)}`);
 
 export class Diagram {
   constructor(svg) {
@@ -117,7 +143,10 @@ export class Diagram {
     return c;
   }
 
-  _drawBoard(FA, FB, q) {
+  _drawBoard(FA, FB, q, sNow = null) {
+    // (within a decision, the board changes only once its pick's arrow
+    // lands: chips move, or appear, then)
+    const qc = sNow !== null ? within(through(sNow, pickOf(FA.decision)), PICK.chip) : q;
     const A = chipsOf(FA.board), B = chipsOf(FB.board);
     const byKey = new Map();
     for (const c of A) byKey.set(c.key, { a: c });
@@ -127,9 +156,9 @@ export class Diagram {
       const c = this._chip(key, (a || b).state);
       shown.add(key);
       let x, y, o;
-      if (a && b) { x = lerp(chipX(a.node, a.state), chipX(b.node, b.state), q); y = rowY(b.p); o = 1; }
-      else if (a) { x = chipX(a.node, a.state); y = rowY(a.p); o = 1 - q; }
-      else { x = chipX(b.node, b.state); y = rowY(b.p); o = q; }
+      if (a && b) { x = lerp(chipX(a.node, a.state), chipX(b.node, b.state), qc); y = rowY(b.p); o = 1; }
+      else if (a) { x = chipX(a.node, a.state); y = rowY(a.p); o = 1 - qc; }
+      else { x = chipX(b.node, b.state); y = rowY(b.p); o = qc; }
       c.g.setAttribute('transform', `translate(${x.toFixed(1)} ${y})`);
       op(c.g, o);
     }
@@ -143,13 +172,14 @@ export class Diagram {
       op(this.band, lerp(da ? 1 : 0, db ? 1 : 0, q));
     } else op(this.band, 0);
     // the winner's chip, ringed once it's picked
-    const picked = (f) => (f.decision ? clamp01((f.stage ?? 5) - 4) : 0);
-    const ra = picked(FA) * (1 - q), rb = picked(FB) * q;
+    // (as its chip: once the pick's arrow lands)
+    const picked = (d, st) => within(through(st, pickOf(d)), PICK.chip);
+    const ra = da ? picked(da, FA.stage ?? pickOf(da)) * (1 - q) : 0, rb = db ? picked(db, FB.stage ?? pickOf(db)) * q : 0;
     const chosen = ra > rb ? da : db;
-    if (chosen && Math.max(ra, rb) > 0) {
+    if (chosen && (sNow !== null || Math.max(ra, rb) > 0)) {
       this.chosenRing.setAttribute('x', chipX(chosen.chosen[0], chosen.state) - 20);
       this.chosenRing.setAttribute('y', rowY(chosen.partition) - 14);
-      op(this.chosenRing, da === db ? lerp(picked(FA), picked(FB), q) : Math.max(ra, rb));
+      op(this.chosenRing, sNow !== null ? picked(chosen, sNow) : Math.max(ra, rb));
     } else op(this.chosenRing, 0);
 
     // nodes: in the cluster or not, joining, leaving
@@ -164,9 +194,9 @@ export class Diagram {
       const tag = (x) => (x === 'gone' ? 'leaving' : x);
       for (const [k, e] of Object.entries(col.tags)) op(e, lerp(tag(st(sa, FA)) === k ? 1 : 0, tag(st(sb, FB)) === k ? 1 : 0, q));
       const w = (t, s) => t[n][s] * 14;
-      col.pBar.setAttribute('width', lerp(w(ta, 'primary'), w(tb, 'primary'), q).toFixed(1));
-      col.rBar.setAttribute('width', lerp(w(ta, 'replica'), w(tb, 'replica'), q).toFixed(1));
-      const t = q < 0.5 ? ta : tb;
+      col.pBar.setAttribute('width', lerp(w(ta, 'primary'), w(tb, 'primary'), qc).toFixed(1));
+      col.rBar.setAttribute('width', lerp(w(ta, 'replica'), w(tb, 'replica'), qc).toFixed(1));
+      const t = qc < 0.5 ? ta : tb;
       setText(col.tText, `${t[n].primary} P · ${t[n].replica} R`);
     }
     op(this.groupG, lerp(sa.groups ? 1 : 0, sb.groups ? 1 : 0, q));
@@ -253,15 +283,27 @@ export class Diagram {
   static barAt(d, s, n) {
     const c = d && d.scored.find((x) => x.node === n);
     if (!c) return null;
-    const g = (k) => clamp01(s - k);
-    const w = c.weight;
-    const count = (c.count / w) * g(0);
-    const spread = count + (c.lowerPriorityBalanceFactor / w) * g(1);
-    const fill = spread + (c.filledFactor / w) * g(2);
-    // (the tie-breaker's sliver, at least visible)
-    const fillShown = spread + Math.max(c.filledFactor / w, 0.04) * g(2);
-    const taken = c.currentFactor * g(3);
-    return { count, spread, fill, fillShown, taken, score: fill - taken, won: d.chosen.includes(n) ? g(4) : 0, sticky: c.currentFactor };
+    const at = (term) => d.seq.findIndex((x) => x.node === n && x.term === term);
+    const u = (term) => (at(term) < 0 ? 0 : through(s, at(term)));
+    const w = c.weight, np = PARTITIONS.length;
+    // each term's sources (see sourcesOf), each adding its part once its
+    // arrow lands
+    const nCount = c.count, nSpread = Math.round(c.lowerPriorityBalanceFactor * np), nFill = Math.round((c.filledFactor * np) / 0.001);
+    let count = 0;
+    for (let i = 0; i < nCount; i++) count += (1 / w) * grown(u('count'), i, nCount);
+    let spread = count;
+    for (let i = 0; i < nSpread; i++) spread += (1 / np / w) * grown(u('spread'), i, nSpread);
+    let fillT = 0;
+    for (let i = 0; i < nFill; i++) fillT += grown(u('fill'), i, nFill) / nFill;
+    if (!nFill) fillT = u('fill');
+    const fill = spread + (c.filledFactor / w) * fillT;
+    const fillShown = spread + Math.max(c.filledFactor / w, 0.04) * fillT;
+    const taken = c.currentFactor * grown(u('sticky'), 0, 1);
+    // (once all its terms are in, its exact score, as blance has it,
+    // rather than the sum of its parts in floating point)
+    const last = Math.max(...TERMS.map((t) => at(t)));
+    const done = through(s, last) >= 1;
+    return { count, spread, fill: done ? (c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / w : fill, fillShown, taken, score: done ? c.score : fill - taken, won: d.chosen.includes(n) ? within(through(s, pickOf(d)), PICK.ring) : 0, sticky: c.currentFactor };
   }
 
   // What can't take it, and why.
@@ -275,7 +317,7 @@ export class Diagram {
   _drawStrip(FA, FB, q) {
     const S = this.strip;
     const da = FA.decision, db = FB.decision;
-    const sa = FA.stage ?? 5, sb = FB.stage ?? 5;
+    const sa = FA.stage ?? (da ? pickOf(da) : 0), sb = FB.stage ?? (db ? pickOf(db) : 0);
     // the same decision: one state, partway through its stages; else
     // the bars go from one decision's to the other's
     const same = da && da === db;
@@ -288,9 +330,9 @@ export class Diagram {
           : f.k < 0 ? (sc.id === 'add' ? `nodes to add: ${sc.joining.join(', ')}` : sc.leaving.length ? `nodes to remove: ${sc.leaving.join(', ')}` : 'one decision at a time: a partition, a state')
             : `${sc.leaving.join(', ')} taken out of every partition`, ''];
       }
-      const st = STAGES[Math.min(5, Math.round(s))];
-      const note = typeof STAGE_NOTE[st] === 'function' ? STAGE_NOTE[st](d.state) : STAGE_NOTE[st];
-      return [`scoring partition ${d.partition}'s ${d.state}`, note, d.state === 'replica' ? `its primary is on ${d.topPriorityNode}` : ''];
+      // (the stage in progress)
+      const x = d.seq[Math.min(d.seq.length - 1, Math.max(0, Math.ceil(s - 1e-9)))];
+      return [`scoring partition ${d.partition}'s ${d.state}`, stageNote(d, x), d.state === 'replica' ? `its primary is on ${d.topPriorityNode}` : ''];
     };
     const [ta, na, ua] = text(FA, da, same ? sNow : sa), [tb, nb, ub] = text(FB, db, same ? sNow : sb);
     setText(S.titleA, ta); setText(S.titleB, tb);
@@ -425,7 +467,6 @@ export class Diagram {
       // a triangle, pointing along the path (see _drawArcs)
       const head = el('path', { d: 'M0,0 L-9,-4.5 L-9,4.5 Z', class: `sarc-head ${cls}` }, this.arcG);
       a = { path, head, len: path.getTotalLength() };
-      path.setAttribute('stroke-dasharray', `${a.len} ${a.len}`);
       this.arcs.set(key, a);
     }
     return a;
@@ -440,27 +481,36 @@ export class Diagram {
       const src = sourcesOf(scn, d, d.before);
       const W = STRIP.barW;
       const stageArcs = [];
+      const L = pickOf(d);
+      const at = (n, term) => d.seq.findIndex((x) => x.node === n && x.term === term);
       for (const n of NODES) {
         const c = d.scored.find((x) => x.node === n);
         if (!c) continue;
-        const b = Diagram.barAt(d, 5, n);
+        const b = Diagram.barAt(d, L, n);
+        const w = c.weight, np = PARTITIONS.length;
         const chipAt = ([p, nn, st]) => [chipX(nn, st), rowY(p) + 12];
-        // count: chip i to the bar's ith unit
-        src[n].count.forEach((ch, i) => stageArcs.push([0, `c:${ch}`, chipAt(ch), [colX(n) - W / 2 + 4, scoreY(i + 0.5)], -44 - 12 * i, `sarc-count sarc-${d.state}`]));
-        src[n].spread.forEach((ch, i) => stageArcs.push([1, `s:${n}:${ch}`, chipAt(ch), [colX(n) + W / 2 - 4, scoreY((b.count + b.spread) / 2)], 44 + 12 * i, 'sarc-spread']));
-        src[n].fill.forEach((ch, i) => stageArcs.push([2, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.fillShown) - 2], 30 + 8 * i, 'sarc-fill']));
-        src[n].sticky.forEach((ch) => stageArcs.push([3, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill)], 56, 'sarc-sticky']));
+        // each lands on the top of the bar as it is when it arrives
+        const cn = src[n].count.length, sn = src[n].spread.length, fn = src[n].fill.length;
+        src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n) - W / 2 + 6, scoreY(i / w) - 2], -44 - 12 * i, `sarc-count sarc-${d.state}`]));
+        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n) + W / 2 - 6, scoreY(b.count + i / np / w) - 2], 44 + 12 * i, 'sarc-spread']));
+        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 2], 30 + 8 * i, 'sarc-fill']));
+        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], 56, 'sarc-sticky']));
       }
       // pick: from the winner's bar up to where its chip goes
-      const wn = d.chosen[0], wb = Diagram.barAt(d, 5, wn);
-      stageArcs.push([4, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], -40, 'sarc-pick']);
-      for (const [k, key0, from, to, bow, cls] of stageArcs) {
+      const wn = d.chosen[0], wb = Diagram.barAt(d, L, wn);
+      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], -40, 'sarc-pick']);
+      for (const [j, i, n, key0, from, to, bow, cls] of stageArcs) {
+        if (j < 0) continue;
         const key = `${d.k}:${key0}`;
-        const t = clamp01(s - k);
-        const fade = s <= k + 1 ? 1 : clamp01(1 - (s - (k + 1)) * 2);
+        const u = through(s, j);
+        // its flight: the ith of n, one at a time (the pick's, after the ring)
+        const t = i < 0 ? within(u, PICK.flight) : flight(u, i, n);
+        // (they stay while their stage is settled, and fade in the next)
+        const fade = s <= j ? 1 : clamp01(1 - (s - j) * 2);
         if (t <= 0.001 || fade <= 0.001) continue;
         const a = this._arc(key, from, to, bow, cls);
-        a.path.setAttribute('stroke-dashoffset', (a.len * (1 - t)).toFixed(1));
+        // dashed, up to its head
+        a.path.setAttribute('stroke-dasharray', dashesTo(a.len * t, a.len));
         const h = a.path.getPointAtLength(a.len * t);
         const b = a.path.getPointAtLength(Math.max(0, a.len * t - 2));
         const angle = Math.atan2(h.y - b.y, h.x - b.x) * 180 / Math.PI;
@@ -477,15 +527,17 @@ export class Diagram {
   // Frames FA to FB (scenarios.js), partway (q); panels kindA to kindB,
   // partway (pq).
   draw(FA, FB, q, kindA, kindB, pq, PA = FA, PB = FB) {
-    this._drawBoard(FA, FB, q);
+    const sameD = FA.decision && FA.decision === FB.decision;
+    const stageOf = (f) => f.stage ?? (f.decision ? pickOf(f.decision) : 0);
+    this._drawBoard(FA, FB, q, sameD ? lerp(stageOf(FA), stageOf(FB), q) : null);
     this._drawPanel(kindA, PA, kindB, PB, pq);
     const so = lerp(kindA === 'score' ? 1 : 0, kindB === 'score' ? 1 : 0, pq);
     op(this.strip.g, so);
     this._drawStrip(FA, FB, q);
     // the arrows: of the decision in hand, or the one before, fading
     const da = FA.decision, db = FB.decision;
-    if (da && da === db) this._drawArcs(FA.scenario, da, lerp(FA.stage ?? 5, FB.stage ?? 5, q), so);
-    else if (da) this._drawArcs(FA.scenario, da, FA.stage ?? 5, so * clamp01(1 - q * 2));
+    if (da && da === db) this._drawArcs(FA.scenario, da, lerp(stageOf(FA), stageOf(FB), q), so);
+    else if (da) this._drawArcs(FA.scenario, da, stageOf(FA), so * clamp01(1 - q * 2));
     else this._drawArcs(null, null, 0, 0);
     this.cur = { frame: q < 0.5 ? FA : FB, panel: pq < 0.5 ? kindA : kindB };
   }

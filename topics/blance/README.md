@@ -47,10 +47,11 @@ After changing the ports or moving to a newer blance, `npm run golden
 partition map as a board (a row per partition, a column per node, a P
 or R chip per primary and replica, and each node's tallies); under it,
 the score strip: for the decision at hand (the outlined row), each
-node's score as a bar in its own column, built up term by term (the
-count, the spread, the tie-breaker, stickiness off, then the pick),
-with arrows from the chips each term counts down to the bar they add
-to (`sourcesOf` in scenarios.js, which `test/sources.test.mjs` checks
+node's score as a bar in its own column, built up as blance computes
+it: one node at a time, and each node's terms in turn (the count, the
+spread, the tie-breaker, stickiness off), then the pick; dashed arrows
+fly, one at a time, from the chips each term counts down to the top
+of the bar, which grows only once each lands (`sourcesOf` in scenarios.js, which `test/sources.test.mjs` checks
 against blance's own terms, decision by decision); and beside it, a panel: the moves a plan takes, the server
 groups' tree, or a stickiness table.
 
@@ -59,7 +60,7 @@ index on nodes a, b and c; node d joining; node b leaving; all four
 without and then with server groups. Each scenario is cut into frames,
 the map after each of the planner's decisions, and a step's `at`
 names one (`fresh.12`: after the 12th decision of the first), or a
-stage of one (`fresh.12~count`). A step whose `at` is several
+stage of one (`fresh.12~a.count`: node a's count). A step whose `at` is several
 decisions on plays them, stage by stage, one after another over its
 scroll. A node not in the cluster has no column until it joins. `story.js` has the view keys (`at`, `panel`), and the
 facts that `expect: ["fact:..."]` checks the text's numbers against:
