@@ -449,14 +449,19 @@ chapters:
         text: |
           Joining and leaving nodes only change the inputs to the
           loops: which nodes are candidates, which partitions go first,
-          and which nodes get the stickiness. So the takeaway: blance is
-          simple. There's no search over possible partition maps and no
+          and which nodes get the stickiness.
+
+          So the takeaway: blance is simple.
+
+          There's no search over possible partition maps and no
           look ahead, just a greedy pass that fills in the partition
           map one partition at a time, with a score that is mostly a
           count of what each node already holds. The result is fast,
-          predictable and [[close to even]], though not always the
+          easy to calculate and [[close to even]], though not always the
           fewest moves: when node d joined, rebalancing the partitions
-          led to 10 moves where 8 theoretically would do. So, although the
-          simple, greedy approach of blance is straightforward
-          and often "good enough",
-          it does not always calculate optimal, perfect partition maps.
+          led to 10 moves where 8 theoretically would do.
+
+          Although blance might not produce the most optimally perfect
+          partition maps in 100% of all situations,
+          it's simple, straightforward approach has usually
+          been good enough.
