@@ -200,8 +200,13 @@ a.eyebrow:hover { text-decoration: underline; }
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0.3rem 0.7rem;
+  text-align: left;
   cursor: pointer;
 }
+.code-chip.stacked { border-radius: 10px; }
+.code-chip.stacked > .repo, .code-chip.stacked > .name { display: block; }
+.code-chip.stacked > .sep { display: none; }
+.code-chip .sep { color: var(--muted); }
 .code-chip:hover { border-color: var(--accent); color: var(--accent); }
 .code-chip .repo { color: var(--muted); }
 

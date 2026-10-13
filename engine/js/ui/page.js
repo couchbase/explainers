@@ -55,7 +55,7 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
         card.append(h('div', { class: 'code-chips' }, ...st.code.map((id) => {
           const sn = snippets[id];
           return h('button', { class: 'code-chip', type: 'button', title: sn.title, onclick: () => codeDrawer.open(st.code, id) },
-            h('span', { class: 'repo', text: `${sn.repo}/${sn.path.split('/').pop()} · ` }), sn.title.split(' — ')[0]);
+            h('span', { class: 'repo', text: `${sn.repo}/${sn.path.split('/').pop()}` }), h('span', { class: 'sep', text: ' · ' }), h('span', { class: 'name', text: sn.title.split(' — ')[0] }));
         })));
       }
       const el = h('section', { class: 'step', id: `${ch.id}--${st.id}`, 'data-index': String(stepEls.length) }, card);
@@ -63,6 +63,20 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
       stepEls.push(el);
     }
   }
+
+  // A code chip too wide for one line breaks between its file and its
+  // name, and is as wide as the wider of the two, not the whole card.
+  const fitChips = () => {
+    for (const chip of story.querySelectorAll('.code-chip')) {
+      chip.classList.remove('stacked');
+      const repo = chip.querySelector('.repo'), name = chip.querySelector('.name');
+      if (name.getBoundingClientRect().bottom > repo.getBoundingClientRect().bottom + 2) chip.classList.add('stacked');
+    }
+  };
+  let fitting = 0;
+  window.addEventListener('resize', () => { cancelAnimationFrame(fitting); fitting = requestAnimationFrame(fitChips); });
+  requestAnimationFrame(fitChips);
+  if (document.fonts) document.fonts.ready.then(fitChips);
 
   // at the end, the explainer to read next, or (with none, as in a page
   // read on its own) a word of thanks; and the way back up to the
