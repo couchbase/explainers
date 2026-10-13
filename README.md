@@ -7,15 +7,13 @@ about. The style is inspired by
 [r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
 
 This repo has a generic engine (`engine/`) and explainers grouped by
-topic (`topics/`). So far there's one topic:
+topic (`topics/`). An example topic:
 
 - **[cbft](topics/cbft/README.md):** how Couchbase's full-text search
   service, [cbft](https://github.com/couchbase/cbft), works under the
-  hood, with the [bleve](https://github.com/blevesearch/bleve) library
-  and its scorch index:
+  hood, with the [bleve](https://github.com/blevesearch/bleve) library:
   - **01-indexing**, "Inside bleve / scorch: introducer, persister,
-    merger": one batch of mutations, from KV through cbft and onto
-    disk, driven by a live simulation;
+    merger": one batch of mutations, from KV through cbft and onto disk;
   - **02-zap-format**, "Inside a zap segment": one query, followed byte
     by byte through a real segment file.
 
