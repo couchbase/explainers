@@ -352,6 +352,13 @@ a.eyebrow:hover { text-decoration: underline; }
 <body>
 <main class="index"><div class="eyebrow">Explainers</div>
 <h1>How things work inside</h1>
+<h2><a href="blance/index.html">Inside blance: planning and moving partitions</a></h2>
+<div class="subtitle"><p>How blance, the partition-assignment library under cbgt and Couchbase full-text search, decides which node holds each partition&#39;s primary and replicas, and how a rebalance then moves them there.</p>
+</div>
+<ol class="entries"><li class="entry card">
+<span class="num">01</span>
+<div><a class="title" href="blance/01-planning.html">Inside blance: how a plan places partitions</a><p>How cbgt&#39;s planner decides which node gets each index partition&#39;s primary and replicas: greedily, one partition at a time, and what that means when nodes join and leave.</p>
+</div></li></ol>
 <h2><a href="cbft/index.html">Inside Couchbase full-text search (cbft, bleve, scorch)</a></h2>
 <div class="subtitle"><p>How Couchbase&#39;s Full Text Search service, cbft, and the bleve library and scorch index it&#39;s built on, work under the hood: from a stream of mutations to segment files on disk, and what a query reads from them.</p>
 </div>
