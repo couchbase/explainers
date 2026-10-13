@@ -451,12 +451,12 @@ chapters:
           for a partition with no surviving replica.)
 
       - id: gone
-        view: { at: remove.after, target: node.c, focus: board }
+        view: { at: remove.after, target: board.title, focus: board }
         expect: ["fact:remove.replicas.counts=a3/3 c3/2 d2/3"]
         text: |
           Once the moves are done, node b is out of the cluster, and
-          node b's column goes away: nodes a, [[c]] and d hold every
-          partition.
+          node b's column goes away:
+          [[nodes a, c and d hold every partition]].
 
   # ------------------------------------------------------------------
   - id: knobs
