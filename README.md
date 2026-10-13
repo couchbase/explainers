@@ -3,34 +3,10 @@
 Scrollytelling explainers of how software works inside: a story column
 you scroll, beside one large diagram that the story zooms around and
 opens up section by section, and the real source code each step is
-about. The style is inspired by
-[r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
+about.
 
-This repo has a generic engine (`engine/`) and explainers grouped by
-topic (`topics/`):
-
-- **[cbft](topics/cbft/README.md):** how Couchbase's full-text search
-  service, [cbft](https://github.com/couchbase/cbft), works under the
-  hood, with the [bleve](https://github.com/blevesearch/bleve) library:
-  - **01-indexing**, "Inside bleve / scorch: introducer, persister,
-    merger": one batch of mutations, from KV through cbft and onto disk;
-  - **02-zap-format**, "Inside a zap segment": one query, followed byte
-    by byte through a real segment file.
-- **[blance](topics/blance/README.md):** how
-  [blance](https://github.com/couchbase/blance), a small, reusable
-  library for partitioned systems (cbgt, under Couchbase's search, is
-  one user), plans which nodes hold each partition's primary and
-  replicas, and moves them in a rebalance:
-  - **01-planning**, "Inside blance: how a plan places partitions":
-    the planner's real decisions, score by score, as nodes join and
-    leave, and stickiness;
-  - **02-moving**, "Inside blance: how a rebalance moves partitions":
-    each partition's moves, a mover per node and the controller's
-    rounds, over time, one move at a time, four at a time, and deletes
-    first;
-  - **03-groups**, "Inside blance: server groups": racks or zones as
-    a tree, and a rule that keeps a partition's replica out of its
-    primary's group.
+This repo has a generic engine (`engine/`) and domain specific content
+or explainers grouped by topic in (`topics/`).
 
 ## Quick start
 
@@ -47,15 +23,18 @@ external scripts, so it can be emailed or Slacked.
 
 `npm run dev` rebuilds on every change under `engine/` and `topics/`.
 
-Scrolling drives the story. You can also navigate the diagram like a google map:
+Scrolling drives the story. The style is inspired by
+[r2d3.us](https://r2d3.us/visual-intro-to-machine-learning-part-1/).
+
+You can also navigate the diagram like a google map:
 - drag to pan;
 - ⌘, Ctrl or ⌥ + scroll, or pinch, to zoom at the cursor;
 - double-click to zoom in, ⌥/Shift + double-click to zoom out;
 - two fingers to pinch and pan on touchscreens;
 - ⟲ to return to the story's view (the next step also eases back to it).
 
-The Code drawer shows the Go source each step is about, with
-links to GitHub at pinned commits.
+The Code drawer shows the source code for each step, if available,
+with links to GitHub at pinned commits.
 
 ## Tests
 
@@ -70,8 +49,8 @@ own `test/` and `test-e2e/`. `engine/test/narratives.test.mjs` checks
 every explainer's narrative: its schema, its code refs, and each
 step's `expect`.
 
-Where an explainer models real code in JS (a planner, a merge policy,
-a file format), it checks the model against the real thing: a **golden
+Where an explainer models real code in JS (e.g., a planner, a merge policy,
+etc.), it checks the JS model against the real thing: a **golden
 tool**, `tools/<name>-golden/` beside it, runs the real code (in Go)
 on many cases and writes what it did, and the explainer's tests
 compare. `npm run golden` reruns them all (`npm run golden -- blance`
