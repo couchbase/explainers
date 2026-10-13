@@ -41,6 +41,8 @@ export async function scrollToStep(page, step, p = 1.2, settleMs = 150) {
   await page.evaluate(([step, p]) => {
     const i = typeof step === 'number' ? step : Number(document.getElementById(step).dataset.index);
     window.scrollTo(0, window.explainer.scrollYFor(i, p));
+    // (no smoothing in tests: the page shows this scroll position now)
+    if (window.explainer.snap) window.explainer.snap();
   }, [step, p]);
   if (settleMs) await page.waitForTimeout(settleMs);
 }

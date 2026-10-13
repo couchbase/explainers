@@ -26,15 +26,17 @@ function spanOf(el) {
   return next ? next.getBoundingClientRect().top - el.getBoundingClientRect().top : el.getBoundingClientRect().height;
 }
 
-export function scrollState(stepEls, reduceMotion) {
+// (dy: as if the page were scrolled dy px less: for the runner's
+// smoothed scroll position)
+export function scrollState(stepEls, reduceMotion, dy = 0) {
   const { enterY, settleY } = lines();
   let i = 0;
   for (let j = 0; j < stepEls.length; j++) {
-    if (stepEls[j].getBoundingClientRect().top <= enterY) i = j; else break;
+    if (stepEls[j].getBoundingClientRect().top + dy <= enterY) i = j; else break;
   }
-  const top = stepEls[i].getBoundingClientRect().top;
+  const top = stepEls[i].getBoundingClientRect().top + dy;
   const next = stepEls[i + 1];
-  const span = next ? next.getBoundingClientRect().top - top : stepEls[i].getBoundingClientRect().height;
+  const span = next ? next.getBoundingClientRect().top + dy - top : stepEls[i].getBoundingClientRect().height;
   const u = Math.max(0, Math.min(1, (enterY - top) / Math.max(1, span)));
   // (the first step too: before it's scrolled in, under the title,
   // it's at 0, and nothing it points at shows yet)

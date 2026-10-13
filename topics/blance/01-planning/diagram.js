@@ -39,6 +39,7 @@ const pickOf = (d) => d.seq.length - 1;
 const FLY = 0.7;
 const flight = (u, i, n) => clamp01((u - i / n) / (FLY / n));
 const grown = (u, i, n) => clamp01((u - (i + FLY) / n) / ((1 - FLY) / n));
+export { FLY, flight, grown, through };
 // the pick: the winner's ring, then its arrow up to the board, then its chip
 const PICK = { ring: [0, 0.3], flight: [0.2, 0.65], chip: [0.65, 0.9] };
 const within = (t, [a, b]) => clamp01((t - a) / (b - a));
@@ -505,15 +506,17 @@ export class Diagram {
         const chipAt = ([p, nn, st]) => [chipX(nn, st), rowY(p) + 12];
         // each lands on the top of the bar as it is when it arrives
         const cn = src[n].count.length, sn = src[n].spread.length, fn = src[n].fill.length;
-        // (each with what it adds to the score, for its thickness)
+        // (each with what it adds to the score, for its thickness; and,
+        // counter-clockwise, every arrow down bows west, as the pick's
+        // up bows east, by more for each so they don't overlap)
         src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`, 1 / w]));
-        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], 44 + 12 * i, 'sarc-spread', 1 / np / w]));
-        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], 30 + 8 * i, 'sarc-fill', 0.001 / np / w]));
-        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], 56, 'sarc-sticky', c.currentFactor]));
+        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], -38 - 10 * i, 'sarc-spread', 1 / np / w]));
+        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], -30 - 8 * i, 'sarc-fill', 0.001 / np / w]));
+        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], -56, 'sarc-sticky', c.currentFactor]));
       }
       // pick: from the winner's bar up to where its chip goes
       const wn = d.chosen[0], wb = Diagram.barAt(d, L, wn);
-      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], -40, 'sarc-pick', 1]);
+      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], 40, 'sarc-pick', 1]);
       for (const [j, i, n, key0, from, to, bow, cls, adds] of stageArcs) {
         if (j < 0) continue;
         const key = `${d.k}:${key0}`;

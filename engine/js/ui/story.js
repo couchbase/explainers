@@ -104,9 +104,27 @@ export function runStory({ simulation = false, setup }) {
     return true;
   }
 
+  // The scroll position the page shows: the real one, smoothed, so a
+  // big jump (a wheel notch, a flick) plays through what's between,
+  // quickly, rather than skipping it. Still the scroll's: it settles
+  // where the scroll is, and follows it back. It snaps for jumps (the
+  // contents, deep links), and with reduced motion.
+  const SMOOTH_MS = 140;
+  let shownY = window.scrollY, lastTs = null;
+  const shown = () => scrollState(stepEls, reduceMotion, window.scrollY - shownY);
+  function snap() { shownY = window.scrollY; }
+  function follow(ts) {
+    const dt = lastTs === null ? 16 : Math.min(100, ts - lastTs);
+    lastTs = ts;
+    const d = window.scrollY - shownY;
+    if (reduceMotion || Math.abs(d) < 0.5 || Math.abs(d) > 4 * window.innerHeight) shownY = window.scrollY;
+    else shownY += d * (1 - Math.exp(-dt / SMOOTH_MS));
+  }
+
   function render() {
     if (ctl.current < 0) return;
-    const { i, p, u } = scrollState(stepEls, reduceMotion);
+    const { i, p, u } = shown();
+    if (i !== ctl.current) enter(i);
     const v = views[i], pv = i > 0 ? views[i - 1] : v;
     const t = ease(p);
     if (hooks.render) hooks.render({ i, p, u, t, v, pv });
@@ -124,6 +142,7 @@ export function runStory({ simulation = false, setup }) {
   }
 
   function frame(ts) {
+    follow(ts);
     if (hooks.beforeFrame) hooks.beforeFrame(ts);
     camera.tick();
     render();
@@ -143,18 +162,16 @@ export function runStory({ simulation = false, setup }) {
     }
   });
 
-  window.addEventListener('scroll', () => {
-    ctl.scrolled = true;
-    const { i } = scrollState(stepEls, reduceMotion);
-    if (i !== ctl.current) enter(i);
-  }, { passive: true });
+  // (the step changes as the shown scroll position reaches it: see render)
+  window.addEventListener('scroll', () => { ctl.scrolled = true; }, { passive: true });
 
   // Jumps (no smooth scroll through everything in between) to step i,
   // fully settled.
   function jumpTo(i) {
     window.scrollTo({ top: scrollYFor(stepEls[i], 1) + 2, behavior: 'instant' });
     ctl.scrolled = true;
-    enter(scrollState(stepEls, reduceMotion).i);
+    snap();
+    enter(shown().i);
   }
 
   // Deep links (#chapter--step) land with the step fully settled. The
@@ -169,13 +186,15 @@ export function runStory({ simulation = false, setup }) {
   function land() {
     if (!target || !target.classList.contains('step') || interacted) return;
     window.scrollTo(0, scrollYFor(target, 1) + 2);
-    enter(scrollState(stepEls, reduceMotion).i);
+    snap();
+    enter(shown().i);
   }
   try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
   land();
   window.addEventListener('load', () => setTimeout(land, 0));
   if (target && window.ResizeObserver) new ResizeObserver(() => land()).observe(page.story);
-  enter(scrollState(stepEls, reduceMotion).i);
+  snap();
+  enter(shown().i);
   requestAnimationFrame(frame);
 
   // For tests and the curious.
@@ -183,6 +202,8 @@ export function runStory({ simulation = false, setup }) {
     ctl, steps, views, enter, jumpTo, diagram, camera, toc,
     scrollState: () => scrollState(stepEls, reduceMotion),
     scrollYFor: (i, p) => scrollYFor(stepEls[i], p),
+    // (tests: show the scroll position as it is, now)
+    snap: () => { snap(); enter(shown().i); },
     ...(hooks.expose || {}),
   };
   return story;
