@@ -13,7 +13,12 @@
    that the story zooms around and opens up section by section, and
    charts on the right with leader lines into the diagram. Each section
    has its own color, used for its frame, lid, story headings and the
-   "where am I" breadcrumb. */
+   "where am I" breadcrumb.
+
+   These are the engine's neutral tokens and its default fonts. A
+   topic's look (its palette, section colors, fonts) is in
+   topics/<topic>/style.css, after these; an explainer's own styles,
+   in topics/<topic>/<name>/style.css, come last. */
 :root {
   --bg: #f2f4f6;
   --panel: #ffffff;
@@ -23,26 +28,9 @@
   --line: #d3dae0;
   --faint: #e7ecf0;
   --accent: #c2410c;
-  --scan: #ffd98a; /* the copier scan's light */
   --flow: #7b8a97;
-  --up: #6e5bd0;
 
-  --busy: #1f8f58;
-  --nap: #6e5bd0;
-  --wait: #8b97a3;
-  --stall: #d0342c;
-
-  --sec-kv: #2b7c84;
-  --sec-cbft: #a07408;
-  --sec-bleve: #5b4fa8;
-  --sec-scorch: #9c3f7c;
-  --sec-disk: #7a5a3a;
   --sec-neutral: #5a6977;
-
-  --seg-mem: #e8862a;
-  --seg-file: #2d6cc9;
-  --seg-garbage: #a9b4be;
-  --seg-zombie: #d23a4e;
 
   --code-bg: #f6f8fa;
   --code-hl: #fff4d6;
@@ -62,20 +50,14 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
-    --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0; --scan: #fff1c4;
-    --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
-    --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
-    --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
+    --accent: #fb7a3c; --flow: #7f8f9c; --sec-neutral: #93a2ae;
     --code-bg: #11171c; --code-hl: #3a3218; --code-kw: #f07ab8; --code-str: #7fd29a; --code-com: #7c8a96; --code-fn: #8cb8ff; --code-num: #f0b35a;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
-  --accent: #fb7a3c; --flow: #7f8f9c; --up: #9a8cf0; --scan: #fff1c4;
-  --busy: #3cc283; --nap: #9a8cf0; --wait: #6f7d89; --stall: #ff6450;
-  --sec-kv: #5fb8bf; --sec-cbft: #d9a63a; --sec-bleve: #a99cf0; --sec-scorch: #d97bb8; --sec-disk: #c19a72; --sec-neutral: #93a2ae;
-  --seg-mem: #f59e4a; --seg-file: #5b93e8; --seg-garbage: #4f5d69; --seg-zombie: #ff5d72;
+  --accent: #fb7a3c; --flow: #7f8f9c; --sec-neutral: #93a2ae;
   --code-bg: #11171c; --code-hl: #3a3218; --code-kw: #f07ab8; --code-str: #7fd29a; --code-com: #7c8a96; --code-fn: #8cb8ff; --code-num: #f0b35a;
   color-scheme: dark;
 }
@@ -223,14 +205,6 @@ a.eyebrow:hover { text-decoration: underline; }
 }
 .code-chip:hover { border-color: var(--accent); color: var(--accent); }
 .code-chip .repo { color: var(--muted); }
-
-/* inline legend swatches in the prose */
-.st { font-weight: 500; white-space: nowrap; }
-.st::before { content: ""; display: inline-block; width: 0.7em; height: 0.7em; border-radius: 50%; margin-right: 0.3em; vertical-align: -0.02em; }
-.st-busy::before { background: var(--busy); }
-.st-sleep::before { background: var(--nap); }
-.st-wait::before { background: transparent; border: 2px solid var(--wait); }
-.st-stall::before { background: var(--stall); }
 
 /* ---------- toolbar ---------- */
 
