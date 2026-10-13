@@ -387,7 +387,7 @@ chapters:
     steps:
 
       - id: options
-        view: { panel: score, target: board.title, focus: board }
+        view: { panel: none, target: board.title, focus: board }
         code: [blance.options]
         text: |
           `PlanNextMapEx()` also takes options, knobs that an app can
@@ -412,14 +412,14 @@ chapters:
     steps:
 
       - id: loops
-        view: { at: fresh.12, target: scores, focus: strip }
+        view: { target: board.title, focus: board }
         code: [blance.assign, blance.nodeScore]
         text: |
           Whether blance is assigning primaries or replicas, and
           whether nodes are joining or leaving, the planner is two
           nested for-loops: for each state, and for each partition, sum
-          up a score for every node, then assign the partition to the
-          node with the lowest score, as in [[the scores]].
+          up a score for every node, then [[assign the partition]] to
+          the node with the lowest score.
 
           ```
           for each state, most important first:
@@ -436,17 +436,17 @@ chapters:
           changes nothing.
 
       - id: takeaway
-        view: { at: fresh.end, target: board.title, focus: board }
+        view: { target: tally.a, focus: tallies }
         expect: ["fact:add.moves=10"]
         text: |
           Joining and leaving nodes only change the inputs to the
           loops: which nodes are candidates, which partitions go first,
           and which nodes get the stickiness. So the takeaway: blance is
           simple. There's no search over possible partition maps and no
-          look ahead, just a greedy pass that fills in
-          [[the partition map]] one partition at a time, with a score
-          that is mostly a count of what each node already holds. The
-          result is fast, predictable and close to even, though not
-          always the fewest moves: when node d joined, rebalancing the partitions
+          look ahead, just a greedy pass that fills in the partition
+          map one partition at a time, with a score that is mostly a
+          count of what each node already holds. The result is fast,
+          predictable and [[close to even]], though not always the
+          fewest moves: when node d joined, rebalancing the partitions
           led to 10 moves where 8 theoretically would do. So, the
           simple, greedy approach of blance does have tradeoffs.
