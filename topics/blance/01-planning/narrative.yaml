@@ -448,5 +448,7 @@ chapters:
           count of what each node already holds. The result is fast,
           predictable and [[close to even]], though not always the
           fewest moves: when node d joined, rebalancing the partitions
-          led to 10 moves where 8 theoretically would do. So, the
-          simple, greedy approach of blance does have tradeoffs.
+          led to 10 moves where 8 theoretically would do. So, although the
+          simple, greedy approach of blance is straightforward
+          and often "good enough",
+          it does not always calculate optimal, perfect partition maps.
