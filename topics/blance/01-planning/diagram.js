@@ -8,7 +8,7 @@
 // two frames, as the scroll says.
 
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
-import { lerp, clamp01 } from '../../../engine/js/ui/util/anim.js';
+import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { calcPartitionMoves } from '../lib/moves.js';
 import { NODES, PARTITIONS, STATES, GROUPS, STICKINESS, SCENARIOS, TERMS, tally, sourcesOf } from './scenarios.js';
 import {
@@ -41,7 +41,9 @@ const flight = (u, i, n) => clamp01((u - i / n) / (FLY / n));
 const grown = (u, i, n) => clamp01((u - (i + FLY) / n) / ((1 - FLY) / n));
 export { FLY, flight, grown, through };
 // the pick: the winner's ring, then its arrow up to the board, then its chip
-const PICK = { ring: [0, 0.3], flight: [0.2, 0.65], chip: [0.65, 0.9] };
+// (a box around every candidate's score appears, then narrows onto the
+// lowest, which is then marked; then its arrow flies, then its chip)
+const PICK = { wide: [0, 0.08], narrow: [0.12, 0.38], ring: [0.36, 0.42], flight: [0.42, 0.72], chip: [0.72, 0.92] };
 const within = (t, [a, b]) => clamp01((t - a) / (b - a));
 
 // An arrow's thickness, by what it adds to the score: by its square
@@ -263,6 +265,8 @@ export class Diagram {
     });
     txt(S.axis, BOARD.x0, scoreY(1.5) + 4, 'score', 'brow-label');
     const W = STRIP.barW;
+    // the pick's box: around all the candidates' scores, then the lowest's
+    S.select = el('rect', { rx: 8, class: 'swon', opacity: 0 }, sg);
     S.cols = {};
     for (const n of NODES) {
       const x = colX(n);
@@ -387,7 +391,7 @@ export class Diagram {
       const top = Math.max(v.fillShown, v.score, 0.3);
       col.ring.setAttribute('y', (scoreY(top) - 10).toFixed(1));
       col.ring.setAttribute('height', (STRIP.labelY + 22 - scoreY(top) + 10).toFixed(1));
-      op(col.ring, v.won); op(col.lowest, v.won);
+      op(col.ring, 0); op(col.lowest, v.won);
       const wa = da ? Diagram.whyNot(FA, da, n) : '', wb = db ? Diagram.whyNot(FB, db, n) : '';
       setText(col.why, (q < 0.5 ? wa : wb) || wa || wb);
       op(col.why, same ? (wa ? 1 : 0) : lerp(wa ? 1 : 0, wb ? 1 : 0, q));
@@ -395,6 +399,30 @@ export class Diagram {
       op(col.g, scn.nodes.includes(n) ? 1 : 0);
       if (shown > 0.5) this.stripTops[n] = [colX(n) - STRIP.barW / 2, scoreY(Math.max(v.fillShown, v.score))];
     }
+    this._drawSelect(FA, FB, q, same ? sNow : null);
+  }
+
+  // The pick's box: it appears around every candidate's score, then
+  // narrows onto the lowest's.
+  _drawSelect(FA, FB, q, sNow) {
+    const box = this.strip.select;
+    // (this decision at its pick; or the one before, settled, fading)
+    let d, u, o = 1;
+    if (sNow !== null) { d = FA.decision; u = through(sNow, pickOf(d)); }
+    else if (FA.decision && (FA.stage ?? pickOf(FA.decision)) === pickOf(FA.decision)) { d = FA.decision; u = 1; o = clamp01(1 - q * 2); }
+    if (!d || u <= 0) { op(box, 0); return; }
+    const L = pickOf(d);
+    const tops = d.scored.map((c) => { const b = Diagram.barAt(d, L, c.node); return Math.max(b.fillShown, b.score, 0.3); });
+    const xs = d.scored.map((c) => colX(c.node));
+    const wide = [Math.min(...xs) - 34, scoreY(Math.max(...tops)) - 10, Math.max(...xs) + 34];
+    const w = d.chosen[0], wt = tops[d.scored.findIndex((c) => c.node === w)];
+    const narrow = [colX(w) - 34, scoreY(wt) - 10, colX(w) + 34];
+    const e = easeQuad(within(u, PICK.narrow));
+    const [x0, y0, x1] = wide.map((v, k) => lerp(v, narrow[k], e));
+    box.setAttribute('x', x0.toFixed(1)); box.setAttribute('y', y0.toFixed(1));
+    box.setAttribute('width', (x1 - x0).toFixed(1));
+    box.setAttribute('height', (STRIP.labelY + 22 - y0).toFixed(1));
+    op(box, o * within(u, PICK.wide));
   }
 
   // ---- the pick's verdict: reassigned, or stays put ----

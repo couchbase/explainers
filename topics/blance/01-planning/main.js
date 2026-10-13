@@ -24,7 +24,7 @@ function weightOf(f) {
   if (!d || f.stage === undefined) return 1;
   const x = d.seq[f.stage];
   if (x.stage === 'row') return 1;
-  if (x.stage === 'pick') return 2;
+  if (x.stage === 'pick') return 3;
   const c = d.scored.find((y) => y.node === x.node), np = PARTITIONS.length;
   const n = { count: c.count, spread: Math.round(c.lowerPriorityBalanceFactor * np), fill: Math.round((c.filledFactor * np) / 0.001), sticky: 1 }[x.term];
   return Math.max(1, n);
