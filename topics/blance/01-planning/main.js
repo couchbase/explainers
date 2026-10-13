@@ -13,7 +13,7 @@
 
 import { runStory } from '../../../engine/js/ui/story.js';
 import { clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
-import { FRAMES, PARTITIONS } from './scenarios.js';
+import { FRAMES, PARTITIONS, SCENARIOS } from './scenarios.js';
 import { cameraFor } from './layout.js';
 import { sceneAt, framePath } from './story.js';
 import { Diagram } from './diagram.js';
@@ -29,6 +29,16 @@ function weightOf(f) {
   const n = { count: c.count, spread: Math.round(c.lowerPriorityBalanceFactor * np), fill: Math.round((c.filledFactor * np) / 0.001), sticky: 1 }[x.term];
   return Math.max(1, n);
 }
+// The rests, in the same units: after a pick that says "reassigned!"
+// or "stays put!", a half note; after any other pick, a quarter. (An
+// arrow's flight is the eighth note.) While resting, nothing moves.
+const REST_VERDICT = 4, REST_PICK = 1;
+function restAfter(f) {
+  const d = f.decision;
+  if (!d || f.stage !== undefined && f.stage !== d.seq.length - 1) return 0;
+  return Diagram.verdictOf(SCENARIOS[f.scenario], d) ? REST_VERDICT : REST_PICK;
+}
+
 // scroll per unit of weight, in vh, and at most: a step about one
 // decision, or one that runs through several
 const VH_ONE = 9, VH_MANY = 4, MAX_ONE = 600, MAX_MANY = 600;
@@ -43,7 +53,10 @@ runStory({
     const plans = scenes.map((B, i) => {
       const A = scenes[i > 0 ? i - 1 : i];
       const path = framePath(A.at, B.at);
-      const w = path.slice(1).map((k) => weightOf(FRAMES[k]));
+      // each segment's weight: what it plays, and any rest before it
+      // (after the pick it starts from)
+      const rests = path.slice(0, -1).map((k) => restAfter(FRAMES[k]));
+      const w = path.slice(1).map((k, j) => weightOf(FRAMES[k]) + rests[j]);
       const total = w.reduce((s, x) => s + x, 0);
       const picks = path.slice(1).filter((k) => FRAMES[k].decision && FRAMES[k].stage === FRAMES[k].decision.seq.length - 1).length;
       const vh = picks > 1 ? Math.min(MAX_MANY, total * VH_MANY) : Math.min(MAX_ONE, total * VH_ONE);
@@ -54,7 +67,7 @@ runStory({
       }
       const cum = [0];
       for (const x of w) cum.push(cum[cum.length - 1] + x / Math.max(total, 1));
-      return { path, cum, scrub };
+      return { path, cum, scrub, rests, w };
     });
 
     return {
@@ -64,11 +77,14 @@ runStory({
         // the board and strip alone, or with the panel on the right
         camera.show(camera.between(i > 0 ? cameraFor(A.panel) : null, cameraFor(B.panel), p));
         // through each frame between the two, by its share of the scroll
-        const { path, cum, scrub } = plans[i];
+        const { path, cum, scrub, rests, w } = plans[i];
         const x = clamp01(p);
         let j = 0;
         while (j < path.length - 2 && x > cum[j + 1]) j++;
-        const f = (x - cum[j]) / Math.max(1e-9, cum[j + 1] - cum[j]);
+        let f = (x - cum[j]) / Math.max(1e-9, cum[j + 1] - cum[j]);
+        // (resting at its start: holding still, then playing what's left)
+        const hold = rests[j] / w[j];
+        f = hold > 0 ? clamp01((f - hold) / (1 - hold)) : f;
         const FA = FRAMES[path[j]], FB = FRAMES[path[j + 1]];
         // (the panel follows the board's frame, or changes on its own)
         diagram.draw(FA, FB, scrub ? clamp01(f) : easeQuad(clamp01(f)), A.panel, B.panel, p, FA, FB);
