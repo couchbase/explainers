@@ -13,43 +13,45 @@ subtitle: >-
   From one partition map to the next, while the partitions stay in
   use: each partition's moves, a mover per node, and a controller that
   keeps every node busy, one round at a time.
-audience: Engineers who build or run partitioned systems
+audience: Engineers who build or run distributed systems
 
 chapters:
 
   # ------------------------------------------------------------------
   - id: plans
-    title: "From maps to moves"
+    title: "From partition maps to moves"
     color: change
     steps:
 
       - id: intro
         view: { target: node.d }
         text: |
-          In [the first explainer](01-planning.html), blance planned
+          In [the first explainer](01-planning.html), blance computed
           the next partition map for [[node d]] joining a cluster of
-          three. The plan is only where to end up. Getting there means
-          building copies of partitions on their new nodes, and
-          removing old ones, while the partitions stay in use.
+          three nodes. The next partition map is only where to end up.
+          Getting there means building copies of partitions on their
+          new nodes, and removing the old copies, while the partitions
+          stay in use. Let's walk through how blance does that.
 
       - id: moves
         view: { panel: plans, target: plan.0 }
         code: [blance.CalcPartitionMoves]
         expect: ["fact:one.plan.0=add d:primary, del a"]
         text: |
-          First, each partition's own moves, from its nodes before to
-          its nodes after (blance's `CalcPartitionMoves`). For
-          [[partition 0]]: add d as its primary, then delete it from a.
-          The copy comes first, so the partition is never short of one.
+          First, blance's `CalcPartitionMoves()` function computes each
+          partition's own moves, from the partition's nodes before to
+          the partition's nodes after. For [[partition 0]]: add node d
+          as partition 0's primary, then delete node a's copy. The add
+          comes first, so the partition is never short of a copy.
 
       - id: count
         view: { target: plan.3 }
         expect: ["fact:one.moves=10", "fact:one.moved=5"]
         text: |
-          10 moves over 5 partitions, two each; [[partition 3]], and
-          the others that stay put, have none. Each partition's moves
-          have to happen in order, but different partitions' moves can
-          happen at once.
+          10 moves over 5 partitions, two moves each; [[partition 3]],
+          and the other partitions that stay put, have no moves. Each
+          partition's moves have to happen in order, but different
+          partitions' moves can happen at the same time.
 
   # ------------------------------------------------------------------
   - id: movers
@@ -61,60 +63,64 @@ chapters:
         view: { panel: timeline, target: controller }
         code: [blance.analogy, blance.mover]
         text: |
-          blance's `OrchestrateMoves` runs them. Each node gets a mover
-          that does one batch of moves at a time, by calling the app
-          back to do the real work; and one [[controller]] decides what
-          each mover does next. The code's own analogy: each partition's
-          moves are a flight plan, each node an airport with one runway,
-          and the controller decides which plane takes off next where.
+          blance's `OrchestrateMoves()` function runs the moves. Each
+          node gets a mover, which does one batch of moves at a time by
+          calling back into the app to do the real work; and one
+          [[controller]] decides what each mover does next. The code's
+          own analogy: each partition's moves are a flight plan, each
+          node is an airport with one runway, and the controller
+          decides which plane takes off next, and where.
 
       - id: round1
         view: { target: lane.d }
         code: [blance.weights]
         expect: ["fact:one.round@0=b:5, d:0"]
         text: |
-          The first round: each partition's next move is its first, and
-          they're on b and d. [[d]] has four to choose from, all copies;
-          it takes the lowest weight (promote first, then demote, add,
-          and delete last), and among equals, here, the first by name:
-          partition 0. b has just one, partition 5's copy.
+          The controller works in rounds. In the first round, each
+          partition's next move is the partition's first move, and
+          those moves are on nodes b and d. Node [[d]] has four moves to
+          choose from, all adds. The controller picks the lowest weight
+          move (promote first, then demote, then add, and delete last),
+          and among equals, here, the first by name: partition 0. Node
+          b has just one move, partition 5's add.
 
       - id: first-done
         view: { at: one@270, target: lane.a }
         code: [blance.supply]
         expect: ["fact:one@270.starts.a=del 0", "fact:one@270.starts.d=add 1", "fact:one.round@270=a:0, b:5 waits, d:1"]
         text: |
-          At 270 ms, d has finished partition 0's copy. A round ends as
-          soon as any mover finishes, and the next starts: partition 0's
-          next move is now [[on a]], deleting its old copy, and d starts
-          on partition 1. b is still building partition 5's copy: its
-          best move is the one in flight, so it waits.
+          At 270 ms, node d has finished adding partition 0. A round
+          ends as soon as any mover finishes, and the next round
+          starts: partition 0's next move is now [[on node a]],
+          deleting node a's old copy, and node d starts adding
+          partition 1. Node b is still adding partition 5: node b's best
+          move is the move already in flight, so node b waits.
 
       - id: bottleneck
         view: { at: one@1323, target: lane.d }
         expect: ["fact:one.end=1323", "fact:one.busy.d=1269"]
         text: |
-          And so on: every round, each node's next move. But [[d]] has
-          four copies to build, one after another, and every other move
-          is quick: the whole rebalance takes 1323 ms, d busy for 1269
-          of them.
+          And so on: in every round, each node's next move. But node
+          [[d]] has four adds to do, one after another, and every other
+          move is quick: the whole rebalance takes 1323 ms, with node d
+          busy for 1269 ms of it.
 
       - id: races
         view: { panel: plans, target: plan.0 }
         code: [blance.supplyMove]
         text: |
-          All done: [[every move]] made. Two things this simplifies.
-          blance breaks ties between equal moves by Go map order, in
-          effect at random, where here the first by name wins. And in
-          the real code, when two moves finish at the same moment,
-          which one the controller hears of first is a race, and real
-          runs differ. (These runs are timed so that none do; on them,
-          this simulation and the real orchestrator agree, move for
-          move.)
+          All done: [[every move]] is made. This simulation simplifies
+          two things. blance breaks ties between equal moves by Go map
+          order, in effect at random, while here the first by name
+          wins. And in the real code, when two moves finish at the same
+          moment, which move the controller hears about first is a
+          race, so real runs differ. (The runs here are timed so that no
+          moves finish at the same moment; on these runs, this
+          simulation and the real orchestrator agree, move for move.)
 
   # ------------------------------------------------------------------
   - id: more
-    title: "More at once"
+    title: "More moves at once"
     color: replica
     steps:
 
@@ -123,35 +129,36 @@ chapters:
         code: [blance.batch]
         expect: ["fact:four@0.starts.d=add 0,add 1,add 2,add 4", "fact:four.round@0=b:5, d:0+1+2+4"]
         text: |
-          A mover can take several moves at once: up to
-          `MaxConcurrentPartitionMovesPerNode`, best first, as one
-          batch. (cbft, for one, sets 1 unless told otherwise.) At 4,
-          [[d's mover]] takes all four copies in one batch.
+          A mover can take several moves at once, as one batch: up to
+          `MaxConcurrentPartitionMovesPerNode` moves, best first. (cbft,
+          for one, uses 1 unless told otherwise.) With 4,
+          [[node d's mover]] takes all four adds in one batch.
 
       - id: four-timeline
         view: { panel: timeline, target: lane.d }
         text: |
-          On the timeline, [[d]] has one batch in flight, of four
-          copies, and b its one.
+          On the timeline, node [[d]] has one batch in flight, of four
+          adds, and node b has its one add.
 
       - id: four-waits
         view: { at: four@378, target: lane.b }
         expect: ["fact:four.round@378=a:0, b:5+1+2 waits, c:4"]
         text: |
-          At 378 ms d's batch is done, and partitions 1 and 2 can be
-          deleted from b. But [[b]]'s best moves still include partition
-          5's copy, in flight, so b waits for it before starting the
-          deletes.
+          At 378 ms node d's batch is done, so node b's copies of
+          partitions 1 and 2 can be deleted. But node [[b]]'s best moves
+          still include partition 5's add, which is in flight, so node
+          b waits for it before starting the deletes.
 
       - id: four-done
         view: { at: four@468, target: now }
         code: [cbgt.assign]
         expect: ["fact:four.end=468"]
         text: |
-          Done at [[468 ms]], not 1323. Here a batch takes as long as
-          its slowest move (cbgt, for one, waits for all of a batch's
-          partitions); on a real node, four copies at once share its
-          disk, CPU and network, so the win is smaller than this.
+          The rebalance is done at [[468 ms]], instead of 1323 ms. Here
+          a batch takes as long as its slowest move (cbgt, for one,
+          waits for all of a batch's partitions). On a real node, four
+          adds at once share the node's disk, CPU and network, so the
+          win is smaller than this.
 
   # ------------------------------------------------------------------
   - id: fewer
@@ -163,41 +170,44 @@ chapters:
         view: { at: min@0, target: plan.0 }
         expect: ["fact:min.plan.0=del a, add d:primary"]
         text: |
-          With `FavorMinNodes`, each partition's moves go the other way
-          round: deletes first, so a partition is on as few nodes as
-          possible at any time. For [[partition 0]]: delete it from a,
-          then add d as its primary.
+          With the `FavorMinNodes` option, each partition's moves go
+          the other way round: deletes first, so that a partition is on
+          as few nodes as possible at any time. For [[partition 0]]:
+          delete node a's copy, then add node d as partition 0's
+          primary.
 
       - id: min-timeline
         view: { panel: timeline, target: lane.a }
         expect: ["fact:min.round@0=a:0, b:1, c:4"]
         text: |
-          The first round now starts the deletes: on [[a]], b and c.
+          So the first round now starts the deletes: on node [[a]],
+          node b and node c.
 
       - id: min-gap
         view: { at: min@288, target: row.1 }
         expect: ["fact:min.noPrimary.0=18-288", "fact:min.noPrimary.1=27-585"]
         text: |
-          But partition 0's only primary was on a. From 18 ms, when
-          it's deleted, until 288 ms, when d's copy is built, partition
-          0 has no primary; and [[partition 1]] has none from 27 ms
-          until 585. The code says as much: it favours "max of single
-          primary, if even there are temporarily no primaries for a
-          time".
+          But partition 0's only primary was on node a. From 18 ms,
+          when node a's copy is deleted, until 288 ms, when node d's
+          copy is built, partition 0 has no primary; and
+          [[partition 1]] has no primary from 27 ms until 585 ms. The
+          code says as much: the option favours "max of single primary,
+          if even there are temporarily no primaries for a time".
 
       - id: min-done
         view: { at: min@1287, target: now }
         expect: ["fact:min.end=1287", "fact:one.end=1323"]
         text: |
-          Done at [[1287 ms]], about as long as copies first. The trade
-          isn't time but copies: never more than needed, against never
-          fewer than before. Most apps that serve reads, cbft among
-          them, keep copies first.
+          The rebalance is done at [[1287 ms]], about as long as with
+          adds first. The trade-off isn't time but copies: never more
+          copies than needed, versus never fewer copies than before.
+          Most apps that serve reads, cbft among them, use adds first.
 
       - id: pause
         code: [blance.pause]
         text: |
-          The app can also pause a rebalance: no new moves start, the
-          ones in flight finish. Then resume it, or stop it. A stopped
-          rebalance leaves a map partway between the two, and the next
-          plan starts from there.
+          The app can also pause a rebalance: no new moves start, and
+          the moves in flight finish. Then the app can resume the
+          rebalance, or stop it. A stopped rebalance leaves a partition
+          map partway between the two, and the next plan starts from
+          there.

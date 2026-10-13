@@ -1,4 +1,4 @@
-# The second blance explainer: server groups (racks, zones), as a
+# The third blance explainer: server groups (racks, zones), as a
 # hierarchy rule for where replicas go. It's 01-planning's page (its
 # domain and entry re-use 01-planning's), told with the scenarios
 # planned from scratch on four nodes, without and then with the
@@ -9,7 +9,7 @@ title: "Inside blance: server groups"
 subtitle: >-
   Telling blance that nodes sit in racks or zones, as a tree and a rule
   for replicas, so a partition's copies don't all share one.
-audience: Engineers who build or run partitioned systems
+audience: Engineers who build or run distributed systems
 
 chapters:
 
@@ -23,31 +23,34 @@ chapters:
         view: { at: nogroups.end, target: row.0, focus: board }
         expect: ["fact:nogroups.sameGroup=4"]
         text: |
-          In [the first explainer](01-planning.html), blance planned
-          where each partition's primary and replicas go. Nodes, though,
-          often sit in server groups: racks, or availability zones. Here
-          a and b are in group g1, and c and d in g2. Planned from
-          scratch without telling blance, [[partition 0]] gets its
-          primary on a and its replica on b, both in g1, and so do 4 of
-          the 8 partitions: lose g1, and partitions 0 and 1 are gone.
+          In [the first explainer](01-planning.html), blance computed
+          where each partition's primary and replicas go. But nodes
+          often sit in server groups: racks, or availability zones.
+          Here nodes a and b are in group g1, and nodes c and d are in
+          group g2. Computed from scratch without telling blance about
+          the groups, [[partition 0]] gets its primary on node a and its
+          replica on node b, both in group g1, and so do 4 of the 8
+          partitions: lose group g1, and partitions 0 and 1 are gone.
 
       - id: tree
         view: { panel: tree, target: tree, focus: strip }
         code: [blance.HierarchyRule]
         text: |
-          The app tells blance about them as [[a tree]]: each node's
-          parent (a and b's is g1, c and d's g2, and the groups' is the
-          datacenter, dc), and a rule for where replicas go, as levels
-          up that tree.
+          The app tells blance about the groups as [[a tree]]: each
+          node's parent (nodes a and b have parent g1, nodes c and d
+          have parent g2, and the groups have parent dc, the
+          datacenter), and a rule for where replicas go, as levels up
+          that tree.
 
       - id: rule
         code: [cbgt.groupsRule, blance.includeExclude]
         text: |
           The rule here is cbgt's default when there are groups:
           include level 2, exclude level 1. From the primary's node, go
-          up 2 levels, to dc, for the candidates: a, b, c and d. Then
-          take away everything up 1 level, its own group: from a, that's
-          g1's a and b. What's left, c and d, is the other group.
+          up 2 levels, to dc, for the candidates: nodes a, b, c and d.
+          Then take away everything up 1 level, the primary node's own
+          group: from node a, that's group g1's nodes a and b. What's
+          left, nodes c and d, is the other group.
 
   # ------------------------------------------------------------------
   - id: decision
@@ -59,24 +62,26 @@ chapters:
         view: { at: groups.9~row, target: deciding, focus: board }
         expect: ["fact:groups.9.partition=0", "fact:groups.9.state=replica"]
         text: |
-          Planned again from scratch, with the groups and the rule: the
-          primaries go as before, and then [[partition 0]]'s replica.
-          Its primary is on a, in g1, so the rule's candidates are c and
+          Let's compute the partition map again from scratch, with the
+          groups and the rule. The primaries go as before, and then
+          comes [[partition 0]]'s replica. Partition 0's primary is on
+          node a, in group g1, so the rule's candidates are nodes c and
           d.
 
       - id: scores
         view: { panel: score, target: scores, focus: strip }
         text: |
-          Each node is scored just as before, one at a time, term by
-          term: the rule doesn't change [[the scores]], only which nodes
-          can win.
+          The planner scores each node just as before, one at a time,
+          term by term: the rule doesn't change [[the scores]], only
+          which nodes can win.
 
       - id: scored
         view: { at: groups.9~d.fill, target: bar.b, focus: strip }
         expect: ["fact:groups.9.b=0.0003", "fact:groups.9.c=0.0003", "fact:groups.9.d=0.0003"]
         text: |
-          b, c and d all come to 0.0003. Without the rule, [[b]], first in the list, would
-          win, as it did in the plan without groups. But b is in a's own
+          Nodes b, c and d all score 0.0003. Without the rule, node
+          [[b]], first in the list, would win, as node b did in the
+          partition map without groups. But node b is in node a's own
           group.
 
       - id: pick
@@ -85,14 +90,15 @@ chapters:
         expect: ["fact:groups.9.winner=c"]
         text: |
           The rule's candidates go first, best score first, so the
-          lowest among c and d wins, however well b scores: [[c]], first
-          of the two in the list.
+          lowest scoring of nodes c and d wins, however well node b
+          scores: node [[c]], the first of the two in the list.
 
       - id: rest
         view: { at: groups.end, target: row.0, focus: board }
         expect: ["fact:groups.sameGroup=0"]
         text: |
-          The rest the same way. In the plan with the rule, [[partition 0]]'s
-          replica is on c, and every replica is in the other group from
-          its primary: lose either group, and every partition still has
-          a copy.
+          The rest of the replicas go the same way. In the partition
+          map with the rule, [[partition 0]]'s replica is on node c, and
+          every replica is in the other group from the replica's
+          primary: lose either group, and every partition still has a
+          copy.
