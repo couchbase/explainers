@@ -98,6 +98,8 @@ export class Diagram {
     this.movesArea = this._buildMoves(g);
     this.treeArea = this._buildTree(g);
     this.focusBox = el('rect', { rx: 14, class: 'sfocus', opacity: 0 }, g);
+    this.traceG = el('g', {}, g);
+    this.traces = new Map();
     this.arcG = el('g', {}, g);
     this.arcs = new Map(); // key -> {path, head, len}
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
@@ -776,6 +778,39 @@ export class Diagram {
     const r = ra && rb ? ra.map((v, k) => lerp(v, rb[k], q)) : ra || rb;
     ['x', 'y', 'width', 'height'].forEach((k, i) => b.setAttribute(k, r[i].toFixed(1)));
     op(b, ra && rb ? 1 : ra ? 1 - q : q);
+  }
+
+  // ---- a partition's moves, as arrows across its row ----
+
+  // Scene A's traced partition to scene B's, partway (q): each arrow
+  // goes from a copy deleted to the copy built in its place, in the same
+  // state, just under the chips, as a pick's "reassigned!" arrow does.
+  setTrace(A, B, q) {
+    const shown = new Map();
+    const add = (sc, o) => {
+      if (!sc || sc.trace === undefined || o <= 0.001) return;
+      const p = String(sc.trace);
+      const { built, deleted } = Diagram.movesOf(sc.frame);
+      for (const s of STATES) {
+        const from = deleted.filter((x) => x[0] === p && x[1] === s), to = built.filter((x) => x[0] === p && x[1] === s);
+        from.forEach(([, , n0], k) => {
+          if (!to[k]) return;
+          const key = `${sc.frame.scenario}:${p}:${s}:${n0}:${to[k][2]}`;
+          shown.set(key, Math.max(shown.get(key) || 0, o));
+          if (!this.traces.has(key)) {
+            const x0 = chipX(n0, s), x1 = chipX(to[k][2], s), y = rowY(p), dir = Math.sign(x1 - x0);
+            const ya = y + 17, xa = x0 + dir * 10, xb = x1 - dir * 12;
+            const g = el('g', { opacity: 0 }, this.traceG);
+            el('path', { d: `M${x0},${y + 12} Q${x0},${ya} ${xa + dir * 6},${ya} L${xb},${ya}`, class: `varrow pick-${s}` }, g);
+            el('path', { d: 'M0,0 L-10,-5 L-10,5 Z', class: `varrow-head pick-${s}`, transform: `translate(${xb + dir * 4} ${ya}) rotate(${dir > 0 ? 0 : 180})` }, g);
+            this.traces.set(key, g);
+          }
+        });
+      }
+    };
+    add(A, A && B && A.trace === B.trace && A.frame === B.frame ? 1 : 1 - q);
+    add(B, A && B && A.trace === B.trace && A.frame === B.frame ? 1 : q);
+    for (const [key, g] of this.traces) op(g, shown.get(key) || 0);
   }
 
   // ---- what main.js calls ----

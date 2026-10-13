@@ -377,14 +377,14 @@ chapters:
           come from?
 
       - id: detour-out
-        view: { target: row.2, focus: board }
+        view: { target: row.2, focus: board, trace: "2" }
         expect: ["fact:add.moves.2=add d:replica, del b"]
         text: |
           [[Partition 2]]'s replica moved from node b to node d: a copy
           built on node d, and a copy deleted from node b.
 
       - id: detour-back
-        view: { target: row.5, focus: board }
+        view: { target: row.5, focus: board, trace: "5" }
         expect: ["fact:add.moves.5=add b:replica, del a"]
         text: |
           Then [[partition 5]]'s replica moved from node a to node b, to
@@ -453,7 +453,7 @@ chapters:
           3 and 2, and node d with 2 and 3.
 
       - id: moves
-        view: { panel: moves, target: row.4, focus: strip }
+        view: { panel: moves, target: row.4, focus: strip, trace: "4" }
         code: [cbgt.failover]
         expect: ["fact:remove.moves=8", "fact:remove.moves.4=add a:primary, del b"]
         text: |

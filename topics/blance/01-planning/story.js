@@ -21,6 +21,9 @@ export const VIEW_KEYS = {
   // a box around what to look at, for this step only: a reading aid, so
   // not the step's one change
   focus: { values: FOCUS_REGIONS },
+  // a partition whose moves to draw, as arrows across its row from each
+  // copy deleted to the copy built in its place: a reading aid too
+  trace: { values: PARTITIONS },
 };
 
 // ---- facts, for `expect: ["fact:<name>=<value>"]` ----
@@ -80,7 +83,7 @@ export const factModel = () => ({});
 export function sceneAt(views, i) {
   const v = views[i];
   const f = FRAMES[v.at];
-  return { at: v.at, frame: f, scenario: SCENARIOS[f.scenario], panel: v.panel, focus: v.focus };
+  return { at: v.at, frame: f, scenario: SCENARIOS[f.scenario], panel: v.panel, focus: v.focus, trace: v.trace };
 }
 
 // The frames from a to b, in order, when b is later in the same

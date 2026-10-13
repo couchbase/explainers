@@ -92,6 +92,8 @@ runStory({
         // long one, once its sweep of decisions is done (it settles 0.9
         // of the way through the step, u)
         diagram.setFocus(i > 0 ? A.focus : null, B.focus, easeQuad(scrub ? clamp01((u - 0.9) / 0.06) : clamp01(p)));
+        // and, the same way, a partition's moves traced across its row
+        diagram.setTrace(i > 0 ? A : null, B, easeQuad(scrub ? clamp01((u - 0.9) / 0.06) : clamp01(p)));
       },
       expose: { scenes, plans },
     };
