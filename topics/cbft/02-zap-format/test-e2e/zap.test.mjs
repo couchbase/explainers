@@ -2,6 +2,9 @@
 // no page errors; and the reader ends up having read a little of the file.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync, copyFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { launch, openPage, scrollToStep, stepCount, builtPage } from '../../../../engine/test-e2e/helpers.mjs';
 
 const zap = builtPage('cbft/02-zap-format').shared;
@@ -33,4 +36,32 @@ test('zap page: a deep link lands on its step', async () => {
   assert.equal(id, 'value');
   assert.deepEqual(errors, []);
   await page.close();
+});
+
+// Links to sibling pages (up to the topic's index, to the next
+// explainer, and in a step's text) only where they'd lead somewhere:
+// not from a stray copy.
+test('zap page: links to sibling pages, except from a stray copy', async () => {
+  const links = (page) => page.evaluate(() => ({
+    up: !!document.querySelector('a.eyebrow[href="index.html"]'),
+    end: !!document.querySelector('.next-card .up-link'),
+    label: document.querySelector('.hero .eyebrow').textContent,
+    // the first step's link to the first explainer
+    sibling: !!document.querySelector('a[href="01-indexing.html"]'),
+  }));
+  const { page, errors } = await openPage(browser, { page: zap });
+  assert.deepEqual(await links(page), { up: true, end: true, label: 'cbft / bleve / scorch', sibling: true });
+  await page.close();
+
+  const dir = mkdtempSync(join(tmpdir(), 'bx-stray-'));
+  try {
+    const stray = join(dir, '02-zap-format.html');
+    copyFileSync(zap, stray);
+    const { page: p2, errors: e2 } = await openPage(browser, { page: stray });
+    assert.deepEqual(await links(p2), { up: false, end: false, label: 'cbft / bleve / scorch', sibling: false });
+    assert.deepEqual([...errors, ...e2], []);
+    await p2.close();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

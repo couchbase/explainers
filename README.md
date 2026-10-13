@@ -112,7 +112,11 @@ atop each explainer page as a link up to the topic's index; and a
 link into, pinned), and any shared notes or code. The build gives each
 topic an index page, `dist/<topic>/index.html`, listing its explainers
 with their subtitles; each explainer links back up to it, from its
-header and from its last card. Code
+header and from its last card. Those links, the one to the next
+explainer, and links in a step's text to sibling pages, work only where
+they'd lead somewhere: when the page is served, or opened from disk
+still in its topic's directory (as in `dist/`), but not from a copy
+that was emailed or Slacked around (they're left out, or plain text). Code
 shared across topics goes in the engine.
 
 The engine reaches an explainer only through one seam,

@@ -11,8 +11,21 @@ const shortCommit = (c) => (c || '').slice(0, 12);
 const andList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const repoLink = (s) => `<a href="${s.github}/tree/${s.commit}" target="_blank" rel="noopener">${shortCommit(s.commit)}</a>`;
 
+// Whether this page's sibling pages (the topic's index, the next
+// explainer) are beside it. Served, they are. Opened from disk, they are
+// only if the page is still in its topic's directory, as in a build: a
+// copy that was emailed or Slacked around lands on its own.
+export function hasSiblings(loc, id) {
+  if (loc.protocol !== 'file:') return true;
+  const path = decodeURIComponent(loc.pathname);
+  return path.endsWith(`/${id}.html`) || path.endsWith(`/${id}-drafts.html`);
+}
+
 export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
   const { narrative, snippets, sources } = data;
+  // links to sibling pages, only where they'd lead somewhere
+  const links = hasSiblings(window.location, narrative.id);
+  const next = links && data.next;
   const layout = h('div', { class: 'layout' });
   const story = h('main', { class: 'story' });
   const stage = h('section', { class: 'stage', 'aria-label': 'Diagram' });
@@ -23,9 +36,9 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
 
   // ---- story ----
   story.append(h('header', { class: 'hero card' },
-    data.topic
+    links
       ? h('a', { class: 'eyebrow', href: data.topic.href, title: `All the explainers in “${data.topic.title}”`, text: data.topic.label })
-      : h('div', { class: 'eyebrow', text: narrative.id.split('/')[0] }),
+      : h('div', { class: 'eyebrow', text: data.topic.label }),
     h('h1', { text: narrative.title }),
     h('div', { class: 'subtitle', html: narrative.subtitleHtml }),
     h('div', { class: 'meta', html:
@@ -53,14 +66,21 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
 
   // at the end, the explainer to read next, and the way back up to the
   // topic's other explainers
-  if (data.next || data.topic) {
+  if (links) {
     const end = h('div', { class: 'card next-card' });
-    if (data.next) end.append(
+    if (next) end.append(
       h('div', { class: 'eyebrow', text: 'Next' }),
-      h('a', { class: 'next-link', href: data.next.href, text: `${data.next.title} →` }));
-    if (data.topic) end.append(
+      h('a', { class: 'next-link', href: next.href, text: `${next.title} →` }));
+    end.append(
       h('a', { class: 'up-link', href: data.topic.href, text: `All the explainers in “${data.topic.title}” ↑` }));
     story.append(end);
+  }
+
+  // and, without them, a step's links to sibling pages are just text
+  if (!links) {
+    for (const a of story.querySelectorAll('a[href]')) {
+      if (/^[^:/?#]+\.html(#.*)?$/.test(a.getAttribute('href'))) a.replaceWith(...a.childNodes);
+    }
   }
 
   // ---- stage: toolbar + diagram viewport ----
