@@ -387,6 +387,10 @@ export class Diagram {
       col.sticky.setAttribute('d', stickyOn ? `M${colX(n) + STRIP.barW / 2 + 6},${scoreY(v.fill).toFixed(1)} V${scoreY(v.score).toFixed(1)}` : '');
       col.stickyLabel.setAttribute('y', ((scoreY(v.fill) + scoreY(v.score)) / 2 + 4).toFixed(1));
       setText(col.stickyLabel, stickyOn ? `−${+v.sticky.toFixed(3)}` : '');
+      // (in the state's color)
+      const stState = st ? st.state : 'primary';
+      col.sticky.setAttribute('class', `psticky pick-${stState}`);
+      col.stickyLabel.setAttribute('class', `pterm pterm-sticky pick-${stState}`);
       for (const e of [col.count, col.spread, col.fill, col.line]) op(e, shown);
       // its number: faint till it's being computed, solid once it is
       op(col.num, shown * (0.15 + 0.85 * v.computed));
@@ -660,7 +664,7 @@ export class Diagram {
         src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`, 1 / w]));
         src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], -38 - 10 * i, 'sarc-spread', 1 / np / w]));
         src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], -30 - 8 * i, 'sarc-fill', 0.001 / np / w]));
-        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], -56, 'sarc-sticky', c.currentFactor]));
+        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], -56, `sarc-sticky pick-${d.state}`, c.currentFactor]));
       }
       // pick: from the winner's bar up to where its chip goes
       const wn = d.chosen[0], wb = Diagram.barAt(d, L, wn);

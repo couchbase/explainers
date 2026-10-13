@@ -119,3 +119,9 @@
 .diagram .sarc-head.sarc-pick.pick-replica { fill: var(--replica); }
 .diagram .pscore-won.pick-primary, .diagram .pwon.pick-primary { fill: var(--primary); }
 .diagram .pscore-won.pick-replica, .diagram .pwon.pick-replica { fill: var(--replica); }
+
+/* stickiness, in the color of the state being placed */
+.diagram .psticky.pick-primary, .diagram .sarc-sticky.pick-primary { stroke: var(--primary); }
+.diagram .psticky.pick-replica, .diagram .sarc-sticky.pick-replica { stroke: var(--replica); }
+.diagram .sarc-head.sarc-sticky.pick-primary, .diagram .pterm-sticky.pick-primary { fill: var(--primary); }
+.diagram .sarc-head.sarc-sticky.pick-replica, .diagram .pterm-sticky.pick-replica { fill: var(--replica); }
