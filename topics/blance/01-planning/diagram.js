@@ -282,10 +282,14 @@ export class Diagram {
     this.sep.setAttribute('x2', (BOARD.x0 + +w).toFixed(1));
     this.band.setAttribute('width', w);
     this.boardW = +w;
-    setText(this.subA, sa.title);
-    setText(this.subB, sb.title);
-    op(this.subA, sa === sb ? 1 : 1 - q);
-    op(this.subB, sa === sb ? 0 : q);
+    // (the scenario's title; once the nodes removed have gone, none,
+    // fading with their columns)
+    const title = (s, f) => (f.departed ? '' : s.title);
+    const tA = title(sa, FA), tB = title(sb, FB), qt = this.closing ? clamp01(q * 2) : q;
+    setText(this.subA, tA);
+    setText(this.subB, tB);
+    op(this.subA, tA === tB ? 1 : 1 - qt);
+    op(this.subB, tA === tB ? 0 : qt);
   }
 
   // ---- the score strip: built once, drawn each frame ----
