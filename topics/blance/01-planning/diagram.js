@@ -323,7 +323,11 @@ export class Diagram {
     // rather than the sum of its parts in floating point)
     const last = Math.max(...TERMS.map((t) => at(t)));
     const done = through(s, last) >= 1;
-    return { count, spread, fill: done ? (c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / w : fill, fillShown, taken, score: done ? c.score : fill - taken, won: d.chosen.includes(n) ? within(through(s, pickOf(d)), PICK.ring) : 0, sticky: c.currentFactor };
+    // how computed its score is, for its number: not yet (0), being
+    // added up (0.5), all its terms in (1)
+    const first = Math.min(...TERMS.map((t) => at(t)).filter((j) => j >= 0));
+    const computed = done ? 1 : through(s, first) > 0 ? 0.5 : 0;
+    return { count, spread, fill: done ? (c.count + c.lowerPriorityBalanceFactor + c.filledFactor) / w : fill, fillShown, taken, score: done ? c.score : fill - taken, won: d.chosen.includes(n) ? within(through(s, pickOf(d)), PICK.ring) : 0, sticky: c.currentFactor, computed };
   }
 
   // What can't take it, and why.
@@ -369,7 +373,7 @@ export class Diagram {
       const col = S.cols[n];
       const A = da ? Diagram.barAt(da, same ? sNow : sa, n) : null;
       const B = same ? A : db ? Diagram.barAt(db, sb, n) : null;
-      const zero = { count: 0, spread: 0, fill: 0, fillShown: 0, taken: 0, score: 0, won: 0, sticky: 0 };
+      const zero = { count: 0, spread: 0, fill: 0, fillShown: 0, taken: 0, score: 0, won: 0, sticky: 0, computed: 0 };
       const a = A || zero, b = B || zero;
       const v = Object.fromEntries(Object.keys(zero).map((k) => [k, same ? a[k] : lerp(a[k], b[k], q)]));
       const shown = same ? (A ? 1 : 0) : lerp(A ? 1 : 0, B ? 1 : 0, q);
@@ -383,7 +387,9 @@ export class Diagram {
       col.sticky.setAttribute('d', stickyOn ? `M${colX(n) + STRIP.barW / 2 + 6},${scoreY(v.fill).toFixed(1)} V${scoreY(v.score).toFixed(1)}` : '');
       col.stickyLabel.setAttribute('y', ((scoreY(v.fill) + scoreY(v.score)) / 2 + 4).toFixed(1));
       setText(col.stickyLabel, stickyOn ? `−${+v.sticky.toFixed(3)}` : '');
-      for (const e of [col.count, col.spread, col.fill, col.line, col.num]) op(e, shown);
+      for (const e of [col.count, col.spread, col.fill, col.line]) op(e, shown);
+      // its number: faint till it's being computed, solid once it is
+      op(col.num, shown * (0.15 + 0.85 * v.computed));
       col.line.setAttribute('y1', scoreY(v.score).toFixed(1));
       col.line.setAttribute('y2', scoreY(v.score).toFixed(1));
       const near = (same || q < 0.5 ? A : B) || A || B;
