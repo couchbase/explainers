@@ -363,7 +363,10 @@ a.eyebrow:hover { text-decoration: underline; }
 <div><a class="title" href="blance/01-planning.html">Inside blance: how a plan places partitions</a><p>How blance, a library for placing partitions on nodes, decides which node gets each partition&#39;s primary and replicas: greedily, one partition at a time, and what that means when nodes join and leave.</p>
 </div></li><li class="entry card">
 <span class="num">02</span>
-<div><a class="title" href="blance/02-moving.html">Inside blance: how a rebalance moves partitions</a><p>From one partition map to the next, while the partitions stay in use: each partition&#39;s moves, a mover per node, and a controller that keeps every node busy, one round at a time.</p>
+<div><a class="title" href="blance/02-groups.html">Inside blance: server groups</a><p>Telling blance that nodes sit in racks or zones, as a tree and a rule for replicas, so a partition&#39;s copies don&#39;t all share one.</p>
+</div></li><li class="entry card">
+<span class="num">03</span>
+<div><a class="title" href="blance/03-moving.html">Inside blance: how a rebalance moves partitions</a><p>From one partition map to the next, while the partitions stay in use: each partition&#39;s moves, a mover per node, and a controller that keeps every node busy, one round at a time.</p>
 </div></li></ol>
 <h2><a href="cbft/index.html">Inside Couchbase full-text search (cbft, bleve, scorch)</a></h2>
 <div class="subtitle"><p>How Couchbase&#39;s Full Text Search service, cbft, and the bleve library and scorch index it&#39;s built on, work under the hood: from a stream of mutations to segment files on disk, and what a query reads from them.</p>
