@@ -8,12 +8,12 @@
 
 sources: [blance, cbgt]
 next: 02-moving
-title: "Inside blance: how a plan places partitions"
+title: "Inside blance: how partitions are assigned to nodes"
 subtitle: >-
   How blance, a library for placing partitions on nodes, decides which
   node gets each partition's primary and replicas: greedily, one
-  partition at a time, and what that means when nodes join and leave.
-audience: Engineers who build or run partitioned systems
+  partition at a time, and what happens when nodes join and leave.
+audience: Engineers who build or run distributed systems
 
 chapters:
 
