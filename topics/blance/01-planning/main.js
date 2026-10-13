@@ -31,7 +31,9 @@ function weightOf(f) {
 }
 // scroll per unit of weight, in vh, and at most: a step about one
 // decision, or one that runs through several
-const VH_ONE = 5, VH_MANY = 1.2, MAX_ONE = 500, MAX_MANY = 250;
+const VH_ONE = 9, VH_MANY = 4, MAX_ONE = 600, MAX_MANY = 600;
+// (a step needing less than this plays in the engine's usual transition)
+const TRANSITION_VH = 40;
 
 runStory({
   setup({ page, views, stepEls, camera }) {
@@ -45,7 +47,7 @@ runStory({
       const total = w.reduce((s, x) => s + x, 0);
       const picks = path.slice(1).filter((k) => FRAMES[k].decision && FRAMES[k].stage === FRAMES[k].decision.seq.length - 1).length;
       const vh = picks > 1 ? Math.min(MAX_MANY, total * VH_MANY) : Math.min(MAX_ONE, total * VH_ONE);
-      const scrub = path.length > 2 && vh > 70;
+      const scrub = path.length > 2 && vh > TRANSITION_VH;
       if (scrub) {
         stepEls[i].classList.add('step-scrub');
         stepEls[i].style.minHeight = `${vh.toFixed(0)}vh`;
