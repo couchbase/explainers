@@ -64,17 +64,19 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
     }
   }
 
-  // at the end, the explainer to read next, and the way back up to the
+  // at the end, the explainer to read next, or (with none, as in a page
+  // read on its own) a word of thanks; and the way back up to the
   // topic's other explainers
-  if (links) {
-    const end = h('div', { class: 'card next-card' });
-    if (next) end.append(
-      h('div', { class: 'eyebrow', text: 'Next' }),
-      h('a', { class: 'next-link', href: next.href, text: `${next.title} →` }));
-    end.append(
-      h('a', { class: 'up-link', href: data.topic.href, text: `All the explainers in “${data.topic.title}” ↑` }));
-    story.append(end);
-  }
+  const end = h('div', { class: 'card next-card' });
+  if (next) end.append(
+    h('div', { class: 'eyebrow', text: 'Next' }),
+    h('a', { class: 'next-link', href: next.href, text: `${next.title} →` }));
+  else end.append(
+    h('div', { class: 'eyebrow', text: 'The end' }),
+    h('div', { class: 'end-note', text: 'Thanks for reading!' }));
+  if (links) end.append(
+    h('a', { class: 'up-link', href: data.topic.href, text: `All the explainers in “${data.topic.title}” ↑` }));
+  story.append(end);
 
   // and, without them, a step's links to sibling pages are just text
   if (!links) {

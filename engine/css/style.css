@@ -63,7 +63,8 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 .next-card { margin: 85vh 0 40vh; } /* (the last step scrolled off before it) */
 .next-link { font: 600 1.15rem var(--font-display); color: var(--accent); text-decoration: none; }
 .next-link:hover { text-decoration: underline; }
-.next-link + .up-link { margin-top: 1rem; }
+.next-link + .up-link, .end-note + .up-link { margin-top: 1rem; }
+.end-note { font: 600 1.15rem var(--font-display); color: var(--ink); }
 .up-link { display: block; font: 500 0.95rem var(--font-body); color: var(--muted); text-decoration: none; }
 .up-link:hover { color: var(--accent); text-decoration: underline; }
 
