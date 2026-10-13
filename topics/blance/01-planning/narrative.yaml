@@ -7,7 +7,7 @@
 # the real blance.
 
 sources: [blance, cbgt]
-next: 02-groups
+next: 02-moving
 title: "Inside blance: how a plan places partitions"
 subtitle: >-
   How blance, a library for placing partitions on nodes, decides which

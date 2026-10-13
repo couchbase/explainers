@@ -76,18 +76,7 @@ facts that `expect: ["fact:..."]` checks the text's numbers against:
 every candidate's score at every decision (`add.1.a`), each frame's
 tallies (`add.16.counts`), each scenario's moves.
 
-## 02-groups
-
-"Inside blance: server groups". The same page as 01-planning (its
-`domain.js` and `entry.js` re-use 01-planning's, and its `style.css` is
-a copy, which a test keeps the same), told with the scenarios planned
-from scratch on four nodes without and then with server groups: the
-tree and the rule for replicas, then one replica placed by the rule,
-where a node outside it (in the primary's own group) is scored but
-dimmed, marked "same group", and left out of the pick, however low it
-scores.
-
-## 03-moving
+## 02-moving
 
 "Inside blance: how a rebalance moves partitions". The same board, at
 a moment of a rebalance (copies being built fill in place, deletes
@@ -102,3 +91,14 @@ different sizes, timed as `lib/tools/orchestrate-golden`'s story cases
 are, so the real orchestrator's runs of them are checked to match. A
 step's `at` names a run and a moment in it (`one@270`); the scroll
 moves time from one step's moment to the next's.
+
+## 03-groups
+
+"Inside blance: server groups". The same page as 01-planning (its
+`domain.js` and `entry.js` re-use 01-planning's, and its `style.css` is
+a copy, which a test keeps the same), told with the scenarios planned
+from scratch on four nodes without and then with server groups: the
+tree and the rule for replicas, then one replica placed by the rule,
+where a node outside it (in the primary's own group) is scored but
+dimmed, marked "same group", and left out of the pick, however low it
+scores.

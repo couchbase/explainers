@@ -1,11 +1,11 @@
-// The 02-groups explainer's page (01-planning's, told for server groups): every step, in light and dark, mid-
+// The 03-groups explainer's page (01-planning's, told for server groups): every step, in light and dark, mid-
 // transition and settled, with no page errors; the board shows each
 // step's frame once settled; and deep links land, web fonts and all.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { launch, openPage, scrollToStep, stepCount, builtPage } from '../../../../engine/test-e2e/helpers.mjs';
 
-const planning = builtPage('blance/02-groups').shared;
+const planning = builtPage('blance/03-groups').shared;
 let browser;
 before(async () => { browser = await launch(); });
 after(async () => { await browser.close(); });

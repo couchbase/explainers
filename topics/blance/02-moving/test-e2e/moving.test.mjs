@@ -1,11 +1,11 @@
-// The 03-moving explainer's page: every step, in light and dark, mid-
+// The 02-moving explainer's page: every step, in light and dark, mid-
 // transition and settled, with no page errors; settled, the diagram is
 // at the step's moment; and deep links land.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { launch, openPage, scrollToStep, stepCount, builtPage } from '../../../../engine/test-e2e/helpers.mjs';
 
-const moving = builtPage('blance/03-moving').shared;
+const moving = builtPage('blance/02-moving').shared;
 let browser;
 before(async () => { browser = await launch(); });
 after(async () => { await browser.close(); });

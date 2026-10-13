@@ -7,6 +7,7 @@
 # `expect: ["fact:<name>=<value>"]`.
 
 sources: [blance, cbgt]
+next: 03-groups
 title: "Inside blance: how a rebalance moves partitions"
 subtitle: >-
   From one partition map to the next, while the partitions stay in

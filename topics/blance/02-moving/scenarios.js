@@ -1,4 +1,4 @@
-// The runs the 03-moving explainer tells: node d joining (01-planning's
+// The runs the 02-moving explainer tells: node d joining (01-planning's
 // second plan), moved by the simulation of blance's OrchestrateMoves
 // (../lib/orchestrate.js, checked against the real orchestrator by its
 // golden cases, these runs among them), with partitions of different

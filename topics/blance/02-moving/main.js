@@ -1,4 +1,4 @@
-// The 03-moving explainer's page: the engine's story runner (see
+// The 02-moving explainer's page: the engine's story runner (see
 // engine/js/ui/story.js), with this explainer's diagram. Each step's
 // moment and panel come from its view (see sceneAt in story.js); the
 // scroll moves time from one step's moment to the next's, so a step

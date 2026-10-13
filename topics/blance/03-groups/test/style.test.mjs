@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-test('02-groups/style.css is 01-planning/style.css', () => {
+test('03-groups/style.css is 01-planning/style.css', () => {
   const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-  assert.equal(read('../style.css'), read('../../01-planning/style.css'), 'copy 01-planning/style.css to 02-groups/');
+  assert.equal(read('../style.css'), read('../../01-planning/style.css'), 'copy 01-planning/style.css to 03-groups/');
 });
