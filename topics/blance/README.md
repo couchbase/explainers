@@ -24,8 +24,22 @@ score and its terms, the winner). `lib/tools/plan-golden` runs the
 real blance on 169 cases (the explainers' scenarios, and seeded random
 clusters with weights, stickiness, server groups, nodes joining and
 leaving), and `lib/test/plan.test.mjs` checks that the port gives the
-same maps, warnings and moves for each. After changing the port or
-moving to a newer blance, `npm run golden -- blance` and `npm test`.
+same maps, warnings and moves for each.
+
+`lib/orchestrate.js` simulates `OrchestrateMoves` in simulated time:
+the same logic as its goroutines (a mover per node, the controller's
+rounds, each node's best moves offered by a helper, moves in flight),
+made deterministic. `lib/tools/orchestrate-golden` runs the real
+orchestrator with an assign callback that takes each batch a known
+time, several times per case; two moves finishing together are a race
+in the real thing (which the controller hears of first), so cases with
+one, or whose runs differ, are marked unstable, and
+`lib/test/orchestrate.test.mjs` checks that the simulation gives every
+node the same batches, in the same order, at about the same times, on
+the stable ones.
+
+After changing the ports or moving to a newer blance, `npm run golden
+-- blance orchestrate` and `npm test`.
 
 ## 01-planning
 
