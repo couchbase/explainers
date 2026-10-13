@@ -214,6 +214,16 @@ chapters:
           node ÷ the number of partitions, favours the emptier node,
           and node [[c]] holds 2 primaries to node b's 3.
 
+      - id: next-two
+        view: { at: fresh.11, target: winner, focus: strip }
+        expect: ["fact:fresh.10.partition=1", "fact:fresh.10.a=0.0004", "fact:fresh.10.c=1.0004", "fact:fresh.10.winner=a", "fact:fresh.11.partition=2", "fact:fresh.11.b=0.0004", "fact:fresh.11.a=1.0005", "fact:fresh.11.winner=b"]
+        text: |
+          Partition 1's primary is on node b, so this time node b's
+          column is greyed out. Node a, with no replicas yet, wins at
+          0.0004 to node c's 1.0004. Then partition 2's primary is on
+          node c, and node [[b]], with no replicas yet, wins at 0.0004
+          to node a's 1.0005.
+
       - id: spread
         view: { at: fresh.12, target: winner, focus: strip }
         code: [blance.nodeScore]
