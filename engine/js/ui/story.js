@@ -185,7 +185,9 @@ export function runStory({ simulation = false, setup }) {
   }
   function land() {
     if (!target || !target.classList.contains('step') || interacted) return;
-    window.scrollTo(0, scrollYFor(target, 1) + 2);
+    // (a scrubbing step: past its settling, too, where what follows the
+    // sweep, if anything, has played)
+    window.scrollTo(0, scrollYFor(target, target.classList.contains('step-scrub') ? 1.5 : 1) + 2);
     snap();
     enter(shown().i);
   }
