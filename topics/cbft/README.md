@@ -114,8 +114,8 @@ Its expectations (in `story.js`) include `reached:<stage>` and
 
 `sources.yaml` pins each repo to the commit cbft master uses, and lists
 where to find a local copy: the Go module cache, and a sibling
-`../couchbase-server.master` repo-sync tree (override that with
-`CBFT_EXPLAINER_CB_SRC`).
+`../couchbase-server.master` repo-sync tree. Point any one of them
+elsewhere with `EXPLAINERS_SRC_<NAME>`, e.g. `EXPLAINERS_SRC_CBGT`.
 
 To move to newer versions, bump the commits/versions in
 `sources.yaml`, run `npm run snippets`, and fix any anchors it

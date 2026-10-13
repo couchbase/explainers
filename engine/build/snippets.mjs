@@ -3,7 +3,7 @@
 // writes its snippets.json, which the build inlines. The JSON is
 // committed, so building doesn't require the sources; only refreshing
 // snippets does. (A source's relative `local` paths are from the repo
-// root.)
+// root; EXPLAINERS_SRC_<NAME> overrides them, for any source.)
 //
 //   npm run snippets             # regenerate every snippets.json
 //   npm run snippets -- --check  # verify they're up to date (exit 1 if not)
@@ -19,7 +19,15 @@ function expand(p) {
   return resolve(ROOT, s);
 }
 
-export function findLocal(source) {
+// The env var that overrides where source `name` is checked out, e.g.
+// EXPLAINERS_SRC_CBGT, or EXPLAINERS_SRC_MY_LIB for "my-lib".
+export const srcEnvVar = (name) => `EXPLAINERS_SRC_${name.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
+
+// Where source `name` is checked out locally: its env var (above), if
+// set, else the first of its `local` candidates that exists.
+export function findLocal(source, name) {
+  const env = name && process.env[srcEnvVar(name)];
+  if (env) return existsSync(env) ? resolve(env) : null;
   for (const cand of source.local || []) {
     const p = expand(cand);
     if (p && existsSync(p)) return p;
@@ -53,8 +61,8 @@ export function locate(lines, ref, id) {
 export function resolveRef(id, ref, sources, fileCache) {
   const src = sources[ref.repo];
   if (!src) throw new Error(`${id}: unknown repo ${ref.repo}`);
-  const base = findLocal(src);
-  if (!base) throw new Error(`${id}: no local checkout of ${ref.repo}; looked in ${src.local.join(', ')}`);
+  const base = findLocal(src, ref.repo);
+  if (!base) throw new Error(`${id}: no local checkout of ${ref.repo}; set ${srcEnvVar(ref.repo)}, or see its \`local\` in sources.yaml (${(src.local || []).join(', ')})`);
   const file = join(base, ref.path);
   let lines = fileCache.get(file);
   if (!lines) {

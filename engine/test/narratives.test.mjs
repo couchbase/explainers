@@ -24,7 +24,7 @@ for (const e of explainers) {
     for (const id of Object.keys(e.coderefs)) assert.ok(e.snippets[id], `missing snippet for ${id}; run npm run snippets`);
   });
 
-  const haveSources = Object.values(e.sources).every((s) => findLocal(s));
+  const haveSources = Object.entries(e.sources).every(([name, s]) => findLocal(s, name));
   test(`${e.id}: snippets.json matches the pinned sources`, { skip: !haveSources && 'local sources not available' }, () => {
     const { out, errors } = resolveAll(e);
     assert.deepEqual(errors, []);

@@ -2,8 +2,8 @@
 # cbft master depends on, so links and snippets match one consistent
 # snapshot of the code. `local` lists candidate checkouts used by
 # `npm run snippets`; the first that exists wins ($HOME and env vars
-# are expanded; set CBFT_EXPLAINER_CB_SRC to point at a different
-# couchbase-server repo-sync tree).
+# are expanded). EXPLAINERS_SRC_<NAME> (e.g. EXPLAINERS_SRC_CBGT)
+# overrides them for any source.
 bleve:
   github: https://github.com/blevesearch/bleve
   commit: 9d2da23a5c58
@@ -20,13 +20,11 @@ cbft:
   github: https://github.com/couchbase/cbft
   commit: c467517403c82355b394b359550979601fe5a031
   local:
-    - $CBFT_EXPLAINER_CB_SRC/cbft
     - ../couchbase-server.master/cbft
 cbgt:
   github: https://github.com/couchbase/cbgt
   commit: d0afea68bde6f1a1dca67847499a588777076db7
   local:
-    - $CBFT_EXPLAINER_CB_SRC/cbgt
     - ../couchbase-server.master/cbgt
 vellum:
   github: https://github.com/blevesearch/vellum
