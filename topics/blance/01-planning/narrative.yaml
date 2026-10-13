@@ -341,7 +341,7 @@ chapters:
           replica, from node a.
 
       - id: wrap
-        view: { at: add.13~row, target: deciding, focus: board }
+        view: { at: add.16, target: deciding, focus: strip }
         expect: ["fact:add.13.partition=6", "fact:add.14.partition=7", "fact:add.15.partition=0", "fact:add.16.partition=1"]
         text: |
           Let's run through the remaining partitions:
