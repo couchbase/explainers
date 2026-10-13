@@ -19,7 +19,10 @@ test('build emits one self-contained HTML file per narrative', async () => {
       const html = readFileSync(w.file, 'utf8');
       assert.ok(html.length < 2 * 1024 * 1024, 'stays small enough to email');
       assert.ok(!/<script[^>]+src=/.test(html), 'no external scripts');
-      assert.ok(!html.includes('{{') && !html.includes('/*{{'), 'all placeholders filled');
+      // (the template's placeholders; the code shown may have its own "{{")
+      for (const ph of ['{{TITLE}}', '{{DESCRIPTION}}', '{{FONTS}}', '{{DATA}}', '/*{{CSS}}*/', '/*{{JS}}*/']) {
+        assert.ok(!html.includes(ph), `placeholder ${ph} filled`);
+      }
       const json = html.match(/<script type="application\/json" id="bx-data">([\s\S]*?)<\/script>/)[1];
       const data = JSON.parse(json);
       assert.ok(data.narrative.chapters.length > 0);

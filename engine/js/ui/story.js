@@ -151,17 +151,23 @@ export function runStory({ simulation = false, setup }) {
   }
 
   // Deep links (#chapter--step) land with the step fully settled. The
-  // browser scrolls to the fragment itself once the page has loaded, so
-  // land again then.
+  // browser scrolls to the fragment itself once the page has loaded,
+  // and web fonts arriving reflow the story, so land again whenever the
+  // story's size changes, until the reader does something.
   const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+  let interacted = false;
+  for (const ev of ['wheel', 'touchstart', 'keydown', 'mousedown']) {
+    window.addEventListener(ev, () => { interacted = true; }, { passive: true, once: true });
+  }
   function land() {
-    if (!target || !target.classList.contains('step')) return;
+    if (!target || !target.classList.contains('step') || interacted) return;
     window.scrollTo(0, scrollYFor(target, 1) + 2);
     enter(scrollState(stepEls, reduceMotion).i);
   }
   try { history.scrollRestoration = 'manual'; } catch { /* ignore */ }
   land();
   window.addEventListener('load', () => setTimeout(land, 0));
+  if (target && window.ResizeObserver) new ResizeObserver(() => land()).observe(page.story);
   enter(scrollState(stepEls, reduceMotion).i);
   requestAnimationFrame(frame);
 

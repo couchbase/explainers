@@ -8,7 +8,7 @@
 //   npm run dev            # rebuild on change
 
 import { readFileSync, writeFileSync, mkdirSync, watch } from 'node:fs';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { marked } from 'marked';
@@ -183,10 +183,12 @@ async function main() {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (process.argv.includes('--watch')) {
+    // Each rebuild is a fresh process, so changes to the engine's own
+    // build code (and the explainers' modules) take effect too.
     let timer = null;
     const rebuild = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => main().catch((e) => console.error(e.message)), 100);
+      timer = setTimeout(() => spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { stdio: 'inherit' }), 100);
     };
     rebuild();
     for (const d of ['engine', 'topics']) watch(join(ROOT, d), { recursive: true }, rebuild);
