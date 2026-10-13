@@ -46,10 +46,9 @@ export { FLY, flight, grown, through };
 const PICK = { wide: [0, 0.08], narrow: [0.12, 0.38], ring: [0.36, 0.42], flight: [0.42, 0.72], chip: [0.72, 0.92] };
 const within = (t, [a, b]) => clamp01((t - a) / (b - a));
 
-// An arrow's thickness, by what it adds to the score: by its square
-// root, so the tie-breaker's (0.000125) still shows beside stickiness's
-// (1.5): about 0.8px to 3.7px.
-const arcWidth = (adds) => 0.8 + 2.4 * Math.sqrt(Math.max(0, adds));
+// An arrow's thickness: the pick's, up to the chip it assigns, thick;
+// the terms', down to the bars, a thin 1px.
+const arcWidth = (cls) => (cls.includes('sarc-pick') ? 3.2 : 1);
 
 // A dash pattern that draws `drawn` px of a path of length `len` as
 // dashes, and leaves the rest blank.
@@ -669,8 +668,7 @@ export class Diagram {
         const chipAt = ([p, nn, st]) => [chipX(nn, st), rowY(p) + 12];
         // each lands on the top of the bar as it is when it arrives
         const cn = src[n].count.length, sn = src[n].spread.length, fn = src[n].fill.length;
-        // (each with what it adds to the score, for its thickness; and,
-        // counter-clockwise, every arrow down bows west, as the pick's
+        // (each with what it adds to the score; and, counter-clockwise, every arrow down bows west, as the pick's
         // up bows east, by more for each so they don't overlap)
         src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`, 1 / w]));
         src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], -38 - 10 * i, 'sarc-spread', 1 / np / w]));
@@ -695,7 +693,7 @@ export class Diagram {
         // (they stay while their stage is settled, and fade in the next)
         const fade = s <= j ? 1 : clamp01(1 - (s - j) * 2);
         if (t <= 0.001 || fade <= 0.001) continue;
-        const a = this._arc(key, from, to, bow, cls, arcWidth(adds));
+        const a = this._arc(key, from, to, bow, cls, arcWidth(cls));
         // drawn up to its head
         a.path.setAttribute('stroke-dasharray', a.solid ? `${(a.len * t).toFixed(1)} ${(a.len + 10).toFixed(1)}` : dashesTo(a.len * t, a.len));
         a.halo.setAttribute('stroke-dasharray', `${(a.len * t).toFixed(1)} ${(a.len + 10).toFixed(1)}`);
