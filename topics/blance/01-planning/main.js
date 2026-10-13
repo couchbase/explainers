@@ -72,7 +72,7 @@ runStory({
 
     return {
       diagram,
-      render({ i, p, v, pv }) {
+      render({ i, p, u, v, pv }) {
         const A = scenes[i > 0 ? i - 1 : i], B = scenes[i];
         // the board and strip alone, or with the panel on the right
         camera.show(camera.between(i > 0 ? cameraFor(A.panel) : null, cameraFor(B.panel), p));
@@ -88,8 +88,10 @@ runStory({
         const FA = FRAMES[path[j]], FB = FRAMES[path[j + 1]];
         // (the panel follows the board's frame, or changes on its own)
         diagram.draw(FA, FB, scrub ? clamp01(f) : easeQuad(clamp01(f)), A.panel, B.panel, p, FA, FB);
-        // the attention box: early in a long step, with the transition in a short one
-        diagram.setFocus(i > 0 ? A.focus : null, B.focus, easeQuad(scrub ? clamp01(p * 5) : clamp01(p)));
+        // the attention box: with the transition in a short step; in a
+        // long one, once its sweep of decisions is done (it settles 0.9
+        // of the way through the step, u)
+        diagram.setFocus(i > 0 ? A.focus : null, B.focus, easeQuad(scrub ? clamp01((u - 0.9) / 0.06) : clamp01(p)));
       },
       expose: { scenes, plans },
     };
