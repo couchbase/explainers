@@ -7,7 +7,7 @@
 // in its style.css. With none, it's the engine's: IBM Plex.
 
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { ROOT } from './explainers.mjs';
 
 export const DEFAULT_FONTS = [
@@ -25,6 +25,18 @@ export function fontLinks(fonts = DEFAULT_FONTS) {
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
     `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${families}&display=swap">`,
   ].join('\n');
+}
+
+// A stylesheet, with its `@import "<relative path>";` lines replaced by
+// those files (so an explainer can share another's styles, as one page
+// is self-contained).
+export function readCss(file, seen = new Set()) {
+  if (seen.has(file)) throw new Error(`${file}: @import cycle`);
+  seen.add(file);
+  return readFileSync(file, 'utf8').replace(/^@import\s+(?:url\()?["']([^"']+)["']\)?\s*;[^\n]*$/gm, (_, rel) => {
+    if (/^[a-z]+:/i.test(rel)) throw new Error(`${file}: only local @imports, not ${rel}`);
+    return readCss(join(dirname(file), rel), new Set(seen));
+  });
 }
 
 // The engine's styles, then the topic's (topics/<topic>/style.css), if any.
