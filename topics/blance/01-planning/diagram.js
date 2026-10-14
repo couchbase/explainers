@@ -718,24 +718,23 @@ export class Diagram {
         const chipAt = ([p, nn, st]) => [chipX(nn, st), rowY(p) + 12];
         // each lands on the top of the bar as it is when it arrives
         const cn = src[n].count.length, sn = src[n].spread.length, fn = src[n].fill.length;
-        // (each with what it adds to the score; and, counter-clockwise,
-        // every arrow down bows west, as the pick's up bows east, by more
-        // for each so they don't overlap)
-        src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`, 1 / w]));
-        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], -38 - 10 * i, 'sarc-spread', 1 / np / w]));
-        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], -30 - 8 * i, 'sarc-fill', 0.001 / np / w]));
-        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], -56, `sarc-sticky pick-${d.state}`, c.currentFactor]));
+        // (counter-clockwise, every arrow down bows west, as the pick's
+        // up bows east, by more for each so they don't overlap)
+        src[n].count.forEach((ch, i) => stageArcs.push([at(n, 'count'), i, cn, `c:${ch}`, chipAt(ch), [colX(n), scoreY(i / w) - 3], -44 - 12 * i, `sarc-count sarc-${d.state}`]));
+        src[n].spread.forEach((ch, i) => stageArcs.push([at(n, 'spread'), i, sn, `s:${n}:${ch}`, chipAt(ch), [colX(n), scoreY(b.count + i / np / w) - 3], -38 - 10 * i, 'sarc-spread']));
+        src[n].fill.forEach((ch, i) => stageArcs.push([at(n, 'fill'), i, fn, `f:${ch}`, chipAt(ch), [colX(n), scoreY(b.spread) - 3], -30 - 8 * i, 'sarc-fill']));
+        src[n].sticky.forEach((ch) => stageArcs.push([at(n, 'sticky'), 0, 1, `k:${ch}`, chipAt(ch), [colX(n) + W / 2 + 6, scoreY(b.fill) - 2], -56, `sarc-sticky pick-${d.state}`]));
         // A term with nothing to count still gets its beat: an arrow from
         // the node's tallies ("0 P · 0 R") down to its bar, adding 0.
         const fromTally = [colX(n) - 22, TALLY_Y + 36];
-        if (!cn) stageArcs.push([at(n, 'count'), 0, 1, `zc:${n}`, fromTally, [colX(n), scoreY(0) - 3], -30, `sarc-count sarc-${d.state} sarc-zero`, 0]);
-        if (!sn) stageArcs.push([at(n, 'spread'), 0, 1, `zs:${n}`, fromTally, [colX(n), scoreY(b.count) - 3], -30, 'sarc-spread sarc-zero', 0]);
-        if (!fn) stageArcs.push([at(n, 'fill'), 0, 1, `zf:${n}`, fromTally, [colX(n), scoreY(b.spread) - 3], -30, 'sarc-fill sarc-zero', 0]);
+        if (!cn) stageArcs.push([at(n, 'count'), 0, 1, `zc:${n}`, fromTally, [colX(n), scoreY(0) - 3], -30, `sarc-count sarc-${d.state} sarc-zero`]);
+        if (!sn) stageArcs.push([at(n, 'spread'), 0, 1, `zs:${n}`, fromTally, [colX(n), scoreY(b.count) - 3], -30, 'sarc-spread sarc-zero']);
+        if (!fn) stageArcs.push([at(n, 'fill'), 0, 1, `zf:${n}`, fromTally, [colX(n), scoreY(b.spread) - 3], -30, 'sarc-fill sarc-zero']);
       }
       // pick: from the winner's bar up to where its chip goes
       const wn = d.chosen[0], wb = Diagram.barAt(d, L, wn);
-      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], 40, `sarc-pick pick-${d.state}`, 1]);
-      for (const [j, i, n, key0, from, to, bow, cls, adds] of stageArcs) {
+      stageArcs.push([L, -1, 1, `p:${d.partition}:${wn}`, [colX(wn), scoreY(Math.max(wb.fillShown, wb.score, 0.3)) - 12], [chipX(wn, d.state), rowY(d.partition) + 14], 40, `sarc-pick pick-${d.state}`]);
+      for (const [j, i, n, key0, from, to, bow, cls] of stageArcs) {
         if (j < 0) continue;
         const key = `${d.k}:${key0}`;
         const u = through(s, j);

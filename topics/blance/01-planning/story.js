@@ -58,6 +58,11 @@ function facts() {
     out[`${s.id}.iterations`] = s.iterations;
     out[`${s.id}.moves`] = countMoves(s.moves);
     out[`${s.id}.moved`] = PARTITIONS.filter((p) => s.moves[p].length).length;
+    // the fewest moves possible, in a rebalance (not from scratch): each
+    // copy that ends on a joining node, or starts on a leaving one, is
+    // an add and a delete
+    const copies = (b, ns) => PARTITIONS.reduce((k, p) => k + Object.values(b[p]).flat().filter((n) => ns.includes(n)).length, 0);
+    if (copies(s.prev, NODES)) out[`${s.id}.fewest`] = 2 * (copies(s.result, s.joining) + copies(s.prev, s.leaving));
     for (const p of PARTITIONS) out[`${s.id}.moves.${p}`] = movesText(s.moves[p]);
     out[`${s.id}.sameGroup`] = sameGroup(s.result);
   }

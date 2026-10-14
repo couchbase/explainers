@@ -384,7 +384,7 @@ chapters:
 
       - id: optimal
         view: { target: tally.d, focus: tallies }
-        expect: ["fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
+        expect: ["fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2", "fact:add.fewest=8", "fact:add.moves=10"]
         text: |
           But this isn't the best partition map possible. Node d needs
           [[4 partitions]], 2 primaries and 2 replicas, and each one
