@@ -15,6 +15,22 @@ import { D } from '../js/domain.js';
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const CALLOUT = /\[\[(.+?)\]\]/g;
 
+// Lines that wrap, mid-paragraph, to start like a list item ("1. ",
+// "- "): Markdown makes them one. A list must start its own paragraph.
+const ITEM = /^\s*(\d+[.)]|[-*+])\s/;
+function listsByAccident(text) {
+  const out = [];
+  let inPara = false, paraIsList = false, fenced = false;
+  text.split('\n').forEach((line, k) => {
+    if (/^\s*```/.test(line)) { fenced = !fenced; inPara = false; return; }
+    if (fenced) return;
+    if (!line.trim()) { inPara = false; return; }
+    if (!inPara) { inPara = true; paraIsList = ITEM.test(line); return; }
+    if (!paraIsList && ITEM.test(line)) out.push(`text line ${k + 1} starts "${line.trim().slice(0, 4)}" mid-paragraph, and Markdown would make it a list: rewrap it`);
+  });
+  return out;
+}
+
 export function validateNarrative(n, { coderefs = {}, sources = null, file = 'narrative' } = {}) {
   const errs = [];
   const err = (where, msg) => errs.push(`${file}: ${where}: ${msg}`);
@@ -74,6 +90,7 @@ export function validateNarrative(n, { coderefs = {}, sources = null, file = 'na
       else if (ids.has(full)) err(sw, `duplicate id ${full}`);
       ids.add(full);
       if (typeof st.text !== 'string' || !st.text.trim()) err(sw, 'text is required');
+      else for (const m of listsByAccident(st.text)) err(sw, m);
       const callouts = typeof st.text === 'string' ? [...st.text.matchAll(CALLOUT)].length : 0;
       if (callouts > 1) err(sw, 'at most one [[callout]] phrase per step');
       if (st.sim !== undefined) {
