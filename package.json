@@ -13,7 +13,8 @@
     "test": "node --test \"engine/test/*.test.mjs\" \"topics/*/*/test/*.test.mjs\"",
     "test:e2e": "node --test --test-timeout=180000 \"engine/test-e2e/*.test.mjs\" \"topics/*/*/test-e2e/*.test.mjs\"",
     "check": "npm run build && npm test && npm run test:e2e",
-    "golden": "node engine/build/golden.mjs"
+    "golden": "node engine/build/golden.mjs",
+    "shoot": "node engine/tools/shoot.mjs"
   },
   "devDependencies": {
     "esbuild": "0.25.12",
