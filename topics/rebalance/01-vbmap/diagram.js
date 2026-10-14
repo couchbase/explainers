@@ -8,8 +8,9 @@
 // under the copies, which keep their colors.
 //
 // A copy: an active is filled, with a small A; a replica is outlined,
-// with its top-left half filled, and a small R on it. Both in the
-// color of their vbucket's home node, with the same light letter.
+// filled but for a small bottom-right corner in a light tint of its
+// color, with a small R. Both in the color of their vbucket's home
+// node, with the same light letter.
 
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
@@ -76,7 +77,8 @@ function makeChip(parent) {
   return {
     g,
     frame: el('rect', { x: -w, y: -h, width: CHIP.w, height: CHIP.h, rx: CHIP.rx, class: 'copy' }, g),
-    half: el('path', { d: `M${-w + i},${-h + i} L${w - i},${-h + i} L${-w + i},${h - i} Z`, class: 'copy-half' }, g),
+    // (all but a light corner, its legs this much of the card's sides)
+    half: el('path', { d: `M${-w + i},${-h + i} L${w - i},${-h + i} L${w - i},${h - 0.5 * CHIP.h} L${w - 0.6 * CHIP.w},${h - i} L${-w + i},${h - i} Z`, class: 'copy-half' }, g),
     letter: txt(g, 0, 0, '', 'copy-letter', 'middle'),
     x: txt(g, 0, 5.5, '×', 'lost-mark', 'middle'),
   };
@@ -85,7 +87,7 @@ function makeChip(parent) {
 // promoted to one) or a replica.
 function paintChip(c, { color, active, promoted = false }) {
   c.frame.style.stroke = promoted ? 'var(--ink)' : color;
-  c.frame.style.fill = active ? color : 'var(--panel)';
+  c.frame.style.fill = active ? color : `color-mix(in srgb, ${color} 32%, white)`;
   c.frame.setAttribute('class', `copy${active ? '' : ' replica'}${promoted ? ' promoted' : ''}`);
   c.half.style.fill = color;
   op(c.half, active ? 0 : 1);
