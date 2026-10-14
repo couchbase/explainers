@@ -47,9 +47,9 @@ chapters:
       - id: copies
         view: { at: split, target: hero.replica }
         text: |
-          Each vbucket has two copies: an active copy (filled, marked
-          A), which serves reads and writes, and a [[replica]] (half
-          filled, marked R), kept in step with the active copy and
+          Each vbucket has two copies: an active copy (marked A),
+          which serves reads and writes, and a [[replica]] (marked R,
+          with a light corner), kept in step with the active copy and
           ready to take over. 64 copies in all, to place on the
           cluster's servers, the nodes.
 
@@ -71,9 +71,9 @@ chapters:
         view: { at: naive.actives, target: node.a }
         text: |
           A simple deal. First, deal the active copies out evenly:
-          8 to each node. A copy takes the color of its vbucket's home:
-          the node with its active copy. [[Node a]]'s vbuckets are
-          teal, node b's blue, and so on.
+          8 to each node. The copies' colors were their vbuckets'
+          homes all along: the node with the active copy. [[Node a]]'s
+          vbuckets are teal, node b's blue, and so on.
 
       - id: replicas
         view: { at: naive.replicas, target: hero.replica }

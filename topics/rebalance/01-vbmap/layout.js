@@ -62,7 +62,7 @@ export const DOC = { x: 40, y: 40, w: 230, h: 64 };
 
 // the seating chart: a row per node (its actives), a column per node
 // (the replicas it holds); below the cluster at first, then up
-export const CHART = { x0: 420, cell: 70, yDown: 400, yUp: 150 };
+export const CHART = { x0: 420, cell: 70, yDown: 440, yUp: 150 };
 export const chartCellXY = (i, j, up) => [CHART.x0 + j * CHART.cell, (up ? CHART.yUp : CHART.yDown) + i * CHART.cell];
 // a seat's pairs: 2 x 2, an active and its replica side by side
 export const seatPairXY = (i, j, k, up) => { const [x, y] = chartCellXY(i, j, up); return [x + 19 + (k % 2) * 32, y + 21 + Math.floor(k / 2) * 27]; };

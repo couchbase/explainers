@@ -13,6 +13,7 @@
 //             then it sits below the bucket's grid, so the two don't overlap
 //   counts    each node's "serves N" label is shown
 //   map       which deal: 'naive' or 'vbmap'
+//   trails    the redeal's arcs (naive to vbmap) are shown, once it's dealt
 //   down      the nodes that are down: a grey curtain drops over each
 //             (over its whole rack, if the rack is down); their copies
 //             are unreachable, but keep their colors, on top
@@ -43,7 +44,7 @@ import { PATHS } from './plumbing.js';
 
 const START = {
   doc: true, split: false, scaffold: false, actives: false, replicas: false, lifted: false, counts: false,
-  map: 'naive', down: [], promoted: false, lost: false, ghost: false,
+  map: 'naive', trails: true, down: [], promoted: false, lost: false, ghost: false,
   chart: false, view: 'bins', chartUp: false, sums: false, arcs: false, rowsOut: false, colsOut: false, pipes: false, source: false, sink: false, flow: PATHS.length,
   network: true, cluster: 'four', holds: false,
 };
@@ -70,6 +71,7 @@ const CHANGES = [
   ...fail('naive.west', ['a', 'b'], { lost: true }),
   ['ghost', { ghost: true }],
   ['vbmap', { map: 'vbmap' }],
+  ['vbmap.untrail', { trails: false }],
   ...fail('vbmap.c', ['c']),
   ...fail('vbmap.west', ['a', 'b']),
   // act 3: the deal as a chart, a network, pipes, a flow

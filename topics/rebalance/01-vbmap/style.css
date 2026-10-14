@@ -27,6 +27,7 @@
 .diagram .copy-num { font: 700 9px var(--font-mono); letter-spacing: -0.5px; fill: var(--panel); paint-order: stroke; stroke: var(--ink); stroke-width: 1.6px; pointer-events: none; visibility: hidden; }
 .diagram .chip:hover .copy-num { visibility: visible; }
 .diagram .chip:hover .copy-letter { visibility: hidden; }
+.diagram .trail { fill: none; stroke-width: 1.2; stroke-opacity: 0.4; stroke-dasharray: 1 1; }
 .diagram .curtain { fill: var(--down); opacity: 0.55; }
 /* act 3: the seating chart, threads, network, pipes */
 .diagram .seat { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }

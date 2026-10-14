@@ -37,6 +37,18 @@ function binSlots(map) {
 }
 const SLOTS = Object.fromEntries(Object.entries(MAPS).map(([k, m]) => [k, binSlots(m)]));
 
+// The redeal (naive to vbmap): each replica that moves travels on a
+// U-shaped arc, down under the bins and up into its new place (deeper
+// the farther it goes). An arc: a cubic Bézier's four points.
+const REDEAL = {};
+const bezier = (P, u) => {
+  const w = [(1 - u) ** 3, 3 * (1 - u) ** 2 * u, 3 * (1 - u) * u * u, u ** 3];
+  return [0, 1].map((i) => P.reduce((s, p, j) => s + w[j] * p[i], 0));
+};
+const isRedeal = (field, A, B) => field === 'map' && A.map === 'naive' && B.map === 'vbmap';
+// (a deal's trails: shown once the redeal has dealt them, till they fade)
+const trailsOn = (s) => (s.map === 'vbmap' && s.trails ? 1 : 0);
+
 // A copy, as drawn in a state: where, in what color, and how.
 function look(s, { v, k, key }) {
   const dealt = k === 0 ? s.actives : s.replicas;
@@ -62,7 +74,7 @@ function look(s, { v, k, key }) {
   const lost = s.lost && chain.every((n) => s.down.includes(n));
   return {
     // (its color: its vbucket's home, the node with its active copy)
-    x, y, node, home: dealt ? chain[0] : null,
+    x, y, node, home: chain[0],
     // (a replica, before the split, sits under its active, unseen)
     // (and, bundled into a pipe, it's part of the pipe's flow)
     o: (k === 1 && !s.split && !dealt) || s.pipes ? 0 : 1,
@@ -70,6 +82,15 @@ function look(s, { v, k, key }) {
   };
 }
 const nodeColor = (n) => (n ? `var(--node-${n})` : 'var(--node-none)');
+
+function buildRedeal() {
+  for (const c of COPIES) {
+    const a = look(STATE.ghost, c), b = look(STATE.vbmap, c);
+    if (c.k !== 1 || (a.x === b.x && a.y === b.y)) continue;
+    const d = 70 + 0.18 * Math.abs(b.x - a.x);
+    REDEAL[c.key] = [[a.x, a.y], [a.x, a.y + d], [b.x, b.y + d], [b.x, b.y]];
+  }
+}
 
 // A copy's marks: its frame, a replica's half, its letter, a lost ×,
 // and its vbucket's number (shown in place of its letter on hover).
@@ -109,7 +130,9 @@ function orderFor(field, A, B) {
   if (field === 'lifted' || field === 'chartUp') return [];
   const moving = COPIES.filter((c) => JSON.stringify(look(A, c)) !== JSON.stringify(look(B, c))).map((c) => ({ key: c.key, b: look(B, c), a: look(A, c) }));
   const at = (m) => m.b;
-  if (field === 'map') moving.sort((p, q) => ALL_NODES.indexOf(p.b.node) - ALL_NODES.indexOf(q.b.node) || p.b.y - q.b.y || p.b.x - q.b.x);
+  // (the redeal's replicas set off left to right, from where they were)
+  if (isRedeal(field, A, B)) moving.sort((p, q) => p.a.x - q.a.x || p.a.y - q.a.y);
+  else if (field === 'map') moving.sort((p, q) => ALL_NODES.indexOf(p.b.node) - ALL_NODES.indexOf(q.b.node) || p.b.y - q.b.y || p.b.x - q.b.x);
   else moving.sort((p, q) => at(p).y - at(q).y || at(p).x - at(q).x);
   return moving.map((m) => m.key);
 }
@@ -161,6 +184,12 @@ export class Diagram {
     txt(this.doc, DOC.x + DOC.w + 20, DOC.y + 16, `crc32("${HERO_KEY}") → vbucket ${HERO}`, 'doc-hash');
     // act 3's chart, threads, pipes (under the copies)
     buildPlumbing(this, g);
+    // the redeal's trails (under the copies)
+    buildRedeal();
+    this.trails = Object.entries(REDEAL).map(([key, P]) => ({
+      key,
+      path: el('path', { d: `M${P[0]} C${P[1]} ${P[2]} ${P[3]}`, pathLength: 1, class: 'trail', style: `stroke: ${nodeColor(MAPS.vbmap[+key.split(':')[0]][0])}` }, g),
+    }));
     // the copies
     this.chipG = el('g', {}, g);
     this.chips = {};
@@ -171,7 +200,10 @@ export class Diagram {
     this.heroRings = [0, 1].map((k) => el('rect', { x: -CHIP.w / 2 - 4, y: -CHIP.h / 2 - 4, width: CHIP.w + 8, height: CHIP.h + 8, rx: CHIP.rx + 3, class: `hero-ring hero-ring-${k}` }, g));
     this.heroLabel = txt(g, 0, 0, `vb${HERO}`, 'hero-label');
     // (and, on a node, its replica's name under it)
-    this.heroRepLabel = txt(g, 0, 0, `vb${HERO} replica`, 'hero-label hero-rep-label', 'middle');
+    // (in two lines, its "vb9" right under the card)
+    this.heroRepLabel = el('g', {}, g);
+    txt(this.heroRepLabel, 0, CHIP.h / 2 + 16, `vb${HERO}`, 'hero-label hero-rep-label', 'middle');
+    txt(this.heroRepLabel, 0, CHIP.h / 2 + 28, 'replica', 'hero-label hero-rep-label', 'middle');
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
     this.cur = null;
     this.heroAt = [[0, 0], [0, 0]];
@@ -207,7 +239,8 @@ export class Diagram {
     for (const c of COPIES) {
       const la = look(A, c), lb = look(B, c), u = easeQuad(own(c.key)), s = u < 0.5 ? la : lb;
       const ch = this.chips[c.key];
-      const x = lerp(la.x, lb.x, u), y = lerp(la.y, lb.y, u);
+      const arc = isRedeal(field, A, B) && REDEAL[c.key];
+      const [x, y] = arc ? bezier(arc, u) : [lerp(la.x, lb.x, u), lerp(la.y, lb.y, u)];
       ch.g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
       const o = lerp(la.o, lb.o, u);
       op(ch.g, o);
@@ -231,8 +264,7 @@ export class Diagram {
     this.heroLabel.setAttribute('y', (this.heroAt[0][1] - CHIP.h / 2 - 8).toFixed(1));
     const onNode = (s) => (s.replicas && s.view === 'bins' && s.scaffold ? 1 : 0);
     op(this.heroRepLabel, lerp(onNode(A), onNode(B), q) * +this.chips[`${HERO}:1`].g.getAttribute('opacity'));
-    this.heroRepLabel.setAttribute('x', this.heroAt[1][0].toFixed(1));
-    this.heroRepLabel.setAttribute('y', (this.heroAt[1][1] + CHIP.h / 2 + 13).toFixed(1));
+    this.heroRepLabel.setAttribute('transform', `translate(${this.heroAt[1][0].toFixed(1)} ${this.heroAt[1][1].toFixed(1)})`);
 
     // the scaffolding: one field each
     const f = (k, va, vb) => (field === k ? lerp(va, vb, easeQuad(q)) : vb);
@@ -278,10 +310,20 @@ export class Diagram {
     op(this.cluster, f('scaffold', A.scaffold ? 1 : 0, B.scaffold ? 1 : 0));
     // act 3
     drawPlumbing(this, A, B, q, field);
+    // the redeal's trails: each drawn behind its copy as it goes, then
+    // shown till they fade
+    for (const t of this.trails) {
+      const redeal = isRedeal(field, A, B), u = redeal ? easeQuad(own(t.key)) : 1;
+      t.path.style.strokeDashoffset = (1 - u).toFixed(3);
+      op(t.path, redeal ? (u > 0 ? 1 : 0) : lerp(trailsOn(A), trailsOn(B), q));
+    }
     // the copy of the naive deal: shifted down from where it was
-    const gq = field === 'ghost' ? easeQuad(q) : B.ghost ? 1 : 0;
+    // (it slides down out of the cluster; once done with, it fades where
+    // it is)
+    const fading = field === 'ghost' && A.ghost;
+    const gq = fading ? 1 : field === 'ghost' ? easeQuad(q) : B.ghost ? 1 : 0;
     this.ghost.setAttribute('transform', `translate(0 ${(gq * GHOST_DY).toFixed(1)})`);
-    const go = field === 'ghost' ? 1 : B.ghost ? 1 : 0;
+    const go = fading ? 1 - q : field === 'ghost' ? 1 : B.ghost ? 1 : 0;
     op(this.ghost, go);
     this.ghost.style.pointerEvents = go ? '' : 'none';
   }

@@ -116,10 +116,11 @@ export function drawPlumbing(d, A, B, q, field) {
   const upA = A.chartUp, upB = B.chartUp, up = f('chartUp', upA ? 1 : 0, upB ? 1 : 0);
   const dyChart = lerp(CHART.yDown, CHART.yUp, up) - CHART.yDown;
   // the chart, till the turn
-  const chartOn = (s) => (s.chart && s.view === 'chart' ? 1 : 0);
+  // (shown till the network's built, and gone with it)
+  const chartOn = (s) => (s.chart && s.view !== 'net' && s.network ? 1 : 0);
   op(P.chart, f(field === 'view' ? 'view' : 'chart', chartOn(A), chartOn(B)));
   P.chart.setAttribute('transform', `translate(0 ${dyChart.toFixed(1)})`);
-  const sumsOn = (s) => (s.sums && s.view === 'chart' ? 1 : 0);
+  const sumsOn = (s) => (s.sums && s.view !== 'net' && s.network ? 1 : 0);
   op(P.sums, f(field === 'view' ? 'view' : 'sums', sumsOn(A), sumsOn(B)));
   P.sums.setAttribute('transform', `translate(0 ${dyChart.toFixed(1)})`);
   // the labels: on the chart's edges, then out to the sides as the
