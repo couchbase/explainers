@@ -17,7 +17,8 @@ import {
   CANVAS, NODES, RACKS, NUM_VBUCKETS, CHIP, GRID, tileXY, RACK_BOX, BIN, BIN_X, binChipXY, GHOST_DY, LOW_DY, DOC, ANCHORS,
 } from './layout.js';
 import { STATE, changed } from './states.js';
-import { MAPS, HERO, HERO_KEY } from './story.js';
+import { MAPS, HERO, HERO_KEY } from './deals.js';
+import { buildPlumbing, drawPlumbing, pairXY } from './diagram-plumbing.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
 const COPIES = [];
@@ -39,7 +40,11 @@ const SLOTS = { naive: binSlots(MAPS.naive), vbmap: binSlots(MAPS.vbmap) };
 function look(s, { v, k, key }) {
   const dealt = k === 0 ? s.actives : s.replicas;
   let x, y, node = null;
-  if (dealt) {
+  if (dealt && s.view !== 'bins') {
+    // (in its seat, or a bead on its thread: its active left, its replica right)
+    [x, y] = pairXY(v, s.view, s.chartUp);
+    x += k ? 8 : -8;
+  } else if (dealt) {
     const [n, row, i] = SLOTS[s.map][key];
     [x, y] = binChipXY(n, row, i);
     y += s.lifted ? 0 : LOW_DY;
@@ -58,7 +63,8 @@ function look(s, { v, k, key }) {
     // (its color: its vbucket's home, the node with its active copy)
     x, y, node, home: dealt ? chain[0] : null,
     // (a replica, before the split, sits under its active, unseen)
-    o: k === 1 && !s.split && !dealt ? 0 : 1,
+    // (and, bundled into a pipe, it's part of the pipe's flow)
+    o: (k === 1 && !s.split && !dealt) || s.pipes ? 0 : 1,
     filled: k === 0 || promoted, promoted, lost: lost && k === 0,
   };
 }
@@ -92,8 +98,9 @@ function paintChip(c, { color, active, promoted = false }) {
 // The order copies change in: only those that change, in reading
 // order where they end up (a new deal: node by node).
 function orderFor(field, A, B) {
-  // (the cluster lifts as one: its copies ride along, all together)
-  if (field === 'lifted') return [];
+  // (the cluster lifts as one, and the chart rises as one: the copies
+  // ride along, all together)
+  if (field === 'lifted' || field === 'chartUp') return [];
   const moving = COPIES.filter((c) => JSON.stringify(look(A, c)) !== JSON.stringify(look(B, c))).map((c) => ({ key: c.key, b: look(B, c), a: look(A, c) }));
   const at = (m) => m.b;
   if (field === 'map') moving.sort((p, q) => NODES.indexOf(p.b.node) - NODES.indexOf(q.b.node) || p.b.y - q.b.y || p.b.x - q.b.x);
@@ -147,6 +154,8 @@ export class Diagram {
     const [hx, hy] = tileXY(HERO);
     el('path', { d: `M${DOC.x + DOC.w},${DOC.y + DOC.h / 2} C${hx - 40},${DOC.y + DOC.h / 2} ${hx},${hy - 60} ${hx},${hy - 14}`, class: 'doc-line' }, this.doc);
     txt(this.doc, DOC.x + DOC.w + 20, DOC.y + 16, `crc32("${HERO_KEY}") → vbucket ${HERO}`, 'doc-hash');
+    // act 3's chart, threads, pipes (under the copies)
+    buildPlumbing(this, g);
     // the copies
     this.chipG = el('g', {}, g);
     this.chips = {};
@@ -204,8 +213,10 @@ export class Diagram {
     this.heroRings.forEach((r, k) => {
       const [x, y] = this.heroAt[k];
       r.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
-      op(r, k === 0 ? 1 : lerp(A.split || A.replicas ? 1 : 0, B.split || B.replicas ? 1 : 0, q));
+      const shown = k === 0 ? 1 : lerp(A.split || A.replicas ? 1 : 0, B.split || B.replicas ? 1 : 0, q);
+      op(r, shown * +this.chips[`${HERO}:${k}`].g.getAttribute('opacity'));
     });
+    op(this.heroLabel, +this.chips[`${HERO}:0`].g.getAttribute('opacity'));
     this.heroLabel.setAttribute('x', (this.heroAt[0][0] - 11).toFixed(1));
     this.heroLabel.setAttribute('y', (this.heroAt[0][1] - CHIP.h / 2 - 8).toFixed(1));
 
@@ -240,9 +251,13 @@ export class Diagram {
       const v = f('down', ca.has(k) ? 1 : 0, cb.has(k) ? 1 : 0);
       c.rect.setAttribute('height', (c.h * v).toFixed(1));
     }
-    // the deal's name, once there's a better one
+    // the deal's name, once there's a better one (and while there's a cluster)
     setText(this.dealLabel, "vbmap's deal: every replica crosses racks");
-    op(this.dealLabel, f('map', A.map === 'vbmap' ? 1 : 0, B.map === 'vbmap' ? 1 : 0));
+    const named = (s) => (s.map === 'vbmap' && s.scaffold ? 1 : 0);
+    op(this.dealLabel, f(field === 'scaffold' ? 'scaffold' : 'map', named(A), named(B)));
+    op(this.cluster, f('scaffold', A.scaffold ? 1 : 0, B.scaffold ? 1 : 0));
+    // act 3
+    drawPlumbing(this, A, B, q, field);
     // the copy of the naive deal: shifted down from where it was
     const gq = field === 'ghost' ? easeQuad(q) : B.ghost ? 1 : 0;
     this.ghost.setAttribute('transform', `translate(0 ${(gq * GHOST_DY).toFixed(1)})`);

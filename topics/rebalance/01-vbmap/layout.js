@@ -28,7 +28,7 @@ export const BIN = { w: 200, h: 140, y: 170, cols: 8, pad: 14, gap: 22 };
 export const BIN_X = { a: 50, b: 270, c: 540, d: 760 };
 // a copy's place in a bin: actives on the first row, replicas on the
 // second (and a third row, if a node holds more than 8 of one kind)
-export const binChipXY = (n, row, i) => [BIN_X[n] + BIN.pad + (i % BIN.cols) * BIN.gap + CHIP.w / 2, BIN.y + 26 + (row + 2 * Math.floor(i / BIN.cols)) * 25];
+export const binChipXY = (n, row, i) => [BIN_X[n] + BIN.pad + (i % BIN.cols) * BIN.gap + CHIP.w / 2, BIN.y + 36 + (row + 2 * Math.floor(i / BIN.cols)) * 25];
 // the cluster, before it's lifted into place: below the bucket's grid
 export const LOW_DY = 230;
 // the copy of the naive deal, below

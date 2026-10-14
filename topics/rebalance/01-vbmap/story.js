@@ -5,11 +5,11 @@
 
 import { STATES, STATE, statePath } from './states.js';
 import { NODES, NUM_VBUCKETS } from './layout.js';
-import { mapOf, naiveMap, serving, vbucketOf } from '../lib/maps.js';
+import { serving, vbucketOf } from '../lib/maps.js';
+import { MAPS, HERO_KEY, HERO } from './deals.js';
+import { EDGES, FLOW, PATHS } from './plumbing.js';
 
-export const MAPS = { naive: naiveMap('story4'), vbmap: mapOf('story4') };
-export const HERO_KEY = 'airline_10';
-export const HERO = vbucketOf(HERO_KEY, NUM_VBUCKETS);
+export { MAPS, HERO_KEY, HERO };
 
 export const VIEW_KEYS = {
   // the diagram's state; carried over, and each move counts as the step's change
@@ -29,6 +29,12 @@ function facts() {
     // how many of each node's replicas sit in its own rack
     out[`${name}.sameRack`] = map.filter(([a, r]) => (a < 'c') === (r < 'c')).length;
   }
+  // act 3: the network's pipes and max-flow's paths
+  for (const e of EDGES) if (e.from[0] === 'L') out[`pipe.${e.from.slice(2)}${e.to.slice(2)}`] = FLOW.flow[`${e.from}>${e.to}`];
+  for (const e of EDGES) if (e.from === 'S') out[`source.${e.to.slice(2)}`] = e.cap;
+  PATHS.forEach((p, i) => { out[`path.${i + 1}`] = `${p.vertices.map((v) => v.replace(/^[LR]\./, '')).join(' ')} ${p.push}`; });
+  out.paths = PATHS.length;
+  out['flow.total'] = FLOW.total;
   return out;
 }
 export const FACTS = facts();

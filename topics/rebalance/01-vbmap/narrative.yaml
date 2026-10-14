@@ -235,5 +235,149 @@ chapters:
         text: |
           With 4 nodes, a deal that meets them is easy to find by
           hand. With 40 nodes in 3 racks and 1024 vbuckets, it isn't.
-          Next: how vbmap finds one, by turning the deal into a
-          plumbing problem.
+          vbmap finds one by turning the deal into a plumbing problem.
+
+  # ------------------------------------------------------------------
+  - id: chart
+    title: "A seating chart"
+    color: flow
+    steps:
+
+      - id: unghost
+        view: { at: unghost, target: rack.East }
+        text: |
+          First, put the simple deal away: vbmap's deal, on top, is
+          [[the one]] to look at.
+
+      - id: frame
+        view: { at: chart.frame, target: chart.title }
+        text: |
+          Now a seating chart for the deal: a row for each node's
+          actives, a column for each node's replicas. A vbucket sits
+          at row (its active's node), column (its replica's node).
+          [[The chart]] starts empty, below the cluster.
+
+      - id: seated
+        view: { at: chart.seated, target: hero }
+        expect: ["fact:vbmap.hero=b,d"]
+        text: |
+          Each vbucket takes its seat, its two copies side by side.
+          [[Vbucket 9]], active on node b with its replica on node d,
+          sits at row b, column d.
+
+      - id: up
+        view: { at: chart.up, target: chart.title }
+        text: |
+          Everything the cluster showed is in [[the chart]] now, so
+          the chart takes the cluster's place.
+
+      - id: sums
+        view: { at: chart.sums, target: chart.title }
+        expect: ["fact:vbmap.serves=a8 b8 c8 d8", "fact:vbmap.sameRack=0"]
+        text: |
+          The rules become [[the chart's shape]]. Same-rack seats
+          (grey) stay empty. Every row holds 8 vbuckets, every node's
+          actives; every column holds 8, every node's replicas. And
+          each seat holds 4: each node splits its replicas evenly
+          over the two nodes in the other rack.
+
+  # ------------------------------------------------------------------
+  - id: turn
+    title: "Turn the chart"
+    color: flow
+    steps:
+
+      - id: threads
+        view: { at: arcs, target: hero }
+        text: |
+          Draw each vbucket as a thread: from its row's node, on the
+          left, through its seat, to its column's node, on top.
+          [[Vbucket 9]]'s thread runs from b, through its seat, to d.
+
+      - id: straight
+        view: { at: net, target: net.left }
+        text: |
+          Now turn the chart. The rows' nodes move out to the left;
+          the columns' nodes swing round to the right (rack West
+          first, so the threads run in two bands). Then the threads
+          pull straight, and each vbucket is a bead on a thread from
+          [[its active's node]] to its replica's. The chart is a
+          network: who backs up whom, and how much.
+
+      - id: pipes
+        view: { at: pipes, target: pipe.ac }
+        expect: ["fact:pipe.ac=4"]
+        text: |
+          Bundle each pair of nodes' threads into a pipe. The
+          [[pipe from a to c]] carries 4: four of node a's vbuckets
+          have their replicas on node c.
+
+  # ------------------------------------------------------------------
+  - id: flow
+    title: "Pipes and a flow"
+    color: flow
+    steps:
+
+      - id: source
+        view: { at: source, target: source }
+        code: [vbmap.buildRFlowGraph]
+        expect: ["fact:source.a=8"]
+        text: |
+          Add a [[source]], with a pipe to each node on the left that
+          carries the node's 8 actives: one unit for each replica the
+          node must place.
+
+      - id: sink
+        view: { at: sink, target: sink }
+        text: |
+          And a [[sink]], with a pipe from each node on the right that
+          takes in the 8 replicas the node holds. Finding a deal is now
+          finding a flow from source to sink that fits every pipe.
+          This is the graph vbmap builds (with one more layer, for
+          racks, that changes nothing here).
+
+      - id: empty
+        view: { at: flow.0, target: source }
+        code: [vbmap.augmentFlow]
+        text: |
+          How does vbmap find the flow? Empty the pipes and start from
+          nothing at [[the source]]. Max-flow finds a path from source
+          to sink with room left in every pipe, and pushes as much as
+          the path's narrowest pipe allows. Then it looks for another.
+
+      - id: first
+        view: { at: flow.1, target: pipe.ac }
+        expect: ["fact:path.1=S a c T 4"]
+        text: |
+          The first path: source, node a, node c, sink. The narrowest
+          pipe on it, [[a to c]], holds 4, so 4 units flow.
+
+      - id: rest
+        view: { at: flow.8, target: sink }
+        expect: ["fact:paths=8", "fact:flow.total=32"]
+        text: |
+          And again, path by path: a to d, b to c, b to d, then the
+          other way, c and d to a and b. After 8 paths every pipe is
+          full: 32 units into [[the sink]], one for each replica. No
+          path has room left, so the flow is the most the pipes can
+          carry: a maximum flow, and a deal that meets the rules.
+
+      - id: bounds
+        code: [vbmap.AddEdge]
+        text: |
+          One catch: a maximum flow makes sure no pipe carries too
+          much, but the rules also need some pipes to carry at least
+          a minimum (each node's exactly 8). vbmap handles a minimum
+          with a classic trick: it pays the minimum up front, through
+          an extra supply edge into the pipe's end and an extra demand
+          edge out of its start, then runs a max-flow on those. If
+          every supply edge fills, every minimum can be met.
+
+      - id: twice
+        code: [vbmap.buildFlowGraph]
+        text: |
+          And vbmap solves two of these. The first decides who backs
+          up whom: each node backs up the same number of nodes, spread
+          across racks. The second, this one, decides how many
+          vbuckets each such pair carries. Then vbmap picks each
+          vbucket's chain from the result.

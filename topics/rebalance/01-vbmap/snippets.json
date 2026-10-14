@@ -27,5 +27,64 @@
   ],
   "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/mb_map.erl#L831-L839",
   "code": "    Args0 = [\"--diag\", DiagPath,\n             \"--output-format\", \"json\",\n             \"--num-vbuckets\", integer_to_list(NumVBuckets),\n             \"--num-nodes\", integer_to_list(NumNodes),\n             \"--num-slaves\", integer_to_list(NumSlaves),\n             \"--num-replicas\", integer_to_list(NumReplicas),\n             \"--relax-all\"] ++\n        case UseGreedy of\n            true ->"
+ },
+ "vbmap.buildRFlowGraph": {
+  "id": "vbmap.buildRFlowGraph",
+  "repo": "vbmap",
+  "path": "vbmap_balance.go",
+  "title": "vbmap buildRFlowGraph() — how many vbuckets each pair of nodes carries, as a flow graph",
+  "start": 82,
+  "end": 143,
+  "highlight": [
+   97,
+   109,
+   137
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/vbmap_balance.go#L82-L143",
+  "code": "func buildRFlowGraph(\n\tparams VbmapParams, ri RI, activeVbs []int, strict bool) (g *Graph) {\n\n\treplicasPerSlaveLo, replicasPerSlaveHi :=\n\t\treplicasPerSlave(params, strict)\n\n\tgraphName := fmt.Sprintf(\"Flow graph for R (%s)\", params)\n\tg = NewGraph(graphName)\n\n\tfor i, row := range ri.Matrix {\n\t\tnode := Node(i)\n\t\tnodeSrcV := NodeSourceVertex(node)\n\t\tnodeSinkV := NodeSinkVertex(node)\n\n\t\tnumVbsReplicated := activeVbs[i] * params.NumReplicas\n\t\tg.AddEdge(Source, nodeSrcV, numVbsReplicated, numVbsReplicated)\n\n\t\treplications := newRatFromInt(ri.NumInboundReplications(node))\n\n\t\tnumReplicas := &big.Rat{}\n\t\tnumReplicas.Mul(replications, replicasPerSlaveLo)\n\t\tnumReplicasLo := ratFloor(numReplicas)\n\n\t\tnumReplicas.Mul(replications, replicasPerSlaveHi)\n\t\tnumReplicas.Mul(replications, replicasPerSlaveHi)\n\t\tnumReplicasHi := ratCeil(numReplicas)\n\n\t\tg.AddEdge(nodeSinkV, Sink, numReplicasHi, numReplicasLo)\n\n\t\tvar maxVbsPerTag int\n\t\tif params.NumReplicas > 0 {\n\t\t\tmaxVbsPerTag = numVbsReplicated / params.NumReplicas\n\t\t}\n\t\tfor j, elem := range row {\n\t\t\tif elem == 0 {\n\t\t\t\tcontinue\n\t\t\t}\n\n\t\t\tdstNode := Node(j)\n\t\t\tdstNodeTag := params.Tags[dstNode]\n\n\t\t\tdstNodeSinkV := NodeSinkVertex(dstNode)\n\t\t\ttagV := TagNodeVertex{dstNodeTag, node}\n\n\t\t\tif !g.HasVertex(tagV) {\n\t\t\t\tg.AddEdge(nodeSrcV, tagV, maxVbsPerTag, 0)\n\t\t\t}\n\n\t\t\tvbsPerSlave := newRat(\n\t\t\t\tnumVbsReplicated, params.NumSlaves)\n\t\t\tvbsPerSlaveLo := ratFloor(vbsPerSlave)\n\t\t\tvbsPerSlaveHi := ratCeil(vbsPerSlave)\n\n\t\t\tg.AddEdge(\n\t\t\t\ttagV, dstNodeSinkV,\n\t\t\t\tvbsPerSlaveHi*elem,\n\t\t\t\tvbsPerSlaveLo*elem)\n\t\t}\n\t}\n\n\treturn\n}"
+ },
+ "vbmap.augmentFlow": {
+  "id": "vbmap.augmentFlow",
+  "repo": "vbmap",
+  "path": "graph.go",
+  "title": "vbmap augmentFlow() — breadth-first levels, then depth-first paths with room",
+  "start": 444,
+  "end": 489,
+  "highlight": [
+   449,
+   457,
+   463
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/graph.go#L444-L489",
+  "code": "func (g *Graph) augmentFlow(source, sink GraphVertex) bool {\n\tfor _, vertexData := range g.vertices {\n\t\tvertexData.reset()\n\t}\n\n\tif !g.bfsUnsaturated(source, sink) {\n\t\treturn false\n\t}\n\n\tpath := augPath(nil)\n\tv := source\n\n\tfor {\n\t\tpathFound := g.dfsPath(v, sink, &path)\n\t\tif pathFound {\n\t\t\tcapacity := path.capacity()\n\t\t\tfirstSaturatedEdge := -1\n\n\t\t\tfor i, edge := range path {\n\t\t\t\tedge.pushFlow(capacity)\n\t\t\t\tif firstSaturatedEdge == -1 && edge.IsSaturated() {\n\t\t\t\t\tfirstSaturatedEdge = i\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tg.noteAugment()\n\n\t\t\tif firstSaturatedEdge == -1 {\n\t\t\t\tpanic(\"No saturated edge on augmenting path\")\n\t\t\t}\n\n\t\t\tv = path[firstSaturatedEdge].Src\n\t\t\tpath.truncate(firstSaturatedEdge)\n\t\t} else {\n\t\t\tif v == source {\n\t\t\t\tbreak\n\t\t\t}\n\n\t\t\tg.distances[v] = -1\n\t\t\tedge := path.removeLastEdge()\n\t\t\tv = edge.Src\n\t\t}\n\t}\n\n\treturn true\n}"
+ },
+ "vbmap.AddEdge": {
+  "id": "vbmap.AddEdge",
+  "repo": "vbmap",
+  "path": "graph.go",
+  "title": "vbmap AddEdge() — a lower bound becomes a supply edge and a demand edge",
+  "start": 539,
+  "end": 557,
+  "highlight": [
+   542,
+   551,
+   552
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/graph.go#L539-L557",
+  "code": "func (g *Graph) AddEdge(src, dst GraphVertex, capacity, demand int) {\n\tg.checkNoEdge(src, dst)\n\n\tcapacity -= demand\n\n\tedge := g.addEdge(src, dst, capacity, demand, edgeNormal)\n\tredge := g.addEdge(dst, src, 0, 0, edgeReverse)\n\n\tedge.ReverseEdge = redge\n\tredge.ReverseEdge = edge\n\n\tif demand != 0 {\n\t\tdemandEdge := g.addDemandEdge(src, demandSink, demand)\n\t\tsupplyEdge := g.addDemandEdge(supplySource, dst, demand)\n\n\t\tedge.demandEdge = demandEdge\n\t\tedge.supplyEdge = supplyEdge\n\t}\n}"
+ },
+ "vbmap.buildFlowGraph": {
+  "id": "vbmap.buildFlowGraph",
+  "repo": "vbmap",
+  "path": "engine_maxflow.go",
+  "title": "vbmap buildFlowGraph() — the first flow, who replicates to whom",
+  "start": 142,
+  "end": 178,
+  "highlight": [
+   155,
+   166
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/engine_maxflow.go#L142-L178",
+  "code": "func buildFlowGraph(params VbmapParams) (g *Graph) {\n\tgraphName := fmt.Sprintf(\"Flow graph for RI (%s)\", params)\n\tg = NewGraph(graphName)\n\n\ttags := params.Tags.TagsList()\n\ttagsNodes := params.Tags.TagsNodesMap()\n\n\tmaxRepsPerTag := maxReplicationsPerTag(params)\n\n\tfor _, node := range params.Nodes() {\n\t\tnodeTag := params.Tags[node]\n\t\tnodeSrcV := NodeSourceVertex(node)\n\n\t\tg.AddEdge(Source, nodeSrcV, params.NumSlaves, params.NumSlaves)\n\n\t\tfor _, tag := range tags {\n\t\t\tif tag == nodeTag {\n\t\t\t\tcontinue\n\t\t\t}\n\n\t\t\ttagNodesCount := len(tagsNodes[tag])\n\t\t\ttagCapacity := Min(tagNodesCount, maxRepsPerTag)\n\n\t\t\ttagV := TagVertex(tag)\n\t\t\tg.AddEdge(nodeSrcV, tagV, tagCapacity, 0)\n\t\t}\n\t}\n\n\tfor _, tag := range tags {\n\t\ttagNodes := tagsNodes[tag]\n\t\ttagV := TagVertex(tag)\n\n\t\tg.AddEdge(tagV, Sink, params.NumSlaves*len(tagNodes), 0)\n\t}\n\n\treturn\n}"
  }
 }

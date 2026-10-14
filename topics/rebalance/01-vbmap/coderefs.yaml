@@ -19,3 +19,35 @@ ns_server.invoke_vbmap:
   extent: 9
   title: ns_server mb_map — calling vbmap
   highlight: ["\"--num-slaves\"", "\"--relax-all\""]
+
+vbmap.buildRFlowGraph:
+  repo: vbmap
+  path: vbmap_balance.go
+  anchor: "func buildRFlowGraph("
+  extent: func
+  title: vbmap buildRFlowGraph() — how many vbuckets each pair of nodes carries, as a flow graph
+  highlight: ["g.AddEdge(Source, nodeSrcV, numVbsReplicated, numVbsReplicated)", "g.AddEdge(nodeSinkV, Sink, numReplicasHi, numReplicasLo)", "vbsPerSlaveHi*elem,"]
+
+vbmap.augmentFlow:
+  repo: vbmap
+  path: graph.go
+  anchor: "func (g *Graph) augmentFlow(source, sink GraphVertex) bool {"
+  extent: func
+  title: vbmap augmentFlow() — breadth-first levels, then depth-first paths with room
+  highlight: ["g.bfsUnsaturated(source, sink)", "g.dfsPath(v, sink, &path)", "edge.pushFlow(capacity)"]
+
+vbmap.AddEdge:
+  repo: vbmap
+  path: graph.go
+  anchor: "func (g *Graph) AddEdge(src, dst GraphVertex, capacity, demand int) {"
+  extent: func
+  title: vbmap AddEdge() — a lower bound becomes a supply edge and a demand edge
+  highlight: ["capacity -= demand", "g.addDemandEdge(src, demandSink, demand)", "g.addDemandEdge(supplySource, dst, demand)"]
+
+vbmap.buildFlowGraph:
+  repo: vbmap
+  path: engine_maxflow.go
+  anchor: "func buildFlowGraph(params VbmapParams) (g *Graph) {"
+  extent: func
+  title: "vbmap buildFlowGraph() — the first flow, who replicates to whom"
+  highlight: ["g.AddEdge(Source, nodeSrcV, params.NumSlaves, params.NumSlaves)", "g.AddEdge(nodeSrcV, tagV, tagCapacity, 0)"]
