@@ -39,7 +39,12 @@ with links to GitHub at pinned commits.
 npm test             # unit tests (fast; no browser needed)
 npm run build
 npm run test:e2e     # browser tests, in headless Chrome / playwright
+npm run check        # all three, in order; stops at the first failure
 ```
+
+Run `npm run check` before each commit. Each e2e test times out after 3
+minutes. If e2e runs slowly, look for stray browser or helper
+processes left from earlier runs, and stop them.
 
 The engine's tests are in `engine/test/`; each explainer's are in its
 own `test/` and `test-e2e/`. `engine/test/narratives.test.mjs` checks
@@ -54,6 +59,23 @@ just those whose path matches); see each tool's `golden.yaml`.
 The go on your PATH must be new enough for the code it runs.
 
 Append `?debug=1` to a page's URL for each explainer's debug checks.
+
+**Reviewing by eye.** `npm run shoot` takes screenshots of a built page:
+
+```sh
+npm run shoot -- blance/01-planning join--wrap               # settled, as a deep link lands
+npm run shoot -- blance/01-planning join--detour@0.3,0.6     # partway through its transition
+npm run shoot -- blance/01-planning --strip 8 join--wrap     # 8 moments of the step, on one sheet
+npm run shoot -- blance/01-planning --dark --phone --end     # dark, phone-sized, the page's end
+```
+
+Files go to `tmp/shots/`. A strip is the quickest way to check a long
+step: it shows everything the step plays, in order.
+
+**Stale pages.** Each page shows its build stamp in its header. If a
+page doesn't show a change, compare its stamp with `git log`: GitHub
+Pages shows only what was pushed, and an old `npm run dev` may still
+be running.
 
 CI is via `.github/workflows/ci.yml`.
 
@@ -106,7 +128,9 @@ Fonts families), `style.css` (palette, section colors, and
 the engine's `--font-*`, which come after the engine's styles,
 and before each explainer's), `sources.yaml` (the pinned source repos,
 if any), and any shared notes or code. With no fonts or
-`style.css`, a topic uses the engine's default style. The build gives each
+`style.css`, a topic uses the engine's default style. An explainer's
+`style.css` can start with `@import "../<other>/style.css";` to use
+another explainer's styles; the build inlines it. The build gives each
 topic an index page, `dist/<topic>/index.html`, listing its explainers
 with their subtitles. Those nav links work only when served
 or opened from folder with topic's directory (as in `dist/`), but not from a HTML
@@ -159,12 +183,49 @@ These guide both the narratives and the code:
   (many things, one at a time) gets the class `step-scrub`: its
   transition then runs over its whole length, and the explainer makes
   it as tall as what it plays needs (blance's 01-planning gives each
-  arrow its own share). It still settles before the next step, so deep
-  links land on it finished.
+  arrow its own share). Its transition progress `p` reaches 1 at 90%
+  of the step. The last 10% is for what follows the sweep, such as a
+  focus box moving; the render hook gets `u`, the position in the
+  whole step, for that. A deep link lands at 94.5% of the step, so it
+  shows the step finished.
 - **Nothing teleports.** Markers travel along the drawn arrows and the
   corridor lanes between boxes; destinations wait for them to arrive.
 - **Keep the subject in view.** The camera follows the marker, and the
   charts and controls stay out of the way until they're needed.
+
+## Directing rules
+
+Lessons from reviewing blance's 01-planning, step by step. Check each
+new explainer against them.
+
+- **Text and diagram move together.** What plays while a step scrolls
+  is what its text talks about. If a step would play more than its
+  text covers, add a step, or make the text cover it ("the rest go
+  the same way").
+- **Explain a surprising order first.** If the algorithm skips ahead
+  or wraps around, say so before the diagram does it.
+- **Summarize on a clean frame.** A step that sums up lands on a
+  state with nothing left over from the last action: no outline, no
+  arrows, no score bars.
+- **Content first, then reading aids.** In a long step, the main
+  change plays first; the focus box moves after it. When something
+  leaves, it fades out first; then the rest slides over.
+- **End calmly.** In the summary, the diagram stops changing. Remove
+  what has left, hide labels that no longer apply, and drop the focus
+  box. The end card stands alone, mid-screen.
+- **Keep the "before" in view.** Show removed or deleted things as
+  ghosts, with their labels, so the reader doesn't have to remember
+  them.
+- **One visual language.** Pick a meaning for each color, line weight
+  and fill, and use it everywhere. In blance: color is the state being
+  assigned (teal primary, amber replica); a thick solid arrow is a
+  decision, a thin one an input; grey is "not a candidate"; red is for
+  callouts and deletions.
+- **Point at what the sentence is about.** A claim about the whole
+  diagram points at the whole diagram, not one part of it.
+- **Show it, don't just say it.** When the text makes a claim (say,
+  "8 moves would do"), draw the evidence (the moves that weren't
+  needed).
 
 ## Writing narratives
 
@@ -198,6 +259,12 @@ or `[x0, y0, x1, y1]`), `open`/`close` (lids), `bubble`/`unbubble`
 (detail bubbles), `ui` (`minimal` or `full` chrome) and `target`. The
 rest are the explainer's `VIEW_KEYS`.
 
+**Reading aids.** A `VIEW_KEYS` entry that isn't `sticky` (or a
+`run`) is a reading aid: it holds for its step only, and it isn't the
+step's one change. blance uses two: `focus` (a box around a region) and
+`trace` (arrows for one partition's moves). Use reading aids to guide
+the eye without breaking the one-change rule.
+
 **Simulation.** For an explainer with one, `sim: { reset: true }` (or
 `reset: { seed, config }`) starts a fresh model; the explainer's `SIM`
 says what else a step's `sim` may say. To build the state for step N,
@@ -212,6 +279,8 @@ need to, add `multi: true` to the step. To move from one section to
 another, use three steps: zoom out, open the next lid, then zoom in.
 
 The build also checks that:
+- no wrapped line of a step's text starts like a list item (`1. `,
+  `- `) mid-paragraph, which Markdown would turn into a list;
 - every camera, lid, anchor and chart name exists;
 - a callout's target isn't hidden under a closed lid;
 - nested lids only open inside open parents;
@@ -220,7 +289,11 @@ The build also checks that:
 `expect` names predicates from the explainer's `EXPECTATIONS` and its
 parameterized `EXPECTATION_PARAMS` (`<name>:<arg>`). The tests check
 them, so the prose and the model (or the real data) can't silently
-drift apart.
+drift apart. Give every number in the text an `expect`.
+
+An explainer can add its own checks that text and diagram match. For
+example, blance's `01-planning/test/lockstep.test.mjs` fails when a
+step plays several decisions but its text doesn't name each partition.
 
 ### Drafts
 
@@ -265,6 +338,7 @@ engine/                  the engine
   css/style.css          the engine's styles: neutral palette, default fonts, layout, story, toolbar, drawers
   page.html              the page template
   build/                 build.mjs, explainers.mjs (finding them), look.mjs (topic styles and fonts), indexes.mjs (the index pages), schema.mjs, snippets.mjs, golden.mjs
+  tools/shoot.mjs        screenshots of a built page (npm run shoot)
   test/, test-e2e/       its tests; helpers for explainers' browser tests
 topics/
   cbft/                  Couchbase full-text search (see its README.md)
@@ -275,7 +349,8 @@ topics/
     topic.yaml, style.css (its own palette and fonts), sources.yaml, research/
     lib/                 a JS port of blance's planner and moves, checked against the
                          real Go by tools/plan-golden; shared by its explainers
-    01-planning/         the planner, decision by decision (scenarios.js)
+    01-planning/         the planner, decision by decision (scenarios.js); its diagram
+                         is diagram.js plus parts, diagram-{board,strip,moves,arrows,shared}.js
     02-moving/           a rebalance over time, from the orchestrator's simulation
     03-groups/           server groups: 01-planning's page (its domain and main), its own story
 dist/                    the built pages (committed; published by GitHub Pages)
