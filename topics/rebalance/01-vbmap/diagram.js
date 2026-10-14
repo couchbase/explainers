@@ -14,7 +14,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import {
-  CANVAS, NODES, RACKS, NUM_VBUCKETS, CHIP, GRID, tileXY, RACK_BOX, BIN, BIN_X, binChipXY, GHOST_DY, DOC, ANCHORS,
+  CANVAS, NODES, RACKS, NUM_VBUCKETS, CHIP, GRID, tileXY, RACK_BOX, BIN, BIN_X, binChipXY, GHOST_DY, LOW_DY, DOC, ANCHORS,
 } from './layout.js';
 import { STATE, changed } from './states.js';
 import { MAPS, HERO, HERO_KEY } from './story.js';
@@ -39,6 +39,7 @@ function look(s, { v, k, key }) {
   if (dealt) {
     const [n, i] = SLOTS[s.map][key];
     [x, y] = binChipXY(n, i);
+    y += s.lifted ? 0 : LOW_DY;
     node = n;
   } else {
     const [tx, ty] = tileXY(v);
@@ -79,14 +80,16 @@ function paintChip(c, { color, active, promoted = false }) {
   c.half.style.fill = color;
   op(c.half, active ? 0 : 1);
   setText(c.letter, active ? 'A' : 'R');
-  c.letter.setAttribute('x', active ? 0 : -2.6);
-  c.letter.setAttribute('y', active ? 3.2 : -0.8);
+  c.letter.setAttribute('x', -2.2);
+  c.letter.setAttribute('y', -2.6);
   c.letter.style.fill = active ? 'var(--panel)' : color;
 }
 
 // The order copies change in: only those that change, in reading
 // order where they end up (a new deal: node by node).
 function orderFor(field, A, B) {
+  // (the cluster lifts as one: its copies ride along, all together)
+  if (field === 'lifted') return [];
   const moving = COPIES.filter((c) => JSON.stringify(look(A, c)) !== JSON.stringify(look(B, c))).map((c) => ({ key: c.key, b: look(B, c), a: look(A, c) }));
   const at = (m) => m.b;
   if (field === 'map') moving.sort((p, q) => NODES.indexOf(p.b.node) - NODES.indexOf(q.b.node) || p.b.y - q.b.y || p.b.x - q.b.x);
@@ -99,10 +102,12 @@ export class Diagram {
     this.svg = svg;
     const [x0, y0, x1, y1] = CANVAS;
     svg.setAttribute('viewBox', `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
-    const g = el('g', {}, svg);
+    let g = el('g', {}, svg);
     // the copy of the naive deal, below (drawn first: the real copies sit on top)
     this.ghost = this._buildGhost(g);
-    // racks and bins
+    // the cluster: racks, bins, curtains, counts, moved as one
+    const outer = g;
+    g = this.cluster = el('g', {}, outer);
     this.racks = {};
     for (const [r, [x, y, w, h]] of Object.entries(RACK_BOX)) {
       const rg = el('g', { opacity: 0 }, g);
@@ -116,8 +121,7 @@ export class Diagram {
       const box = el('rect', { x: BIN_X[n], y: BIN.y, width: BIN.w, height: BIN.h, rx: 10, class: 'bin', style: `stroke: ${nodeColor(n)}` }, bg);
       const name = txt(bg, BIN_X[n] + 4, BIN.y - 8, `node ${n}`, 'bin-label');
       name.style.fill = nodeColor(n);
-      const count = txt(bg, BIN_X[n] + BIN.w / 2, BIN.y + BIN.h - 14, '', 'bin-count', 'middle');
-      this.bins[n] = { g: bg, box, name, count };
+      this.bins[n] = { g: bg, box, name };
     }
     // the curtains, over the bins and under the copies: a node's, or
     // its whole rack's
@@ -125,6 +129,9 @@ export class Diagram {
     this.curtains = {};
     for (const n of NODES) this.curtains[n] = { rect: el('rect', { x: BIN_X[n] - 4, y: BIN.y - 4, width: BIN.w + 8, height: 0, rx: 10, class: 'curtain' }, cg), h: BIN.h + 8 };
     for (const [r, [x, y, w, h]] of Object.entries(RACK_BOX)) this.curtains[r] = { rect: el('rect', { x, y, width: w, height: 0, rx: 16, class: 'curtain' }, cg), h };
+    // each node's count, over the curtains: "serves N", or "down"
+    for (const n of NODES) this.bins[n].count = txt(g, BIN_X[n] + BIN.w / 2, BIN.y + BIN.h - 14, '', 'bin-count', 'middle');
+    g = outer;
     this.dealLabel = txt(g, RACK_BOX.East[0], RACK_BOX.East[1] - 14, '', 'deal-label');
     // the bucket's grid label
     this.gridLabel = txt(g, GRID.x0 - GRID.tileW / 2, GRID.y0 - 28, `the bucket: ${NUM_VBUCKETS} vbuckets`, 'grid-label');
@@ -206,13 +213,17 @@ export class Diagram {
     for (const n of NODES) {
       const bin = this.bins[n];
       op(bin.g, f('scaffold', A.scaffold ? 1 : 0, B.scaffold ? 1 : 0));
-      // "serves N": its actives, and any replicas promoted on it; or down
-      const s = field === 'promoted' ? (q < 0.5 ? A : B) : B;
+      // "serves N": its actives, and any replicas promoted on it; or
+      // "down", once the curtain's down
+      const s = field === 'promoted' || field === 'down' ? (q < 0.5 ? A : B) : B;
       const serves = MAPS[s.map].filter((chain) => !s.down.includes(chain[0]) ? chain[0] === n : s.promoted && chain[1] === n && !s.down.includes(n)).length;
       setText(bin.count, s.down.includes(n) ? 'down' : `serves ${serves}`);
       bin.count.setAttribute('class', `bin-count${serves > 12 ? ' over' : ''}`);
       op(bin.count, f('counts', A.counts ? 1 : 0, B.counts ? 1 : 0));
     }
+    // the cluster: below the grid, till it's lifted into place
+    this.dy = f('lifted', A.lifted ? 0 : LOW_DY, B.lifted ? 0 : LOW_DY);
+    this.cluster.setAttribute('transform', `translate(0 ${this.dy.toFixed(1)})`);
     // the curtains: dropping, or rising, over what's down
     const covered = (s) => {
       const out = new Set();
@@ -244,6 +255,9 @@ export class Diagram {
     if (id === 'hero') return { p: [this.heroAt[0][0] - CHIP.w / 2 - 4, this.heroAt[0][1]], visible: true };
     if (id === 'hero.replica') return { p: [this.heroAt[1][0] - CHIP.w / 2 - 4, this.heroAt[1][1]], visible: !!(this.cur && (this.cur.state.split || this.cur.state.replicas)) };
     const a = ANCHORS[id];
-    return a ? { p: a.p, visible: true } : null;
+    if (!a) return null;
+    // (the cluster's parts: where the cluster is now)
+    const moves = /^(rack|node|count)\./.test(id);
+    return { p: [a.p[0], a.p[1] + (moves ? this.dy || 0 : 0)], visible: true };
   }
 }

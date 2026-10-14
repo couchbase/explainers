@@ -9,6 +9,8 @@
 //   scaffold  the racks and the nodes' bins are shown
 //   actives   the actives are dealt to their nodes
 //   replicas  the replicas are dealt to their nodes
+//   lifted    the cluster (racks, nodes, copies) is up in its place; till
+//             then it sits below the bucket's grid, so the two don't overlap
 //   counts    each node's "serves N" label is shown
 //   map       which deal: 'naive' or 'vbmap'
 //   down      the nodes that are down: a grey curtain drops over each
@@ -19,7 +21,7 @@
 //   ghost     a copy of the naive deal, shifted down, to compare
 
 const START = {
-  doc: true, split: false, scaffold: false, actives: false, replicas: false, counts: false,
+  doc: true, split: false, scaffold: false, actives: false, replicas: false, lifted: false, counts: false,
   map: 'naive', down: [], promoted: false, lost: false, ghost: false,
 };
 
@@ -39,6 +41,7 @@ const CHANGES = [
   ['scaffold', { scaffold: true }],
   ['naive.actives', { actives: true }],
   ['naive.replicas', { replicas: true }],
+  ['naive.lifted', { lifted: true }],
   ['naive.counts', { counts: true }],
   ...fail('naive.c', ['c']),
   ...fail('naive.east', ['a', 'b'], { lost: true }),
