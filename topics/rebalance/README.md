@@ -17,7 +17,7 @@ One set of marks, used the same way in every scene:
 |---|---|
 | rounded rect | one copy of a vbucket |
 | filled, with a small A | the active copy (serves reads and writes) |
-| thick outline, lower-right half filled, a small R | a replica |
+| thick outline, top-left half filled, a small R on it | a replica |
 | filled, with a thin dark outline | a replica promoted to active, after a failure |
 | a node's color | the vbucket's home: the node with its active copy (so a replica shows whose vbucket it backs up) |
 | the bin it's in | the node that holds that copy |

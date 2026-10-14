@@ -8,8 +8,8 @@
 // under the copies, which keep their colors.
 //
 // A copy: an active is filled, with a small A; a replica is outlined,
-// with its lower-right half filled, and a small R. Both in the color
-// of their vbucket's home node.
+// with its top-left half filled, and a small R on it. Both in the
+// color of their vbucket's home node, with the same light letter.
 
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
@@ -66,7 +66,7 @@ function makeChip(parent) {
   return {
     g,
     frame: el('rect', { x: -w, y: -h, width: CHIP.w, height: CHIP.h, rx: CHIP.rx, class: 'copy' }, g),
-    half: el('path', { d: `M${w - i},${-h + i} L${w - i},${h - i} L${-w + i},${h - i} Z`, class: 'copy-half' }, g),
+    half: el('path', { d: `M${-w + i},${-h + i} L${w - i},${-h + i} L${-w + i},${h - i} Z`, class: 'copy-half' }, g),
     letter: txt(g, 0, 0, '', 'copy-letter', 'middle'),
     x: txt(g, 0, 5.5, '×', 'lost-mark', 'middle'),
   };
@@ -82,7 +82,7 @@ function paintChip(c, { color, active, promoted = false }) {
   setText(c.letter, active ? 'A' : 'R');
   c.letter.setAttribute('x', -2.2);
   c.letter.setAttribute('y', -2.6);
-  c.letter.style.fill = active ? 'var(--panel)' : color;
+  c.letter.style.fill = 'var(--panel)';
 }
 
 // The order copies change in: only those that change, in reading

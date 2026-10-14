@@ -19,7 +19,7 @@ export const CANVAS = [0, 0, 1000, 700];
 export const CHIP = { w: 14, h: 19.6, rx: 2.5 };
 
 // the vbuckets, as a grid of tiles: 8 across
-export const GRID = { x0: 335, y0: 150, dx: 46, dy: 48, cols: 8, tileW: 22, tileH: 16 };
+export const GRID = { x0: 300, y0: 150, dx: 64, dy: 48, cols: 8, tileW: 22, tileH: 16 };
 export const tileXY = (v) => [GRID.x0 + (v % GRID.cols) * GRID.dx, GRID.y0 + Math.floor(v / GRID.cols) * GRID.dy];
 
 // racks and bins
