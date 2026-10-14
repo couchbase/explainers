@@ -71,6 +71,18 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 [hidden] { display: none !important; }
 
 .sec-neutral { --sec: var(--sec-neutral); }
+
+/* a draft: a red band across its card's top-right corner */
+.is-draft { position: relative; overflow: hidden; }
+.draft-stamp {
+  position: absolute; top: 1.1rem; right: -2.6rem; width: 9rem; transform: rotate(45deg);
+  background: #c62828; color: #fff; text-align: center;
+  font: 700 0.8rem/1.7 var(--font-body); letter-spacing: 0.18em; text-transform: uppercase;
+  pointer-events: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+/* and in the page's bottom-left corner, wherever the reader is */
+.draft-corner { position: fixed; left: 0; bottom: 0; width: 7rem; height: 7rem; overflow: hidden; pointer-events: none; z-index: 30; }
+.draft-corner .draft-stamp { top: auto; right: auto; bottom: 1.4rem; left: -2.4rem; transform: rotate(45deg); }
 /* the end card: after the last step has scrolled off, and, at the
    bottom of the page, stopped in the middle of the screen */
 .next-card { margin: 85vh 0 calc(50vh - 4.5rem); }
@@ -377,10 +389,10 @@ a.eyebrow:hover { text-decoration: underline; }
 <ol class="entries"><li class="entry card">
 <span class="num">01</span>
 <div><a class="title" href="blance/01-planning.html">Inside blance: how partitions are assigned to nodes</a><p>How blance, a library for placing partitions on nodes, decides which node gets each partition&#39;s primary and replicas: greedily, one partition at a time, and what happens when nodes join and leave.</p>
-</div></li><li class="entry card">
+</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">02</span>
 <div><a class="title" href="blance/02-moving.html">Inside blance: how a rebalance moves partitions</a><p>From one partition map to the next, while the partitions stay in use: each partition&#39;s moves, a mover per node, and a controller that keeps every node busy, one round at a time.</p>
-</div></li><li class="entry card">
+</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">03</span>
 <div><a class="title" href="blance/03-groups.html">Inside blance: server groups</a><p>Telling blance that nodes sit in racks or zones, as a tree and a rule for replicas, so a partition&#39;s copies don&#39;t all share one.</p>
 </div></li></ol>

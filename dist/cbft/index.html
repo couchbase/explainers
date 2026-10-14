@@ -71,6 +71,18 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
 [hidden] { display: none !important; }
 
 .sec-neutral { --sec: var(--sec-neutral); }
+
+/* a draft: a red band across its card's top-right corner */
+.is-draft { position: relative; overflow: hidden; }
+.draft-stamp {
+  position: absolute; top: 1.1rem; right: -2.6rem; width: 9rem; transform: rotate(45deg);
+  background: #c62828; color: #fff; text-align: center;
+  font: 700 0.8rem/1.7 var(--font-body); letter-spacing: 0.18em; text-transform: uppercase;
+  pointer-events: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+/* and in the page's bottom-left corner, wherever the reader is */
+.draft-corner { position: fixed; left: 0; bottom: 0; width: 7rem; height: 7rem; overflow: hidden; pointer-events: none; z-index: 30; }
+.draft-corner .draft-stamp { top: auto; right: auto; bottom: 1.4rem; left: -2.4rem; transform: rotate(45deg); }
 /* the end card: after the last step has scrolled off, and, at the
    bottom of the page, stopped in the middle of the screen */
 .next-card { margin: 85vh 0 calc(50vh - 4.5rem); }
