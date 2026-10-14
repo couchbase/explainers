@@ -1,0 +1,15 @@
+# Rebalance in Couchbase: where a bucket's vbuckets live, and how they
+# move when the cluster changes.
+title: "Inside rebalance: placing and moving vbuckets"
+# the short name in each explainer's header, linking up to the topic's index
+label: "rebalance"
+# for the topic's index page
+subtitle: >-
+  How Couchbase decides which servers hold each vbucket's copies, so a
+  failure never overloads one server or loses data, and how a
+  rebalance moves the copies when servers come and go.
+# its fonts (Google Fonts families), set as the engine's --font-* in style.css
+fonts:
+  - "Bricolage Grotesque:opsz,wght@12..96,500;12..96,650"
+  - "Literata:ital,opsz,wght@0,7..72,400;0,7..72,600;1,7..72,400"
+  - "JetBrains Mono:wght@400;500;600"

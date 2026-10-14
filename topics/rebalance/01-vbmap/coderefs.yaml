@@ -1,0 +1,21 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields: repo, path, anchor (a unique line),
+# extent (lines, or func), title, highlight (lines to mark, by a
+# substring).
+
+vbmap.constraints:
+  repo: vbmap
+  path: README.org
+  anchor: "* Vbucket Map Constraints"
+  extent: 25
+  title: vbmap README — the constraints a vbucket map must meet
+  highlight: ["1. Each node replicates to exactly", "3. Number of active vbuckets", "5. For each vbucket its active copy"]
+
+ns_server.invoke_vbmap:
+  repo: ns_server
+  path: apps/ns_server/src/mb_map.erl
+  anchor: "    Args0 = [\"--diag\", DiagPath,"
+  extent: 9
+  title: ns_server mb_map — calling vbmap
+  highlight: ["\"--num-slaves\"", "\"--relax-all\""]

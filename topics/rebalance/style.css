@@ -1,0 +1,72 @@
+/* The rebalance topic's look, shared by its explainers. After the
+   engine's styles, before each explainer's.
+
+   Color and icon rules (see README.md): a rounded rect is one copy of
+   a vbucket, filled if active, outlined if a replica, in the color of
+   its vbucket's home node (the one with its active copy); the bin it
+   sits in is the node that holds it. Rack East's nodes take cool hues, rack
+   West's warm ones, each far from the others. Grey is a node that's
+   down; red is only for danger (data lost, or a copy that must move);
+   the ring marks the story's vbucket. */
+:root {
+  --font-body: "Literata", Georgia, "Times New Roman", serif;
+  --font-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --bg: #f4f2ee;
+  --panel: #fdfcfa;
+  --panel-2: #f1eee8;
+  --ink: #1c1b19;
+  --muted: #66625a;
+  --line: #d8d3c8;
+  --faint: #e9e5dc;
+  --accent: #6d28d9;
+  --focus: #2563eb;
+
+  /* the nodes: East cool, West warm */
+  --node-a: #0f766e;
+  --node-b: #1d4ed8;
+  --node-e: #4d7c0f;
+  --node-c: #c2410c;
+  --node-d: #a21caf;
+  --node-f: #854d0e;
+  --node-none: #64748b;
+  --rack-east: #e3ecf3;
+  --rack-west: #f5ebe0;
+  --down: #a8a29e;
+  --down-bg: #e7e5e4;
+  --danger: #dc2626;
+  --hero: #1c1b19;
+
+  --sec-story: #6d28d9;
+  --sec-trouble: #dc2626;
+  --sec-fix: #0f766e;
+  --sec-neutral: #66625a;
+
+  --code-bg: #f1eee8;
+  --code-hl: #ede4fb;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141312; --panel: #1d1c1a; --panel-2: #181715; --ink: #ece9e3; --muted: #a39e94; --line: #3a3732; --faint: #26241f;
+    --accent: #a78bfa; --focus: #7ea6ff;
+    --node-a: #2dd4bf; --node-b: #60a5fa; --node-e: #a3e635; --node-c: #fb923c; --node-d: #e879f9; --node-f: #facc15; --node-none: #94a3b8;
+    --rack-east: #1b2630; --rack-west: #2b231b; --down: #57534e; --down-bg: #292524; --danger: #f87171; --hero: #ece9e3;
+    --sec-story: #a78bfa; --sec-trouble: #f87171; --sec-fix: #2dd4bf; --sec-neutral: #a39e94;
+    --code-bg: #181715; --code-hl: #2e2440;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141312; --panel: #1d1c1a; --panel-2: #181715; --ink: #ece9e3; --muted: #a39e94; --line: #3a3732; --faint: #26241f;
+  --accent: #a78bfa; --focus: #7ea6ff;
+  --node-a: #2dd4bf; --node-b: #60a5fa; --node-e: #a3e635; --node-c: #fb923c; --node-d: #e879f9; --node-f: #facc15; --node-none: #94a3b8;
+  --rack-east: #1b2630; --rack-west: #2b231b; --down: #57534e; --down-bg: #292524; --danger: #f87171; --hero: #ece9e3;
+  --sec-story: #a78bfa; --sec-trouble: #f87171; --sec-fix: #2dd4bf; --sec-neutral: #a39e94;
+  --code-bg: #181715; --code-hl: #2e2440;
+}
+
+/* its chapters' colors */
+.sec-story { --sec: var(--sec-story); }
+.sec-trouble { --sec: var(--sec-trouble); }
+.sec-fix { --sec: var(--sec-fix); }
+.sec-neutral { --sec: var(--sec-neutral); }

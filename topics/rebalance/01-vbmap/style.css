@@ -1,0 +1,23 @@
+/* The 01-vbmap explainer's diagram. Colors are the topic's (see
+   ../style.css and ../README.md for the rules). */
+.diagram .rack { stroke: none; }
+.diagram .rack-East { fill: var(--rack-east); }
+.diagram .rack-West { fill: var(--rack-west); }
+.diagram .rack-label { font: 600 14px var(--font-display); fill: var(--muted); }
+.diagram .bin { fill: var(--panel); stroke-width: 2; }
+.diagram .bin-down { fill: var(--down-bg); stroke: var(--down); stroke-width: 2; }
+.diagram .bin-label { font: 650 15px var(--font-display); }
+.diagram .bin-count { font: 500 13px var(--font-mono); fill: var(--ink); }
+.diagram .bin-count.over { fill: var(--danger); font-weight: 700; }
+.diagram .deal-label { font: 600 14px var(--font-display); fill: var(--ink); }
+.diagram .grid-label { font: 600 14px var(--font-display); fill: var(--muted); }
+.diagram .copy { stroke-width: 1.8; }
+.diagram .copy.promoted { stroke: var(--ink) !important; stroke-width: 1.4; }
+.diagram .lost-mark { font: 700 15px var(--font-mono); fill: var(--danger); }
+.diagram .hero-ring { fill: none; stroke: var(--hero); stroke-width: 2; }
+.diagram .hero-ring-1 { stroke-width: 1.2; stroke-dasharray: 3 2; }
+.diagram .hero-label { font: 650 12px var(--font-display); fill: var(--hero); }
+.diagram .doc { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.diagram .doc-text { font: 500 13px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .doc-line { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.diagram .doc-hash { font: 500 13px var(--font-mono); fill: var(--accent); }

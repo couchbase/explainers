@@ -1,0 +1,15 @@
+# Source repos the rebalance explainers link into, pinned to the
+# couchbase-server master checkout they were modeled on. `local` lists
+# candidate checkouts used by `npm run snippets` and the golden tools;
+# the first that exists wins ($HOME and env vars are expanded).
+# EXPLAINERS_SRC_<NAME> overrides them.
+vbmap:
+  github: https://github.com/couchbase/vbmap
+  commit: c15359c01056e099736e69d969ccfc94bb5a525c
+  local:
+    - ../couchbase-server.master/vbmap
+ns_server:
+  github: https://github.com/couchbase/ns_server
+  commit: 6c94fb43b31b6289265072f6302756ffc1a384f5
+  local:
+    - ../couchbase-server.master/ns_server

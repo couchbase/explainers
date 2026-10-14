@@ -1,0 +1,31 @@
+{
+ "vbmap.constraints": {
+  "id": "vbmap.constraints",
+  "repo": "vbmap",
+  "path": "README.org",
+  "title": "vbmap README — the constraints a vbucket map must meet",
+  "start": 1,
+  "end": 25,
+  "highlight": [
+   12,
+   14,
+   19
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/README.org#L1-L25",
+  "code": "* Vbucket Map Constraints\n\n  Input parameters:\n    - /num_nodes/ — number of nodes\n    - /num_vbuckets/ — number of vbuckets\n    - /num_replicas/ — number of replicas each vbucket has\n    - /max_slaves/ — maximum number of nodes each node replicates to\n\n  Given these input parameters, following are the constraints we try to\n  satisfy:\n\n    1. Each node replicates to exactly /max_slaves/ nodes.\n    2. Each node has replica vbuckets from exactly /max_slaves/ nodes.\n    3. Number of active vbuckets on each node is either\n       ⌊num_vbuckets / num_nodes⌋ or ⌊num_vbuckets / num_nodes⌋ + 1.\n    4. Number of replica vbuckets on each node is either\n       ⌊(num_replicas * num_vbuckets) / num_nodes⌋ or\n       ⌊(num_replicas * num_vbuckets) / num_nodes⌋ + 1.\n    5. For each vbucket its active copy and all the replica copies reside on\n       different tags (racks).\n    6. For each node for all pairs of its slaves sᵢ and sⱼ, the probability of\n       sⱼ following (potentially indirectly) sᵢ in some replica chain is\n       minimized.\n    7. For each node its slaves are spread across the tags (racks) as evenly\n       as possible."
+ },
+ "ns_server.invoke_vbmap": {
+  "id": "ns_server.invoke_vbmap",
+  "repo": "ns_server",
+  "path": "apps/ns_server/src/mb_map.erl",
+  "title": "ns_server mb_map — calling vbmap",
+  "start": 831,
+  "end": 839,
+  "highlight": [
+   835,
+   837
+  ],
+  "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/mb_map.erl#L831-L839",
+  "code": "    Args0 = [\"--diag\", DiagPath,\n             \"--output-format\", \"json\",\n             \"--num-vbuckets\", integer_to_list(NumVBuckets),\n             \"--num-nodes\", integer_to_list(NumNodes),\n             \"--num-slaves\", integer_to_list(NumSlaves),\n             \"--num-replicas\", integer_to_list(NumReplicas),\n             \"--relax-all\"] ++\n        case UseGreedy of\n            true ->"
+ }
+}
