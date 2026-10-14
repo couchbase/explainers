@@ -51,3 +51,11 @@ vbmap.buildFlowGraph:
   extent: func
   title: "vbmap buildFlowGraph() — the first flow, who replicates to whom"
   highlight: ["g.AddEdge(Source, nodeSrcV, params.NumSlaves, params.NumSlaves)", "g.AddEdge(nodeSrcV, tagV, tagCapacity, 0)"]
+
+vbmap.relax:
+  repo: vbmap
+  path: engine_maxflow.go
+  anchor: "	feasible, _ := g.FindFeasibleFlow()"
+  extent: 32
+  title: vbmap MaxFlowRIGenerator.Generate() — strict first, then relaxed, one rule at a time
+  highlight: ["relaxSlaveBalance(g, params)", "relaxReplicaBalance(g, params)", "Generated RI with "]

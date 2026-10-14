@@ -59,20 +59,20 @@ export function buildPlumbing(d, g) {
     const [x, y] = chartCellXY(LEFT.length, NODES.indexOf(r), false);
     txt(P.sums, x + CHART.cell / 2, y + 18, String(MAPS.vbmap.filter((c) => c[1] === r).length), 'chart-sum', 'middle');
   }
-  P.netCaptions = el('g', { opacity: 0 }, g);
+  P.netCaptions = el('g', { opacity: 0, 'data-net': 1 }, g);
   txt(P.netCaptions, NET.lx, NET.y0 - 40, 'actives on', 'net-caption', 'middle');
   txt(P.netCaptions, NET.rx, NET.y0 - 40, 'replicas on', 'net-caption', 'middle');
   // the threads, one per vbucket (under the copies)
   P.arcG = el('g', {}, g);
   P.arcs = {};
-  for (let v = 0; v < NUM_VBUCKETS; v++) P.arcs[v] = el('path', { class: 'thread', style: `stroke: ${nodeColor(SEAT[v].a)}`, opacity: 0 }, P.arcG);
+  for (let v = 0; v < NUM_VBUCKETS; v++) P.arcs[v] = el('path', { class: 'thread', style: `stroke: ${nodeColor(SEAT[v].a)}`, opacity: 0, 'data-net': 1 }, P.arcG);
   // the pipes: the network's edges, a full width for capacity, an inner
   // fill for the flow on it
   P.pipeG = el('g', {}, g);
   P.pipes = {};
   for (const e of EDGES) {
     const key = `${e.from}>${e.to}`, [x1, y1] = vertexXY(e.from), [x2, y2] = vertexXY(e.to);
-    const pg = el('g', { opacity: 0 }, P.pipeG);
+    const pg = el('g', { opacity: 0, 'data-net': 1 }, P.pipeG);
     const shell = el('line', { x1, y1, x2, y2, class: 'pipe', 'stroke-width': pipeW(e.cap) }, pg);
     const fill = el('line', { x1, y1, x2, y2, class: 'pipe-fill', 'stroke-width': 0 }, pg);
     const hot = el('line', { x1, y1, x2, y2, class: 'pipe-hot', 'stroke-width': pipeW(e.cap) + 6, opacity: 0 }, pg);
@@ -85,7 +85,7 @@ export function buildPlumbing(d, g) {
   P.rows = {}; P.cols = {};
   for (const n of NODES) {
     for (const store of [P.rows, P.cols]) {
-      const lg = el('g', { opacity: 0 }, g);
+      const lg = el('g', { opacity: 0, 'data-net': 1 }, g);
       const dot = el('circle', { r: 17, class: 'net-node', style: `fill: ${nodeColor(n)}` }, lg);
       const t = txt(lg, 0, 5, n, 'net-label', 'middle');
       store[n] = { g: lg, dot, t };
@@ -94,13 +94,14 @@ export function buildPlumbing(d, g) {
   // the source and the sink
   P.st = {};
   for (const [v, name] of [['S', 'source'], ['T', 'sink']]) {
-    const [x, y] = vertexXY(v), sg = el('g', { opacity: 0 }, g);
+    const [x, y] = vertexXY(v), sg = el('g', { opacity: 0, 'data-net': 1 }, g);
     el('circle', { cx: x, cy: y, r: 22, class: 'net-end' }, sg);
     txt(sg, x, y + 5, v, 'net-end-label', 'middle');
     txt(sg, x, y + 42, name, 'net-caption', 'middle');
     P.st[v] = sg;
   }
   P.flowNote = txt(g, (NET.lx + NET.rx) / 2, NET.y0 + 4 * NET.dy - 10, '', 'flow-note', 'middle');
+  P.flowNote.dataset.net = 1;
 }
 // (the hot path's glow under each pipe's fill: drawn first)
 function pg_reorder(P) { for (const p of Object.values(P.pipes)) p.g.insertBefore(p.hot, p.shell); }
@@ -108,14 +109,17 @@ function pg_reorder(P) { for (const p of Object.values(P.pipes)) p.g.insertBefor
 // From state A to B, partway (q), changing `field`.
 export function drawPlumbing(d, A, B, q, field) {
   const P = d.plumb, eq = easeQuad(q);
+  // (the network fades as one, once its story's told)
+  const netOn = field === 'network' ? lerp(A.network ? 1 : 0, B.network ? 1 : 0, eq) : B.network ? 1 : 0;
+  const op = (e, o) => e.setAttribute('opacity', clamp01(o * (e.dataset.net ? netOn : 1)).toFixed(3));
   const f = (k, va, vb) => (field === k ? lerp(va, vb, eq) : vb);
   const upA = A.chartUp, upB = B.chartUp, up = f('chartUp', upA ? 1 : 0, upB ? 1 : 0);
   const dyChart = lerp(CHART.yDown, CHART.yUp, up) - CHART.yDown;
   // the chart, till the turn
-  const chartOn = (s) => (s.chart && s.view !== 'net' ? 1 : 0);
+  const chartOn = (s) => (s.chart && s.view === 'chart' ? 1 : 0);
   op(P.chart, f(field === 'view' ? 'view' : 'chart', chartOn(A), chartOn(B)));
   P.chart.setAttribute('transform', `translate(0 ${dyChart.toFixed(1)})`);
-  const sumsOn = (s) => (s.sums && s.view !== 'net' ? 1 : 0);
+  const sumsOn = (s) => (s.sums && s.view === 'chart' ? 1 : 0);
   op(P.sums, f(field === 'view' ? 'view' : 'sums', sumsOn(A), sumsOn(B)));
   P.sums.setAttribute('transform', `translate(0 ${dyChart.toFixed(1)})`);
   // the labels: on the chart's edges, then out to the sides as the
@@ -167,7 +171,7 @@ export function drawPlumbing(d, A, B, q, field) {
   const s = q < 0.5 ? A : B, pushed = PATHS.slice(0, s.flow).reduce((t, x) => t + x.push, 0);
   setText(P.flowNote, s.flow === PATHS.length ? `total flow: ${pushed}, every pipe full` : `path ${s.flow} of ${PATHS.length}: total flow ${pushed}`);
   // (from the pipes' emptying on)
-  const noteOn = (st) => (st.key.startsWith('flow.') ? 1 : 0);
-  op(P.flowNote, field === 'flow' && A.key === 'sink' ? eq : noteOn(B));
+  const noteOn = (st) => (st.key.startsWith('flow.') || (st.key === 'beads') ? 1 : 0);
+  op(P.flowNote, field === 'flow' && A.key === 'sink' ? eq : lerp(noteOn(A), noteOn(B), eq));
   return { dyChart, net };
 }

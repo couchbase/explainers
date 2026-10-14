@@ -5,7 +5,7 @@
 
 import { STATES, STATE, statePath } from './states.js';
 import { NODES, NUM_VBUCKETS } from './layout.js';
-import { serving, vbucketOf } from '../lib/maps.js';
+import { serving, vbucketOf, RUNS } from '../lib/maps.js';
 import { MAPS, HERO_KEY, HERO } from './deals.js';
 import { EDGES, FLOW, PATHS } from './plumbing.js';
 
@@ -34,6 +34,18 @@ function facts() {
   for (const e of EDGES) if (e.from === 'S') out[`source.${e.to.slice(2)}`] = e.cap;
   PATHS.forEach((p, i) => { out[`path.${i + 1}`] = `${p.vertices.map((v) => v.replace(/^[LR]\./, '')).join(' ')} ${p.push}`; });
   out.paths = PATHS.length;
+  // act 4: five nodes, racks of 3 and 2
+  const five = ['a', 'b', 'c', 'd', 'e'], east = ['a', 'b', 'e'];
+  const count = (map, k, n) => map.filter((c) => c[k] === n).length;
+  out['uneven.serves'] = five.map((n) => `${n}${count(MAPS.uneven, 0, n)}`).join(' ');
+  out['uneven.holds'] = five.map((n) => `${n}${count(MAPS.uneven, 1, n)}`).join(' ');
+  out['uneven.east.actives'] = MAPS.uneven.filter((c) => east.includes(c[0])).length;
+  out['uneven.west.actives'] = MAPS.uneven.filter((c) => !east.includes(c[0])).length;
+  out['uneven.sameRack'] = MAPS.uneven.filter(([a, r]) => east.includes(a) === east.includes(r)).length;
+  out['uneven.hero'] = MAPS.uneven[HERO].join(',');
+  // what vbmap said it did (its diagnostics)
+  out['uneven.relaxed'] = /Generated RI with relaxed replica balance/.test(RUNS.uneven5.diag);
+  out['uneven.strictTried'] = /Trying to generate strict RI with NumSlaves=2/.test(RUNS.uneven5.diag);
   out['flow.total'] = FLOW.total;
   return out;
 }

@@ -86,5 +86,20 @@
   ],
   "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/engine_maxflow.go#L142-L178",
   "code": "func buildFlowGraph(params VbmapParams) (g *Graph) {\n\tgraphName := fmt.Sprintf(\"Flow graph for RI (%s)\", params)\n\tg = NewGraph(graphName)\n\n\ttags := params.Tags.TagsList()\n\ttagsNodes := params.Tags.TagsNodesMap()\n\n\tmaxRepsPerTag := maxReplicationsPerTag(params)\n\n\tfor _, node := range params.Nodes() {\n\t\tnodeTag := params.Tags[node]\n\t\tnodeSrcV := NodeSourceVertex(node)\n\n\t\tg.AddEdge(Source, nodeSrcV, params.NumSlaves, params.NumSlaves)\n\n\t\tfor _, tag := range tags {\n\t\t\tif tag == nodeTag {\n\t\t\t\tcontinue\n\t\t\t}\n\n\t\t\ttagNodesCount := len(tagsNodes[tag])\n\t\t\ttagCapacity := Min(tagNodesCount, maxRepsPerTag)\n\n\t\t\ttagV := TagVertex(tag)\n\t\t\tg.AddEdge(nodeSrcV, tagV, tagCapacity, 0)\n\t\t}\n\t}\n\n\tfor _, tag := range tags {\n\t\ttagNodes := tagsNodes[tag]\n\t\ttagV := TagVertex(tag)\n\n\t\tg.AddEdge(tagV, Sink, params.NumSlaves*len(tagNodes), 0)\n\t}\n\n\treturn\n}"
+ },
+ "vbmap.relax": {
+  "id": "vbmap.relax",
+  "repo": "vbmap",
+  "path": "engine_maxflow.go",
+  "title": "vbmap MaxFlowRIGenerator.Generate() — strict first, then relaxed, one rule at a time",
+  "start": 51,
+  "end": 82,
+  "highlight": [
+   54,
+   59,
+   68
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/engine_maxflow.go#L51-L82",
+  "code": "\tfeasible, _ := g.FindFeasibleFlow()\n\tif !feasible && searchParams.RelaxSlaveBalance {\n\t\tfor {\n\t\t\tif !relaxSlaveBalance(g, params) {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\tfeasible, _ = g.FindFeasibleFlow()\n\t\t\tif feasible {\n\t\t\t\tdiag.Printf(\"Generated RI with \" +\n\t\t\t\t\t\"relaxed slave balance\")\n\t\t\t\tbreak\n\t\t\t}\n\t\t}\n\t}\n\n\tif !feasible && searchParams.RelaxReplicaBalance {\n\t\tfor {\n\t\t\tif !relaxReplicaBalance(g, params) {\n\t\t\t\tbreak\n\t\t\t}\n\n\t\t\tfeasible, _ = g.FindFeasibleFlow()\n\t\t\tif feasible {\n\t\t\t\tdiag.Printf(\"Generated RI with \" +\n\t\t\t\t\t\"relaxed replica balance\")\n\t\t\t\tbreak\n\t\t\t}\n\t\t}\n\t}\n\n\tif gen.dotPath != \"\" {\n\t\terr := g.Dot(gen.dotPath, gen.dotVerbose)"
  }
 }

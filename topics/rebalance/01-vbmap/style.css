@@ -6,7 +6,7 @@
 .diagram .rack-label { font: 600 14px var(--font-display); fill: var(--muted); }
 .diagram .bin { fill: var(--panel); stroke-width: 2; }
 .diagram .bin-label { font: 650 15px var(--font-display); }
-.diagram .bin-count { font: 500 13px var(--font-mono); fill: var(--ink); }
+.diagram .bin-count { font: 500 12px var(--font-mono); fill: var(--ink); }
 .diagram .bin-count.over { fill: var(--danger); font-weight: 700; }
 .diagram .deal-label { font: 600 14px var(--font-display); fill: var(--ink); }
 .diagram .grid-label { font: 600 14px var(--font-display); fill: var(--muted); }

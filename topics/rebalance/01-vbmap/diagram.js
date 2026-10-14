@@ -15,7 +15,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import {
-  CANVAS, NODES, RACKS, NUM_VBUCKETS, CHIP, GRID, tileXY, RACK_BOX, BIN, BIN_X, binChipXY, GHOST_DY, LOW_DY, DOC, ANCHORS,
+  CANVAS, NODES, ALL_NODES, LAYOUT, NUM_VBUCKETS, CHIP, GRID, tileXY, RACK_BOX, BIN, BIN_X, binChipXY, GHOST_DY, LOW_DY, DOC, ANCHORS,
 } from './layout.js';
 import { STATE, changed } from './states.js';
 import { MAPS, HERO, HERO_KEY } from './deals.js';
@@ -30,12 +30,12 @@ for (let v = 0; v < NUM_VBUCKETS; v++) for (const k of [0, 1]) COPIES.push({ v, 
 function binSlots(map) {
   const slots = {};
   for (const k of [0, 1]) {
-    const fill = Object.fromEntries(NODES.map((n) => [n, 0]));
+    const fill = Object.fromEntries(ALL_NODES.map((n) => [n, 0]));
     map.forEach((chain, v) => { const n = chain[k]; slots[`${v}:${k}`] = [n, k, fill[n]++]; });
   }
   return slots;
 }
-const SLOTS = { naive: binSlots(MAPS.naive), vbmap: binSlots(MAPS.vbmap) };
+const SLOTS = Object.fromEntries(Object.entries(MAPS).map(([k, m]) => [k, binSlots(m)]));
 
 // A copy, as drawn in a state: where, in what color, and how.
 function look(s, { v, k, key }) {
@@ -47,7 +47,7 @@ function look(s, { v, k, key }) {
     x += k ? 8 : -8;
   } else if (dealt) {
     const [n, row, i] = SLOTS[s.map][key];
-    [x, y] = binChipXY(n, row, i);
+    [x, y] = binChipXY(s.cluster, n, row, i);
     y += s.lifted ? 0 : LOW_DY;
     node = n;
   } else {
@@ -105,7 +105,7 @@ function orderFor(field, A, B) {
   if (field === 'lifted' || field === 'chartUp') return [];
   const moving = COPIES.filter((c) => JSON.stringify(look(A, c)) !== JSON.stringify(look(B, c))).map((c) => ({ key: c.key, b: look(B, c), a: look(A, c) }));
   const at = (m) => m.b;
-  if (field === 'map') moving.sort((p, q) => NODES.indexOf(p.b.node) - NODES.indexOf(q.b.node) || p.b.y - q.b.y || p.b.x - q.b.x);
+  if (field === 'map') moving.sort((p, q) => ALL_NODES.indexOf(p.b.node) - ALL_NODES.indexOf(q.b.node) || p.b.y - q.b.y || p.b.x - q.b.x);
   else moving.sort((p, q) => at(p).y - at(q).y || at(p).x - at(q).x);
   return moving.map((m) => m.key);
 }
@@ -121,18 +121,17 @@ export class Diagram {
     // the cluster: racks, bins, curtains, counts, moved as one
     const outer = g;
     g = this.cluster = el('g', {}, outer);
+    // (their places come from the state's cluster, each frame: see _place)
     this.racks = {};
-    for (const [r, [x, y, w, h]] of Object.entries(RACK_BOX)) {
+    for (const r of Object.keys(RACK_BOX)) {
       const rg = el('g', { opacity: 0 }, g);
-      el('rect', { x, y, width: w, height: h, rx: 16, class: `rack rack-${r}` }, rg);
-      txt(rg, x + 14, y + 22, `rack ${r}`, 'rack-label');
-      this.racks[r] = rg;
+      this.racks[r] = { g: rg, box: el('rect', { y: 120, height: 230, rx: 16, class: `rack rack-${r}` }, rg), label: txt(rg, 0, 142, `rack ${r}`, 'rack-label') };
     }
     this.bins = {};
-    for (const n of NODES) {
+    for (const n of ALL_NODES) {
       const bg = el('g', { opacity: 0 }, g);
-      const box = el('rect', { x: BIN_X[n], y: BIN.y, width: BIN.w, height: BIN.h, rx: 10, class: 'bin', style: `stroke: ${nodeColor(n)}` }, bg);
-      const name = txt(bg, BIN_X[n] + 4, BIN.y - 8, `node ${n}`, 'bin-label');
+      const box = el('rect', { y: BIN.y, height: BIN.h, rx: 10, class: 'bin', style: `stroke: ${nodeColor(n)}` }, bg);
+      const name = txt(bg, 0, BIN.y - 8, `node ${n}`, 'bin-label');
       name.style.fill = nodeColor(n);
       this.bins[n] = { g: bg, box, name };
     }
@@ -140,10 +139,10 @@ export class Diagram {
     // its whole rack's
     const cg = el('g', {}, g);
     this.curtains = {};
-    for (const n of NODES) this.curtains[n] = { rect: el('rect', { x: BIN_X[n] - 4, y: BIN.y - 4, width: BIN.w + 8, height: 0, rx: 10, class: 'curtain' }, cg), h: BIN.h + 8 };
-    for (const [r, [x, y, w, h]] of Object.entries(RACK_BOX)) this.curtains[r] = { rect: el('rect', { x, y, width: w, height: 0, rx: 16, class: 'curtain' }, cg), h };
+    for (const n of ALL_NODES) this.curtains[n] = { rect: el('rect', { y: BIN.y - 4, height: 0, rx: 10, class: 'curtain' }, cg), h: BIN.h + 8 };
+    for (const r of Object.keys(RACK_BOX)) this.curtains[r] = { rect: el('rect', { y: 120, height: 0, rx: 16, class: 'curtain' }, cg), h: 230 };
     // each node's count, over the curtains: "serves N", or "down"
-    for (const n of NODES) this.bins[n].count = txt(g, BIN_X[n] + BIN.w / 2, BIN.y + BIN.h - 14, '', 'bin-count', 'middle');
+    for (const n of ALL_NODES) this.bins[n].count = txt(g, 0, BIN.y + BIN.h - 14, '', 'bin-count', 'middle');
     g = outer;
     this.dealLabel = txt(g, RACK_BOX.East[0], RACK_BOX.East[1] - 14, '', 'deal-label');
     // the bucket's grid label
@@ -167,6 +166,8 @@ export class Diagram {
     // the story's vbucket: a ring around each of its copies
     this.heroRings = [0, 1].map((k) => el('rect', { x: -CHIP.w / 2 - 4, y: -CHIP.h / 2 - 4, width: CHIP.w + 8, height: CHIP.h + 8, rx: CHIP.rx + 3, class: `hero-ring hero-ring-${k}` }, g));
     this.heroLabel = txt(g, 0, 0, `vb${HERO}`, 'hero-label');
+    // (and, on a node, its replica's name under it)
+    this.heroRepLabel = txt(g, 0, 0, `vb${HERO} replica`, 'hero-label hero-rep-label', 'middle');
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
     this.cur = null;
     this.heroAt = [[0, 0], [0, 0]];
@@ -177,9 +178,9 @@ export class Diagram {
   _buildGhost(g) {
     const G = el('g', { opacity: 0 }, g);
     for (const [r, [x, y, w, h]] of Object.entries(RACK_BOX)) el('rect', { x, y, width: w, height: h, rx: 16, class: `rack rack-${r} ghost-rack` }, G);
-    for (const n of NODES) el('rect', { x: BIN_X[n], y: BIN.y, width: BIN.w, height: BIN.h, rx: 10, class: 'bin', style: `stroke: ${nodeColor(n)}` }, G);
+    for (const n of NODES) el('rect', { x: BIN_X[n], y: BIN.y, width: LAYOUT.four.binW, height: BIN.h, rx: 10, class: 'bin', style: `stroke: ${nodeColor(n)}` }, G);
     for (const c of COPIES) {
-      const [n, row, i] = SLOTS.naive[c.key], [x, y] = binChipXY(n, row, i), chip = makeChip(G);
+      const [n, row, i] = SLOTS.naive[c.key], [x, y] = binChipXY('four', n, row, i), chip = makeChip(G);
       chip.g.setAttribute('transform', `translate(${x} ${y})`);
       paintChip(chip, { color: nodeColor(MAPS.naive[c.v][0]), active: c.k === 0 });
       op(chip.x, 0);
@@ -221,22 +222,31 @@ export class Diagram {
     op(this.heroLabel, +this.chips[`${HERO}:0`].g.getAttribute('opacity'));
     this.heroLabel.setAttribute('x', (this.heroAt[0][0] - 11).toFixed(1));
     this.heroLabel.setAttribute('y', (this.heroAt[0][1] - CHIP.h / 2 - 8).toFixed(1));
+    const onNode = (s) => (s.replicas && s.view === 'bins' && s.scaffold ? 1 : 0);
+    op(this.heroRepLabel, lerp(onNode(A), onNode(B), q) * +this.chips[`${HERO}:1`].g.getAttribute('opacity'));
+    this.heroRepLabel.setAttribute('x', this.heroAt[1][0].toFixed(1));
+    this.heroRepLabel.setAttribute('y', (this.heroAt[1][1] + CHIP.h / 2 + 13).toFixed(1));
 
     // the scaffolding: one field each
     const f = (k, va, vb) => (field === k ? lerp(va, vb, easeQuad(q)) : vb);
     op(this.doc, f('doc', A.doc ? 1 : 0, B.doc ? 1 : 0));
     op(this.gridLabel, f('actives', A.actives ? 0 : 1, B.actives ? 0 : 1));
-    for (const r of Object.keys(RACKS)) op(this.racks[r], f('scaffold', A.scaffold ? 1 : 0, B.scaffold ? 1 : 0));
-    for (const n of NODES) {
+    this._place(A, B, field === 'cluster' ? easeQuad(q) : 1);
+    for (const r of Object.keys(RACK_BOX)) op(this.racks[r].g, f('scaffold', A.scaffold ? 1 : 0, B.scaffold ? 1 : 0));
+    for (const n of ALL_NODES) {
       const bin = this.bins[n];
-      op(bin.g, f('scaffold', A.scaffold ? 1 : 0, B.scaffold ? 1 : 0));
+      const inA = LAYOUT[A.cluster].nodes.includes(n) ? 1 : 0, inB = LAYOUT[B.cluster].nodes.includes(n) ? 1 : 0;
+      op(bin.g, f('scaffold', A.scaffold ? 1 : 0, B.scaffold ? 1 : 0) * f('cluster', inA, inB));
       // "serves N": its actives, and any replicas promoted on it; or
       // "down", once the curtain's down
       const s = field === 'promoted' || field === 'down' ? (q < 0.5 ? A : B) : B;
       const serves = MAPS[s.map].filter((chain) => !s.down.includes(chain[0]) ? chain[0] === n : s.promoted && chain[1] === n && !s.down.includes(n)).length;
-      setText(bin.count, s.down.includes(n) ? 'down' : `serves ${serves}`);
-      bin.count.setAttribute('class', `bin-count${serves > 12 ? ' over' : ''}`);
-      op(bin.count, f('counts', A.counts ? 1 : 0, B.counts ? 1 : 0));
+      // (and, once asked, how many replicas it holds)
+      const sh = field === 'holds' ? (q < 0.5 ? A : B) : B;
+      const holds = MAPS[s.map].filter((chain) => chain[1] === n).length;
+      setText(bin.count, s.down.includes(n) ? 'down' : sh.holds ? `serves ${serves} · holds ${holds}` : `serves ${serves}`);
+      bin.count.setAttribute('class', `bin-count${serves > 12 || (sh.holds && holds > 8) ? ' over' : ''}`);
+      op(bin.count, f('counts', A.counts ? 1 : 0, B.counts ? 1 : 0) * f('cluster', inA, inB));
     }
     // the cluster: below the grid, till it's lifted into place
     this.dy = f('lifted', A.lifted ? 0 : LOW_DY, B.lifted ? 0 : LOW_DY);
@@ -244,8 +254,9 @@ export class Diagram {
     // the curtains: dropping, or rising, over what's down
     const covered = (s) => {
       const out = new Set();
-      for (const [r, ns] of Object.entries(RACKS)) if (ns.every((n) => s.down.includes(n))) out.add(r);
-      for (const n of s.down) if (!out.has(Object.keys(RACKS).find((r) => RACKS[r].includes(n)))) out.add(n);
+        const racks = LAYOUT[s.cluster].racks;
+      for (const [r, ns] of Object.entries(racks)) if (ns.every((n) => s.down.includes(n))) out.add(r);
+      for (const n of s.down) if (!out.has(Object.keys(racks).find((r) => racks[r].includes(n)))) out.add(n);
       return out;
     };
     const ca = covered(A), cb = covered(B);
@@ -266,6 +277,32 @@ export class Diagram {
     op(this.ghost, field === 'ghost' ? 1 : B.ghost ? 1 : 0);
   }
 
+  // The racks', bins', curtains' and counts' places: cluster A's, cluster
+  // B's, or partway between (u). A node not in a cluster sits where it
+  // will be, unseen.
+  _place(A, B, u) {
+    const La = LAYOUT[A.cluster], Lb = LAYOUT[B.cluster];
+    const at = (L, n) => L.binX[n] ?? LAYOUT.five.binX[n];
+    for (const n of ALL_NODES) {
+      const x = lerp(at(La, n), at(Lb, n), u), w = lerp(La.binW, Lb.binW, u), b = this.bins[n];
+      b.box.setAttribute('x', x.toFixed(1)); b.box.setAttribute('width', w.toFixed(1));
+      b.name.setAttribute('x', (x + 4).toFixed(1));
+      b.count.setAttribute('x', (x + w / 2).toFixed(1));
+      this.curtains[n].rect.setAttribute('x', (x - 4).toFixed(1));
+      this.curtains[n].rect.setAttribute('width', (w + 8).toFixed(1));
+      this.binAt = this.binAt || {};
+      this.binAt[n] = [x, w];
+    }
+    for (const r of Object.keys(RACK_BOX)) {
+      const [xa, , wa] = La.rack[r], [xb, , wb] = Lb.rack[r], x = lerp(xa, xb, u), w = lerp(wa, wb, u);
+      this.racks[r].box.setAttribute('x', x.toFixed(1)); this.racks[r].box.setAttribute('width', w.toFixed(1));
+      this.racks[r].label.setAttribute('x', (x + 14).toFixed(1));
+      this.curtains[r].rect.setAttribute('x', x.toFixed(1)); this.curtains[r].rect.setAttribute('width', w.toFixed(1));
+      this.rackAt = this.rackAt || {};
+      this.rackAt[r] = x;
+    }
+  }
+
   setTarget(p) {
     if (!p) { this.target.setAttribute('cx', -9999); return; }
     this.target.setAttribute('cx', p[0]);
@@ -277,8 +314,13 @@ export class Diagram {
     if (id === 'hero.replica') return { p: [this.heroAt[1][0] - CHIP.w / 2 - 4, this.heroAt[1][1]], visible: !!(this.cur && (this.cur.state.split || this.cur.state.replicas)) };
     const a = ANCHORS[id];
     if (!a) return null;
-    // (the cluster's parts: where the cluster is now)
-    const moves = /^(rack|node|count)\./.test(id);
-    return { p: [a.p[0], a.p[1] + (moves ? this.dy || 0 : 0)], visible: true };
+    // (the cluster's parts: where the cluster, and the node, are now)
+    const [kind, name] = id.split('.');
+    if (this.binAt && (kind === 'node' || kind === 'count') && this.binAt[name]) {
+      const [x, w] = this.binAt[name];
+      return { p: [kind === 'node' ? x + 6 : x + w / 2 - 40, a.p[1] + (this.dy || 0)], visible: true };
+    }
+    if (this.rackAt && kind === 'rack') return { p: [this.rackAt[name] + 10, a.p[1] + (this.dy || 0)], visible: true };
+    return { p: a.p, visible: true };
   }
 }

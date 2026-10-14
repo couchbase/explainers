@@ -381,3 +381,69 @@ chapters:
           across racks. The second, this one, decides how many
           vbuckets each such pair carries. Then vbmap picks each
           vbucket's chain from the result.
+
+  # ------------------------------------------------------------------
+  - id: uneven
+    title: "When the rules can't all hold"
+    color: trouble
+    steps:
+
+      - id: home
+        view: { at: recluster, target: rack.East }
+        text: |
+          Back to the cluster: the pipes empty back into beads, the
+          network fades, and each vbucket returns to its nodes, in
+          [[its racks]].
+
+      - id: joins
+        view: { at: e.joins, target: node.e }
+        text: |
+          Now [[node e]] joins, in rack East. Rack East has three
+          nodes; rack West, two.
+
+      - id: deal
+        view: { at: e.deal, target: node.e }
+        expect: ["fact:uneven.serves=a6 b6 c7 d7 e6", "fact:uneven.sameRack=0", "fact:uneven.hero=b,d"]
+        text: |
+          vbmap deals again, for five nodes (a real run). The actives
+          even out: [[node e]] takes 6, and every node serves 6 or 7.
+          Every replica still crosses racks. Vbucket 9 stays put, on
+          nodes b and d.
+
+      - id: holds
+        view: { at: e.holds, target: count.c }
+        expect: ["fact:uneven.holds=a5 b5 c9 d9 e4"]
+        text: |
+          But count the replicas each node holds: [[nodes c and d]]
+          hold 9 each, nodes a and b 5, and node e only 4. The two
+          nodes of rack West hold more than twice what node e does.
+
+      - id: why
+        view: { at: e.holds, target: rack.East }
+        expect: ["fact:uneven.east.actives=18", "fact:uneven.west.actives=14"]
+        text: |
+          It's arithmetic. [[Rack East]]'s nodes serve 18 vbuckets, and
+          each needs its replica outside rack East: on node c or node
+          d, 9 each. Rack West's 14 vbuckets spread their replicas over
+          three nodes: 5, 5 and 4. Copies in different racks, and
+          every node within one of the average: with racks of 3 and 2,
+          both rules can't hold.
+
+      - id: relax
+        view: { at: e.holds, target: count.d }
+        code: [vbmap.relax]
+        expect: ["fact:uneven.strictTried=true", "fact:uneven.relaxed=true"]
+        text: |
+          vbmap finds that out the plumbing way: with the rules strict,
+          no flow fits the pipes. So it relaxes them, one at a time,
+          and tries again: first how evenly nodes back each other up,
+          then how evenly replicas spread. Its diagnostics for this
+          run say so: "Generated RI with relaxed replica balance".
+          Rack safety holds; balance gives, and [[node d]] carries
+          the extra.
+
+      - id: lesson
+        text: |
+          The lesson for anyone laying out a cluster: keep racks (in
+          Couchbase, server groups) the same size, or expect the
+          smaller rack's nodes to carry more.

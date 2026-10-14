@@ -34,6 +34,10 @@
 //   sink      the sink, and the right column's pipes to it, are shown
 //   flow      how many of max-flow's paths have been pushed (all, till
 //             the pipes are emptied to show how)
+//   network   the network (its nodes, threads, pipes, source, sink) is
+//             shown, once it's built; it fades as one
+//   cluster   which nodes: 'four', or 'five' once node e joins rack East
+//   holds     each node's count says how many replicas it holds, too
 
 import { PATHS } from './plumbing.js';
 
@@ -41,6 +45,7 @@ const START = {
   doc: true, split: false, scaffold: false, actives: false, replicas: false, lifted: false, counts: false,
   map: 'naive', down: [], promoted: false, lost: false, ghost: false,
   chart: false, view: 'bins', chartUp: false, sums: false, arcs: false, rowsOut: false, colsOut: false, pipes: false, source: false, sink: false, flow: PATHS.length,
+  network: true, cluster: 'four', holds: false,
 };
 
 // nodes failing (down, then failed over), and coming back
@@ -83,6 +88,14 @@ const CHANGES = [
   ['sink', { sink: true }],
   ['flow.0', { flow: 0 }],
   ...PATHS.map((_, k) => [`flow.${k + 1}`, { flow: k + 1 }]),
+  // act 4: back to the nodes, then node e joins rack East
+  ['beads', { pipes: false }],
+  ['unnet', { network: false }],
+  ['home', { view: 'bins' }],
+  ['recluster', { scaffold: true }],
+  ['e.joins', { cluster: 'five' }],
+  ['e.deal', { map: 'uneven' }],
+  ['e.holds', { holds: true }],
 ];
 
 export const STATES = [];

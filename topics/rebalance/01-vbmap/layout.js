@@ -8,7 +8,7 @@
 import { RUNS } from '../lib/maps.js';
 
 export const NODES = RUNS.story4.nodes;
-export const RACKS = { East: ['a', 'b'], West: ['c', 'd'] };
+export const RACKS = { East: ['a', 'b', 'e'], West: ['c', 'd'] };
 export const rackOf = (n) => Object.keys(RACKS).find((r) => RACKS[r].includes(n));
 export const NUM_VBUCKETS = RUNS.story4.numVBuckets;
 
@@ -22,13 +22,36 @@ export const CHIP = { w: 14, h: 19.6, rx: 2.5 };
 export const GRID = { x0: 300, y0: 150, dx: 64, dy: 48, cols: 8, tileW: 22, tileH: 16 };
 export const tileXY = (v) => [GRID.x0 + (v % GRID.cols) * GRID.dx, GRID.y0 + Math.floor(v / GRID.cols) * GRID.dy];
 
-// racks and bins
-export const RACK_BOX = { East: [30, 120, 450, 230], West: [520, 120, 450, 230] };
-export const BIN = { w: 200, h: 140, y: 170, cols: 8, pad: 14, gap: 22 };
-export const BIN_X = { a: 50, b: 270, c: 540, d: 760 };
+// the clusters: the story's four nodes, and five once node e joins
+// rack East. Each lays out its racks left to right (East, then West),
+// each rack's bins side by side.
+export const ALL_NODES = ['a', 'b', 'c', 'd', 'e'];
+export const CLUSTERS = {
+  four: { racks: { East: ['a', 'b'], West: ['c', 'd'] }, binW: 200, gap: 22, pad: 14 },
+  five: { racks: { East: ['a', 'b', 'e'], West: ['c', 'd'] }, binW: 150, gap: 17, pad: 7 },
+};
+export const BIN = { h: 140, y: 170, cols: 8 };
+const RACK_Y = 120, RACK_H = 230;
+// a cluster's geometry: each node's bin x, each rack's box
+export const LAYOUT = Object.fromEntries(Object.entries(CLUSTERS).map(([name, c]) => {
+  const binX = {}, rack = {};
+  let x = 30;
+  for (const [r, ns] of Object.entries(c.racks)) {
+    const w = 20 + ns.length * c.binW + (ns.length - 1) * 20 + 10;
+    ns.forEach((n, i) => (binX[n] = x + 20 + i * (c.binW + 20)));
+    rack[r] = [x, RACK_Y, w, RACK_H];
+    x += w + 40;
+  }
+  return [name, { ...c, binX, rack, nodes: Object.values(c.racks).flat() }];
+}));
+export const RACK_BOX = LAYOUT.four.rack;
+export const BIN_X = LAYOUT.four.binX;
 // a copy's place in a bin: actives on the first row, replicas on the
-// second (and a third row, if a node holds more than 8 of one kind)
-export const binChipXY = (n, row, i) => [BIN_X[n] + BIN.pad + (i % BIN.cols) * BIN.gap + CHIP.w / 2, BIN.y + 36 + (row + 2 * Math.floor(i / BIN.cols)) * 25];
+// second (and any more than 8 of a kind on a third)
+export const binChipXY = (cluster, n, row, i) => {
+  const L = LAYOUT[cluster];
+  return [L.binX[n] + L.pad + (i % BIN.cols) * L.gap + CHIP.w / 2, BIN.y + 36 + (i < BIN.cols ? row : 2) * 25];
+};
 // the cluster, before it's lifted into place: below the bucket's grid
 export const LOW_DY = 230;
 // the copy of the naive deal, below
@@ -60,8 +83,10 @@ export const ANCHORS = {
   grid: { p: [GRID.x0 - 20, GRID.y0], needs: [] },
   'rack.East': { p: [RACK_BOX.East[0] + 10, RACK_BOX.East[1] + 18], needs: [] },
   'rack.West': { p: [RACK_BOX.West[0] + 10, RACK_BOX.West[1] + 18], needs: [] },
-  ...Object.fromEntries(NODES.map((n) => [`node.${n}`, { p: [BIN_X[n] + 6, BIN.y - 8], needs: [] }])),
-  ...Object.fromEntries(NODES.map((n) => [`count.${n}`, { p: [BIN_X[n] + BIN.w / 2 - 40, BIN.y + BIN.h - 16], needs: [] }])),
+  // (a node's: where it is in the four-node cluster, or for e, the five;
+  // the page moves them with the cluster)
+  ...Object.fromEntries(ALL_NODES.map((n) => { const L = n === 'e' ? LAYOUT.five : LAYOUT.four; return [`node.${n}`, { p: [L.binX[n] + 6, BIN.y - 8], needs: [] }]; })),
+  ...Object.fromEntries(ALL_NODES.map((n) => { const L = n === 'e' ? LAYOUT.five : LAYOUT.four; return [`count.${n}`, { p: [L.binX[n] + L.binW / 2 - 40, BIN.y + BIN.h - 16], needs: [] }]; })),
   ghost: { p: [RACK_BOX.East[0] + 10, RACK_BOX.East[1] + GHOST_DY - 8], needs: [] },
   'chart.title': { p: [CHART.x0 - 40, CHART.yUp - 46], needs: [] },
   'net.left': { p: [NET.lx - 26, NET.y0], needs: [] },
