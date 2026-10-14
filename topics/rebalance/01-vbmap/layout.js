@@ -15,7 +15,7 @@ export const NUM_VBUCKETS = RUNS.story4.numVBuckets;
 export const CANVAS = [0, 0, 1000, 700];
 
 // a copy: a rounded rect
-export const CHIP = { w: 16, h: 11, rx: 3 };
+export const CHIP = { w: 15, h: 19, rx: 3 };
 
 // the vbuckets, as a grid of tiles: 8 across
 export const GRID = { x0: 335, y0: 150, dx: 46, dy: 48, cols: 8, tileW: 22, tileH: 16 };
@@ -25,7 +25,7 @@ export const tileXY = (v) => [GRID.x0 + (v % GRID.cols) * GRID.dx, GRID.y0 + Mat
 export const RACK_BOX = { East: [30, 120, 450, 230], West: [520, 120, 450, 230] };
 export const BIN = { w: 200, h: 140, y: 170, cols: 10, pad: 12, gap: 18 };
 export const BIN_X = { a: 50, b: 270, c: 540, d: 760 };
-export const binChipXY = (n, i) => [BIN_X[n] + BIN.pad + (i % BIN.cols) * BIN.gap + CHIP.w / 2, BIN.y + 22 + Math.floor(i / BIN.cols) * 16];
+export const binChipXY = (n, i) => [BIN_X[n] + BIN.pad + (i % BIN.cols) * BIN.gap + CHIP.w / 2, BIN.y + 26 + Math.floor(i / BIN.cols) * 25];
 // the copy of the naive deal, below
 export const GHOST_DY = 300;
 

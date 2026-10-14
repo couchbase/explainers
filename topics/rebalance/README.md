@@ -16,14 +16,14 @@ One set of marks, used the same way in every scene:
 | Mark | Means |
 |---|---|
 | rounded rect | one copy of a vbucket |
-| filled | the active copy (serves reads and writes) |
-| outlined, white inside | a replica |
+| filled, with a small A | the active copy (serves reads and writes) |
+| thick outline, lower-right half filled, a small R | a replica |
 | filled, with a thin dark outline | a replica promoted to active, after a failure |
 | a node's color | the vbucket's home: the node with its active copy (so a replica shows whose vbucket it backs up) |
 | the bin it's in | the node that holds that copy |
 | slate | a copy not yet on any node |
-| grey | a node that's down, and the copies on it |
-| red | danger only: a vbucket lost, or a copy that must move |
+| a grey curtain | a node (or a whole rack) that's down; the copies on it sit on top, in their colors, unreachable |
+| red | danger only: a vbucket lost (a red × on its copies), a node serving far more than its share, or a copy that must move |
 | a ring | the story's vbucket (vbucket 9, from the document airline_10) |
 | tinted box | a rack: blue-grey for East, sand for West |
 
@@ -40,4 +40,5 @@ from the others, in light and dark.
   promoted, and so on. A test checks this
   (`01-vbmap/test/states.test.mjs`).
 - When many marks change, they change one after another, in reading
-  order, not all at once.
+  order, not all at once. A failure is the exception: a curtain drops
+  over everything that's down at once, as fast as a failure is.

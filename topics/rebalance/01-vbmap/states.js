@@ -11,25 +11,24 @@
 //   replicas  the replicas are dealt to their nodes
 //   counts    each node's "serves N" label is shown
 //   map       which deal: 'naive' or 'vbmap'
-//   down      the nodes that are down (their bins grey)
-//   grey      the nodes whose copies are greyed (they're unreachable)
+//   down      the nodes that are down: a grey curtain drops over each
+//             (over its whole rack, if the rack is down); their copies
+//             are unreachable, but keep their colors, on top
 //   promoted  replicas whose active is unreachable are promoted
 //   lost      vbuckets with no copy left are marked
 //   ghost     a copy of the naive deal, shifted down, to compare
 
 const START = {
   doc: true, split: false, scaffold: false, actives: false, replicas: false, counts: false,
-  map: 'naive', down: [], grey: [], promoted: false, lost: false, ghost: false,
+  map: 'naive', down: [], promoted: false, lost: false, ghost: false,
 };
 
-// a node failing, as four states, and coming back, as four more
+// nodes failing (down, then failed over), and coming back
 const fail = (prefix, nodes, { lost = false } = {}) => [
   [`${prefix}.down`, { down: nodes }],
-  [`${prefix}.grey`, { grey: nodes }],
   [`${prefix}.promoted`, { promoted: true }],
   ...(lost ? [[`${prefix}.lost`, { lost: true }], [`${prefix}.unlost`, { lost: false }]] : []),
   [`${prefix}.unpromoted`, { promoted: false }],
-  [`${prefix}.ungrey`, { grey: [] }],
   [`${prefix}.up`, { down: [] }],
 ];
 

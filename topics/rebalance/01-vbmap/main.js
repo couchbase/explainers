@@ -12,7 +12,7 @@ import { sceneAt, statePath } from './story.js';
 import { Diagram } from './diagram.js';
 
 // How much scroll a change gets: one that moves many copies, more.
-const WEIGHT = { actives: 3, replicas: 3, map: 4, split: 2, grey: 2, promoted: 2, lost: 2, ghost: 2 };
+const WEIGHT = { actives: 3, replicas: 3, map: 4, split: 2, down: 1.5, promoted: 2, lost: 2, ghost: 2 };
 const weightOf = (a, b) => WEIGHT[changed(STATE[a], STATE[b])[0]] || 1;
 // scroll per unit of weight, in vh; a step needing less plays in the
 // engine's usual transition

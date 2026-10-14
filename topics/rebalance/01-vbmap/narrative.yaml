@@ -47,10 +47,11 @@ chapters:
       - id: copies
         view: { at: split, target: hero.replica }
         text: |
-          Each vbucket has two copies: an active copy (filled), which
-          serves reads and writes, and a [[replica]] (outlined), kept
-          in step with the active copy and ready to take over. 64
-          copies in all, to place on the cluster's servers, the nodes.
+          Each vbucket has two copies: an active copy (filled, marked
+          A), which serves reads and writes, and a [[replica]] (half
+          filled, marked R), kept in step with the active copy and
+          ready to take over. 64 copies in all, to place on the
+          cluster's servers, the nodes.
 
   # ------------------------------------------------------------------
   - id: simple
@@ -70,7 +71,9 @@ chapters:
         view: { at: naive.actives, target: node.a }
         text: |
           A simple deal. First, deal the active copies out evenly:
-          8 to each node, in [[node a]]'s color, node b's, and so on.
+          8 to each node. A copy takes the color of its vbucket's home:
+          the node with its active copy. [[Node a]]'s vbuckets are
+          teal, node b's blue, and so on.
 
       - id: replicas
         view: { at: naive.replicas, target: hero.replica }
@@ -95,10 +98,11 @@ chapters:
     steps:
 
       - id: down
-        view: { at: naive.c.grey, target: node.c }
+        view: { at: naive.c.down, target: node.c }
         text: |
-          At 2 a.m., [[node c]] stops answering. Its copies are
-          unreachable (grey).
+          At 2 a.m., [[node c]] stops answering, and a grey curtain
+          drops over it. Its copies are unreachable. (They keep their
+          colors, to show whose vbuckets they are.)
 
       - id: failover
         view: { at: naive.c.promoted, target: count.d }
@@ -130,7 +134,7 @@ chapters:
     steps:
 
       - id: down
-        view: { at: naive.east.grey, target: rack.East }
+        view: { at: naive.east.down, target: rack.East }
         text: |
           Worse: a power cut takes out all of [[rack East]], nodes a
           and b together.
