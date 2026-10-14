@@ -36,7 +36,7 @@
 //             the pipes are emptied to show how)
 //   network   the network (its nodes, threads, pipes, source, sink) is
 //             shown, once it's built; it fades as one
-//   cluster   which nodes: 'four', or 'five' once node e joins rack East
+//   cluster   which nodes: 'four', or 'five' once node e joins rack West
 //   holds     each node's count says how many replicas it holds, too
 
 import { PATHS } from './plumbing.js';
@@ -67,11 +67,11 @@ const CHANGES = [
   ['naive.lifted', { lifted: true }],
   ['naive.counts', { counts: true }],
   ...fail('naive.c', ['c']),
-  ...fail('naive.east', ['a', 'b'], { lost: true }),
+  ...fail('naive.west', ['a', 'b'], { lost: true }),
   ['ghost', { ghost: true }],
   ['vbmap', { map: 'vbmap' }],
   ...fail('vbmap.c', ['c']),
-  ...fail('vbmap.east', ['a', 'b']),
+  ...fail('vbmap.west', ['a', 'b']),
   // act 3: the deal as a chart, a network, pipes, a flow
   ['unghost', { ghost: false }],
   ['chart.frame', { chart: true }],
@@ -88,7 +88,7 @@ const CHANGES = [
   ['sink', { sink: true }],
   ['flow.0', { flow: 0 }],
   ...PATHS.map((_, k) => [`flow.${k + 1}`, { flow: k + 1 }]),
-  // act 4: back to the nodes, then node e joins rack East
+  // act 4: back to the nodes, then node e joins rack West
   ['beads', { pipes: false }],
   ['unnet', { network: false }],
   ['home', { view: 'bins' }],

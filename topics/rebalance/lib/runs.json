@@ -7,10 +7,10 @@
    "d"
   ],
   "racks": [
-   "East",
-   "East",
    "West",
-   "West"
+   "West",
+   "East",
+   "East"
   ],
   "numVBuckets": 32,
   "numReplicas": 1,
@@ -157,12 +157,12 @@
    "f"
   ],
   "racks": [
-   "East",
-   "East",
    "West",
    "West",
    "East",
-   "West"
+   "East",
+   "West",
+   "East"
   ],
   "numVBuckets": 32,
   "numReplicas": 1,
@@ -308,11 +308,11 @@
    "e"
   ],
   "racks": [
-   "East",
-   "East",
    "West",
    "West",
-   "East"
+   "East",
+   "East",
+   "West"
   ],
   "numVBuckets": 32,
   "numReplicas": 1,

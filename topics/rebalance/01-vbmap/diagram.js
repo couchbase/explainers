@@ -71,10 +71,12 @@ function look(s, { v, k, key }) {
 }
 const nodeColor = (n) => (n ? `var(--node-${n})` : 'var(--node-none)');
 
-// A copy's marks: its frame, a replica's half, its letter, a lost ×.
-function makeChip(parent) {
-  const g = el('g', {}, parent), w = CHIP.w / 2, h = CHIP.h / 2, i = 1.6;
-  return {
+// A copy's marks: its frame, a replica's half, its letter, a lost ×,
+// and its vbucket's number (shown in place of its letter on hover).
+function makeChip(parent, { v, k }) {
+  const g = el('g', { class: 'chip' }, parent), w = CHIP.w / 2, h = CHIP.h / 2, i = 1.6;
+  el('title', {}, g).textContent = `vbucket ${v}, ${k ? 'replica' : 'active'}`;
+  const chip = {
     g,
     frame: el('rect', { x: -w, y: -h, width: CHIP.w, height: CHIP.h, rx: CHIP.rx, class: 'copy' }, g),
     // (all but a light corner, its legs this much of the card's sides)
@@ -82,6 +84,8 @@ function makeChip(parent) {
     letter: txt(g, 0, 0, '', 'copy-letter', 'middle'),
     x: txt(g, 0, 5.5, '×', 'lost-mark', 'middle'),
   };
+  txt(g, 0, 3, String(v), 'copy-num', 'middle');
+  return chip;
 }
 // Paints a copy: in its home's color, as an active (or a replica
 // promoted to one) or a replica.
@@ -144,7 +148,7 @@ export class Diagram {
     // each node's count, over the curtains: "serves N", or "down"
     for (const n of ALL_NODES) this.bins[n].count = txt(g, 0, BIN.y + BIN.h - 14, '', 'bin-count', 'middle');
     g = outer;
-    this.dealLabel = txt(g, RACK_BOX.East[0], RACK_BOX.East[1] - 14, '', 'deal-label');
+    this.dealLabel = txt(g, RACK_BOX.West[0], RACK_BOX.West[1] - 14, '', 'deal-label');
     // the bucket's grid label
     this.gridLabel = txt(g, GRID.x0 - GRID.tileW / 2, GRID.y0 - 28, `the bucket: ${NUM_VBUCKETS} vbuckets`, 'grid-label');
     // the document card, and its line to its vbucket
@@ -161,7 +165,7 @@ export class Diagram {
     this.chipG = el('g', {}, g);
     this.chips = {};
     for (const c of COPIES) {
-      this.chips[c.key] = makeChip(this.chipG);
+      this.chips[c.key] = makeChip(this.chipG, c);
     }
     // the story's vbucket: a ring around each of its copies
     this.heroRings = [0, 1].map((k) => el('rect', { x: -CHIP.w / 2 - 4, y: -CHIP.h / 2 - 4, width: CHIP.w + 8, height: CHIP.h + 8, rx: CHIP.rx + 3, class: `hero-ring hero-ring-${k}` }, g));
@@ -180,12 +184,12 @@ export class Diagram {
     for (const [r, [x, y, w, h]] of Object.entries(RACK_BOX)) el('rect', { x, y, width: w, height: h, rx: 16, class: `rack rack-${r} ghost-rack` }, G);
     for (const n of NODES) el('rect', { x: BIN_X[n], y: BIN.y, width: LAYOUT.four.binW, height: BIN.h, rx: 10, class: 'bin', style: `stroke: ${nodeColor(n)}` }, G);
     for (const c of COPIES) {
-      const [n, row, i] = SLOTS.naive[c.key], [x, y] = binChipXY('four', n, row, i), chip = makeChip(G);
+      const [n, row, i] = SLOTS.naive[c.key], [x, y] = binChipXY('four', n, row, i), chip = makeChip(G, c);
       chip.g.setAttribute('transform', `translate(${x} ${y})`);
       paintChip(chip, { color: nodeColor(MAPS.naive[c.v][0]), active: c.k === 0 });
       op(chip.x, 0);
     }
-    txt(G, RACK_BOX.East[0], RACK_BOX.East[1] - 14, 'the simple deal: replicas next door', 'deal-label');
+    txt(G, RACK_BOX.West[0], RACK_BOX.West[1] - 14, 'the simple deal: replicas next door', 'deal-label');
     return G;
   }
 
@@ -205,7 +209,10 @@ export class Diagram {
       const ch = this.chips[c.key];
       const x = lerp(la.x, lb.x, u), y = lerp(la.y, lb.y, u);
       ch.g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
-      op(ch.g, lerp(la.o, lb.o, u));
+      const o = lerp(la.o, lb.o, u);
+      op(ch.g, o);
+      // (an unseen copy doesn't take the hover from the one over it)
+      ch.g.style.pointerEvents = o < 0.5 ? 'none' : '';
       paintChip(ch, { color: nodeColor(s.home), active: s.filled, promoted: s.promoted });
       const xo = la.lost === lb.lost ? (la.lost ? 1 : 0) : lb.lost ? u : 1 - u;
       op(ch.x, xo);
@@ -274,7 +281,9 @@ export class Diagram {
     // the copy of the naive deal: shifted down from where it was
     const gq = field === 'ghost' ? easeQuad(q) : B.ghost ? 1 : 0;
     this.ghost.setAttribute('transform', `translate(0 ${(gq * GHOST_DY).toFixed(1)})`);
-    op(this.ghost, field === 'ghost' ? 1 : B.ghost ? 1 : 0);
+    const go = field === 'ghost' ? 1 : B.ghost ? 1 : 0;
+    op(this.ghost, go);
+    this.ghost.style.pointerEvents = go ? '' : 'none';
   }
 
   // The racks', bins', curtains' and counts' places: cluster A's, cluster

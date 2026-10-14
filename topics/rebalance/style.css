@@ -4,8 +4,8 @@
    Color and icon rules (see README.md): a rounded rect is one copy of
    a vbucket, filled if active, outlined if a replica, in the color of
    its vbucket's home node (the one with its active copy); the bin it
-   sits in is the node that holds it. Rack East's nodes take cool hues, rack
-   West's warm ones, each far from the others. Grey is a node that's
+   sits in is the node that holds it. Rack West's nodes take cool hues, rack
+   East's warm ones, each far from the others. Grey is a node that's
    down; red is only for danger (data lost, or a copy that must move);
    the ring marks the story's vbucket. */
 :root {
@@ -23,7 +23,7 @@
   --accent: #6d28d9;
   --focus: #2563eb;
 
-  /* the nodes: East cool, West warm */
+  /* the nodes: West cool, East warm */
   --node-a: #0f766e;
   --node-b: #1d4ed8;
   --node-e: #4d7c0f;
@@ -31,8 +31,8 @@
   --node-d: #a21caf;
   --node-f: #854d0e;
   --node-none: #64748b;
-  --rack-east: #e3ecf3;
-  --rack-west: #f5ebe0;
+  --rack-west: #e3ecf3;
+  --rack-east: #f5ebe0;
   --down: #a8a29e;
   --down-bg: #e7e5e4;
   --danger: #dc2626;
@@ -53,7 +53,7 @@
     --bg: #141312; --panel: #1d1c1a; --panel-2: #181715; --ink: #ece9e3; --muted: #a39e94; --line: #3a3732; --faint: #26241f;
     --accent: #a78bfa; --focus: #7ea6ff;
     --node-a: #2dd4bf; --node-b: #60a5fa; --node-e: #a3e635; --node-c: #fb923c; --node-d: #e879f9; --node-f: #facc15; --node-none: #94a3b8;
-    --rack-east: #1b2630; --rack-west: #2b231b; --down: #57534e; --down-bg: #292524; --danger: #f87171; --hero: #ece9e3;
+    --rack-west: #1b2630; --rack-east: #2b231b; --down: #57534e; --down-bg: #292524; --danger: #f87171; --hero: #ece9e3;
     --sec-story: #a78bfa; --sec-trouble: #f87171; --sec-fix: #2dd4bf; --sec-flow: #7ea6ff; --flow: #5b9fe0; --sec-neutral: #a39e94;
     --code-bg: #181715; --code-hl: #2e2440;
   }
@@ -62,7 +62,7 @@
   --bg: #141312; --panel: #1d1c1a; --panel-2: #181715; --ink: #ece9e3; --muted: #a39e94; --line: #3a3732; --faint: #26241f;
   --accent: #a78bfa; --focus: #7ea6ff;
   --node-a: #2dd4bf; --node-b: #60a5fa; --node-e: #a3e635; --node-c: #fb923c; --node-d: #e879f9; --node-f: #facc15; --node-none: #94a3b8;
-  --rack-east: #1b2630; --rack-west: #2b231b; --down: #57534e; --down-bg: #292524; --danger: #f87171; --hero: #ece9e3;
+  --rack-west: #1b2630; --rack-east: #2b231b; --down: #57534e; --down-bg: #292524; --danger: #f87171; --hero: #ece9e3;
   --sec-story: #a78bfa; --sec-trouble: #f87171; --sec-fix: #2dd4bf; --sec-flow: #7ea6ff; --flow: #5b9fe0; --sec-neutral: #a39e94;
   --code-bg: #181715; --code-hl: #2e2440;
 }

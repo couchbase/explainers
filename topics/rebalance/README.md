@@ -25,10 +25,10 @@ One set of marks, used the same way in every scene:
 | a grey curtain | a node (or a whole rack) that's down; the copies on it sit on top, in their colors, unreachable |
 | red | danger only: a vbucket lost (a red × on its copies), a node serving far more than its share, or a copy that must move |
 | a ring | the story's vbucket (vbucket 9, from the document airline_10) |
-| tinted box | a rack: blue-grey for East, sand for West |
+| tinted box | a rack: blue-grey for West, sand for East |
 
-Node colors: rack East's nodes take cool hues (a teal, b blue, e
-green), rack West's warm ones (c orange, d magenta, f brown), each far
+Node colors: rack West's nodes take cool hues (a teal, b blue, e
+green), rack East's warm ones (c orange, d magenta, f brown), each far
 from the others, in light and dark.
 
 ## Motion rules

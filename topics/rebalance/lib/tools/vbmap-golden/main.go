@@ -34,12 +34,12 @@ var cases = []struct {
 	vbuckets int
 	replicas int
 }{
-	// the story: a, b in rack East, c, d in rack West
-	{"story4", "a,b,c,d", "East,East,West,West", 32, 1},
-	// then e joins East and f joins West
-	{"story6", "a,b,c,d,e,f", "East,East,West,West,East,West", 32, 1},
-	// e alone joins East: racks of 3 and 2
-	{"uneven5", "a,b,c,d,e", "East,East,West,West,East", 32, 1},
+	// the story: a, b in rack West, c, d in rack East
+	{"story4", "a,b,c,d", "West,West,East,East", 32, 1},
+	// then e joins West and f joins East
+	{"story6", "a,b,c,d,e,f", "West,West,East,East,West,East", 32, 1},
+	// e alone joins West: racks of 3 and 2
+	{"uneven5", "a,b,c,d,e", "West,West,East,East,West", 32, 1},
 }
 
 func main() {

@@ -22,7 +22,7 @@ function facts() {
   for (const [name, map] of Object.entries(MAPS)) {
     out[`${name}.hero`] = map[HERO].join(',');
     out[`${name}.serves`] = servesText(map, []);
-    for (const [k, down] of [['c', ['c']], ['east', ['a', 'b']]]) {
+    for (const [k, down] of [['c', ['c']], ['west', ['a', 'b']]]) {
       out[`${name}.${k}.serves`] = servesText(map, down);
       out[`${name}.${k}.lost`] = serving(map, down).lost.length;
     }
@@ -35,13 +35,13 @@ function facts() {
   PATHS.forEach((p, i) => { out[`path.${i + 1}`] = `${p.vertices.map((v) => v.replace(/^[LR]\./, '')).join(' ')} ${p.push}`; });
   out.paths = PATHS.length;
   // act 4: five nodes, racks of 3 and 2
-  const five = ['a', 'b', 'c', 'd', 'e'], east = ['a', 'b', 'e'];
+  const five = ['a', 'b', 'c', 'd', 'e'], west = ['a', 'b', 'e'];
   const count = (map, k, n) => map.filter((c) => c[k] === n).length;
   out['uneven.serves'] = five.map((n) => `${n}${count(MAPS.uneven, 0, n)}`).join(' ');
   out['uneven.holds'] = five.map((n) => `${n}${count(MAPS.uneven, 1, n)}`).join(' ');
-  out['uneven.east.actives'] = MAPS.uneven.filter((c) => east.includes(c[0])).length;
-  out['uneven.west.actives'] = MAPS.uneven.filter((c) => !east.includes(c[0])).length;
-  out['uneven.sameRack'] = MAPS.uneven.filter(([a, r]) => east.includes(a) === east.includes(r)).length;
+  out['uneven.west.actives'] = MAPS.uneven.filter((c) => west.includes(c[0])).length;
+  out['uneven.east.actives'] = MAPS.uneven.filter((c) => !west.includes(c[0])).length;
+  out['uneven.sameRack'] = MAPS.uneven.filter(([a, r]) => west.includes(a) === west.includes(r)).length;
   out['uneven.hero'] = MAPS.uneven[HERO].join(',');
   // what vbmap said it did (its diagnostics)
   out['uneven.relaxed'] = /Generated RI with relaxed replica balance/.test(RUNS.uneven5.diag);

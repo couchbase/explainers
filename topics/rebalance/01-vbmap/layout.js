@@ -2,13 +2,13 @@
 // check the narrative's references (cameras, anchors) against it.
 //
 // The picture: the document card (top left); the bucket's vbuckets as
-// a grid of tiles; the racks, East (left) and West (right), each with
+// a grid of tiles; the racks, West (left) and East (right), each with
 // its nodes' bins; and below, when comparing, a copy of the naive deal.
 
 import { RUNS } from '../lib/maps.js';
 
 export const NODES = RUNS.story4.nodes;
-export const RACKS = { East: ['a', 'b', 'e'], West: ['c', 'd'] };
+export const RACKS = { West: ['a', 'b', 'e'], East: ['c', 'd'] };
 export const rackOf = (n) => Object.keys(RACKS).find((r) => RACKS[r].includes(n));
 export const NUM_VBUCKETS = RUNS.story4.numVBuckets;
 
@@ -23,12 +23,12 @@ export const GRID = { x0: 300, y0: 150, dx: 64, dy: 48, cols: 8, tileW: 22, tile
 export const tileXY = (v) => [GRID.x0 + (v % GRID.cols) * GRID.dx, GRID.y0 + Math.floor(v / GRID.cols) * GRID.dy];
 
 // the clusters: the story's four nodes, and five once node e joins
-// rack East. Each lays out its racks left to right (East, then West),
+// rack West. Each lays out its racks left to right (West, then East),
 // each rack's bins side by side.
 export const ALL_NODES = ['a', 'b', 'c', 'd', 'e'];
 export const CLUSTERS = {
-  four: { racks: { East: ['a', 'b'], West: ['c', 'd'] }, binW: 200, gap: 22, pad: 14 },
-  five: { racks: { East: ['a', 'b', 'e'], West: ['c', 'd'] }, binW: 150, gap: 17, pad: 7 },
+  four: { racks: { West: ['a', 'b'], East: ['c', 'd'] }, binW: 200, gap: 22, pad: 14 },
+  five: { racks: { West: ['a', 'b', 'e'], East: ['c', 'd'] }, binW: 150, gap: 17, pad: 7 },
 };
 export const BIN = { h: 140, y: 170, cols: 8 };
 const RACK_Y = 120, RACK_H = 230;
@@ -81,13 +81,13 @@ export const CAMERAS = {
 export const ANCHORS = {
   doc: { p: [DOC.x, DOC.y + 20], needs: [] },
   grid: { p: [GRID.x0 - 20, GRID.y0], needs: [] },
-  'rack.East': { p: [RACK_BOX.East[0] + 10, RACK_BOX.East[1] + 18], needs: [] },
   'rack.West': { p: [RACK_BOX.West[0] + 10, RACK_BOX.West[1] + 18], needs: [] },
+  'rack.East': { p: [RACK_BOX.East[0] + 10, RACK_BOX.East[1] + 18], needs: [] },
   // (a node's: where it is in the four-node cluster, or for e, the five;
   // the page moves them with the cluster)
   ...Object.fromEntries(ALL_NODES.map((n) => { const L = n === 'e' ? LAYOUT.five : LAYOUT.four; return [`node.${n}`, { p: [L.binX[n] + 6, BIN.y - 8], needs: [] }]; })),
   ...Object.fromEntries(ALL_NODES.map((n) => { const L = n === 'e' ? LAYOUT.five : LAYOUT.four; return [`count.${n}`, { p: [L.binX[n] + L.binW / 2 - 40, BIN.y + BIN.h - 16], needs: [] }]; })),
-  ghost: { p: [RACK_BOX.East[0] + 10, RACK_BOX.East[1] + GHOST_DY - 8], needs: [] },
+  ghost: { p: [RACK_BOX.West[0] + 10, RACK_BOX.West[1] + GHOST_DY - 8], needs: [] },
   'chart.title': { p: [CHART.x0 - 40, CHART.yUp - 46], needs: [] },
   'net.left': { p: [NET.lx - 26, NET.y0], needs: [] },
   'net.right': { p: [NET.rx - 26, NET.y0], needs: [] },

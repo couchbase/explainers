@@ -1,8 +1,8 @@
 /* The 01-vbmap explainer's diagram. Colors are the topic's (see
    ../style.css and ../README.md for the rules). */
 .diagram .rack { stroke: none; }
-.diagram .rack-East { fill: var(--rack-east); }
 .diagram .rack-West { fill: var(--rack-west); }
+.diagram .rack-East { fill: var(--rack-east); }
 .diagram .rack-label { font: 600 14px var(--font-display); fill: var(--muted); }
 .diagram .bin { fill: var(--panel); stroke-width: 2; }
 .diagram .bin-label { font: 650 15px var(--font-display); }
@@ -23,6 +23,10 @@
 .diagram .copy { stroke-width: 2.2; }
 .diagram .copy.replica { stroke-width: 2.4; }
 .diagram .copy-letter { font: 600 8.5px var(--font-display); pointer-events: none; }
+/* on hover, a copy shows its vbucket's number in place of its letter */
+.diagram .copy-num { font: 700 9px var(--font-mono); letter-spacing: -0.5px; fill: var(--panel); paint-order: stroke; stroke: var(--ink); stroke-width: 1.6px; pointer-events: none; visibility: hidden; }
+.diagram .chip:hover .copy-num { visibility: visible; }
+.diagram .chip:hover .copy-letter { visibility: hidden; }
 .diagram .curtain { fill: var(--down); opacity: 0.55; }
 /* act 3: the seating chart, threads, network, pipes */
 .diagram .seat { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }

@@ -60,10 +60,10 @@ chapters:
     steps:
 
       - id: cast
-        view: { at: scaffold, target: rack.East }
+        view: { at: scaffold, target: rack.West }
         text: |
           The cluster: four nodes in two racks. Nodes a and b are in
-          [[rack East]], nodes c and d in rack West. A rack shares one
+          [[rack West]], nodes c and d in rack East. A rack shares one
           power supply and one network switch, so a rack can fail all
           at once.
 
@@ -129,26 +129,26 @@ chapters:
 
   # ------------------------------------------------------------------
   - id: power
-    title: "A power cut in rack East"
+    title: "A power cut in rack West"
     color: trouble
     steps:
 
       - id: down
-        view: { at: naive.east.down, target: rack.East }
+        view: { at: naive.west.down, target: rack.West }
         text: |
-          Worse: a power cut takes out all of [[rack East]], nodes a
+          Worse: a power cut takes out all of [[rack West]], nodes a
           and b together.
 
       - id: failover
-        view: { at: naive.east.promoted, target: count.c }
-        expect: ["fact:naive.east.serves=c16 d8"]
+        view: { at: naive.west.promoted, target: count.c }
+        expect: ["fact:naive.west.serves=c16 d8"]
         text: |
           Node b's vbuckets fail over to their replicas on node c, so
           [[node c]] serves 16.
 
       - id: lost
-        view: { at: naive.east.lost, target: node.a }
-        expect: ["fact:naive.east.lost=8", "fact:naive.sameRack=16"]
+        view: { at: naive.west.lost, target: node.a }
+        expect: ["fact:naive.west.lost=8", "fact:naive.sameRack=16"]
         text: |
           But [[node a]]'s replicas were on node b, in the same rack.
           8 vbuckets lose both copies at once (red ×): their data is
@@ -156,9 +156,9 @@ chapters:
           active copy's own rack.
 
       - id: back
-        view: { at: naive.east.up, target: rack.East }
+        view: { at: naive.west.up, target: rack.West }
         text: |
-          Power returns to [[rack East]], and the story rewinds. Two
+          Power returns to [[rack West]], and the story rewinds. Two
           failures, two lessons: spread each node's replicas over
           several nodes, and never put a vbucket's copies in one rack.
 
@@ -197,18 +197,18 @@ chapters:
         text: |
           [[Node c]] rejoins.
 
-      - id: east-again
-        view: { at: vbmap.east.promoted, target: rack.West }
-        expect: ["fact:vbmap.east.serves=c16 d16", "fact:vbmap.east.lost=0"]
+      - id: west-again
+        view: { at: vbmap.west.promoted, target: rack.East }
+        expect: ["fact:vbmap.west.serves=c16 d16", "fact:vbmap.west.lost=0"]
         text: |
-          And rack East loses power again. Every one of its vbuckets
-          has a copy in [[rack West]], now promoted: nodes c and d
+          And rack West loses power again. Every one of its vbuckets
+          has a copy in [[rack East]], now promoted: nodes c and d
           serve 16 each, and no vbucket is lost.
 
-      - id: east-back
-        view: { at: vbmap.east.up, target: rack.East }
+      - id: west-back
+        view: { at: vbmap.west.up, target: rack.West }
         text: |
-          Power returns to [[rack East]].
+          Power returns to [[rack West]].
 
   # ------------------------------------------------------------------
   - id: rules
@@ -244,7 +244,7 @@ chapters:
     steps:
 
       - id: unghost
-        view: { at: unghost, target: rack.East }
+        view: { at: unghost, target: rack.West }
         text: |
           First, put the simple deal away: vbmap's deal, on top, is
           [[the one]] to look at.
@@ -298,7 +298,7 @@ chapters:
         view: { at: net, target: net.left }
         text: |
           Now turn the chart. The rows' nodes move out to the left;
-          the columns' nodes swing round to the right (rack West
+          the columns' nodes swing round to the right (rack East
           first, so the threads run in two bands). Then the threads
           pull straight, and each vbucket is a bead on a thread from
           [[its active's node]] to its replica's. The chart is a
@@ -343,13 +343,13 @@ chapters:
           How does vbmap find the flow? Empty the pipes and start from
           nothing at [[the source]]. Max-flow finds a path from source
           to sink with room left in every pipe, and pushes as much as
-          the path's narrowest pipe allows. Then it looks for another.
+          the path's narroeast pipe allows. Then it looks for another.
 
       - id: first
         view: { at: flow.1, target: pipe.ac }
         expect: ["fact:path.1=S a c T 4"]
         text: |
-          The first path: source, node a, node c, sink. The narrowest
+          The first path: source, node a, node c, sink. The narroeast
           pipe on it, [[a to c]], holds 4, so 4 units flow.
 
       - id: rest
@@ -366,7 +366,7 @@ chapters:
         code: [vbmap.AddEdge]
         text: |
           One catch: a maximum flow makes sure no pipe carries too
-          much, but the rules also need some pipes to carry at least
+          much, but the rules also need some pipes to carry at lwest
           a minimum (each node's exactly 8). vbmap handles a minimum
           with a classic trick: it pays the minimum up front, through
           an extra supply edge into the pipe's end and an extra demand
@@ -389,7 +389,7 @@ chapters:
     steps:
 
       - id: home
-        view: { at: recluster, target: rack.East }
+        view: { at: recluster, target: rack.West }
         text: |
           Back to the cluster: the pipes empty back into beads, the
           network fades, and each vbucket returns to its nodes, in
@@ -398,8 +398,8 @@ chapters:
       - id: joins
         view: { at: e.joins, target: node.e }
         text: |
-          Now [[node e]] joins, in rack East. Rack East has three
-          nodes; rack West, two.
+          Now [[node e]] joins, in rack West. Rack West has three
+          nodes; rack East, two.
 
       - id: deal
         view: { at: e.deal, target: node.e }
@@ -416,15 +416,15 @@ chapters:
         text: |
           But count the replicas each node holds: [[nodes c and d]]
           hold 9 each, nodes a and b 5, and node e only 4. The two
-          nodes of rack West hold more than twice what node e does.
+          nodes of rack East hold more than twice what node e does.
 
       - id: why
-        view: { at: e.holds, target: rack.East }
-        expect: ["fact:uneven.east.actives=18", "fact:uneven.west.actives=14"]
+        view: { at: e.holds, target: rack.West }
+        expect: ["fact:uneven.west.actives=18", "fact:uneven.east.actives=14"]
         text: |
-          It's arithmetic. [[Rack East]]'s nodes serve 18 vbuckets, and
-          each needs its replica outside rack East: on node c or node
-          d, 9 each. Rack West's 14 vbuckets spread their replicas over
+          It's arithmetic. [[Rack West]]'s nodes serve 18 vbuckets, and
+          each needs its replica outside rack West: on node c or node
+          d, 9 each. Rack East's 14 vbuckets spread their replicas over
           three nodes: 5, 5 and 4. Copies in different racks, and
           every node within one of the average: with racks of 3 and 2,
           both rules can't hold.
