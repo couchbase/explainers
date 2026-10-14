@@ -7,7 +7,7 @@
 //   npm run build          # dist/<topic>/<name>.html, and the index pages
 //   npm run dev            # rebuild on change
 
-import { readFileSync, writeFileSync, mkdirSync, watch } from 'node:fs';
+import { readFileSync, writeFileSync as writeNow, renameSync, mkdirSync, watch } from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -77,6 +77,15 @@ async function loadAll() {
 
 function escapeJsonForScript(json) {
   return json.replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+
+// Writes a file whole: to a temporary file beside it, then renamed into
+// place, so a reader (a browser, a test, a watcher's rebuild racing
+// another) never sees half of one.
+function writeFileSync(file, data) {
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeNow(tmp, data);
+  renameSync(tmp, file);
 }
 
 export async function build({ outDir = join(ROOT, 'dist') } = {}) {

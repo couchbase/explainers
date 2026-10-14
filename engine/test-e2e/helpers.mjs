@@ -1,16 +1,33 @@
 // Shared helpers for the browser tests.
 
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 
 // An explainer's built pages ('<topic>/<name>'): `shared`, the page as
 // shared (ending at the narrative's `stop`), and `file`, the one with
 // every chapter, drafts included, when there is one.
+//
+// They're read from a snapshot of dist/, taken once per test file, so a
+// rebuild while the tests run (npm run dev's, say) can't change a page
+// under a test, or hand it half of one.
+const DIST = fileURLToPath(new URL('../../dist/', import.meta.url));
+let snap = null;
+function distSnapshot() {
+  if (!snap) {
+    snap = mkdtempSync(join(tmpdir(), 'explainers-dist-'));
+    cpSync(DIST, snap, { recursive: true });
+    process.on('exit', () => rmSync(snap, { recursive: true, force: true }));
+  }
+  return snap;
+}
 export function builtPage(id) {
-  const shared = fileURLToPath(new URL(`../../dist/${id}.html`, import.meta.url));
-  const drafts = fileURLToPath(new URL(`../../dist/${id}-drafts.html`, import.meta.url));
+  assert.ok(existsSync(join(DIST, `${id}.html`)), 'run `npm run build` first');
+  const shared = join(distSnapshot(), `${id}.html`);
+  const drafts = join(distSnapshot(), `${id}-drafts.html`);
   assert.ok(existsSync(shared), 'run `npm run build` first');
   return { shared, file: existsSync(drafts) ? drafts : shared };
 }
