@@ -23,11 +23,14 @@ const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
 const COPIES = [];
 for (let v = 0; v < NUM_VBUCKETS; v++) for (const k of [0, 1]) COPIES.push({ v, k, key: `${v}:${k}` });
 
-// Each copy's place in its node's bin, in a deal: the node's actives,
-// then its replicas, each by vbucket.
+// Each copy's place in its node's bin, in a deal: its row (actives,
+// replicas) and its place in the row, by vbucket.
 function binSlots(map) {
-  const slots = {}, fill = Object.fromEntries(NODES.map((n) => [n, 0]));
-  for (const k of [0, 1]) map.forEach((chain, v) => { const n = chain[k]; slots[`${v}:${k}`] = [n, fill[n]++]; });
+  const slots = {};
+  for (const k of [0, 1]) {
+    const fill = Object.fromEntries(NODES.map((n) => [n, 0]));
+    map.forEach((chain, v) => { const n = chain[k]; slots[`${v}:${k}`] = [n, k, fill[n]++]; });
+  }
   return slots;
 }
 const SLOTS = { naive: binSlots(MAPS.naive), vbmap: binSlots(MAPS.vbmap) };
@@ -37,13 +40,14 @@ function look(s, { v, k, key }) {
   const dealt = k === 0 ? s.actives : s.replicas;
   let x, y, node = null;
   if (dealt) {
-    const [n, i] = SLOTS[s.map][key];
-    [x, y] = binChipXY(n, i);
+    const [n, row, i] = SLOTS[s.map][key];
+    [x, y] = binChipXY(n, row, i);
     y += s.lifted ? 0 : LOW_DY;
     node = n;
   } else {
     const [tx, ty] = tileXY(v);
-    x = s.split ? tx + (k ? 12 : -12) : tx;
+    // (an active stays put; its replica slides out to its right)
+    x = s.split && k ? tx + 22 : tx;
     y = ty;
   }
   const chain = MAPS[s.map][v];
@@ -164,7 +168,7 @@ export class Diagram {
     for (const [r, [x, y, w, h]] of Object.entries(RACK_BOX)) el('rect', { x, y, width: w, height: h, rx: 16, class: `rack rack-${r} ghost-rack` }, G);
     for (const n of NODES) el('rect', { x: BIN_X[n], y: BIN.y, width: BIN.w, height: BIN.h, rx: 10, class: 'bin', style: `stroke: ${nodeColor(n)}` }, G);
     for (const c of COPIES) {
-      const [n, i] = SLOTS.naive[c.key], [x, y] = binChipXY(n, i), chip = makeChip(G);
+      const [n, row, i] = SLOTS.naive[c.key], [x, y] = binChipXY(n, row, i), chip = makeChip(G);
       chip.g.setAttribute('transform', `translate(${x} ${y})`);
       paintChip(chip, { color: nodeColor(MAPS.naive[c.v][0]), active: c.k === 0 });
       op(chip.x, 0);
