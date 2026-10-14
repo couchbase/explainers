@@ -39,6 +39,13 @@ test('build emits one self-contained HTML file per narrative', async () => {
     }
     const root = readFileSync(join(out, 'index.html'), 'utf8');
     for (const w of written) assert.ok(root.includes(`href="${w.topic}/${w.name}.html"`), `index.html links ${w.topic}/${w.name}`);
+    // a draft is stamped in the indexes, and no page links it as the next to read
+    const drafts = new Set(written.filter((w) => w.draft).map((w) => `${w.topic}/${w.name}.html`));
+    for (const d of drafts) assert.match(root, new RegExp(`is-draft"><span class="draft-stamp">Draft</span>\\s*<span class="num">[^<]*</span>\\s*<div><a class="title" href="${d}"`), `${d} stamped as a draft`);
+    for (const w of written) {
+      const data = JSON.parse(readFileSync(w.file, 'utf8').match(/<script type="application\/json" id="bx-data">([\s\S]*?)<\/script>/)[1]);
+      if (data.next) assert.ok(!drafts.has(`${w.topic}/${data.next.href}`), `${w.topic}/${w.name} links the draft ${data.next.href} as next`);
+    }
   } finally {
     rmSync(out, { recursive: true, force: true });
   }

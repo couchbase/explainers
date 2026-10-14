@@ -233,6 +233,12 @@ A narrative (`narrative.yaml`) names, at the top, its `title`,
 `subtitle` and `audience`; the pinned `sources` it's modeled on (keys
 in its topic's `sources.yaml`, listed in the page's header); and
 optionally the explainer to read `next` (another in the same topic).
+
+`draft: true` marks a whole explainer as a work in progress. Its page
+and its entries in the index pages get a red DRAFT band, and no other
+explainer links to it as `next`, so the one before it ends with the
+thanks card. (This differs from a `stop` entry, below, which hides
+unfinished chapters of a published explainer.)
 Then its `chapters`, each with an `id`, a `title`, a `color` (one of
 the explainer's `SECTION_COLORS`, tying the story's headings to the
 diagram section they're about) and its `steps`. A step looks like

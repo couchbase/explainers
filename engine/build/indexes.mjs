@@ -50,7 +50,7 @@ ${css(topic)}
 
 // `ws`: the explainers, as {name, title, subtitleHtml}; links are
 // prefixed with `prefix` (the topic's directory, from the root index).
-const entries = (ws, prefix) => `<ol class="entries">${ws.map((w) => `<li class="entry card">
+const entries = (ws, prefix) => `<ol class="entries">${ws.map((w) => `<li class="entry card${w.draft ? ' is-draft' : ''}">${w.draft ? '<span class="draft-stamp">Draft</span>' : ''}
 <span class="num">${esc(w.name.match(/^\d+/)?.[0] || '·')}</span>
 <div><a class="title" href="${prefix}${w.name}.html">${esc(w.title)}</a>${w.subtitleHtml}</div></li>`).join('')}</ol>`;
 

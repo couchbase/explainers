@@ -35,7 +35,10 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
   app.append(layout, overlay);
 
   // ---- story ----
-  story.append(h('header', { class: 'hero card' },
+  // (a draft: stamped so, on its title card and in the page's corner)
+  if (narrative.draft) app.append(h('div', { class: 'draft-corner', 'aria-hidden': 'true' }, h('span', { class: 'draft-stamp', text: 'Draft' })));
+  story.append(h('header', { class: `hero card${narrative.draft ? ' is-draft' : ''}` },
+    ...(narrative.draft ? [h('span', { class: 'draft-stamp', text: 'Draft' })] : []),
     links
       ? h('a', { class: 'eyebrow', href: data.topic.href, title: `All the explainers in “${data.topic.title}”`, text: data.topic.label })
       : h('div', { class: 'eyebrow', text: data.topic.label }),

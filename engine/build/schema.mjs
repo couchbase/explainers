@@ -51,7 +51,8 @@ export function validateNarrative(n, { coderefs = {}, sources = null, file = 'na
   };
 
   if (!isObj(n)) return [`${file}: not a mapping`];
-  keys(n, ['title', 'subtitle', 'audience', 'sources', 'next', 'sim', 'chapters'], 'top');
+  keys(n, ['title', 'subtitle', 'audience', 'sources', 'next', 'draft', 'sim', 'chapters'], 'top');
+  if (n.draft !== undefined && typeof n.draft !== 'boolean') err('top', 'draft must be true or false');
   // the pinned sources it's modeled on, named in its header
   if (n.sources !== undefined && sources) checkIds(n.sources, Object.keys(sources), 'top', 'source');
   if (typeof n.title !== 'string') err('top', 'title is required');

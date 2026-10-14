@@ -5,6 +5,7 @@
 # groups. Every number in the text is checked by `expect`.
 
 sources: [blance, cbgt]
+draft: true
 title: "Inside blance: server groups"
 subtitle: >-
   Telling blance that nodes sit in racks or zones, as a tree and a rule

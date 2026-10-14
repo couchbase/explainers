@@ -81,12 +81,14 @@ function escapeJsonForScript(json) {
 
 export async function build({ outDir = join(ROOT, 'dist') } = {}) {
   const explainers = await loadAll();
-  // `next` names another explainer in the same topic
+  // `next` names another explainer in the same topic; a draft isn't
+  // linked as the next one to read
   const nextOf = (e) => {
     const n = e.narrative.next;
     if (!n) return null;
     const m = explainers.find((x) => x.topic === e.topic && x.name === n);
     if (!m) throw new Error(`${e.rel}: next "${n}" isn't an explainer in topics/${e.topic}/`);
+    if (m.narrative.draft) return null;
     return { href: `${m.name}.html`, title: m.narrative.title };
   };
 
@@ -161,7 +163,7 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
       mkdirSync(join(outDir, e.topic), { recursive: true });
       const file = join(outDir, e.topic, `${e.name}${suffix}.html`);
       writeFileSync(file, html);
-      if (!suffix) written.push({ file, bytes: html.length, topic: e.topic, name: e.name, title: n.title, subtitleHtml: data.narrative.subtitleHtml });
+      if (!suffix) written.push({ file, bytes: html.length, topic: e.topic, name: e.name, title: n.title, subtitleHtml: data.narrative.subtitleHtml, draft: !!n.draft });
     }
   }
   // The index pages: one per topic, and one over all of them.
