@@ -493,7 +493,9 @@ chapters:
           [[2 primaries and 2 replicas]].
 
       - id: in-order
-        view: { at: add.unsorted, target: row.0 }
+        view: { at: add.unsorted, panel: none, target: row.0 }
+        # (the plan done: the rows back in order, and the scores gone)
+        multi: true
         text: |
           With the plan done, [[the rows]] go back to name order, so
           we can read the next partition map partition by partition.
@@ -627,7 +629,9 @@ chapters:
           node c has 3 and 2, and node d has 2 and 3.
 
       - id: in-order
-        view: { at: remove.unsorted, target: row.0 }
+        view: { at: remove.unsorted, panel: none, target: row.0 }
+        # (the plan done: the rows back in order, and the scores gone)
+        multi: true
         text: |
           With the plan done, [[the rows]] go back to name order.
 
