@@ -4,7 +4,7 @@
 
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { NODES, PARTITIONS, STATES, SCENARIOS } from './scenarios.js';
-import { BOARD, STRIP, colX, rowY, chipX, MOVE_UNIT } from './layout.js';
+import { BOARD, STRIP, colX, rowY, chipX, MOVE_UNIT, MOVES_ZERO_Y } from './layout.js';
 import { op, boardW } from './diagram-shared.js';
 import { Diagram } from './diagram.js';
 
@@ -13,24 +13,28 @@ export class MovesPart {
 
   _buildMoves(g) {
     const M = { g: el('g', { opacity: 0 }, g), cols: {} };
+    // (its own baseline: a little higher than the scores', which make
+    // room for a two-line title)
+    const Z = MOVES_ZERO_Y;
     M.title = txt(M.g, BOARD.x0, STRIP.titleY, '', 'ptitle');
     M.note = txt(M.g, BOARD.x0, STRIP.titleY + 26, '', 'pnote');
-    M.axis = el('line', { x1: BOARD.col0, y1: STRIP.zeroY, x2: BOARD.x1, y2: STRIP.zeroY, class: 'paxis' }, M.g);
+    M.axis = el('line', { x1: BOARD.col0, y1: MOVES_ZERO_Y, x2: BOARD.x1, y2: MOVES_ZERO_Y, class: 'paxis' }, M.g);
     for (const n of NODES) {
       const x = colX(n);
       const cg = el('g', {}, M.g);
       M.cols[n] = {
         g: cg,
-        add: el('rect', { x: x - 18, width: 16, y: STRIP.zeroY, height: 0, class: 'mbar-add' }, cg),
-        del: el('rect', { x: x + 2, width: 16, y: STRIP.zeroY, height: 0, class: 'mbar-del' }, cg),
-        label: txt(cg, x, STRIP.labelY, '', 'pscore', 'middle'),
+        add: el('rect', { x: x - 18, width: 16, y: MOVES_ZERO_Y, height: 0, class: 'mbar-add' }, cg),
+        del: el('rect', { x: x + 2, width: 16, y: MOVES_ZERO_Y, height: 0, class: 'mbar-del' }, cg),
+        label: txt(cg, x, Z + 22, '', 'pscore', 'middle'),
       };
     }
-    const ky = STRIP.labelY + 42;
-    el('rect', { x: BOARD.x0, y: ky - 9, width: 14, height: 10, class: 'mbar-add' }, M.g);
-    txt(M.g, BOARD.x0 + 20, ky, 'copies built on it (add)', 'pkey');
-    el('rect', { x: BOARD.x0 + 220, y: ky - 9, width: 14, height: 10, class: 'mbar-del' }, M.g);
-    txt(M.g, BOARD.x0 + 240, ky, 'copies deleted from it (del)', 'pkey');
+    // the key, left of the bars, where there's room
+    [['mbar-add', 'copies built on it (add)'], ['mbar-del', 'copies deleted from it (del)']].forEach(([cls, label], i) => {
+      const ky = Z - 52 + i * 24;
+      el('rect', { x: BOARD.x0, y: ky - 9, width: 14, height: 10, class: cls }, M.g);
+      txt(M.g, BOARD.x0 + 20, ky, label, 'pkey');
+    });
     return M;
   }
 
@@ -64,8 +68,8 @@ export class MovesPart {
     for (const n of NODES) {
       const c = M.cols[n];
       const a = built.filter((x) => x[2] === n).length, d = deleted.filter((x) => x[2] === n).length;
-      c.add.setAttribute('y', (STRIP.zeroY - a * MOVE_UNIT).toFixed(1)); c.add.setAttribute('height', (a * MOVE_UNIT).toFixed(1));
-      c.del.setAttribute('y', (STRIP.zeroY - d * MOVE_UNIT).toFixed(1)); c.del.setAttribute('height', (d * MOVE_UNIT).toFixed(1));
+      c.add.setAttribute('y', (MOVES_ZERO_Y - a * MOVE_UNIT).toFixed(1)); c.add.setAttribute('height', (a * MOVE_UNIT).toFixed(1));
+      c.del.setAttribute('y', (MOVES_ZERO_Y - d * MOVE_UNIT).toFixed(1)); c.del.setAttribute('height', (d * MOVE_UNIT).toFixed(1));
       setText(c.label, a || d ? `+${a} −${d}` : '');
       op(c.g, colShown(n));
     }

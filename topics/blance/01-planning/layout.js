@@ -58,8 +58,10 @@ export const SORT_PANEL = { x: BOARD.x0 - 16, y: BOARD.y1 + 2, h: 290, wider: 32
 
 // ---- the panel ----
 
-// the moves, under each node: px a move
+// the moves, under each node: px a move, up from their baseline (high
+// enough for a node's 4 moves under the title and its note)
 export const MOVE_UNIT = 36;
+export const MOVES_ZERO_Y = STRIP.titleY + 190;
 
 // ---- the engine's names ----
 
