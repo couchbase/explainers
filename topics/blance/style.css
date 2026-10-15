@@ -22,6 +22,8 @@
   --replica-bg: #fdf1d8;
   --join: #2f7d32;
   --leave: #c0392b;
+  /* a sort's third rule: a partition already on a joining node */
+  --sort-rest: #7a3db8;
   --focus: #2f6fd6;
 
   --sec-map: #5a5146;
@@ -38,7 +40,7 @@
   :root:not([data-theme="light"]) {
     --bg: #15130f; --panel: #1e1b16; --panel-2: #191612; --ink: #ede6d8; --muted: #a89f8e; --line: #3a342a; --faint: #26221b;
     --accent: #f06b93; --flow: #8f8676;
-    --primary: #3bb3ad; --on-primary: #0d1716; --replica: #e6ad45; --replica-bg: #2c2414; --join: #6cc070; --leave: #ef6f61; --focus: #7ea6ff;
+    --primary: #3bb3ad; --on-primary: #0d1716; --replica: #e6ad45; --replica-bg: #2c2414; --join: #6cc070; --leave: #ef6f61; --sort-rest: #c08cf0; --focus: #7ea6ff;
     --sec-map: #b5ab98; --sec-primary: #3bb3ad; --sec-replica: #e6ad45; --sec-change: #f06b93; --sec-groups: #a99cf0; --sec-neutral: #a89f8e;
     --code-bg: #191612; --code-hl: #3a3018;
   }
@@ -46,7 +48,7 @@
 :root[data-theme="dark"] {
   --bg: #15130f; --panel: #1e1b16; --panel-2: #191612; --ink: #ede6d8; --muted: #a89f8e; --line: #3a342a; --faint: #26221b;
   --accent: #f06b93; --flow: #8f8676;
-  --primary: #3bb3ad; --on-primary: #0d1716; --replica: #e6ad45; --replica-bg: #2c2414; --join: #6cc070; --leave: #ef6f61; --focus: #7ea6ff;
+  --primary: #3bb3ad; --on-primary: #0d1716; --replica: #e6ad45; --replica-bg: #2c2414; --join: #6cc070; --leave: #ef6f61; --sort-rest: #c08cf0; --focus: #7ea6ff;
   --sec-map: #b5ab98; --sec-primary: #3bb3ad; --sec-replica: #e6ad45; --sec-change: #f06b93; --sec-groups: #a99cf0; --sec-neutral: #a89f8e;
   --code-bg: #191612; --code-hl: #3a3018;
 }

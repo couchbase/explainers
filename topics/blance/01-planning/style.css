@@ -15,7 +15,7 @@
 .diagram .bsort-tag { font: 600 9.5px var(--font-mono); }
 .diagram .bsort-g0 { fill: var(--leave); }
 .diagram .bsort-g1 { fill: var(--join); }
-.diagram .bsort-g2 { fill: var(--muted); }
+.diagram .bsort-g2 { fill: var(--sort-rest); }
 .diagram .sort-panel { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; filter: drop-shadow(0 6px 18px rgb(0 0 0 / 0.12)); }
 .diagram .sort-title { font: 600 17px var(--font-display); fill: var(--ink); }
 .diagram .sort-code { font: 600 15px var(--font-mono); fill: var(--ink); }
