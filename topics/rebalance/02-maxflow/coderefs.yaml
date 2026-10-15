@@ -1,0 +1,93 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields: repo, path, anchor (a unique line),
+# extent (lines, or func), title, highlight (lines to mark, by a
+# substring).
+
+vbmap.constraints:
+  repo: vbmap
+  path: README.org
+  anchor: "* Vbucket Map Constraints"
+  extent: 25
+  title: vbmap README — the constraints a vbucket map must meet
+  highlight: ["1. Each node replicates to exactly", "3. Number of active vbuckets", "5. For each vbucket its active copy"]
+
+ns_server.invoke_vbmap:
+  repo: ns_server
+  path: apps/ns_server/src/mb_map.erl
+  anchor: "    Args0 = [\"--diag\", DiagPath,"
+  extent: 9
+  title: ns_server mb_map — calling vbmap
+  highlight: ["\"--num-slaves\"", "\"--relax-all\""]
+
+vbmap.buildRFlowGraph:
+  repo: vbmap
+  path: vbmap_balance.go
+  anchor: "func buildRFlowGraph("
+  extent: func
+  title: vbmap buildRFlowGraph() — how many vbuckets each pair of nodes carries, as a flow graph
+  highlight: ["g.AddEdge(Source, nodeSrcV, numVbsReplicated, numVbsReplicated)", "g.AddEdge(nodeSinkV, Sink, numReplicasHi, numReplicasLo)", "vbsPerSlaveHi*elem,"]
+
+vbmap.augmentFlow:
+  repo: vbmap
+  path: graph.go
+  anchor: "func (g *Graph) augmentFlow(source, sink GraphVertex) bool {"
+  extent: func
+  title: vbmap augmentFlow() — breadth-first levels, then depth-first paths with room
+  highlight: ["g.bfsUnsaturated(source, sink)", "g.dfsPath(v, sink, &path)", "edge.pushFlow(capacity)"]
+
+vbmap.AddEdge:
+  repo: vbmap
+  path: graph.go
+  anchor: "func (g *Graph) AddEdge(src, dst GraphVertex, capacity, demand int) {"
+  extent: func
+  title: vbmap AddEdge() — a lower bound becomes a supply edge and a demand edge
+  highlight: ["capacity -= demand", "g.addDemandEdge(src, demandSink, demand)", "g.addDemandEdge(supplySource, dst, demand)"]
+
+vbmap.buildFlowGraph:
+  repo: vbmap
+  path: engine_maxflow.go
+  anchor: "func buildFlowGraph(params VbmapParams) (g *Graph) {"
+  extent: func
+  title: "vbmap buildFlowGraph() — the first flow, who replicates to whom"
+  highlight: ["g.AddEdge(Source, nodeSrcV, params.NumSlaves, params.NumSlaves)", "g.AddEdge(nodeSrcV, tagV, tagCapacity, 0)"]
+
+vbmap.relax:
+  repo: vbmap
+  path: engine_maxflow.go
+  anchor: "	feasible, _ := g.FindFeasibleFlow()"
+  extent: 32
+  title: vbmap MaxFlowRIGenerator.Generate() — strict first, then relaxed, one rule at a time
+  highlight: ["relaxSlaveBalance(g, params)", "relaxReplicaBalance(g, params)", "Generated RI with "]
+
+ns_server.simple_minimize_moves:
+  repo: ns_server
+  path: apps/ns_server/src/mb_map.erl
+  anchor: "simple_minimize_moves(Map, Chains, NumCopies, KeepNodes) ->"
+  extent: 31
+  title: ns_server simple_minimize_moves() — seat vbmap's chains on the vbuckets, in passes
+  highlight: ["lists:seq(0, NumCopies)", "lists:nthtail(Shift, A) =< lists:nthtail(Shift, B)", "genmerge(Cmp, SortedMap, SortedChains)"]
+
+ns_server.generate_map_new:
+  repo: ns_server
+  path: apps/ns_server/src/mb_map.erl
+  anchor: "    GeneratedMaps0 ="
+  extent: 20
+  title: ns_server generate_map_new() — nine maps from vbmap, scored, the cheapest kept
+  highlight: ["_ <- lists:seq(1, 3)] ||", "[misc:shuffle(KeepNodes) || _ <- lists:seq(1, 3)]", "best_map(Options, AllMaps)"]
+
+ns_server.vbucket_movements:
+  repo: ns_server
+  path: apps/ns_server/src/mb_map.erl
+  anchor: "vbucket_movements_rec(AccMasters, AccReplicas, [], []) ->"
+  extent: 21
+  title: ns_server vbucket_movements() — a map's cost, copies built from scratch, then takeovers
+  highlight: ["{AccReplicas, AccMasters}", "AccMasters+1", "Acc+1"]
+
+ns_server.moves_per_node:
+  repo: ns_server
+  path: apps/ns_server/src/ns_vbucket_mover.erl
+  anchor: "    BackfillsLimit = get_backfills_per_node(FileBasedEnabled),"
+  extent: 4
+  title: ns_server ns_vbucket_mover — the scheduler's limit on backfills per node (rebalanceMovesPerNode, 4 by default)
+  highlight: ["BackfillsLimit"]

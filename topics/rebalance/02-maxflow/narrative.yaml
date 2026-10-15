@@ -1,0 +1,534 @@
+# Kept from the first rebalance explainer as it was when it told
+# vbmap's max-flow engine (act 3's chart, network, pipes and flow):
+# ns_server uses vbmap's greedy engine by default, so 01-vbmap now
+# tells that, and this draft keeps the max-flow telling to rework.
+# Originally: how vbmap lays out a bucket's vbuckets. Told as a story about one document's vbucket: a simple
+# layout fails twice, then vbmap's layout survives the same failures.
+# No simulation: each step moves `at`, one of the diagram's states
+# (states.js), and the scroll plays every state in between, one change
+# at a time. The vbmap layouts are real: made by the vbmap tool itself
+# (../lib/tools/vbmap-golden). Every number in the text is checked by
+# `expect`.
+
+sources: [vbmap, ns_server]
+draft: true
+title: "Inside rebalance: vbmap's max-flow engine"
+subtitle: >-
+  Couchbase splits a bucket into vbuckets, and keeps each one's copies
+  on different servers. Where exactly? A simple answer fails badly;
+  vbmap's answer survives a failed server, or a whole rack, without
+  overloading anyone.
+audience: Engineers who build or run distributed systems
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: bucket
+    title: "One document, two copies"
+    color: story
+    steps:
+
+      - id: doc
+        view: { at: doc, target: doc }
+        expect: ["fact:hero.vb=9", "fact:hero.vb1024=361"]
+        text: |
+          Meet [[airline_10]], a document in a Couchbase bucket.
+          Couchbase hashes each document's key to one of the bucket's
+          vbuckets: crc32 of the key, its top 15 bits, modulo the
+          number of vbuckets. airline_10 lands in vbucket 9 (in a real
+          bucket of 1024 vbuckets, vbucket 361).
+
+      - id: vbuckets
+        view: { at: grid, target: grid }
+        expect: ["fact:vbuckets=32"]
+        text: |
+          A real bucket has 1024 vbuckets. This one has
+          [[32 vbuckets]], so each one stays visible. Every document
+          lives in exactly one vbucket. Vbucket 9 is ringed, and we'll
+          follow it throughout.
+
+      - id: copies
+        view: { at: split, target: hero.replica }
+        text: |
+          Each vbucket has two copies: an active copy (marked A),
+          which serves reads and writes, and a [[replica]] (marked R,
+          with a light corner), kept in step with the active copy and
+          ready to take over. 64 copies in all, to place on the
+          cluster's servers, the nodes.
+
+  # ------------------------------------------------------------------
+  - id: simple
+    title: "A simple deal"
+    color: story
+    steps:
+
+      - id: cast
+        view: { at: scaffold, target: rack.West }
+        text: |
+          The cluster: four nodes in two racks. Nodes a and b are in
+          [[rack West]], nodes c and d in rack East. A rack shares one
+          power supply and one network switch, so a rack can fail all
+          at once.
+
+      - id: actives
+        view: { at: naive.actives, target: node.a }
+        text: |
+          A simple deal. First, deal the active copies out evenly:
+          8 to each node. The copies' colors were their vbuckets'
+          homes all along: the node with the active copy. [[Node a]]'s
+          vbuckets are teal, node b's blue, and so on.
+
+      - id: replicas
+        view: { at: naive.replicas, target: hero.replica }
+        expect: ["fact:naive.hero=b,c"]
+        text: |
+          Then put each node's replicas on the next node over: node
+          a's on node b, node b's on node c, node c's on node d, and
+          node d's on node a. Vbucket 9 is active on node b, with its
+          [[replica]] on node c.
+
+      - id: fair
+        view: { at: naive.counts, target: count.a }
+        expect: ["fact:naive.serves=a8 b8 c8 d8"]
+        text: |
+          It looks fair: every node [[serves 8]] vbuckets and holds 8
+          replicas.
+
+  # ------------------------------------------------------------------
+  - id: c-fails
+    title: "2 a.m.: node c fails"
+    color: trouble
+    steps:
+
+      - id: down
+        view: { at: naive.c.down, target: node.c }
+        text: |
+          At 2 a.m., [[node c]] stops answering, and a grey curtain
+          drops over it. Its copies are unreachable. (They keep their
+          colors, to show whose vbuckets they are.)
+
+      - id: failover
+        view: { at: naive.c.promoted, target: count.d }
+        expect: ["fact:naive.c.serves=a8 b8 d16"]
+        text: |
+          Couchbase fails node c over: each of node c's vbuckets is
+          served by its replica instead, now promoted to active (a
+          dark outline). All 8 of those replicas are on node d, so
+          [[node d]] now serves 16, double its share, while nodes a and
+          b still serve 8.
+
+      - id: hero
+        view: { at: naive.c.promoted, target: hero.replica }
+        text: |
+          And vbucket 9? Its active copy on node b is fine, but its
+          [[replica]] was on node c. Until node c is back, vbucket 9
+          has no replica at all.
+
+      - id: back
+        view: { at: naive.c.up, target: node.c }
+        text: |
+          [[Node c]] is repaired and rejoins, and every copy returns
+          to where it was.
+
+  # ------------------------------------------------------------------
+  - id: power
+    title: "A power cut in rack West"
+    color: trouble
+    steps:
+
+      - id: down
+        view: { at: naive.west.down, target: rack.West }
+        text: |
+          Worse: a power cut takes out all of [[rack West]], nodes a
+          and b together.
+
+      - id: failover
+        view: { at: naive.west.promoted, target: count.c }
+        expect: ["fact:naive.west.serves=c16 d8"]
+        text: |
+          Node b's vbuckets fail over to their replicas on node c, so
+          [[node c]] serves 16.
+
+      - id: lost
+        view: { at: naive.west.lost, target: node.a }
+        expect: ["fact:naive.west.lost=8", "fact:naive.sameRack=16"]
+        text: |
+          But [[node a]]'s replicas were on node b, in the same rack.
+          8 vbuckets lose both copies at once (red ×): their data is
+          gone. In this deal, 16 of the 32 replicas sit in their
+          active copy's own rack.
+
+      - id: back
+        view: { at: naive.west.up, target: rack.West }
+        text: |
+          Power returns to [[rack West]], and the story rewinds. Two
+          failures, two lessons: spread each node's replicas over
+          several nodes, and never put a vbucket's copies in one rack.
+
+  # ------------------------------------------------------------------
+  - id: better
+    title: "A better deal"
+    color: fix
+    steps:
+
+      - id: compare
+        view: { at: ghost, target: ghost }
+        text: |
+          Keep [[the simple deal]] below, to compare.
+
+      - id: redeal
+        view: { at: vbmap, target: hero.replica }
+        code: [ns_server.invoke_vbmap]
+        expect: ["fact:vbmap.sameRack=0", "fact:vbmap.hero=b,d"]
+        text: |
+          Now the deal that Couchbase's cluster manager, ns_server,
+          gets from its vbmap tool. Each node keeps its 8 actives.
+          The replicas are dealt again: every replica now sits in the
+          other rack, and each node's replicas are split over both
+          nodes there. Vbucket 9's [[replica]] moves to node d.
+
+      - id: c-again
+        view: { at: vbmap.c.promoted, target: count.a }
+        expect: ["fact:vbmap.c.serves=a12 b12 d8"]
+        text: |
+          Node c fails again. Its replicas are on nodes a and b, 4
+          each, so [[node a]] and node b serve 12 each. Node d can't
+          help: it's in node c's rack. But no node doubles.
+
+      - id: c-back
+        view: { at: vbmap.c.up, target: node.c }
+        text: |
+          [[Node c]] rejoins.
+
+      - id: west-again
+        view: { at: vbmap.west.promoted, target: rack.East }
+        expect: ["fact:vbmap.west.serves=c16 d16", "fact:vbmap.west.lost=0"]
+        text: |
+          And rack West loses power again. Every one of its vbuckets
+          has a copy in [[rack East]], now promoted: nodes c and d
+          serve 16 each, and no vbucket is lost.
+
+      - id: west-back
+        view: { at: vbmap.west.up, target: rack.West }
+        text: |
+          Power returns to [[rack West]].
+
+  # ------------------------------------------------------------------
+  - id: rules
+    title: "The rules"
+    color: neutral
+    steps:
+
+      - id: rules
+        code: [vbmap.constraints]
+        text: |
+          vbmap's deal follows rules, listed in its README. In short:
+
+          - each node replicates to the same number of other nodes,
+            and is replicated to by as many;
+          - each node's actives and replicas are within one of the
+            average;
+          - a vbucket's copies are in different racks;
+          - with two or more replicas, no pair of nodes keeps
+            following each other in replica chains;
+          - each node's replicas are spread across the racks as
+            evenly as possible.
+
+      - id: how
+        text: |
+          With 4 nodes, a deal that meets them is easy to find by
+          hand. With 40 nodes in 3 racks and 1024 vbuckets, it isn't.
+          vbmap finds one by turning the deal into a plumbing problem.
+
+  # ------------------------------------------------------------------
+  - id: chart
+    title: "A seating chart"
+    color: flow
+    steps:
+
+      - id: unghost
+        view: { at: unghost, target: rack.West }
+        text: |
+          First, put the simple deal away: vbmap's deal, on top, is
+          [[the one]] to look at.
+
+      - id: frame
+        view: { at: chart.frame, target: chart.title }
+        text: |
+          Now a seating chart for the deal: a row for each node's
+          actives, a column for each node's replicas. A vbucket sits
+          at row (its active's node), column (its replica's node).
+          [[The chart]] starts empty, below the cluster.
+
+      - id: seated
+        view: { at: chart.seated, target: hero }
+        expect: ["fact:vbmap.hero=b,d"]
+        text: |
+          Each vbucket takes its seat, its two copies side by side.
+          [[Vbucket 9]], active on node b with its replica on node d,
+          sits at row b, column d.
+
+      - id: up
+        view: { at: chart.up, target: chart.title }
+        text: |
+          Everything the cluster showed is in [[the chart]] now, so
+          the chart takes the cluster's place.
+
+      - id: sums
+        view: { at: chart.sums, target: chart.title }
+        expect: ["fact:vbmap.serves=a8 b8 c8 d8", "fact:vbmap.sameRack=0"]
+        text: |
+          The rules become [[the chart's shape]]. Same-rack seats
+          (grey) stay empty. Every row holds 8 vbuckets, every node's
+          actives; every column holds 8, every node's replicas. And
+          each seat holds 4: each node splits its replicas evenly
+          over the two nodes in the other rack.
+
+  # ------------------------------------------------------------------
+  - id: turn
+    title: "Turn the chart"
+    color: flow
+    steps:
+
+      - id: threads
+        view: { at: arcs, target: hero }
+        text: |
+          Draw each vbucket as a thread: from its row's node, on the
+          left, through its seat, to its column's node, on top.
+          [[Vbucket 9]]'s thread runs from b, through its seat, to d.
+
+      - id: straight
+        view: { at: net, target: net.left }
+        text: |
+          Now turn the chart. The rows' nodes move out to the left;
+          the columns' nodes swing round to the right (rack East
+          first, so the threads run in two bands). Then the threads
+          pull straight, and each vbucket is a bead on a thread from
+          [[its active's node]] to its replica's. The chart is a
+          network: who backs up whom, and how much.
+
+      - id: pipes
+        view: { at: pipes, target: pipe.ac }
+        expect: ["fact:pipe.ac=4"]
+        text: |
+          Bundle each pair of nodes' threads into a pipe. The
+          [[pipe from a to c]] carries 4: four of node a's vbuckets
+          have their replicas on node c.
+
+  # ------------------------------------------------------------------
+  - id: flow
+    title: "Pipes and a flow"
+    color: flow
+    steps:
+
+      - id: source
+        view: { at: source, target: source }
+        code: [vbmap.buildRFlowGraph]
+        expect: ["fact:source.a=8"]
+        text: |
+          Add a [[source]], with a pipe to each node on the left that
+          carries the node's 8 actives: one unit for each replica the
+          node must place.
+
+      - id: sink
+        view: { at: sink, target: sink }
+        text: |
+          And a [[sink]], with a pipe from each node on the right that
+          takes in the 8 replicas the node holds. Finding a deal is now
+          finding a flow from source to sink that fits every pipe.
+          This is the graph vbmap builds (with one more layer, for
+          racks, that changes nothing here).
+
+      - id: empty
+        view: { at: flow.0, target: source }
+        code: [vbmap.augmentFlow]
+        text: |
+          How does vbmap find the flow? Empty the pipes and start from
+          nothing at [[the source]]. Max-flow finds a path from source
+          to sink with room left in every pipe, and pushes as much as
+          the path's narroeast pipe allows. Then it looks for another.
+
+      - id: first
+        view: { at: flow.1, target: pipe.ac }
+        expect: ["fact:path.1=S a c T 4"]
+        text: |
+          The first path: source, node a, node c, sink. The narroeast
+          pipe on it, [[a to c]], holds 4, so 4 units flow.
+
+      - id: rest
+        view: { at: flow.8, target: sink }
+        expect: ["fact:paths=8", "fact:flow.total=32"]
+        text: |
+          And again, path by path: a to d, b to c, b to d, then the
+          other way, c and d to a and b. After 8 paths every pipe is
+          full: 32 units into [[the sink]], one for each replica. No
+          path has room left, so the flow is the most the pipes can
+          carry: a maximum flow, and a deal that meets the rules.
+
+      - id: bounds
+        code: [vbmap.AddEdge]
+        text: |
+          One catch: a maximum flow makes sure no pipe carries too
+          much, but the rules also need some pipes to carry at lwest
+          a minimum (each node's exactly 8). vbmap handles a minimum
+          with a classic trick: it pays the minimum up front, through
+          an extra supply edge into the pipe's end and an extra demand
+          edge out of its start, then runs a max-flow on those. If
+          every supply edge fills, every minimum can be met.
+
+      - id: twice
+        code: [vbmap.buildFlowGraph]
+        text: |
+          And vbmap solves two of these. The first decides who backs
+          up whom: each node backs up the same number of nodes, spread
+          across racks. The second, this one, decides how many
+          vbuckets each such pair carries. Then vbmap picks each
+          vbucket's chain from the result.
+
+  # ------------------------------------------------------------------
+  - id: uneven
+    title: "When the rules can't all hold"
+    color: trouble
+    steps:
+
+      - id: home
+        view: { at: recluster, target: rack.West }
+        text: |
+          Back to the cluster: the pipes empty back into beads, the
+          network fades, and each vbucket returns to its nodes, in
+          [[its racks]].
+
+      - id: joins
+        view: { at: e.joins, target: node.e }
+        text: |
+          Now [[node e]] joins, in rack West. Rack West has three
+          nodes; rack East, two.
+
+      - id: deal
+        view: { at: e.deal, target: node.e }
+        expect: ["fact:uneven.serves=a7 b6 c7 d6 e6", "fact:uneven.sameRack=0", "fact:uneven.hero=b,c"]
+        text: |
+          vbmap deals again, for five nodes (a real run). The actives
+          even out: [[node e]] takes 6, and every node serves 6 or 7.
+          Every replica still crosses racks. Vbucket 9's active stays
+          on node b; its replica moves to node c. Each copy keeps its
+          old color, for now.
+
+      - id: recolor
+        view: { at: e.recolor, target: node.e }
+        expect: ["fact:uneven.rehomed=14", "fact:uneven.e.from=d"]
+        text: |
+          Node e's 6 actives were node d's. And d took some of c's, c
+          some of b's, b one of a's: 14 vbuckets have a new home. To
+          keep them easy to follow from here on, each copy now takes
+          its new home's color: [[node e]]'s, green.
+
+      - id: holds
+        view: { at: e.holds, target: count.c }
+        expect: ["fact:uneven.holds=a5 b4 c10 d9 e4"]
+        text: |
+          But count the replicas each node holds: [[nodes c and d]]
+          hold 10 and 9, node a 5, and nodes b and e only 4. The two
+          nodes of rack East hold more than twice what nodes b and e
+          do.
+
+      - id: why
+        view: { at: e.holds, target: rack.West }
+        expect: ["fact:uneven.west.actives=19", "fact:uneven.east.actives=13"]
+        text: |
+          It's arithmetic. [[Rack West]]'s nodes serve 19 vbuckets, and
+          each needs its replica outside rack West: on node c or node
+          d, 10 and 9. Rack East's 13 vbuckets spread their replicas
+          over three nodes: 5, 4 and 4. Copies in different racks, and
+          every node within one of the average: with racks of 3 and 2,
+          both rules can't hold.
+
+      - id: relax
+        view: { at: e.holds, target: count.c }
+        code: [vbmap.relax]
+        expect: ["fact:uneven.strictTried=true", "fact:uneven.relaxed=true"]
+        text: |
+          vbmap finds that out the plumbing way: with the rules strict,
+          no flow fits the pipes. So it relaxes them, one at a time,
+          and tries again: first how evenly nodes back each other up,
+          then how evenly replicas spread. Its diagnostics for this
+          run say so: "Generated RI with relaxed replica balance".
+          Rack safety holds; balance gives, and [[node c]] and node d
+          carry the extra.
+
+      - id: lesson
+        text: |
+          The lesson for anyone laying out a cluster: keep racks (in
+          Couchbase, server groups) the same size, or expect the
+          smaller rack's nodes to carry more.
+
+  # ------------------------------------------------------------------
+  - id: rebalance
+    title: "Node f joins: a rebalance"
+    color: fix
+    steps:
+
+      - id: f-joins
+        view: { at: f.joins, target: node.f }
+        text: |
+          So take the lesson: [[node f]] joins rack East, and the racks
+          are 3 and 3. A rebalance moves the cluster from the map it
+          has to a new map for six nodes.
+
+      - id: dealt
+        view: { at: six.dealt, target: node.f }
+        expect: ["fact:six.dealt=40,27", "fact:six.dealt.land=a8 b8 c3 d3 e7 f11"]
+        text: |
+          ns_server asks vbmap for a six-node map. vbmap doesn't look at
+          the map the cluster has: it deals from scratch. Taken as it
+          comes, vbucket by vbucket, its map would build 40 copies from
+          scratch (edged in red), on [[every node]], not just node f,
+          and move 27 actives. Each copy keeps the color of the node
+          its vbucket was on.
+
+      - id: seated
+        view: { at: six.seated, target: node.f }
+        code: [ns_server.simple_minimize_moves]
+        expect: ["fact:six.seated=14,9", "fact:six.land=a1 b1 c0 d0 e1 f11", "fact:six.hero=b,f"]
+        text: |
+          But what vbmap gives is a set of chains (an active's node, a
+          replica's node), and which vbucket gets which chain is free.
+          ns_server's simple_minimize_moves() seats them in passes: a
+          vbucket whose chain is among the new ones keeps it; then a
+          vbucket whose replica heads a new chain takes that one; then
+          the rest. The same chains, so the same counts; now 14 copies
+          to build, and 9 takeovers. Vbucket 9's replica is one of the
+          14: it moves from node c to [[node f]].
+
+      - id: tries
+        view: { at: six.tries, target: tries }
+        code: [ns_server.generate_map_new, ns_server.vbucket_movements]
+        expect: ["fact:six.tries=9", "fact:six.best=fcaedb 1", "fact:six.dealt.range=34-47", "fact:six.seated.range=14-18"]
+        text: |
+          ns_server doesn't ask just once. It shuffles the node order
+          three times, and asks vbmap three times for each: nine maps.
+          As dealt, they'd build 34 to 47 copies from scratch; seated,
+          14 to 18. It keeps [[the cheapest]], by copies to build, then
+          by takeovers: the map above. (These nine are real vbmap runs,
+          with seeds 1 to 3; ns_server's are random.)
+
+      - id: lands
+        view: { at: six.tries, target: count.f }
+        expect: ["fact:six.serves=a6 b5 c5 d6 e5 f5", "fact:six.holds=a6 b5 c5 d5 e5 f6", "fact:six.sameRack=0"]
+        text: |
+          Where the 14 land: 11 on [[node f]], the new node, and one
+          each on nodes a, b and e. The balance is back: every node
+          serves 5 or 6 vbuckets and holds 5 or 6 replicas, and every
+          replica still crosses racks. Nodes c and d, which held 10 and
+          9 replicas, now hold 5 each.
+
+      - id: next
+        code: [ns_server.moves_per_node]
+        text: |
+          But copies don't teleport. Each red-edged copy is a backfill:
+          its vbucket's data, streamed from the active copy while the
+          cluster keeps serving. ns_server moves vbuckets a few at a
+          time, at most 4 into or out of any one node at once (by
+          default), so node f's 11 wait their turn. How those moves are
+          scheduled, and how an active copy hands over without losing a
+          write, is a story for another explainer.
