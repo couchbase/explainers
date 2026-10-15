@@ -53,7 +53,10 @@ export class SortPart {
         op(l.g, counts[i] ? 1 : 0.4);
       });
     }
-    P.box.setAttribute('width', ((this.boardW || BOARD.x1 - BOARD.x0 + 10) + SORT_PANEL.wider).toFixed(1));
+    // (as wide as the board and a bit, or as its widest line, if wider)
+    let w = (this.boardW || BOARD.x1 - BOARD.x0 + 10) + SORT_PANEL.wider;
+    if (po > 0) for (const t of P.g.querySelectorAll('text')) w = Math.max(w, t.getBBox().x + t.getComputedTextLength() - SORT_PANEL.x + 28);
+    P.box.setAttribute('width', w.toFixed(1));
     P.g.setAttribute('transform', `translate(0 ${((1 - po) * 10).toFixed(1)})`);
     op(P.g, po);
     // (and while it's up, what's under it goes: the tallies, and the
