@@ -46,12 +46,32 @@ export function builtPage(id) {
 // (handleSIGTERM: false, so the test runner's SIGTERM, at a timeout,
 // ends a test file's process rather than starting a close that may not
 // finish.)
+//
+// (Now and then Chrome's launch itself never finishes, and Playwright
+// waits 3 minutes for it: so each try gets 30s, and there are 3.)
 export async function launch() {
+  for (let tries = 1; ; tries++) {
+    try {
+      return await launchOnce();
+    } catch (e) {
+      if (tries >= 3) throw e;
+    }
+  }
+}
+
+async function launchOnce() {
   const server = await chromium.launchServer({
     ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' }),
     handleSIGTERM: false,
+    timeout: 30000,
   });
-  const browser = await chromium.connect(server.wsEndpoint());
+  let browser;
+  try {
+    browser = await chromium.connect(server.wsEndpoint(), { timeout: 30000 });
+  } catch (e) {
+    await server.kill().catch(() => {});
+    throw e;
+  }
   const disconnect = browser.close.bind(browser);
   let closing = null;
   browser.close = () => (closing ??= (async () => {
@@ -123,7 +143,9 @@ export async function openPage(browser, { viewport = DESKTOP, scheme = 'light', 
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.goto('file://' + which + (debug ? '?debug=1' : '') + (hash ? '#' + hash : ''));
+  // (a busy machine can take a while for a first load: more than
+  // Playwright's 30s, less than a test's 180)
+  await page.goto('file://' + which + (debug ? '?debug=1' : '') + (hash ? '#' + hash : ''), { timeout: 90000 });
   await page.waitForFunction(() => window.explainer && window.explainer.ctl.current >= 0);
   return { page, errors };
 }
