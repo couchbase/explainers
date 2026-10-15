@@ -1,7 +1,8 @@
 // Shared helpers for the browser tests.
 
 import assert from 'node:assert/strict';
-import { existsSync, cpSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, cpSync, mkdtempSync, rmSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -80,8 +81,45 @@ export const DESKTOP = { width: 1600, height: 1000 };
 
 // Opens the page (optionally at #hash) and waits for the explainer to
 // be ready. Collects page errors and console errors in `errors`.
+// The pages' web fonts (Google Fonts' stylesheets and font files), from
+// a cache in tmp/font-cache, filled the first time they're fetched: so
+// the tests see the real fonts (their text widths count) without the
+// network, once they've run online. Offline with nothing cached, a
+// stylesheet is empty, so its fonts aren't fetched (the text falls back
+// to the pages' local fonts) and nothing fails or waits. (E2E_OFFLINE=1
+// acts offline, to check that.)
+const FONT_CACHE = fileURLToPath(new URL('../../tmp/font-cache/', import.meta.url));
+async function useFontCache(page) {
+  await page.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, async (route) => {
+    const url = route.request().url();
+    const file = join(FONT_CACHE, createHash('sha1').update(url).digest('hex'));
+    if (!process.env.E2E_OFFLINE && existsSync(file) && existsSync(`${file}.type`)) {
+      return route.fulfill({ status: 200, body: readFileSync(file), headers: { 'content-type': readFileSync(`${file}.type`, 'utf8'), 'access-control-allow-origin': '*' } });
+    }
+    try {
+      if (process.env.E2E_OFFLINE) throw new Error('offline');
+      const res = await route.fetch({ timeout: 10000 });
+      const body = await res.body();
+      if (res.ok()) {
+        mkdirSync(FONT_CACHE, { recursive: true });
+        // (written whole, then renamed: test files run at once)
+        const tmp = `${file}.${process.pid}`;
+        writeFileSync(tmp, body);
+        writeFileSync(`${tmp}.type`, res.headers()['content-type'] || '');
+        renameSync(`${tmp}.type`, `${file}.type`);
+        renameSync(tmp, file);
+      }
+      return route.fulfill({ response: res, body });
+    } catch {
+      // (offline: an empty stylesheet asks for no font files)
+      return route.fulfill({ status: 200, body: '', headers: { 'content-type': url.includes('googleapis') ? 'text/css' : 'font/woff2', 'access-control-allow-origin': '*' } });
+    }
+  });
+}
+
 export async function openPage(browser, { viewport = DESKTOP, scheme = 'light', hash = '', debug = true, page: which } = {}) {
   const page = await browser.newPage({ viewport, colorScheme: scheme });
+  await useFontCache(page);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
