@@ -32,13 +32,16 @@ export class BoardPart {
     // each, while a pass is on, its group in the pass's sort)
     this.rowRects = [];
     this.rowLabels = {};
+    // (all the stripes first, so none is over a label that moves onto it)
     for (const p of PARTITIONS) {
-      const y = rowY(p);
-      if (PARTITIONS.indexOf(p) % 2 === 0) this.rowRects.push(el('rect', { x: BOARD.x0, y: y - BOARD.rowH / 2, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, class: 'brow' }, g));
+      if (PARTITIONS.indexOf(p) % 2 === 0) this.rowRects.push(el('rect', { x: BOARD.x0, y: rowY(p) - BOARD.rowH / 2, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, class: 'brow' }, g));
+    }
+    for (const p of PARTITIONS) {
       const lg = el('g', {}, g);
       txt(lg, BOARD.labelX, 5, `partition ${p}`, 'brow-label');
-      const tag = txt(lg, BOARD.labelX, 19, '', 'bsort-tag');
-      op(tag, 0);
+      // (its group in a sort: diagram-sort.js shows it)
+      const tg = el('g', { opacity: 0 }, lg);
+      const tag = { g: tg, num: txt(tg, BOARD.labelX - 16, 19, '', 'bsort-num'), text: txt(tg, BOARD.labelX, 19, '', 'bsort-tag') };
       this.rowLabels[p] = { g: lg, tag };
     }
     // the board, apart from the area under it
@@ -147,19 +150,8 @@ export class BoardPart {
     // the phase: a state's, from its pass's sort until its pass is done
     const phaseOf = (f) => (f.pass ? f.pass.state : f.passDone || null);
     for (const s of STATES) op(this.phase[s], lerp(phaseOf(FA) === s ? 1 : 0, phaseOf(FB) === s ? 1 : 0, q));
-    // the rows' labels, where their rows are now; and while a pass is
-    // on, each one's group in its sort (the row in the pass's order)
-    const pa = FA.pass, pb = FB.pass, pn = q < 0.5 ? pa || pb : pb || pa;
-    for (const p of PARTITIONS) {
-      const r = this.rowLabels[p];
-      r.g.setAttribute('transform', `translate(0 ${rowY(p).toFixed(1)})`);
-      if (pn) {
-        const grp = pn.groups[p];
-        setText(r.tag, pn.labels[grp]);
-        r.tag.setAttribute('class', `bsort-tag bsort-g${grp}`);
-      }
-      op(r.tag, lerp(pa ? 1 : 0, pb ? 1 : 0, q));
-    }
+    // the rows' labels, where their rows are now
+    for (const p of PARTITIONS) this.rowLabels[p].g.setAttribute('transform', `translate(0 ${rowY(p).toFixed(1)})`);
 
     // the partition being decided
     const da = FA.decision, db = FB.decision;

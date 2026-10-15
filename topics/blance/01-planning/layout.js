@@ -50,6 +50,9 @@ STRIP.labelY = STRIP.zeroY + 40;
 // (a score's height: `unit` px per partition's worth)
 export const scoreY = (v) => STRIP.zeroY - v * STRIP.unit;
 
+// a pass's sort's rules, over the area under the board
+export const SORT_PANEL = { x: BOARD.x0, y: SEP_Y + 16, h: 168 };
+
 // ---- the panel ----
 
 // the moves, under each node: px a move
@@ -79,6 +82,7 @@ export const ANCHORS = {
   'scores': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
   'moves.total': { p: [BOARD.x0, STRIP.titleY + 20], needs: [] },
   'tree': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
+  'sort.rules': { p: [SORT_PANEL.x + 8, SORT_PANEL.y + 58], needs: [] },
 };
 
 export const SECTION_COLORS = ['map', 'primary', 'replica', 'change', 'groups', 'neutral'];

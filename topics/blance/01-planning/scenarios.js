@@ -66,9 +66,11 @@ function seqOf(t) {
 // state, each partition's group in its sort, and what the groups
 // mean)}; and after each state's last decision, "fresh.primaries", the
 // pass done (no decision in hand, nothing left over from the last one).
-// Each pass begins by sorting the partitions, in two frames:
-// "fresh.replicas~keys", each row's group shown, and
-// "fresh.replicas~sorted", the rows in the pass's order. Once the plan
+// Each pass begins by sorting the partitions, in four frames (each its
+// `sort`): "fresh.replicas~rules", the sort's rules shown;
+// "fresh.replicas~keys", each row's group shown under its name;
+// "fresh.replicas~sorted", the rows in the pass's order; and
+// "fresh.replicas~clear", the rules and the groups gone. Once the plan
 // is made, "fresh.unsorted": the rows back in name order. Each
 // decision has a frame per stage, "fresh.2~row", "fresh.2~a.count", on
 // the board as it was before it, and then its pick, "fresh.2", with it
@@ -86,11 +88,15 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
   let k = 0;
   for (const t of r.passes[0].trace) {
     if (t.begin) {
-      // the pass's sort: each row's group, then the rows in its order
+      // the pass's sort: its rules, each row's group, the rows in its
+      // order, and the rules and groups put away
       pass = { state: t.state, groups: t.groups, labels };
-      push({ key: `${id}.${PLURAL[t.state]}~keys`, board, decision: null, k, sort: 'keys' });
+      const sortFrame = (sort) => push({ key: `${id}.${PLURAL[t.state]}~${sort}`, board, decision: null, k, sort });
+      sortFrame('rules');
+      sortFrame('keys');
       order = t.order;
-      push({ key: `${id}.${PLURAL[t.state]}~sorted`, board, decision: null, k, sort: 'sorted' });
+      sortFrame('sorted');
+      sortFrame('clear');
       continue;
     }
     const seq = seqOf(t);
@@ -124,17 +130,15 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
   };
 }
 
-// What a pass's sort groups mean (partitionSorter.Score): 0, a partition
-// on a node leaving, in that state; 1, one on no node joining yet; 2,
-// the rest. (With no node joining, blance puts every partition but the
-// leaving ones in group 1.)
+// A pass's sort (partitionSorter.Score), as the page shows it: its
+// groups, numbered from 1 (blance's '0', '1' and '2'), each with its
+// rule, and which nodes the rule means here: 1, a partition on a node
+// leaving, in that state; 2, one not yet on any node joining (with none
+// joining, every partition but the leaving ones); 3, the rest.
+export const SORT_RULES = { 0: 'on a leaving node', 1: 'not on a joining node', 2: 'the rest' };
 function groupLabels(nodesAll, add, remove) {
-  const all = add.length === nodesAll.length, joining = add.length === 1 ? `node ${add[0]}` : `nodes ${add.join(', ')}`;
-  return {
-    0: `on node ${remove.join(', ')}, leaving`,
-    1: !add.length ? 'the rest' : all ? 'on no node yet' : `not on ${joining} yet`,
-    2: !add.length ? 'the rest' : all ? 'on a node already' : `on ${joining} already`,
-  };
+  const names = (ns) => (ns.length ? `node${ns.length > 1 ? 's' : ''} ${ns.join(', ')}` : 'none');
+  return { rules: SORT_RULES, which: { 0: names(remove), 1: names(add), 2: '' } };
 }
 
 const abc = ['a', 'b', 'c'];

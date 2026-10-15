@@ -20,8 +20,9 @@ import { Diagram } from './diagram.js';
 
 // How much a frame plays, getting there: its stage's arrows (at least 1).
 function weightOf(f) {
-  // (a pass's sort: its rows sliding into order take a while)
-  if (f.sort) return f.sort === 'sorted' ? 4 : 2;
+  // (a pass's sort, taken slowly: its rules, the groups row by row,
+  // the rows sliding into order, and the rules put away)
+  if (f.sort) return { rules: 3, keys: 4, sorted: 5, clear: 2 }[f.sort];
   if (f.key.endsWith('.unsorted')) return 3;
   const d = f.decision;
   if (!d || f.stage === undefined) return 1;

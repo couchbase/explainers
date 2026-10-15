@@ -21,6 +21,7 @@ import { BoardPart } from './diagram-board.js';
 import { StripPart } from './diagram-strip.js';
 import { MovesPart } from './diagram-moves.js';
 import { ArrowsPart } from './diagram-arrows.js';
+import { SortPart } from './diagram-sort.js';
 export { FLY, flight, grown, through } from './diagram-shared.js';
 
 // A frame's rows: each partition's place, from the top.
@@ -46,6 +47,8 @@ export class Diagram {
     this.strip = this._buildStrip(g);
     this.movesArea = this._buildMoves(g);
     this.treeArea = this._buildTree(g);
+    // (a pass's sort: its rules, over the area under the board)
+    this.sortPanel = this._buildSort(g);
     this.focusBox = el('rect', { rx: 14, class: 'sfocus', opacity: 0 }, g);
     this.traceG = el('g', {}, g);
     this.traces = new Map();
@@ -118,6 +121,7 @@ export class Diagram {
     op(this.strip.g, so);
     this._drawStrip(FA, FB, q);
     this._drawGreyed(FA, FB, q);
+    this._drawSort(FA, FB, q);
     // the arrows: of the decision in hand, or the one before, fading
     const da = FA.decision, db = FB.decision;
     if (da && da === db) this._drawArcs(FA.scenario, da, lerp(stageOf(FA), stageOf(FB), q), so);
@@ -160,7 +164,7 @@ export class Diagram {
 }
 
 // Its parts: each a file of related methods, copied onto Diagram.
-for (const part of [BoardPart, StripPart, MovesPart, ArrowsPart]) {
+for (const part of [BoardPart, StripPart, MovesPart, ArrowsPart, SortPart]) {
   for (const k of Object.getOwnPropertyNames(part.prototype)) if (k !== 'constructor') Diagram.prototype[k] = part.prototype[k];
   for (const k of Object.getOwnPropertyNames(part)) if (!['length', 'name', 'prototype'].includes(k)) Diagram[k] = part[k];
 }

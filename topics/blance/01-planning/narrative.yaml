@@ -133,18 +133,32 @@ chapters:
           (is assigned the partition).
 
       - id: sort
-        view: { at: fresh.primaries~sorted, target: row.0 }
+        view: { at: fresh.primaries~rules, target: sort.rules }
         code: [blance.sortPass, blance.partitionOrder]
-        expect: ["fact:fresh.primaries.order=0,1,2,3,4,5,6,7", "fact:fresh.primaries.group1=8"]
         text: |
-          First, the sort. The planner sorts partitions first related to nodes
-          that are leaving; then by partitions not yet on any node;
-          then the rest (and within each group, with heavier
-          partitions first, then lastly by partition name).
+          First, the sort, and [[its rules]]. The planner sorts
+          partitions first related to nodes that are leaving; then by
+          partitions not yet on any node that's joining; then the rest
+          (and within each group, with heavier partitions first, then
+          lastly by partition name).
 
-          At this point in our example, no partitions are assigned to any node,
-          so the
-          sort leaves the partitions in name order: [[partition 0]] comes first.
+      - id: sort-groups
+        view: { at: fresh.primaries~keys, target: row.0 }
+        expect: ["fact:fresh.primaries.group1=8"]
+        text: |
+          Each partition's group shows up under its name, numbered as
+          in the rules.
+
+          At this point in our example, no partitions are assigned to
+          any node, so every partition lands in group 2:
+          [[partition 0]] included.
+
+      - id: sort-done
+        view: { at: fresh.primaries~clear, target: row.0 }
+        expect: ["fact:fresh.primaries.order=0,1,2,3,4,5,6,7"]
+        text: |
+          With every partition in the same group, the sort leaves the
+          partitions in name order: [[partition 0]] comes first.
 
       - id: decision
         view: { at: fresh.1~row, target: deciding }
@@ -226,7 +240,7 @@ chapters:
     steps:
 
       - id: replica-sort
-        view: { at: fresh.replicas~sorted, target: row.0 }
+        view: { at: fresh.replicas~clear, target: row.0 }
         code: [blance.sortPass]
         expect: ["fact:fresh.replicas.order=0,1,2,3,4,5,6,7", "fact:fresh.replicas.group2=8"]
         text: |
@@ -234,8 +248,8 @@ chapters:
           partitions again, the same way.
 
           At this point in our example, every partition has its
-          primary on a node, so all 8 partitions land in the same group
-          again, and the sort leaves them in name order:
+          primary on a node, so all 8 partitions land in group 3, the
+          rest, and the sort leaves them in name order:
           [[partition 0]] comes first again.
 
       - id: greyed
@@ -357,17 +371,25 @@ chapters:
           primaries, like every node.
 
       - id: replica-sort
-        view: { at: add.replicas~sorted, target: row.0, focus: board }
+        view: { at: add.replicas~keys, target: row.0, focus: board }
         code: [blance.sortPass, blance.partitionOrder]
-        expect: ["fact:add.replicas.order=2,3,4,5,6,7,0,1", "fact:add.replicas.group2=2"]
+        expect: ["fact:add.replicas.group1=6", "fact:add.replicas.group2=2"]
         text: |
           Next come the replicas, and the planner sorts the partitions
           again, the same way, with partitions not yet on node d
           first.
 
           But at this point in our example, partitions 0 and 1 have
-          their primaries on node d, so this time the sort changes the
-          order: [[partition 0]] and partition 1 move to the bottom.
+          their primaries on node d, so [[partition 0]] and partition 1
+          land in group 3, the rest, while the other 6 partitions are
+          in group 2.
+
+      - id: replica-shuffle
+        view: { at: add.replicas~clear, target: row.0, focus: board }
+        expect: ["fact:add.replicas.order=2,3,4,5,6,7,0,1"]
+        text: |
+          So this time the sort changes the order: [[partition 0]] and
+          partition 1 move to the bottom.
 
       - id: replica-order
         view: { at: add.9~row, target: deciding, focus: board }
@@ -507,16 +529,23 @@ chapters:
           and partitions 3 and 5 lose their replicas.
 
       - id: leave-sort
-        view: { at: remove.primaries~sorted, target: row.4, focus: board }
+        view: { at: remove.primaries~keys, target: row.4, focus: board }
         code: [blance.partitionOrder]
-        expect: ["fact:remove.primaries.order=4,7,0,1,2,3,5,6", "fact:remove.primaries.group0=2"]
+        expect: ["fact:remove.primaries.group0=2"]
         text: |
           Next, the sort. Partitions that were on a leaving node come
           first.
 
           In our example, node b held the primaries of partitions 4
-          and 7, so the sort moves [[partition 4]] and partition 7 to
-          the top.
+          and 7, so [[partition 4]] and partition 7 land in group 1.
+          With no node joining, every other partition is in group 2.
+
+      - id: leave-shuffle
+        view: { at: remove.primaries~clear, target: row.4, focus: board }
+        expect: ["fact:remove.primaries.order=4,7,0,1,2,3,5,6"]
+        text: |
+          So the sort moves [[partition 4]] and partition 7 to the
+          top.
 
       - id: scores
         view: { panel: score, target: scores, focus: strip }
