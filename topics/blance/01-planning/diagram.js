@@ -47,13 +47,14 @@ export class Diagram {
     this.strip = this._buildStrip(g);
     this.movesArea = this._buildMoves(g);
     this.treeArea = this._buildTree(g);
-    // (a pass's sort: its rules, over the area under the board)
-    this.sortPanel = this._buildSort(g);
     this.focusBox = el('rect', { rx: 14, class: 'sfocus', opacity: 0 }, g);
     this.traceG = el('g', {}, g);
     this.traces = new Map();
     this.arcG = el('g', {}, g);
     this.arcs = new Map(); // key -> {path, head, len}
+    // (a pass's sort: its rules, over everything under the board, and
+    // on top of everything)
+    this.sortPanel = this._buildSort(g);
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
     this.cur = null;
   }
