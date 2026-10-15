@@ -142,7 +142,7 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
 export const SORT_RULES = { 0: 'on a leaving node', 1: 'not yet on a joining node', 2: 'already on a joining node' };
 function groupLabels(nodesAll, add, remove) {
   const names = (ns) => (ns.length ? `node${ns.length > 1 ? 's' : ''} ${ns.join(', ')}` : 'none');
-  return { rules: SORT_RULES, which: { 0: `leaving: ${names(remove)}`, 1: `joining: ${names(add)}`, 2: `joining: ${names(add)}` } };
+  return { rules: SORT_RULES, nodes: `leaving: ${names(remove)}; joining: ${names(add)}` };
 }
 
 const abc = ['a', 'b', 'c'];

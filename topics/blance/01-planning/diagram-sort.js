@@ -17,22 +17,23 @@ const PANEL = ['rules', 'keys', 'sorted'], GROUPS = ['keys', 'sorted'];
 export class SortPart {
   _buildSort(g) {
     const P = { g: el('g', { opacity: 0 }, g) };
-    const { x, y, h } = SORT_PANEL, dy = 50;
+    const { x, y, h } = SORT_PANEL, dy = 40;
     P.box = el('rect', { x, y, height: h, rx: 14, class: 'sort-panel' }, P.g);
     txt(P.g, x + 28, y + 50, 'first, the planner sorts the partitions:', 'sort-title');
     txt(P.g, x + 28, y + 104, 'ORDER BY', 'sort-code');
+    // (as a SQL comment: which nodes are leaving and joining, here)
+    P.nodes = txt(P.g, x + 220, y + 104, '', 'sort-comment');
     // a line per rule: the number a partition matching it gets first,
-    // and the rule; and under it, which nodes the rule means here, and
-    // how many partitions it catches
+    // the rule, and as a comment, how many partitions it catches
     P.lines = Object.keys(SORT_RULES).map((grp, i) => {
       const ly = y + 104 + (i + 1) * dy;
       const lg = el('g', { class: `sort-line bsort-g${grp}` }, P.g);
       txt(lg, x + 64, ly, `${+grp + 1}:`, 'sort-num');
       txt(lg, x + 100, ly, `if ${SORT_RULES[grp]}`, 'sort-rule');
-      return { g: lg, which: txt(lg, x + 100, ly + 20, '', 'sort-which') };
+      return { g: lg, count: txt(lg, x + 440, ly, '', 'sort-comment') };
     });
-    txt(P.g, x + 64, y + 104 + 4 * dy + 14, 'then heavier partitions first,', 'sort-code');
-    txt(P.g, x + 64, y + 104 + 4 * dy + 48, 'then by partition name', 'sort-code');
+    txt(P.g, x + 64, y + 104 + 4 * dy + 12, 'then heavier partitions first,', 'sort-code');
+    txt(P.g, x + 64, y + 104 + 5 * dy + 12, 'then by partition name', 'sort-code');
     return P;
   }
 
@@ -45,8 +46,9 @@ export class SortPart {
     const pass = (q < 0.5 ? FA.pass || FB.pass : FB.pass || FA.pass);
     if (pass) {
       const counts = Object.fromEntries(Object.keys(SORT_RULES).map((g) => [g, Object.values(pass.groups).filter((x) => x === g).length]));
+      setText(P.nodes, `-- ${pass.labels.nodes}`);
       P.lines.forEach((l, i) => {
-        setText(l.which, `${pass.labels.which[i]}  ·  ${counts[i]} partition${counts[i] === 1 ? '' : 's'}`);
+        setText(l.count, `-- ${counts[i]} partition${counts[i] === 1 ? '' : 's'}`);
         // (a group with no partition in it, this pass, dimmed)
         op(l.g, counts[i] ? 1 : 0.4);
       });

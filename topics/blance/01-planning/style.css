@@ -21,7 +21,7 @@
 .diagram .sort-code { font: 600 18px var(--font-mono); fill: var(--ink); }
 .diagram .sort-num { font: 700 18px var(--font-mono); }
 .diagram .sort-rule { font: 500 18px var(--font-mono); }
-.diagram .sort-which { font: 500 16px var(--font-body); fill: var(--muted); }
+.diagram .sort-comment { font: 500 15px var(--font-mono); fill: var(--muted); }
 .diagram .bband { fill: none; stroke: var(--accent); stroke-width: 2; }
 .diagram .bcol-line { stroke: var(--line); }
 .diagram .bnode { font: 600 16px var(--font-display); fill: var(--ink); }
