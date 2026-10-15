@@ -51,7 +51,7 @@ STRIP.labelY = STRIP.zeroY + 40;
 export const scoreY = (v) => STRIP.zeroY - v * STRIP.unit;
 
 // a pass's sort's rules, over the area under the board
-export const SORT_PANEL = { x: BOARD.x0, y: SEP_Y + 16, h: 168 };
+export const SORT_PANEL = { x: BOARD.x0, y: SEP_Y + 16, h: 186 };
 
 // ---- the panel ----
 

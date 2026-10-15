@@ -12,8 +12,8 @@
 /* a pass's sort: its rules, in a panel, and each row's group, numbered
    as the rules are (1, on a leaving node; 2, not on a joining node; 3,
    the rest) */
-.diagram .bsort-tag { font: 600 11px var(--font-body); }
-.diagram .bsort-num { font: 700 11px var(--font-mono); }
+.diagram .bsort-tag { font: 600 10px var(--font-body); }
+.diagram .bsort-num { font: 700 10px var(--font-mono); }
 .diagram .bsort-g0 { fill: var(--leave); }
 .diagram .bsort-g1 { fill: var(--join); }
 .diagram .bsort-g2 { fill: var(--muted); }

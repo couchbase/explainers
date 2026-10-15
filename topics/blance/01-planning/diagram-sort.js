@@ -1,8 +1,8 @@
 // Part of the 01-planning diagram (diagram.js), whose Diagram takes
 // these methods. A pass's sort, over four frames (scenarios.js): its
-// rules, in a panel over the area under the board; each row's group,
-// under the row's name, sliding in from the right row by row from the
-// top; the rows moving into order (the board does that, setRows); and
+// rules, in a panel over the area under the board; each row's number
+// from the rules, and the rule, under the row's name, sliding in from
+// the right row by row from the top; the rows moving into order (the board does that, setRows); and
 // the panel and the groups fading.
 
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
@@ -20,16 +20,18 @@ export class SortPart {
     const { x, y, h } = SORT_PANEL;
     P.box = el('rect', { x, y, height: h, rx: 12, class: 'sort-panel' }, P.g);
     txt(P.g, x + 18, y + 30, 'before each pass, the planner sorts the partitions:', 'sort-title');
-    txt(P.g, x + 18, y + 58, 'ORDER BY group', 'sort-code');
-    // a line per group: its number, its rule, and which nodes it means here
+    txt(P.g, x + 18, y + 58, 'ORDER BY', 'sort-code');
+    // a line per rule: the number a partition matching it gets first,
+    // the rule, and which nodes it means here
     P.lines = Object.keys(SORT_RULES).map((grp, i) => {
       const ly = y + 82 + i * 22;
       const lg = el('g', { class: `sort-line bsort-g${grp}` }, P.g);
-      txt(lg, x + 42, ly, String(+grp + 1), 'sort-num');
-      txt(lg, x + 62, ly, SORT_RULES[grp], 'sort-rule');
-      return { g: lg, which: txt(lg, x + 270, ly, '', 'sort-which') };
+      txt(lg, x + 42, ly, `${+grp + 1} if`, 'sort-num');
+      txt(lg, x + 80, ly, SORT_RULES[grp], 'sort-rule');
+      return { g: lg, which: txt(lg, x + 330, ly, '', 'sort-which') };
     });
-    txt(P.g, x + 18, y + 82 + 3 * 22 + 6, 'THEN heavier partitions first, THEN by name', 'sort-code');
+    txt(P.g, x + 42, y + 82 + 3 * 22 + 4, 'then heavier partitions first,', 'sort-code');
+    txt(P.g, x + 42, y + 82 + 4 * 22 + 4, 'then by partition name', 'sort-code');
     return P;
   }
 

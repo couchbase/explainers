@@ -130,15 +130,16 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
   };
 }
 
-// A pass's sort (partitionSorter.Score), as the page shows it: its
-// groups, numbered from 1 (blance's '0', '1' and '2'), each with its
-// rule, and which nodes the rule means here: 1, a partition on a node
-// leaving, in that state; 2, one not yet on any node joining (with none
-// joining, every partition but the leaving ones); 3, the rest.
-export const SORT_RULES = { 0: 'on a leaving node', 1: 'not on a joining node', 2: 'the rest' };
+// A pass's sort (partitionSorter.Score), as the page shows it: the
+// number each partition gets first, from 1 (blance's '0', '1' and '2'),
+// by the rule it matches, and which nodes the rule means here: 1, on a
+// node leaving, in that state; 2, not yet on any node joining (with
+// none joining, every partition but the leaving ones); 3, the rest:
+// already on a node joining.
+export const SORT_RULES = { 0: 'on a leaving node', 1: 'not yet on a joining node', 2: 'already on a joining node' };
 function groupLabels(nodesAll, add, remove) {
   const names = (ns) => (ns.length ? `node${ns.length > 1 ? 's' : ''} ${ns.join(', ')}` : 'none');
-  return { rules: SORT_RULES, which: { 0: names(remove), 1: names(add), 2: '' } };
+  return { rules: SORT_RULES, which: { 0: names(remove), 1: names(add), 2: names(add) } };
 }
 
 const abc = ['a', 'b', 'c'];

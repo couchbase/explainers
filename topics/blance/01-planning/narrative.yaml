@@ -138,27 +138,28 @@ chapters:
         text: |
           First, the sort, and [[its rules]]. The planner sorts
           partitions first related to nodes that are leaving; then by
-          partitions not yet on any node that's joining; then the rest
-          (and within each group, with heavier partitions first, then
-          lastly by partition name).
+          partitions not yet on any node that's joining; then
+          partitions already on a node that's joining (and within each
+          of those, with heavier partitions first, then lastly by
+          partition name).
 
       - id: sort-groups
         view: { at: fresh.primaries~keys, target: row.0 }
         expect: ["fact:fresh.primaries.group1=8"]
         text: |
-          Each partition's group shows up under its name, numbered as
-          in the rules.
+          Under each partition's name, the number it gets from the
+          rules shows up, with the rule it matches.
 
           At this point in our example, no partitions are assigned to
-          any node, so every partition lands in group 2:
-          [[partition 0]] included.
+          any node, so every partition gets a 2, not yet on a joining
+          node: [[partition 0]] included.
 
       - id: sort-done
         view: { at: fresh.primaries~clear, target: row.0 }
         expect: ["fact:fresh.primaries.order=0,1,2,3,4,5,6,7"]
         text: |
-          With every partition in the same group, the sort leaves the
-          partitions in name order: [[partition 0]] comes first.
+          With every partition getting the same number, the sort leaves
+          the partitions in name order: [[partition 0]] comes first.
 
       - id: decision
         view: { at: fresh.1~row, target: deciding }
@@ -248,8 +249,8 @@ chapters:
           partitions again, the same way.
 
           At this point in our example, every partition has its
-          primary on a node, so all 8 partitions land in group 3, the
-          rest, and the sort leaves them in name order:
+          primary on a node, so all 8 partitions get a 3, already on a
+          joining node, and the sort leaves them in name order:
           [[partition 0]] comes first again.
 
       - id: greyed
@@ -381,8 +382,8 @@ chapters:
 
           But at this point in our example, partitions 0 and 1 have
           their primaries on node d, so [[partition 0]] and partition 1
-          land in group 3, the rest, while the other 6 partitions are
-          in group 2.
+          get a 3, already on a joining node, while the other 6
+          partitions get a 2.
 
       - id: replica-shuffle
         view: { at: add.replicas~clear, target: row.0, focus: board }
@@ -537,8 +538,8 @@ chapters:
           first.
 
           In our example, node b held the primaries of partitions 4
-          and 7, so [[partition 4]] and partition 7 land in group 1.
-          With no node joining, every other partition is in group 2.
+          and 7, so [[partition 4]] and partition 7 get a 1. With no
+          node joining, every other partition gets a 2.
 
       - id: leave-shuffle
         view: { at: remove.primaries~clear, target: row.4, focus: board }
