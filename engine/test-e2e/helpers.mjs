@@ -32,10 +32,48 @@ export function builtPage(id) {
   return { shared, file: existsSync(drafts) ? drafts : shared };
 }
 
+// Launches Chrome. Its close() doesn't hang on a stray crash reporter.
+//
+// Chrome starts a crash reporter (chrome_crashpad_handler) that inherits
+// Chrome's stderr, and now and then outlives Chrome, for minutes or
+// for good. Playwright's close waits for Chrome's stdio to close, so
+// then it never returns (the after hook times out, and the test file's
+// process stays up, keeping the whole run waiting). So the browser is
+// launched as a server, for its process: once Chrome itself has exited,
+// close stops waiting on its stdio.
+//
+// (handleSIGTERM: false, so the test runner's SIGTERM, at a timeout,
+// ends a test file's process rather than starting a close that may not
+// finish.)
 export async function launch() {
-  return process.env.CHROME_PATH
-    ? chromium.launch({ executablePath: process.env.CHROME_PATH })
-    : chromium.launch({ channel: 'chrome' });
+  const server = await chromium.launchServer({
+    ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' }),
+    handleSIGTERM: false,
+  });
+  const browser = await chromium.connect(server.wsEndpoint());
+  const disconnect = browser.close.bind(browser);
+  let closing = null;
+  browser.close = () => (closing ??= (async () => {
+    await disconnect().catch(() => {});
+    const proc = server.process();
+    const closed = server.close();
+    await exited(proc, 30000);
+    // (kill() waits for the stdio, too)
+    if (proc.exitCode === null && proc.signalCode === null) server.kill().catch(() => {});
+    for (const s of proc.stdio) s?.destroy();
+    await closed;
+  })());
+  return browser;
+}
+
+// Resolves when the process has exited (not waiting for its stdio), or
+// after ms.
+function exited(proc, ms) {
+  if (proc.exitCode !== null || proc.signalCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    proc.once('exit', () => { clearTimeout(t); resolve(); });
+  });
 }
 
 export const DESKTOP = { width: 1600, height: 1000 };
@@ -53,13 +91,16 @@ export async function openPage(browser, { viewport = DESKTOP, scheme = 'light', 
 }
 
 // Scrolls so that step (index or element id) is at progress p of its
-// transition; p > 1 is further into the step.
+// transition; p > 1 is further into the step. Returns once the page has
+// drawn a frame at that position (it draws in animation frames, which
+// come late on a busy machine), and then settleMs more.
 export async function scrollToStep(page, step, p = 1.2, settleMs = 150) {
   await page.evaluate(([step, p]) => {
     const i = typeof step === 'number' ? step : Number(document.getElementById(step).dataset.index);
     window.scrollTo(0, window.explainer.scrollYFor(i, p));
     // (no smoothing in tests: the page shows this scroll position now)
     if (window.explainer.snap) window.explainer.snap();
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
   }, [step, p]);
   if (settleMs) await page.waitForTimeout(settleMs);
 }
