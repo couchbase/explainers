@@ -14,6 +14,9 @@ export class StripPart {
   _buildStrip(g) {
     const S = { g: el('g', { opacity: 0 }, g) };
     const sg = S.g;
+    // the title: "the planner's scores:", and after it, the decision in
+    // hand ("scoring partition 0's primary"), in its state's color
+    S.titlePre = txt(sg, BOARD.x0, STRIP.titleY, 'the planner\u2019s scores:', 'ptitle');
     S.titleA = txt(sg, BOARD.x0, STRIP.titleY, '', 'ptitle');
     S.titleB = txt(sg, BOARD.x0, STRIP.titleY, '', 'ptitle');
     S.subA = txt(sg, BOARD.x1 + 10, STRIP.titleY, '', 'pnote', 'end');
@@ -119,7 +122,7 @@ export class StripPart {
     const text = (f, d, s) => {
       if (!d) {
         const sc = SCENARIOS[f.scenario];
-        return ['the planner\'s scores', f.passDone ? `every partition's ${f.passDone} is assigned`
+        return ['', f.passDone ? `every partition's ${f.passDone} is assigned`
           : f.done ? `pass ${sc.iterations} changed nothing: done, in ${sc.iterations} passes`
           : f.k < 0 ? (sc.id === 'add' ? `nodes to add: ${sc.joining.join(', ')}` : sc.leaving.length ? `nodes to remove: ${sc.leaving.join(', ')}` : 'one decision at a time: a partition, a state')
             : `${sc.leaving.join(', ')} taken out of every partition`, ''];
@@ -130,6 +133,12 @@ export class StripPart {
     };
     const [ta, na, ua] = text(FA, da, same ? sNow : sa), [tb, nb, ub] = text(FB, db, same ? sNow : sb);
     setText(S.titleA, ta); setText(S.titleB, tb);
+    // (the suffix just after the title, in the decision's state's color)
+    S.preW = S.preW || S.titlePre.getComputedTextLength();
+    for (const [e, d] of [[S.titleA, da], [S.titleB, db]]) {
+      e.setAttribute('x', (BOARD.x0 + S.preW + 7).toFixed(1));
+      e.setAttribute('class', `ptitle${d ? ` psuffix-${d.state}` : ''}`);
+    }
     setText(S.noteA, na); setText(S.noteB, nb);
     setText(S.subA, ua); setText(S.subB, ub);
     const cross = (eA, eB, a, b) => { op(eA, a === b ? 1 : 1 - q * 2); op(eB, a === b ? 0 : q * 2 - 1); };

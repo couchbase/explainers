@@ -44,6 +44,8 @@
 
 .diagram .panel { fill: var(--panel); stroke: var(--line); }
 .diagram .ptitle { font: 600 18px var(--font-display); fill: var(--ink); }
+.diagram .ptitle.psuffix-primary { fill: var(--primary); }
+.diagram .ptitle.psuffix-replica { fill: var(--replica); }
 .diagram .pnote { font: 400 15px var(--font-body); fill: var(--muted); }
 .diagram .paxis { stroke: var(--muted); }
 .diagram .pgrid { stroke: var(--line); stroke-dasharray: 3 4; }
