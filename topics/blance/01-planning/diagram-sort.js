@@ -19,7 +19,7 @@ export class SortPart {
     const P = { g: el('g', { opacity: 0 }, g) };
     const { x, y, h } = SORT_PANEL, dy = 40;
     P.box = el('rect', { x, y, height: h, rx: 14, class: 'sort-panel' }, P.g);
-    txt(P.g, x + 28, y + 50, 'before each pass, the planner sorts the partitions:', 'sort-title');
+    txt(P.g, x + 28, y + 50, 'first, the planner sorts the partitions:', 'sort-title');
     txt(P.g, x + 28, y + 104, 'ORDER BY', 'sort-code');
     // a line per rule: the number a partition matching it gets first,
     // the rule, and which nodes it means here
