@@ -19,7 +19,7 @@ export const CANVAS = [0, 0, 780, 960];
 // ---- the board ----
 
 // (the rows' names column is wide enough for a sort's sublabels)
-export const BOARD = { x0: 40, labelX: 70, y0: 112, rowH: 50, colW: 100, col0: 255 };
+export const BOARD = { x0: 40, labelX: 70, y0: 112, rowH: 50, colW: 100, col0: 260 };
 BOARD.y1 = BOARD.y0 + PARTITIONS.length * BOARD.rowH;
 BOARD.x1 = BOARD.col0 + NODES.length * BOARD.colW;
 // Each node's column slot, from the left: its place in NODES, unless a
