@@ -61,7 +61,7 @@ export class MovesPart {
     // changing state on its node, a promote or demote, one)
     const moved = new Set([...built, ...deleted].map(([p]) => p));
     setText(M.title, `the moves: ${scn.title}`);
-    setText(M.note, built.length + deleted.length ? `${built.length + deleted.length} moves: ${built.length} copies built, ${deleted.length} deleted, over ${moved.size} partitions` : 'none yet');
+    setText(M.note, built.length + deleted.length ? `${built.length + deleted.length} moves: ${built.length} partitions added, ${deleted.length} deleted, over ${moved.size} partitions` : 'none yet');
     M.axis.setAttribute('x2', (BOARD.x0 + (this.boardW || BOARD.x1 - BOARD.x0)).toFixed(1));
     // (as its node's column: faded and moved with it)
     const colShown = (n) => this.present[n] ?? 1;

@@ -236,7 +236,9 @@ chapters:
           wins.
 
       - id: round
-        view: { at: fresh.primaries, target: tally.a, focus: tallies }
+        view: { at: fresh.primaries, panel: none, target: tally.a, focus: tallies }
+        # (the primaries done: their scores go as the tallies show)
+        multi: true
         expect: ["fact:fresh.primaries.counts=a3/0 b3/0 c2/0"]
         text: |
           And so on, round the nodes: a, b, c, a, b, c, a, b. Eight
@@ -270,7 +272,9 @@ chapters:
           [[partition 0]] comes first again.
 
       - id: greyed
-        view: { at: fresh.9~row, target: node.a, focus: col.a }
+        view: { at: fresh.9~row, panel: score, target: node.a, focus: col.a }
+        # (the scores come back with the first replica's decision)
+        multi: true
         code: [blance.exclude]
         expect: ["fact:fresh.9.partition=0", "fact:fresh.9.state=replica"]
         text: |
@@ -312,7 +316,9 @@ chapters:
           just one. Node [[b]] wins, at 1.0005 to node c's 1.1254.
 
       - id: done
-        view: { at: fresh.replicas, target: tally.b, focus: tallies }
+        view: { at: fresh.replicas, panel: none, target: tally.b, focus: tallies }
+        # (the replicas done: their scores go as the tallies show)
+        multi: true
         expect: ["fact:fresh.replicas.counts=a3/3 b3/2 c2/3"]
         text: |
           The rest of the replicas go the same way. Every node ends up
@@ -320,11 +326,9 @@ chapters:
           replicas, node [[b with 3 and 2]], and node c with 2 and 3.
 
       - id: again
-        view: { at: fresh.end, panel: none, target: board.title, focus: board }
+        view: { at: fresh.end, target: board.title, focus: board }
         code: [blance.converge]
         expect: ["fact:fresh.iterations=2"]
-        # (done: the phase and the scores go together)
-        multi: true
         text: |
           Then blance does it all again, starting from the partition
           map just computed, up to 10 times, until a pass changes
