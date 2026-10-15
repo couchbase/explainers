@@ -22,7 +22,7 @@ import { Diagram } from './diagram.js';
 function weightOf(f) {
   // (a pass's sort, taken slowly: its rules, the groups row by row,
   // the rows sliding into order, and the rules put away)
-  if (f.sort) return { rules: 3, keys: 4, sorted: 5, clear: 2 }[f.sort];
+  if (f.sort) return { phase: 2, rules: 3, keys: 4, sorted: 5, clear: 2 }[f.sort];
   if (f.key.endsWith('.unsorted')) return 3;
   const d = f.decision;
   if (!d || f.stage === undefined) return 1;

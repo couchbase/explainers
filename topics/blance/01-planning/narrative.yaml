@@ -132,6 +132,13 @@ chapters:
           gives every node [[a score]]: the lowest scoring node wins
           (is assigned the partition).
 
+      - id: phase
+        view: { at: fresh.primaries~phase, target: phase }
+        text: |
+          The planner starts with the primaries, and the top-left
+          corner of the partition map says so:
+          [[assigning primaries]].
+
       - id: sort
         view: { at: fresh.primaries~rules, target: sort.rules }
         code: [blance.sortPass, blance.partitionOrder]
@@ -240,6 +247,13 @@ chapters:
     color: replica
     steps:
 
+      - id: replica-phase
+        view: { at: fresh.replicas~phase, target: phase }
+        text: |
+          With every partition's primary assigned, the planner changes
+          gears, and the corner of the partition map changes too:
+          [[assigning replicas]].
+
       - id: replica-sort
         view: { at: fresh.replicas~clear, target: row.0 }
         code: [blance.sortPass]
@@ -326,6 +340,12 @@ chapters:
           partition map: from the current partition map, with node d as
           a node to add.
 
+      - id: join-phase
+        view: { at: add.primaries~phase, target: phase }
+        text: |
+          The planner starts again with the primaries:
+          [[assigning primaries]].
+
       - id: order
         view: { at: add.1~a.fill, target: bar.a, focus: col.a }
         code: [blance.partitionOrder, blance.nodeScore]
@@ -370,6 +390,12 @@ chapters:
         text: |
           The other primaries stay where they are, and node [[d has 2]]
           primaries, like every node.
+
+      - id: join-replica-phase
+        view: { at: add.replicas~phase, target: phase }
+        text: |
+          Then the planner changes gears to the replicas:
+          [[assigning replicas]].
 
       - id: replica-sort
         view: { at: add.replicas~keys, target: row.0, focus: board }
@@ -529,6 +555,12 @@ chapters:
           First, the planner takes node b out of every partition: [[partition 4]] loses its primary, as does partition 7,
           and partitions 3 and 5 lose their replicas.
 
+      - id: leave-phase
+        view: { at: remove.primaries~phase, target: phase }
+        text: |
+          Again, the planner starts with the primaries:
+          [[assigning primaries]].
+
       - id: leave-sort
         view: { at: remove.primaries~keys, target: row.4, focus: board }
         code: [blance.partitionOrder]
@@ -563,6 +595,13 @@ chapters:
           one of three nodes tied at 2.0005, and node [[a]], first in
           the list, is assigned partition 4's primary, as a whole new
           copy.
+
+      - id: leave-replica-phase
+        view: { at: remove.replicas~phase, target: phase }
+        text: |
+          Partitions 7, 0, 1, 2, 3, 5 and 6 get their primaries the
+          same way. Once the primaries are done, the planner changes
+          gears to the replicas: [[assigning replicas]].
 
       - id: left
         view: { at: remove.replicas, target: tally.a, focus: tallies }

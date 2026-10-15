@@ -41,7 +41,7 @@ export class BoardPart {
       txt(lg, BOARD.labelX, 5, `partition ${p}`, 'brow-label');
       // (its group in a sort: diagram-sort.js shows it)
       const tg = el('g', { opacity: 0 }, lg);
-      const tag = { g: tg, num: txt(tg, BOARD.labelX - 16, 19, '', 'bsort-num'), text: txt(tg, BOARD.labelX, 19, '', 'bsort-tag') };
+      const tag = { g: tg, text: txt(tg, BOARD.labelX, 20, '', 'bsort-tag') };
       this.rowLabels[p] = { g: lg, tag };
     }
     // the board, apart from the area under it

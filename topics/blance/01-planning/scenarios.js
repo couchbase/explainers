@@ -66,8 +66,10 @@ function seqOf(t) {
 // state, each partition's group in its sort, and what the groups
 // mean)}; and after each state's last decision, "fresh.primaries", the
 // pass done (no decision in hand, nothing left over from the last one).
-// Each pass begins by sorting the partitions, in four frames (each its
-// `sort`): "fresh.replicas~rules", the sort's rules shown;
+// Each pass begins with "fresh.replicas~phase", the board's corner
+// saying which state's pass it is; then it sorts the partitions, in
+// four frames (each its `sort`): "fresh.replicas~rules", the sort's
+// rules shown;
 // "fresh.replicas~keys", each row's group shown under its name;
 // "fresh.replicas~sorted", the rows in the pass's order; and
 // "fresh.replicas~clear", the rules and the groups gone. Once the plan
@@ -92,6 +94,7 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
       // order, and the rules and groups put away
       pass = { state: t.state, groups: t.groups, labels };
       const sortFrame = (sort) => push({ key: `${id}.${PLURAL[t.state]}~${sort}`, board, decision: null, k, sort });
+      sortFrame('phase');
       sortFrame('rules');
       sortFrame('keys');
       order = t.order;

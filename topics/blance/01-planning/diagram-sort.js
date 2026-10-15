@@ -26,9 +26,9 @@ export class SortPart {
     P.lines = Object.keys(SORT_RULES).map((grp, i) => {
       const ly = y + 104 + (i + 1) * dy;
       const lg = el('g', { class: `sort-line bsort-g${grp}` }, P.g);
-      txt(lg, x + 64, ly, `${+grp + 1} if`, 'sort-num');
-      txt(lg, x + 114, ly, SORT_RULES[grp], 'sort-rule');
-      return { g: lg, which: txt(lg, x + 420, ly, '', 'sort-which') };
+      txt(lg, x + 64, ly, `${+grp + 1}:`, 'sort-num');
+      txt(lg, x + 100, ly, `if ${SORT_RULES[grp]}`, 'sort-rule');
+      return { g: lg, which: txt(lg, x + 440, ly, '', 'sort-which') };
     });
     txt(P.g, x + 64, y + 104 + 4 * dy + 12, 'then heavier partitions first,', 'sort-code');
     txt(P.g, x + 64, y + 104 + 5 * dy + 12, 'then by partition name', 'sort-code');
@@ -50,7 +50,7 @@ export class SortPart {
         op(l.g, counts[i] ? 1 : 0.4);
       });
     }
-    P.box.setAttribute('width', (this.boardW || BOARD.x1 - BOARD.x0 + 10).toFixed(1));
+    P.box.setAttribute('width', ((this.boardW || BOARD.x1 - BOARD.x0 + 10) + SORT_PANEL.wider).toFixed(1));
     P.g.setAttribute('transform', `translate(0 ${((1 - po) * 10).toFixed(1)})`);
     op(P.g, po);
     // (and while it's up, what's under it goes: the tallies, and the
@@ -65,8 +65,7 @@ export class SortPart {
       const t = this.rowLabels[p].tag;
       if (pass) {
         const grp = pass.groups[p];
-        setText(t.num, String(+grp + 1));
-        setText(t.text, SORT_RULES[grp]);
+        setText(t.text, `${+grp + 1}: if ${SORT_RULES[grp]}`);
         t.g.setAttribute('class', `bsort-g${grp}`);
       }
       let u = lerp(on(FA, GROUPS), on(FB, GROUPS), eq);

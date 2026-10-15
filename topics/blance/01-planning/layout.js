@@ -18,7 +18,8 @@ export const CANVAS = [0, 0, 780, 960];
 
 // ---- the board ----
 
-export const BOARD = { x0: 40, labelX: 70, y0: 112, rowH: 50, colW: 104, col0: 200 };
+// (the rows' names column is wide enough for a sort's sublabels)
+export const BOARD = { x0: 40, labelX: 70, y0: 112, rowH: 50, colW: 100, col0: 255 };
 BOARD.y1 = BOARD.y0 + PARTITIONS.length * BOARD.rowH;
 BOARD.x1 = BOARD.col0 + NODES.length * BOARD.colW;
 // Each node's column slot, from the left: its place in NODES, unless a
@@ -52,7 +53,7 @@ export const scoreY = (v) => STRIP.zeroY - v * STRIP.unit;
 
 // a pass's sort's rules: over everything under the board, tallies and
 // all
-export const SORT_PANEL = { x: BOARD.x0, y: BOARD.y1 + 12, h: CANVAS[3] - BOARD.y1 - 30 };
+export const SORT_PANEL = { x: BOARD.x0 - 16, y: BOARD.y1 + 2, h: CANVAS[3] - BOARD.y1 - 20, wider: 32 };
 
 // ---- the panel ----
 
@@ -83,6 +84,8 @@ export const ANCHORS = {
   'scores': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
   'moves.total': { p: [BOARD.x0, STRIP.titleY + 20], needs: [] },
   'tree': { p: [BOARD.x0, STRIP.titleY - 6], needs: [] },
+  // the plan's phase, in the board's corner
+  'phase': { p: [BOARD.labelX - 28, HEAD_Y - 5], needs: [] },
   'sort.rules': { p: [SORT_PANEL.x + 8, SORT_PANEL.y + 96], needs: [] },
 };
 
