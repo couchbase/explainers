@@ -43,6 +43,9 @@ function facts() {
   out['uneven.east.actives'] = MAPS.uneven.filter((c) => !west.includes(c[0])).length;
   out['uneven.sameRack'] = MAPS.uneven.filter(([a, r]) => west.includes(a) === west.includes(r)).length;
   out['uneven.hero'] = MAPS.uneven[HERO].join(',');
+  // (vbuckets with a new home, and where node e's came from)
+  out['uneven.rehomed'] = MAPS.uneven.filter((c, v) => c[0] !== MAPS.vbmap[v][0]).length;
+  out['uneven.e.from'] = [...new Set(MAPS.uneven.flatMap((c, v) => (c[0] === 'e' ? [MAPS.vbmap[v][0]] : [])))].join(',');
   // what vbmap said it did (its diagnostics)
   out['uneven.relaxed'] = /Generated RI with relaxed replica balance/.test(RUNS.uneven5.diag);
   out['uneven.strictTried'] = /Trying to generate strict RI with NumSlaves=2/.test(RUNS.uneven5.diag);

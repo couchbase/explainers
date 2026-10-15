@@ -69,12 +69,15 @@ function look(s, { v, k, key }) {
     y = ty;
   }
   const chain = MAPS[s.map][v];
+  // (its color's map: the uneven deal's copies keep their old colors
+  // till they're recolored)
+  const colors = s.map === 'uneven' && !s.recolor ? MAPS.vbmap : MAPS[s.map];
   const down = node && s.down.includes(node);
   const promoted = node && k === 1 && s.promoted && s.down.includes(chain[0]) && !down;
   const lost = s.lost && chain.every((n) => s.down.includes(n));
   return {
     // (its color: its vbucket's home, the node with its active copy)
-    x, y, node, home: chain[0],
+    x, y, node, home: colors[v][0],
     // (a replica, before the split, sits under its active, unseen)
     // (and, bundled into a pipe, it's part of the pipe's flow)
     o: (k === 1 && !s.split && !dealt) || s.pipes ? 0 : 1,
@@ -246,7 +249,9 @@ export class Diagram {
       op(ch.g, o);
       // (an unseen copy doesn't take the hover from the one over it)
       ch.g.style.pointerEvents = o < 0.5 ? 'none' : '';
-      paintChip(ch, { color: nodeColor(s.home), active: s.filled, promoted: s.promoted });
+      // (a copy changing color blends from the old to the new)
+      const color = la.home === lb.home ? nodeColor(lb.home) : `color-mix(in srgb, ${nodeColor(la.home)} ${((1 - u) * 100).toFixed(1)}%, ${nodeColor(lb.home)})`;
+      paintChip(ch, { color, active: s.filled, promoted: s.promoted });
       const xo = la.lost === lb.lost ? (la.lost ? 1 : 0) : lb.lost ? u : 1 - u;
       op(ch.x, xo);
       op(ch.letter, 1 - xo);

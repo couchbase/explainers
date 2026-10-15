@@ -39,6 +39,8 @@
 //             shown, once it's built; it fades as one
 //   cluster   which nodes: 'four', or 'five' once node e joins rack West
 //   holds     each node's count says how many replicas it holds, too
+//   recolor   in the uneven deal, copies take their new homes' colors
+//             (till then, they keep their old ones, from vbmap's deal)
 
 import { PATHS } from './plumbing.js';
 
@@ -46,7 +48,7 @@ const START = {
   doc: true, split: false, scaffold: false, actives: false, replicas: false, lifted: false, counts: false,
   map: 'naive', trails: true, down: [], promoted: false, lost: false, ghost: false,
   chart: false, view: 'bins', chartUp: false, sums: false, arcs: false, rowsOut: false, colsOut: false, pipes: false, source: false, sink: false, flow: PATHS.length,
-  network: true, cluster: 'four', holds: false,
+  network: true, cluster: 'four', holds: false, recolor: false,
 };
 
 // nodes failing (down, then failed over), and coming back
@@ -97,6 +99,7 @@ const CHANGES = [
   ['recluster', { scaffold: true }],
   ['e.joins', { cluster: 'five' }],
   ['e.deal', { map: 'uneven' }],
+  ['e.recolor', { recolor: true }],
   ['e.holds', { holds: true }],
 ];
 

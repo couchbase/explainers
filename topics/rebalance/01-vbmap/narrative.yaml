@@ -408,7 +408,16 @@ chapters:
           vbmap deals again, for five nodes (a real run). The actives
           even out: [[node e]] takes 6, and every node serves 6 or 7.
           Every replica still crosses racks. Vbucket 9 stays put, on
-          nodes b and d.
+          nodes b and d. Each copy keeps its old color, for now.
+
+      - id: recolor
+        view: { at: e.recolor, target: node.e }
+        expect: ["fact:uneven.rehomed=17", "fact:uneven.e.from=d"]
+        text: |
+          Node e's 6 actives were node d's. And d took some of c's, c
+          some of b's, b some of a's: 17 vbuckets have a new home. To
+          keep them easy to follow from here on, each copy now takes
+          its new home's color: [[node e]]'s, green.
 
       - id: holds
         view: { at: e.holds, target: count.c }
