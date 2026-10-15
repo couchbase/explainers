@@ -6,7 +6,7 @@
 import { STATES, STATE, statePath } from './states.js';
 import { NODES, NUM_VBUCKETS } from './layout.js';
 import { serving, vbucketOf, RUNS } from '../lib/maps.js';
-import { MAPS, HERO_KEY, HERO } from './deals.js';
+import { MAPS, SIX, HERO_KEY, HERO } from './deals.js';
 import { EDGES, FLOW, PATHS } from './plumbing.js';
 
 export { MAPS, HERO_KEY, HERO };
@@ -49,6 +49,23 @@ function facts() {
   // what vbmap said it did (its diagnostics)
   out['uneven.relaxed'] = /Generated RI with relaxed replica balance/.test(RUNS.uneven5.diag);
   out['uneven.strictTried'] = /Trying to generate strict RI with NumSlaves=2/.test(RUNS.uneven5.diag);
+  // act 5: node f joins; the rebalance
+  const six = [...five, 'f'], sixWest = west;
+  const moved = (map) => map.flatMap((c, v) => c.filter((n) => !MAPS.uneven[v].includes(n)));
+  const land = (map) => six.map((n) => `${n}${moved(map).filter((x) => x === n).length}`).join(' ');
+  out['six.tries'] = SIX.tried.length;
+  out['six.best'] = `${SIX.best.order} ${SIX.best.seed}`;
+  out['six.dealt'] = SIX.best.asDealt.join(',');
+  out['six.seated'] = SIX.best.score.join(',');
+  out['six.dealt.range'] = `${Math.min(...SIX.tried.map((t) => t.asDealt[0]))}-${Math.max(...SIX.tried.map((t) => t.asDealt[0]))}`;
+  out['six.seated.range'] = `${Math.min(...SIX.tried.map((t) => t.score[0]))}-${Math.max(...SIX.tried.map((t) => t.score[0]))}`;
+  out['six.dealt.land'] = land(MAPS.dealt6);
+  out['six.land'] = land(MAPS.six);
+  out['six.serves'] = six.map((n) => `${n}${count(MAPS.six, 0, n)}`).join(' ');
+  out['six.holds'] = six.map((n) => `${n}${count(MAPS.six, 1, n)}`).join(' ');
+  out['six.sameRack'] = MAPS.six.filter(([a, r]) => sixWest.includes(a) === sixWest.includes(r)).length;
+  out['six.hero'] = MAPS.six[HERO].join(',');
+  out['six.promoted'] = MAPS.six.filter((c, v) => c[0] !== MAPS.uneven[v][0] && MAPS.uneven[v].includes(c[0])).length;
   out['flow.total'] = FLOW.total;
   return out;
 }

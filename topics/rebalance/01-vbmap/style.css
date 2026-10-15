@@ -12,6 +12,8 @@
 .diagram .grid-label { font: 600 14px var(--font-display); fill: var(--muted); }
 
 .diagram .copy.promoted { stroke-width: 1.6; }
+.diagram .copy.fresh { stroke-width: 2.6; }
+.diagram .bin-count.tight { font-size: 11px; }
 .diagram .lost-mark { font: 800 17px var(--font-mono); fill: var(--danger); stroke: var(--panel); stroke-width: 3px; paint-order: stroke; }
 .diagram .hero-ring { fill: none; stroke: var(--hero); stroke-width: 2; }
 .diagram .hero-ring-1 { stroke-width: 1.2; stroke-dasharray: 3 2; }
@@ -44,3 +46,8 @@
 .diagram .net-end { fill: var(--ink); }
 .diagram .net-end-label { font: 650 16px var(--font-display); fill: var(--panel); }
 .diagram .flow-note { font: 600 14px var(--font-mono); fill: var(--ink); }
+/* act 5: ns_server's tries */
+.diagram .tries-title { font: 600 14px var(--font-display); fill: var(--ink); }
+.diagram .tries-head { font: 600 12px var(--font-display); fill: var(--muted); }
+.diagram .tries-cell { font: 500 12px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .tries-best .tries-cell { font-weight: 700; fill: var(--accent); }

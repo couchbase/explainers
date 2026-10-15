@@ -15,10 +15,10 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import {
-  CANVAS, NODES, ALL_NODES, LAYOUT, NUM_VBUCKETS, CHIP, GRID, tileXY, RACK_BOX, BIN, BIN_X, binChipXY, GHOST_DY, LOW_DY, DOC, ANCHORS,
+  CANVAS, NODES, ALL_NODES, LAYOUT, firstLayout, TRIES, NUM_VBUCKETS, CHIP, GRID, tileXY, RACK_BOX, BIN, BIN_X, binChipXY, GHOST_DY, LOW_DY, DOC, ANCHORS,
 } from './layout.js';
 import { STATE, changed } from './states.js';
-import { MAPS, HERO, HERO_KEY } from './deals.js';
+import { MAPS, SIX, HERO, HERO_KEY } from './deals.js';
 import { buildPlumbing, drawPlumbing, pairXY } from './diagram-plumbing.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -70,8 +70,9 @@ function look(s, { v, k, key }) {
   }
   const chain = MAPS[s.map][v];
   // (its color's map: the uneven deal's copies keep their old colors
-  // till they're recolored)
-  const colors = s.map === 'uneven' && !s.recolor ? MAPS.vbmap : MAPS[s.map];
+  // till they're recolored, and through the rebalance, the colors of
+  // where they were before it)
+  const colors = MAPS[s.map === 'uneven' ? (s.recolor ? 'uneven' : 'vbmap') : SIX_MAPS.includes(s.map) ? 'uneven' : s.map];
   const down = node && s.down.includes(node);
   const promoted = node && k === 1 && s.promoted && s.down.includes(chain[0]) && !down;
   const lost = s.lost && chain.every((n) => s.down.includes(n));
@@ -82,8 +83,12 @@ function look(s, { v, k, key }) {
     // (and, bundled into a pipe, it's part of the pipe's flow)
     o: (k === 1 && !s.split && !dealt) || s.pipes ? 0 : 1,
     filled: k === 0 || promoted, promoted, lost: lost && k === 0,
+    // (a six-node map's copy on a node that didn't hold its vbucket:
+    // built from scratch)
+    fresh: !!node && SIX_MAPS.includes(s.map) && !MAPS.uneven[v].includes(node),
   };
 }
+const SIX_MAPS = ['dealt6', 'six'];
 const nodeColor = (n) => (n ? `var(--node-${n})` : 'var(--node-none)');
 
 function buildRedeal() {
@@ -112,11 +117,12 @@ function makeChip(parent, { v, k }) {
   return chip;
 }
 // Paints a copy: in its home's color, as an active (or a replica
-// promoted to one) or a replica.
-function paintChip(c, { color, active, promoted = false }) {
-  c.frame.style.stroke = promoted ? 'var(--ink)' : color;
+// promoted to one) or a replica; edged in red if it's to be built from
+// scratch.
+function paintChip(c, { color, active, promoted = false, fresh = false }) {
+  c.frame.style.stroke = fresh ? 'var(--danger)' : promoted ? 'var(--ink)' : color;
   c.frame.style.fill = active ? color : `color-mix(in srgb, ${color} 32%, white)`;
-  c.frame.setAttribute('class', `copy${active ? '' : ' replica'}${promoted ? ' promoted' : ''}`);
+  c.frame.setAttribute('class', `copy${active ? '' : ' replica'}${promoted ? ' promoted' : ''}${fresh ? ' fresh' : ''}`);
   c.half.style.fill = color;
   op(c.half, active ? 0 : 1);
   setText(c.letter, active ? 'A' : 'R');
@@ -128,9 +134,9 @@ function paintChip(c, { color, active, promoted = false }) {
 // The order copies change in: only those that change, in reading
 // order where they end up (a new deal: node by node).
 function orderFor(field, A, B) {
-  // (the cluster lifts as one, and the chart rises as one: the copies
-  // ride along, all together)
-  if (field === 'lifted' || field === 'chartUp') return [];
+  // (the cluster lifts as one, the chart rises as one, and the bins
+  // make room for a new node as one: the copies ride along, together)
+  if (field === 'lifted' || field === 'chartUp' || field === 'cluster') return [];
   const moving = COPIES.filter((c) => JSON.stringify(look(A, c)) !== JSON.stringify(look(B, c))).map((c) => ({ key: c.key, b: look(B, c), a: look(A, c) }));
   const at = (m) => m.b;
   // (the redeal's replicas set off left to right, from where they were)
@@ -193,6 +199,8 @@ export class Diagram {
       key,
       path: el('path', { d: `M${P[0]} C${P[1]} ${P[2]} ${P[3]}`, pathLength: 1, class: 'trail', style: `stroke: ${nodeColor(MAPS.vbmap[+key.split(':')[0]][0])}` }, g),
     }));
+    // act 5: the table of ns_server's tries
+    this.triesG = this._buildTries(g);
     // the copies
     this.chipG = el('g', {}, g);
     this.chips = {};
@@ -228,6 +236,24 @@ export class Diagram {
     return G;
   }
 
+  // ns_server's nine tries at the six-node map: each node order and
+  // run, what vbmap's map would cost as dealt and once seated; the
+  // cheapest is kept.
+  _buildTries(g) {
+    const G = el('g', { opacity: 0 }, g), { x0, y0, dy } = TRIES;
+    const cols = [x0, x0 + 112, x0 + 160, x0 + 380];
+    const cost = ([copies, takeovers]) => `${copies} copies, ${takeovers} takeovers`;
+    txt(G, x0, y0 - 30, "ns_server's nine tries: vbmap's map, as dealt and as seated", 'tries-title');
+    ['node order', 'run', 'as vbmap dealt it', 'seated by ns_server'].forEach((h, i) => txt(G, cols[i], y0, h, 'tries-head'));
+    SIX.tried.forEach((t, r) => {
+      const y = y0 + (r + 1) * dy, best = t === SIX.best;
+      const row = el('g', { class: `tries-row${best ? ' tries-best' : ''}` }, G);
+      [t.order.split('').join(' '), String(t.seed), cost(t.asDealt), cost(t.score)].forEach((v, i) => txt(row, cols[i], y, v, 'tries-cell'));
+      if (best) txt(row, cols[3] + 196, y, '← kept', 'tries-cell');
+    });
+    return G;
+  }
+
   // From state a to its neighbor b, partway (q, 0..1).
   draw(a, b, q) {
     const A = STATE[a], B = STATE[b] || A;
@@ -251,7 +277,7 @@ export class Diagram {
       ch.g.style.pointerEvents = o < 0.5 ? 'none' : '';
       // (a copy changing color blends from the old to the new)
       const color = la.home === lb.home ? nodeColor(lb.home) : `color-mix(in srgb, ${nodeColor(la.home)} ${((1 - u) * 100).toFixed(1)}%, ${nodeColor(lb.home)})`;
-      paintChip(ch, { color, active: s.filled, promoted: s.promoted });
+      paintChip(ch, { color, active: s.filled, promoted: s.promoted, fresh: s.fresh });
       const xo = la.lost === lb.lost ? (la.lost ? 1 : 0) : lb.lost ? u : 1 - u;
       op(ch.x, xo);
       op(ch.letter, 1 - xo);
@@ -289,8 +315,9 @@ export class Diagram {
       const sh = field === 'holds' ? (q < 0.5 ? A : B) : B;
       const holds = MAPS[s.map].filter((chain) => chain[1] === n).length;
       setText(bin.count, s.down.includes(n) ? 'down' : sh.holds ? `serves ${serves} · holds ${holds}` : `serves ${serves}`);
-      bin.count.setAttribute('class', `bin-count${serves > 12 || (sh.holds && holds > 8) ? ' over' : ''}`);
-      op(bin.count, f('counts', A.counts ? 1 : 0, B.counts ? 1 : 0) * f('cluster', inA, inB));
+      bin.count.setAttribute('class', `bin-count${serves > 12 || (sh.holds && holds > 8) ? ' over' : ''}${B.cluster === 'six' ? ' tight' : ''}`);
+      // (a joining node's count waits till its bin's nearly grown)
+      op(bin.count, f('counts', A.counts ? 1 : 0, B.counts ? 1 : 0) * f('cluster', inA, inB) ** 4);
     }
     // the cluster: below the grid, till it's lifted into place
     this.dy = f('lifted', A.lifted ? 0 : LOW_DY, B.lifted ? 0 : LOW_DY);
@@ -331,16 +358,24 @@ export class Diagram {
     const go = fading ? 1 - q : field === 'ghost' ? 1 : B.ghost ? 1 : 0;
     op(this.ghost, go);
     this.ghost.style.pointerEvents = go ? '' : 'none';
+    // act 5's table
+    op(this.triesG, f('tries', A.tries ? 1 : 0, B.tries ? 1 : 0));
   }
 
   // The racks', bins', curtains' and counts' places: cluster A's, cluster
-  // B's, or partway between (u). A node not in a cluster sits where it
-  // will be, unseen.
+  // B's, or partway between (u). A node not in a cluster is a sliver at
+  // the end of its rack, unseen: joining, it grows out of there.
   _place(A, B, u) {
     const La = LAYOUT[A.cluster], Lb = LAYOUT[B.cluster];
-    const at = (L, n) => L.binX[n] ?? LAYOUT.five.binX[n];
+    const at = (L, n) => {
+      if (n in L.binX) return [L.binX[n], L.binW];
+      const F = firstLayout(n), r = Object.keys(F.racks).find((k) => F.racks[k].includes(n));
+      const last = L.racks[r].at(-1);
+      return [L.binX[last] + L.binW + (L.binGap ?? 20), 0];
+    };
     for (const n of ALL_NODES) {
-      const x = lerp(at(La, n), at(Lb, n), u), w = lerp(La.binW, Lb.binW, u), b = this.bins[n];
+      const [xa, wa] = at(La, n), [xb, wb] = at(Lb, n);
+      const x = lerp(xa, xb, u), w = lerp(wa, wb, u), b = this.bins[n];
       b.box.setAttribute('x', x.toFixed(1)); b.box.setAttribute('width', w.toFixed(1));
       b.name.setAttribute('x', (x + 4).toFixed(1));
       b.count.setAttribute('x', (x + w / 2).toFixed(1));

@@ -37,10 +37,17 @@
 //             the pipes are emptied to show how)
 //   network   the network (its nodes, threads, pipes, source, sink) is
 //             shown, once it's built; it fades as one
-//   cluster   which nodes: 'four', or 'five' once node e joins rack West
+//   cluster   which nodes: 'four', 'five' once node e joins rack West, or
+//             'six' once node f joins rack East
 //   holds     each node's count says how many replicas it holds, too
 //   recolor   in the uneven deal, copies take their new homes' colors
 //             (till then, they keep their old ones, from vbmap's deal)
+//   tries     the table of ns_server's nine tries at the six-node map
+//
+// The maps (see deals.js): 'naive', 'vbmap' (four nodes), 'uneven' (five),
+// and for six nodes, 'dealt6' (vbmap's map, as it dealt it) and 'six'
+// (its chains, seated by ns_server). In a six-node map, a copy on a node
+// that didn't hold its vbucket before is built from scratch.
 
 import { PATHS } from './plumbing.js';
 
@@ -48,7 +55,7 @@ const START = {
   doc: true, split: false, scaffold: false, actives: false, replicas: false, lifted: false, counts: false,
   map: 'naive', trails: true, down: [], promoted: false, lost: false, ghost: false,
   chart: false, view: 'bins', chartUp: false, sums: false, arcs: false, rowsOut: false, colsOut: false, pipes: false, source: false, sink: false, flow: PATHS.length,
-  network: true, cluster: 'four', holds: false, recolor: false,
+  network: true, cluster: 'four', holds: false, recolor: false, tries: false,
 };
 
 // nodes failing (down, then failed over), and coming back
@@ -101,6 +108,11 @@ const CHANGES = [
   ['e.deal', { map: 'uneven' }],
   ['e.recolor', { recolor: true }],
   ['e.holds', { holds: true }],
+  // act 5: node f joins rack East, and the cluster rebalances
+  ['f.joins', { cluster: 'six' }],
+  ['six.dealt', { map: 'dealt6' }],
+  ['six.seated', { map: 'six' }],
+  ['six.tries', { tries: true }],
 ];
 
 export const STATES = [];

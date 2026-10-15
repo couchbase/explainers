@@ -33,13 +33,40 @@ var cases = []struct {
 	racks    string
 	vbuckets int
 	replicas int
+	seed     int
 }{
 	// the story: a, b in rack West, c, d in rack East
-	{"story4", "a,b,c,d", "West,West,East,East", 32, 1},
+	{"story4", "a,b,c,d", "West,West,East,East", 32, 1, 1},
 	// then e joins West and f joins East
-	{"story6", "a,b,c,d,e,f", "West,West,East,East,West,East", 32, 1},
+	{"story6", "a,b,c,d,e,f", "West,West,East,East,West,East", 32, 1, 1},
 	// e alone joins West: racks of 3 and 2
-	{"uneven5", "a,b,c,d,e", "West,West,East,East,West", 32, 1},
+	{"uneven5", "a,b,c,d,e", "West,West,East,East,West", 32, 1, 1},
+}
+
+// The rebalance: node f joins rack East, and ns_server asks vbmap for
+// a map 9 times, as generate_map_new does: 3 shuffled node orders
+// (misc:shuffle; here, 3 fixed ones), 3 runs each (here, seeds 1-3).
+// Named six-<order>-<seed>.
+var sixOrders = []string{"a,b,c,d,e,f", "f,c,a,e,d,b", "d,e,b,f,c,a"}
+
+func init() {
+	rack := map[string]string{"a": "West", "b": "West", "e": "West", "c": "East", "d": "East", "f": "East"}
+	for i, order := range sixOrders {
+		racks := []string{}
+		for _, n := range strings.Split(order, ",") {
+			racks = append(racks, rack[n])
+		}
+		for seed := 1; seed <= 3; seed++ {
+			cases = append(cases, struct {
+				name     string
+				nodes    string
+				racks    string
+				vbuckets int
+				replicas int
+				seed     int
+			}{fmt.Sprintf("six-%d-%d", i+1, seed), order, strings.Join(racks, ","), 32, 1, seed})
+		}
+	}
 }
 
 func main() {
@@ -75,7 +102,7 @@ func main() {
 			"-num-replicas", fmt.Sprint(c.replicas),
 			"-num-slaves", "10",
 			"-tags", strings.Join(tags, ","),
-			"-relax-all", "-seed", "1",
+			"-relax-all", "-seed", fmt.Sprint(c.seed),
 			"-diag", diag, "-output-format", "json")
 		// (vbmap seeds math/rand with rand.Seed, which Go 1.24 made a
 		// no-op by default; this makes -seed count, so runs repeat)
@@ -96,7 +123,7 @@ func main() {
 			}
 			lines = append(lines, l)
 		}
-		out[c.name] = run{nodes, racks, c.vbuckets, c.replicas, 1, m, strings.Join(lines, "\n")}
+		out[c.name] = run{nodes, racks, c.vbuckets, c.replicas, c.seed, m, strings.Join(lines, "\n")}
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", " ")

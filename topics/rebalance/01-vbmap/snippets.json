@@ -101,5 +101,63 @@
   ],
   "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/engine_maxflow.go#L51-L82",
   "code": "\tfeasible, _ := g.FindFeasibleFlow()\n\tif !feasible && searchParams.RelaxSlaveBalance {\n\t\tfor {\n\t\t\tif !relaxSlaveBalance(g, params) {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\tfeasible, _ = g.FindFeasibleFlow()\n\t\t\tif feasible {\n\t\t\t\tdiag.Printf(\"Generated RI with \" +\n\t\t\t\t\t\"relaxed slave balance\")\n\t\t\t\tbreak\n\t\t\t}\n\t\t}\n\t}\n\n\tif !feasible && searchParams.RelaxReplicaBalance {\n\t\tfor {\n\t\t\tif !relaxReplicaBalance(g, params) {\n\t\t\t\tbreak\n\t\t\t}\n\n\t\t\tfeasible, _ = g.FindFeasibleFlow()\n\t\t\tif feasible {\n\t\t\t\tdiag.Printf(\"Generated RI with \" +\n\t\t\t\t\t\"relaxed replica balance\")\n\t\t\t\tbreak\n\t\t\t}\n\t\t}\n\t}\n\n\tif gen.dotPath != \"\" {\n\t\terr := g.Dot(gen.dotPath, gen.dotVerbose)"
+ },
+ "ns_server.simple_minimize_moves": {
+  "id": "ns_server.simple_minimize_moves",
+  "repo": "ns_server",
+  "path": "apps/ns_server/src/mb_map.erl",
+  "title": "ns_server simple_minimize_moves() — seat vbmap's chains on the vbuckets, in passes",
+  "start": 606,
+  "end": 636,
+  "highlight": [
+   621,
+   629,
+   635
+  ],
+  "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/mb_map.erl#L606-L636",
+  "code": "simple_minimize_moves(Map, Chains, NumCopies, KeepNodes) ->\n    %% Strip nodes we're removing along with extra copies\n    Map1 = map_strip(Map, NumCopies, KeepNodes),\n\n    %% Turn the map into a list of {VBucket, Chain} pairs.\n    NumberedMap = lists:zip(lists:seq(0, length(Map1) - 1), Map1),\n\n    %% Sort the candidate chains.\n    SortedChains = lists:sort(Chains),\n\n    {Pairs, [], []} =\n        lists:foldl(fun (Shift, {R, M, C}) ->\n                            {R1, M1, C1} = do_simple_minimize_moves(M, C, Shift),\n                            {R1 ++ R, M1, C1}\n                    end, {[], NumberedMap, SortedChains},\n                    lists:seq(0, NumCopies)),\n\n    %% We can simply sort the pairs because the first element of the\n    %% first tuple is the vbucket number.\n    [Chain || {_, Chain} <- lists:sort(Pairs)].\n\ndo_simple_minimize_moves(NumberedMap, SortedChains, Shift) ->\n    Fun = fun ({_, A}, {_, B}) ->\n                  lists:nthtail(Shift, A) =< lists:nthtail(Shift, B)\n          end,\n    SortedMap = lists:sort(Fun, NumberedMap),\n    Cmp = fun ({_, C1}, Candidate) ->\n                  listcmp(lists:nthtail(Shift, C1), Candidate)\n          end,\n    genmerge(Cmp, SortedMap, SortedChains).\n"
+ },
+ "ns_server.generate_map_new": {
+  "id": "ns_server.generate_map_new",
+  "repo": "ns_server",
+  "path": "apps/ns_server/src/mb_map.erl",
+  "title": "ns_server generate_map_new() — nine maps from vbmap, scored, the cheapest kept",
+  "start": 355,
+  "end": 374,
+  "highlight": [
+   360,
+   362,
+   373
+  ],
+  "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/mb_map.erl#L355-L374",
+  "code": "    GeneratedMaps0 =\n        lists:append(\n          [[invoke_vbmap(Map, ShuffledNodes, NumVBuckets,\n                         NumSlaves, NumReplicas, Tags, UseGreedy, Uploaders,\n                         Verbose) ||\n               _ <- lists:seq(1, 3)] ||\n              ShuffledNodes <-\n                  [misc:shuffle(KeepNodes) || _ <- lists:seq(1, 3)]]),\n\n    GeneratedMaps = score_maps(Map, Uploaders, ExistingNodesSet,\n                               GeneratedMaps0),\n    Verbose andalso ?log_debug(\"Scores for generated maps:~n~p\",\n                               [[GM || {_, GM, _} <- GeneratedMaps]]),\n\n    AllMaps = sets:to_list(sets:from_list(GeneratedMaps ++ MapsFromPast)),\n\n    Verbose andalso ?log_debug(\"Considering ~p maps:~n~p\",\n                               [length(AllMaps), [M || {_, M, _} <- AllMaps]]),\n    {BestMap, BestMapScore, BestMapInfo} = best_map(Options, AllMaps),\n    Verbose andalso ?log_debug(\"Best map score: ~p (~p)\","
+ },
+ "ns_server.vbucket_movements": {
+  "id": "ns_server.vbucket_movements",
+  "repo": "ns_server",
+  "path": "apps/ns_server/src/mb_map.erl",
+  "title": "ns_server vbucket_movements() — a map's cost, copies built from scratch, then takeovers",
+  "start": 71,
+  "end": 91,
+  "highlight": [
+   72,
+   81,
+   88
+  ],
+  "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/mb_map.erl#L71-L91",
+  "code": "vbucket_movements_rec(AccMasters, AccReplicas, [], []) ->\n    {AccReplicas, AccMasters};\nvbucket_movements_rec(AccMasters, AccReplicas,\n                      [[MasterSrc|_] = SrcChain | RestSrcChains],\n                      [[MasterDst|_] = DstChain | RestDstChains]) ->\n    true = (MasterDst =/= undefined),\n    AccMasters2 = case MasterSrc =:= MasterDst of\n                      true ->\n                          AccMasters;\n                      false ->\n                          AccMasters+1\n                  end,\n    AccReplicas2 =\n        lists:foldl(\n          fun (DstNode, Acc) ->\n                  case DstNode =:= undefined orelse lists:member(DstNode, SrcChain) of\n                      true -> Acc;\n                      false -> Acc+1\n                  end\n          end, AccReplicas, DstChain),\n    vbucket_movements_rec(AccMasters2, AccReplicas2, RestSrcChains, RestDstChains)."
+ },
+ "ns_server.moves_per_node": {
+  "id": "ns_server.moves_per_node",
+  "repo": "ns_server",
+  "path": "apps/ns_server/src/ns_vbucket_mover.erl",
+  "title": "ns_server ns_vbucket_mover — the scheduler's limit on backfills per node (rebalanceMovesPerNode, 4 by default)",
+  "start": 153,
+  "end": 156,
+  "highlight": [
+   153
+  ],
+  "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/ns_vbucket_mover.erl#L153-L156",
+  "code": "    BackfillsLimit = get_backfills_per_node(FileBasedEnabled),\n    SchedulerState = vbucket_move_scheduler:prepare(\n                       OldMap, NewMap, Quirks,\n                       BackfillsLimit,"
  }
 }

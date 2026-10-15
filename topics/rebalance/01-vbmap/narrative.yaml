@@ -458,3 +458,74 @@ chapters:
           The lesson for anyone laying out a cluster: keep racks (in
           Couchbase, server groups) the same size, or expect the
           smaller rack's nodes to carry more.
+
+  # ------------------------------------------------------------------
+  - id: rebalance
+    title: "Node f joins: a rebalance"
+    color: fix
+    steps:
+
+      - id: f-joins
+        view: { at: f.joins, target: node.f }
+        text: |
+          So take the lesson: [[node f]] joins rack East, and the racks
+          are 3 and 3. A rebalance moves the cluster from the map it
+          has to a new map for six nodes.
+
+      - id: dealt
+        view: { at: six.dealt, target: node.f }
+        expect: ["fact:six.dealt=40,27", "fact:six.dealt.land=a8 b8 c3 d3 e7 f11"]
+        text: |
+          ns_server asks vbmap for a six-node map. vbmap doesn't look at
+          the map the cluster has: it deals from scratch. Taken as it
+          comes, vbucket by vbucket, its map would build 40 copies from
+          scratch (edged in red), on [[every node]], not just node f,
+          and move 27 actives. Each copy keeps the color of the node
+          its vbucket was on.
+
+      - id: seated
+        view: { at: six.seated, target: node.f }
+        code: [ns_server.simple_minimize_moves]
+        expect: ["fact:six.seated=14,9", "fact:six.land=a1 b1 c0 d0 e1 f11", "fact:six.hero=b,f"]
+        text: |
+          But what vbmap gives is a set of chains (an active's node, a
+          replica's node), and which vbucket gets which chain is free.
+          ns_server's simple_minimize_moves() seats them in passes: a
+          vbucket whose chain is among the new ones keeps it; then a
+          vbucket whose replica heads a new chain takes that one; then
+          the rest. The same chains, so the same counts; now 14 copies
+          to build, and 9 takeovers. Vbucket 9's replica is one of the
+          14: it moves from node c to [[node f]].
+
+      - id: tries
+        view: { at: six.tries, target: tries }
+        code: [ns_server.generate_map_new, ns_server.vbucket_movements]
+        expect: ["fact:six.tries=9", "fact:six.best=fcaedb 1", "fact:six.dealt.range=34-47", "fact:six.seated.range=14-18"]
+        text: |
+          ns_server doesn't ask just once. It shuffles the node order
+          three times, and asks vbmap three times for each: nine maps.
+          As dealt, they'd build 34 to 47 copies from scratch; seated,
+          14 to 18. It keeps [[the cheapest]], by copies to build, then
+          by takeovers: the map above. (These nine are real vbmap runs,
+          with seeds 1 to 3; ns_server's are random.)
+
+      - id: lands
+        view: { at: six.tries, target: count.f }
+        expect: ["fact:six.serves=a6 b5 c5 d6 e5 f5", "fact:six.holds=a6 b5 c5 d5 e5 f6", "fact:six.sameRack=0"]
+        text: |
+          Where the 14 land: 11 on [[node f]], the new node, and one
+          each on nodes a, b and e. The balance is back: every node
+          serves 5 or 6 vbuckets and holds 5 or 6 replicas, and every
+          replica still crosses racks. Nodes c and d, which held 10 and
+          9 replicas, now hold 5 each.
+
+      - id: next
+        code: [ns_server.moves_per_node]
+        text: |
+          But copies don't teleport. Each red-edged copy is a backfill:
+          its vbucket's data, streamed from the active copy while the
+          cluster keeps serving. ns_server moves vbuckets a few at a
+          time, at most 4 into or out of any one node at once (by
+          default), so node f's 11 wait their turn. How those moves are
+          scheduled, and how an active copy hands over without losing a
+          write, is a story for another explainer.

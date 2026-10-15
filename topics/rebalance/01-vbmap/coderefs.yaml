@@ -59,3 +59,35 @@ vbmap.relax:
   extent: 32
   title: vbmap MaxFlowRIGenerator.Generate() — strict first, then relaxed, one rule at a time
   highlight: ["relaxSlaveBalance(g, params)", "relaxReplicaBalance(g, params)", "Generated RI with "]
+
+ns_server.simple_minimize_moves:
+  repo: ns_server
+  path: apps/ns_server/src/mb_map.erl
+  anchor: "simple_minimize_moves(Map, Chains, NumCopies, KeepNodes) ->"
+  extent: 31
+  title: ns_server simple_minimize_moves() — seat vbmap's chains on the vbuckets, in passes
+  highlight: ["lists:seq(0, NumCopies)", "lists:nthtail(Shift, A) =< lists:nthtail(Shift, B)", "genmerge(Cmp, SortedMap, SortedChains)"]
+
+ns_server.generate_map_new:
+  repo: ns_server
+  path: apps/ns_server/src/mb_map.erl
+  anchor: "    GeneratedMaps0 ="
+  extent: 20
+  title: ns_server generate_map_new() — nine maps from vbmap, scored, the cheapest kept
+  highlight: ["_ <- lists:seq(1, 3)] ||", "[misc:shuffle(KeepNodes) || _ <- lists:seq(1, 3)]", "best_map(Options, AllMaps)"]
+
+ns_server.vbucket_movements:
+  repo: ns_server
+  path: apps/ns_server/src/mb_map.erl
+  anchor: "vbucket_movements_rec(AccMasters, AccReplicas, [], []) ->"
+  extent: 21
+  title: ns_server vbucket_movements() — a map's cost, copies built from scratch, then takeovers
+  highlight: ["{AccReplicas, AccMasters}", "AccMasters+1", "Acc+1"]
+
+ns_server.moves_per_node:
+  repo: ns_server
+  path: apps/ns_server/src/ns_vbucket_mover.erl
+  anchor: "    BackfillsLimit = get_backfills_per_node(FileBasedEnabled),"
+  extent: 4
+  title: ns_server ns_vbucket_mover — the scheduler's limit on backfills per node (rebalanceMovesPerNode, 4 by default)
+  highlight: ["BackfillsLimit"]
