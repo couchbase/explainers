@@ -376,6 +376,17 @@ a.eyebrow:hover { text-decoration: underline; }
 .entry a.title { font: 600 1.25rem/1.2 var(--font-display); color: var(--ink); text-decoration: none; }
 .entry a.title:hover { color: var(--accent); }
 .entry p { margin: 0.4rem 0 0; color: var(--muted); }
+.showcase { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+.shot { display: block; width: min(260px, 100%); border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+.shot:hover { border-color: var(--accent); }
+/* a sprite: its frames stacked top to bottom; a clip steps through
+   them, holding its first a moment and its last a while; a still
+   shows its one */
+.shot .sprite { background-image: var(--light); background-size: 100% calc(var(--frames) * 100%); background-repeat: no-repeat; }
+.shot .playing { animation: shot-play var(--seconds) infinite; animation-timing-function: var(--steps); }
+@keyframes shot-play { 0%, 10% { background-position: 0 0; } 70%, 100% { background-position: 0 100%; } }
+@media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
+@media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
 
 </style>
@@ -389,7 +400,7 @@ a.eyebrow:hover { text-decoration: underline; }
 <ol class="entries"><li class="entry card">
 <span class="num">01</span>
 <div><a class="title" href="blance/01-planning.html">Inside blance: how partitions are assigned to nodes</a><p>How blance, a library for placing partitions on nodes, decides which node gets each partition&#39;s primary and replicas: greedily, one partition at a time, and what happens when nodes join and leave.</p>
-</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<div class="showcase"><a class="shot" href="blance/01-planning.html#join--balanced" title="The partition map after node d joins: 2 primaries and 2 replicas each"><div class="sprite" role="img" aria-label="The partition map after node d joins: 2 primaries and 2 replicas each" style="--light: url('blance/showcase/01-planning-1-light.jpg'); --dark: url('blance/showcase/01-planning-1-dark.jpg'); --frames: 1; --seconds: 0.2s; --steps: steps(1, jump-none); aspect-ratio: 420 / 405"></div></a></div></div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">02</span>
 <div><a class="title" href="blance/02-moving.html">Inside blance: how a rebalance moves partitions</a><p>From one partition map to the next, while the partitions stay in use: each partition&#39;s moves, a mover per node, and a controller that keeps every node busy, one round at a time.</p>
 </div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
@@ -402,17 +413,17 @@ a.eyebrow:hover { text-decoration: underline; }
 <ol class="entries"><li class="entry card">
 <span class="num">01</span>
 <div><a class="title" href="cbft/01-indexing.html">Inside bleve / scorch: introducer, persister, merger</a><p>How a Couchbase FTS index turns a stream of DCP mutations into searchable, durable segments.</p>
-</div></li><li class="entry card">
+<div class="showcase"><a class="shot" href="cbft/01-indexing.html#merger--merge-wide" title="The merger writing a merged zap file, and root.bolt's snapshots on disk"><div class="sprite" role="img" aria-label="The merger writing a merged zap file, and root.bolt's snapshots on disk" style="--light: url('cbft/showcase/01-indexing-1-light.jpg'); --dark: url('cbft/showcase/01-indexing-1-dark.jpg'); --frames: 1; --seconds: 0.2s; --steps: steps(1, jump-none); aspect-ratio: 420 / 349"></div></a></div></div></li><li class="entry card">
 <span class="num">02</span>
 <div><a class="title" href="cbft/02-zap-format.html">Inside a zap segment: how scorch stores and finds your docs</a><p>What scorch reads, byte by byte, when a query asks for a word: the file layout, vellum FSTs, roaring bitmaps and stored fields.</p>
-</div></li></ol>
+<div class="showcase"><a class="shot" href="cbft/02-zap-format.html#fst--tails" title="A field's terms becoming a vellum FST, equal tails merged"><div class="sprite playing" role="img" aria-label="A field's terms becoming a vellum FST, equal tails merged" style="--light: url('cbft/showcase/02-zap-format-1-light.jpg'); --dark: url('cbft/showcase/02-zap-format-1-dark.jpg'); --frames: 20; --seconds: 3.3s; --steps: steps(20, jump-none); aspect-ratio: 420 / 220"></div></a></div></div></li></ol>
 <h2><a href="rebalance/index.html">Inside rebalance: placing and moving vbuckets</a></h2>
 <div class="subtitle"><p>How Couchbase decides which servers hold each vbucket&#39;s copies, so a failure never overloads one server or loses data, and how a rebalance moves the copies when servers come and go.</p>
 </div>
 <ol class="entries"><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">01</span>
 <div><a class="title" href="rebalance/01-vbmap.html">Inside rebalance: how vbmap places vbuckets</a><p>Couchbase splits a bucket into vbuckets, and keeps each one&#39;s copies on different servers. Where exactly? A simple answer fails badly; vbmap&#39;s answer survives a failed server, or a whole rack, without overloading anyone.</p>
-</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<div class="showcase"><a class="shot" href="rebalance/01-vbmap.html#better--redeal" title="vbmap's deal: every replica moves to the other rack"><div class="sprite playing" role="img" aria-label="vbmap's deal: every replica moves to the other rack" style="--light: url('rebalance/showcase/01-vbmap-1-light.jpg'); --dark: url('rebalance/showcase/01-vbmap-1-dark.jpg'); --frames: 20; --seconds: 3.3s; --steps: steps(20, jump-none); aspect-ratio: 420 / 351"></div></a></div></div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">02</span>
 <div><a class="title" href="rebalance/02-maxflow.html">Inside rebalance: vbmap's max-flow engine</a><p>Couchbase splits a bucket into vbuckets, and keeps each one&#39;s copies on different servers. Where exactly? A simple answer fails badly; vbmap&#39;s answer survives a failed server, or a whole rack, without overloading anyone.</p>
 </div></li></ol></main>

@@ -436,6 +436,17 @@ a.eyebrow:hover { text-decoration: underline; }
 .entry a.title { font: 600 1.25rem/1.2 var(--font-display); color: var(--ink); text-decoration: none; }
 .entry a.title:hover { color: var(--accent); }
 .entry p { margin: 0.4rem 0 0; color: var(--muted); }
+.showcase { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+.shot { display: block; width: min(260px, 100%); border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+.shot:hover { border-color: var(--accent); }
+/* a sprite: its frames stacked top to bottom; a clip steps through
+   them, holding its first a moment and its last a while; a still
+   shows its one */
+.shot .sprite { background-image: var(--light); background-size: 100% calc(var(--frames) * 100%); background-repeat: no-repeat; }
+.shot .playing { animation: shot-play var(--seconds) infinite; animation-timing-function: var(--steps); }
+@keyframes shot-play { 0%, 10% { background-position: 0 0; } 70%, 100% { background-position: 0 100%; } }
+@media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
+@media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
 
 </style>
@@ -448,7 +459,7 @@ a.eyebrow:hover { text-decoration: underline; }
 <ol class="entries"><li class="entry card">
 <span class="num">01</span>
 <div><a class="title" href="01-planning.html">Inside blance: how partitions are assigned to nodes</a><p>How blance, a library for placing partitions on nodes, decides which node gets each partition&#39;s primary and replicas: greedily, one partition at a time, and what happens when nodes join and leave.</p>
-</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<div class="showcase"><a class="shot" href="01-planning.html#join--balanced" title="The partition map after node d joins: 2 primaries and 2 replicas each"><div class="sprite" role="img" aria-label="The partition map after node d joins: 2 primaries and 2 replicas each" style="--light: url('showcase/01-planning-1-light.jpg'); --dark: url('showcase/01-planning-1-dark.jpg'); --frames: 1; --seconds: 0.2s; --steps: steps(1, jump-none); aspect-ratio: 420 / 405"></div></a></div></div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">02</span>
 <div><a class="title" href="02-moving.html">Inside blance: how a rebalance moves partitions</a><p>From one partition map to the next, while the partitions stay in use: each partition&#39;s moves, a mover per node, and a controller that keeps every node busy, one round at a time.</p>
 </div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>

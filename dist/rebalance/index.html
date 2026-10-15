@@ -452,6 +452,17 @@ a.eyebrow:hover { text-decoration: underline; }
 .entry a.title { font: 600 1.25rem/1.2 var(--font-display); color: var(--ink); text-decoration: none; }
 .entry a.title:hover { color: var(--accent); }
 .entry p { margin: 0.4rem 0 0; color: var(--muted); }
+.showcase { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+.shot { display: block; width: min(260px, 100%); border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+.shot:hover { border-color: var(--accent); }
+/* a sprite: its frames stacked top to bottom; a clip steps through
+   them, holding its first a moment and its last a while; a still
+   shows its one */
+.shot .sprite { background-image: var(--light); background-size: 100% calc(var(--frames) * 100%); background-repeat: no-repeat; }
+.shot .playing { animation: shot-play var(--seconds) infinite; animation-timing-function: var(--steps); }
+@keyframes shot-play { 0%, 10% { background-position: 0 0; } 70%, 100% { background-position: 0 100%; } }
+@media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
+@media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
 
 </style>
@@ -464,7 +475,7 @@ a.eyebrow:hover { text-decoration: underline; }
 <ol class="entries"><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">01</span>
 <div><a class="title" href="01-vbmap.html">Inside rebalance: how vbmap places vbuckets</a><p>Couchbase splits a bucket into vbuckets, and keeps each one&#39;s copies on different servers. Where exactly? A simple answer fails badly; vbmap&#39;s answer survives a failed server, or a whole rack, without overloading anyone.</p>
-</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<div class="showcase"><a class="shot" href="01-vbmap.html#better--redeal" title="vbmap's deal: every replica moves to the other rack"><div class="sprite playing" role="img" aria-label="vbmap's deal: every replica moves to the other rack" style="--light: url('showcase/01-vbmap-1-light.jpg'); --dark: url('showcase/01-vbmap-1-dark.jpg'); --frames: 20; --seconds: 3.3s; --steps: steps(20, jump-none); aspect-ratio: 420 / 351"></div></a></div></div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">02</span>
 <div><a class="title" href="02-maxflow.html">Inside rebalance: vbmap's max-flow engine</a><p>Couchbase splits a bucket into vbuckets, and keeps each one&#39;s copies on different servers. Where exactly? A simple answer fails badly; vbmap&#39;s answer survives a failed server, or a whole rack, without overloading anyone.</p>
 </div></li></ol></main>
