@@ -11,6 +11,11 @@ subtitle: >-
   searchable, durable segments.
 audience: Couchbase engineers and support
 
+# scenes for the index pages (npm run showcase makes their pictures)
+showcase:
+  - step: merger--merge-wide
+    caption: "The merger writing a merged zap file, and root.bolt's snapshots on disk"
+
 sim:
   seed: 7
   config: {}

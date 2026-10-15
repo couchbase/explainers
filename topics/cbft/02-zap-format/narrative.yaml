@@ -10,6 +10,14 @@ subtitle: >-
   file layout, vellum FSTs, roaring bitmaps and stored fields.
 audience: Couchbase engineers and support
 
+# scenes for the index pages (npm run showcase makes their pictures)
+showcase:
+  - step: fst--tails
+    rect: [438, 809, 904, 474]
+    play: [0, 1]
+    caption: "A field's terms becoming a vellum FST, equal tails merged"
+
+
 chapters:
 
   # ------------------------------------------------------------------

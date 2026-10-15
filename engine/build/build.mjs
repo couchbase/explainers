@@ -7,7 +7,7 @@
 //   npm run build          # dist/<topic>/<name>.html, and the index pages
 //   npm run dev            # rebuild on change
 
-import { readFileSync, writeFileSync as writeNow, renameSync, mkdirSync, watch } from 'node:fs';
+import { readFileSync, writeFileSync as writeNow, renameSync, mkdirSync, watch, existsSync } from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -172,7 +172,7 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
       mkdirSync(join(outDir, e.topic), { recursive: true });
       const file = join(outDir, e.topic, `${e.name}${suffix}.html`);
       writeFileSync(file, html);
-      if (!suffix) written.push({ file, bytes: html.length, topic: e.topic, name: e.name, title: n.title, subtitleHtml: data.narrative.subtitleHtml, draft: !!n.draft });
+      if (!suffix) written.push({ file, bytes: html.length, topic: e.topic, name: e.name, title: n.title, subtitleHtml: data.narrative.subtitleHtml, draft: !!n.draft, showcase: showcaseOf(e, outDir) });
     }
   }
   // The index pages: one per topic, and one over all of them.
@@ -183,6 +183,28 @@ export async function build({ outDir = join(ROOT, 'dist') } = {}) {
   for (const { topic, ws } of topics) writeFileSync(join(outDir, topic.topic, 'index.html'), topicIndex(topic, ws));
   writeFileSync(join(outDir, 'index.html'), rootIndex(topics));
   return written;
+}
+
+// An explainer's showcase scenes, for the index pages: each one's
+// pictures (sprites, made by engine/tools/showcase.mjs, in the
+// explainer's showcase/, with their frames and size), copied to
+// dist/<topic>/showcase/; a scene not shot yet is left out, with a
+// warning.
+function showcaseOf(e, outDir) {
+  const out = [];
+  (e.narrative.showcase || []).forEach((sc, i) => {
+    const src = (scheme) => join(e.dir, 'showcase', `${i + 1}-${scheme}.jpg`);
+    const meta = join(e.dir, 'showcase', `${i + 1}.json`);
+    if (!existsSync(src('light')) || !existsSync(src('dark')) || !existsSync(meta)) return console.warn(`${e.id}: showcase ${sc.step} has no pictures yet (npm run showcase -- ${e.id})`);
+    mkdirSync(join(outDir, e.topic, 'showcase'), { recursive: true });
+    const pic = {};
+    for (const scheme of ['light', 'dark']) {
+      pic[scheme] = `showcase/${e.name}-${i + 1}-${scheme}.jpg`;
+      writeFileSync(join(outDir, e.topic, pic[scheme]), readFileSync(src(scheme)));
+    }
+    out.push({ ...pic, ...JSON.parse(readFileSync(meta, 'utf8')), step: sc.step, caption: sc.caption || '' });
+  });
+  return out;
 }
 
 async function main() {

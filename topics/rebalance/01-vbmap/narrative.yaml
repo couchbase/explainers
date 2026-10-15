@@ -17,6 +17,12 @@ subtitle: >-
   overloading anyone.
 audience: Engineers who build or run distributed systems
 
+# scenes for the index pages (npm run showcase makes their pictures)
+showcase:
+  - step: better--redeal
+    play: [0, 1]
+    caption: "vbmap's deal: every replica moves to the other rack"
+
 chapters:
 
   # ------------------------------------------------------------------

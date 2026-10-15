@@ -51,7 +51,7 @@ export function validateNarrative(n, { coderefs = {}, sources = null, file = 'na
   };
 
   if (!isObj(n)) return [`${file}: not a mapping`];
-  keys(n, ['title', 'subtitle', 'audience', 'sources', 'next', 'draft', 'sim', 'chapters'], 'top');
+  keys(n, ['title', 'subtitle', 'audience', 'sources', 'next', 'draft', 'sim', 'showcase', 'chapters'], 'top');
   if (n.draft !== undefined && typeof n.draft !== 'boolean') err('top', 'draft must be true or false');
   // the pinned sources it's modeled on, named in its header
   if (n.sources !== undefined && sources) checkIds(n.sources, Object.keys(sources), 'top', 'source');
@@ -137,6 +137,21 @@ export function validateNarrative(n, { coderefs = {}, sources = null, file = 'na
       for (const e of st.expect || []) if (!isKnownExpectation(e)) err(sw, `unknown expectation "${e}"`);
     });
   });
+  // Scenes for the index pages (engine/tools/showcase.mjs): a step
+  // ('chapter--step'), and optionally a rect of the diagram, in its
+  // own units, a range of the step's scroll to play, and a caption.
+  if (n.showcase !== undefined) {
+    if (!Array.isArray(n.showcase)) err('showcase', 'must be a list');
+    else n.showcase.forEach((sc, i) => {
+      const w = `showcase[${i}]`;
+      if (!isObj(sc)) return err(w, 'must be a mapping');
+      keys(sc, ['step', 'rect', 'play', 'caption'], w);
+      if (typeof sc.step !== 'string' || !ids.has(sc.step.replace('--', '/'))) err(w, `unknown step "${sc.step}" (a step's chapter--step id)`);
+      if (sc.rect !== undefined && !(Array.isArray(sc.rect) && sc.rect.length === 4 && sc.rect.every((x) => typeof x === 'number') && sc.rect[2] > 0 && sc.rect[3] > 0)) err(w, 'rect must be [x, y, width, height], in the diagram\'s units');
+      if (sc.play !== undefined && !(Array.isArray(sc.play) && sc.play.length === 2 && sc.play.every((p) => typeof p === 'number' && p >= 0 && p <= 2) && sc.play[0] < sc.play[1])) err(w, 'play must be [from, to], from < to, in the step\'s scroll (0 to 1; a long step\'s settling, to 2)');
+      if (sc.caption !== undefined && typeof sc.caption !== 'string') err(w, 'caption must be text');
+    });
+  }
   if (errs.length) return errs;
 
   // Cross-step checks on the resolved views.

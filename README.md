@@ -72,6 +72,23 @@ npm run shoot -- blance/01-planning --dark --phone --end     # dark, phone-sized
 Files go to `tmp/shots/`. A strip is the quickest way to check a long
 step: it shows everything the step plays, in order.
 
+**Showcase pictures.** A narrative can list a few scenes that show
+off the explainer at a glance; the index pages show their pictures,
+each linking to its step:
+
+```yaml
+showcase:
+  - step: fst--outputs            # a step's chapter--step id
+    rect: [438, 809, 904, 474]    # optional: [x, y, width, height], in the diagram's units
+    caption: "A field's terms, as a vellum FST"   # optional
+```
+
+`npm run showcase [-- <filter>]` shoots them from the built pages
+(light and dark, with the story column and toolbar hidden; without a
+`rect`, the diagram's view) into the explainer's `showcase/`, to
+commit. Rerun it when a showcased scene changes; the build warns about
+a scene with no pictures yet.
+
 **Stale pages.** Each page shows its build stamp in its header. If a
 page doesn't show a change, compare its stamp with `git log`: GitHub
 Pages shows only what was pushed, and an old `npm run dev` may still
@@ -232,7 +249,8 @@ new explainer against them.
 A narrative (`narrative.yaml`) names, at the top, its `title`,
 `subtitle` and `audience`; the pinned `sources` it's modeled on (keys
 in its topic's `sources.yaml`, listed in the page's header); and
-optionally the explainer to read `next` (another in the same topic).
+optionally the explainer to read `next` (another in the same topic),
+and the `showcase` scenes for the index pages (see Tests, above).
 
 `draft: true` marks a whole explainer as a work in progress. Its page
 and its entries in the index pages get a red DRAFT band, and no other
@@ -345,6 +363,7 @@ engine/                  the engine
   page.html              the page template
   build/                 build.mjs, explainers.mjs (finding them), look.mjs (topic styles and fonts), indexes.mjs (the index pages), schema.mjs, snippets.mjs, golden.mjs
   tools/shoot.mjs        screenshots of a built page (npm run shoot)
+  tools/showcase.mjs     the index pages' showcase pictures (npm run showcase)
   test/, test-e2e/       its tests; helpers for explainers' browser tests
 topics/
   cbft/                  Couchbase full-text search (see its README.md)

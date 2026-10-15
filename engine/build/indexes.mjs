@@ -24,6 +24,17 @@ const INDEX_CSS = `
 .entry a.title { font: 600 1.25rem/1.2 var(--font-display); color: var(--ink); text-decoration: none; }
 .entry a.title:hover { color: var(--accent); }
 .entry p { margin: 0.4rem 0 0; color: var(--muted); }
+.showcase { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+.shot { display: block; width: min(260px, 100%); border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+.shot:hover { border-color: var(--accent); }
+/* a sprite: its frames stacked top to bottom; a clip steps through
+   them, holding its first a moment and its last a while; a still
+   shows its one */
+.shot .sprite { background-image: var(--light); background-size: 100% calc(var(--frames) * 100%); background-repeat: no-repeat; }
+.shot .playing { animation: shot-play var(--seconds) infinite; animation-timing-function: var(--steps); }
+@keyframes shot-play { 0%, 10% { background-position: 0 0; } 70%, 100% { background-position: 0 100%; } }
+@media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
+@media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
 `;
 
@@ -48,11 +59,17 @@ ${css(topic)}
 </html>
 `;
 
-// `ws`: the explainers, as {name, title, subtitleHtml}; links are
-// prefixed with `prefix` (the topic's directory, from the root index).
+// `ws`: the explainers, as {name, title, subtitleHtml, showcase}; links
+// are prefixed with `prefix` (the topic's directory, from the root
+// index). A showcase scene is a thumbnail, in light or dark as the
+// reader's is, a still or a looping clip, linking to its step.
+const showcase = (w, prefix) => (w.showcase && w.showcase.length ? `<div class="showcase">${w.showcase.map((s) => {
+  const vars = `--light: url('${prefix}${s.light}'); --dark: url('${prefix}${s.dark}'); --frames: ${s.frames}; --seconds: ${(s.frames / 6).toFixed(1)}s; --steps: steps(${s.frames}, jump-none); aspect-ratio: ${s.width} / ${s.height}`;
+  return `<a class="shot" href="${prefix}${w.name}.html#${esc(s.step)}" title="${esc(s.caption || w.title)}"><div class="sprite${s.frames > 1 ? ' playing' : ''}" role="img" aria-label="${esc(s.caption || w.title)}" style="${vars}"></div></a>`;
+}).join('')}</div>` : '');
 const entries = (ws, prefix) => `<ol class="entries">${ws.map((w) => `<li class="entry card${w.draft ? ' is-draft' : ''}">${w.draft ? '<span class="draft-stamp">Draft</span>' : ''}
 <span class="num">${esc(w.name.match(/^\d+/)?.[0] || '·')}</span>
-<div><a class="title" href="${prefix}${w.name}.html">${esc(w.title)}</a>${w.subtitleHtml}</div></li>`).join('')}</ol>`;
+<div><a class="title" href="${prefix}${w.name}.html">${esc(w.title)}</a>${w.subtitleHtml}${showcase(w, prefix)}</div></li>`).join('')}</ol>`;
 
 // `topic`: from loadTopic(), plus subtitleHtml.
 export const topicIndex = (topic, ws) => page(topic.title, topic.subtitle || '',

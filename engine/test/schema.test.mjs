@@ -21,3 +21,13 @@ test('a list in its own paragraph, or a code block, is fine', () => {
   assert.deepEqual(errorsFor('Loops:\n\n```\nfor each:\n- 1 + 2\n```\n'), []);
   assert.deepEqual(errorsFor('Just a paragraph, with 1. in it.\n'), []);
 });
+
+test('showcase: scenes name a step, and optionally a rect, a range to play and a caption', () => {
+  useDomain(DOMAIN);
+  const errs = (showcase) => validateNarrative({ ...narrativeWith('Text.\n'), showcase });
+  assert.deepEqual(errs([{ step: 'c--s' }, { step: 'c--s', rect: [0, 0, 50, 40], play: [0, 1.5], caption: 'A scene' }]), []);
+  assert.match(errs([{ step: 'c--s', play: [1, 0.5] }]).join('\n'), /play must be/);
+  assert.match(errs([{ step: 'c--nope' }]).join('\n'), /unknown step "c--nope"/);
+  assert.match(errs([{ step: 'c--s', rect: [0, 0, 50] }]).join('\n'), /rect must be/);
+  assert.match(errs([{ step: 'c--s', zoom: 2 }]).join('\n'), /unknown key "zoom"/);
+});

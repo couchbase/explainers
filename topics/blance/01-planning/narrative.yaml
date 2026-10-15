@@ -15,6 +15,12 @@ subtitle: >-
   partition at a time, and what happens when nodes join and leave.
 audience: Engineers who build or run distributed systems
 
+# scenes for the index pages (npm run showcase makes their pictures)
+showcase:
+  - step: join--balanced
+    rect: [29, 3, 617, 595]
+    caption: "The partition map after node d joins: 2 primaries and 2 replicas each"
+
 chapters:
 
   # ------------------------------------------------------------------
