@@ -99,7 +99,10 @@ runStory({
         // long one, once its sweep of decisions is done (it settles 0.9
         // of the way through the step, u; and a deep link lands at
         // 0.945)
-        diagram.setFocus(i > 0 ? A.focus : null, B.focus, easeQuad(scrub ? clamp01((u - 0.9) / 0.04) : clamp01(p)));
+        // (but one moving onto the scores, for a sweep of decisions,
+        // moves first, so the scoring is in it)
+        const ontoScores = /^(strip|col\.)/.test(B.focus || '') && A.focus !== B.focus;
+        diagram.setFocus(i > 0 ? A.focus : null, B.focus, easeQuad(!scrub ? clamp01(p) : ontoScores ? clamp01(u / 0.06) : clamp01((u - 0.9) / 0.04)));
         // and, the same way, a partition's moves traced across its row
         diagram.setTrace(i > 0 ? A : null, B, easeQuad(scrub ? clamp01((u - 0.9) / 0.04) : clamp01(p)));
       },

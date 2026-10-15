@@ -171,13 +171,14 @@ chapters:
           the partition).
 
       - id: decision
-        view: { at: fresh.1~row, target: deciding }
+        view: { at: fresh.1~row, target: scores, focus: strip }
         expect: ["fact:fresh.1.partition=0", "fact:fresh.1.state=primary"]
         text: |
           So each step of the planner is one decision, about one
           partition in one state, down the sorted list. The first
-          decision is [[partition 0]]'s primary, and partition 0's row
-          is outlined in the partition map.
+          decision is partition 0's primary: partition 0's row is
+          outlined in the partition map, and [[the planner's scores]]
+          say so too.
 
       - id: first
         view: { at: fresh.1, target: winner, focus: strip }
@@ -192,12 +193,12 @@ chapters:
           a's column, above.
 
       - id: next
-        view: { at: fresh.2~row, target: deciding }
+        view: { at: fresh.2~row, target: scores, focus: strip }
         expect: ["fact:fresh.2.partition=1"]
         text: |
-          The next decision is [[partition 1]]'s primary. The scores at
-          the bottom start again at 0. The planner scores the nodes one
-          at a time, so let's follow along.
+          The next decision is partition 1's primary, and
+          [[the scores]] at the bottom start again at 0. The planner
+          scores the nodes one at a time, so let's follow along.
 
       - id: count
         view: { at: fresh.2~a.count, target: bar.a, focus: col.a }
@@ -394,7 +395,7 @@ chapters:
           a to node d.
 
       - id: sticky
-        view: { at: add.3, target: winner }
+        view: { at: add.3, target: winner, focus: strip }
         expect: ["fact:add.3.partition=2", "fact:add.3.c=0.5006", "fact:add.3.d=2.0002", "fact:add.3.winner=c"]
         text: |
           Partition 1's primary goes to node d, too. But by partition
@@ -439,13 +440,14 @@ chapters:
           partition 1 move to the bottom.
 
       - id: replica-order
-        view: { at: add.9~row, panel: score, target: deciding, focus: board }
+        view: { at: add.9~row, panel: score, target: scores, focus: strip }
         # (the scores come back with the first replica's decision)
         multi: true
         expect: ["fact:add.9.partition=2", "fact:add.15.partition=0", "fact:add.16.partition=1"]
         text: |
-          So the first decision is about [[partition 2]]'s replica,
-          and partitions 0 and 1 come last.
+          So the first decision is about partition 2's replica, and
+          partitions 0 and 1 come last. [[The scores]] come back for
+          it.
 
       - id: replica-d
         view: { at: add.9, target: winner, focus: strip }
@@ -620,26 +622,38 @@ chapters:
           the list, is assigned partition 4's primary, as a whole new
           copy.
 
+      - id: leave-primaries
+        view: { at: remove.primaries, target: scores, focus: strip }
+        text: |
+          Partitions 7, 0, 1, 2, 3, 5 and 6 get their primaries the
+          same way, scored in turn in [[the planner's scores]].
+
       - id: leave-replica-phase
         view: { at: remove.replicas~phase, target: phase }
         text: |
-          Partitions 7, 0, 1, 2, 3, 5 and 6 get their primaries the
-          same way. Once the primaries are done, the planner changes
-          gears to the replicas: [[assigning replicas]].
+          Once the primaries are done, the planner changes gears to the
+          replicas: [[assigning replicas]].
+
+      - id: leave-replicas
+        view: { at: remove.16, target: winner, focus: strip }
+        expect: ["fact:remove.replicas.order=3,5,0,1,2,4,6,7"]
+        text: |
+          The replicas go the same way. The sort puts partitions 3 and
+          5 first, since their replicas were on node b, then partitions
+          0, 1, 2, 4, 6 and 7, each scored in turn, down to
+          [[the last one]].
 
       - id: left
-        view: { at: remove.replicas, target: tally.a, focus: tallies }
-        expect: ["fact:remove.replicas.order=3,5,0,1,2,4,6,7", "fact:remove.replicas.counts=a3/3 c3/2 d2/3"]
+        view: { at: remove.replicas, panel: none, target: tally.a, focus: tallies }
+        # (the replicas done: their scores go as the tallies show)
+        multi: true
+        expect: ["fact:remove.replicas.counts=a3/3 c3/2 d2/3"]
         text: |
-          The rest go the same way. (When the replicas' turn comes, the
-          sort moves partitions 3 and 5 to the top, since their
-          replicas were on node b.) In the end, node [[a has 3 and 3]],
-          node c has 3 and 2, and node d has 2 and 3.
+          In the end, node [[a has 3 and 3]], node c has 3 and 2, and
+          node d has 2 and 3.
 
       - id: in-order
-        view: { at: remove.unsorted, panel: none, target: row.0 }
-        # (the plan done: the rows back in order, and the scores gone)
-        multi: true
+        view: { at: remove.unsorted, target: row.0 }
         text: |
           With the plan done, let's view [[the rows]] again in name order.
 
