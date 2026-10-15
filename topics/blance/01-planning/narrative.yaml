@@ -399,7 +399,9 @@ chapters:
           primary [[stays on node c]].
 
       - id: primaries-done
-        view: { at: add.primaries, target: tally.d, focus: tallies }
+        view: { at: add.primaries, panel: none, target: tally.d, focus: tallies }
+        # (the primaries done: their scores go as the tallies show)
+        multi: true
         expect: ["fact:add.primaries.counts=a2/3 b2/2 c2/3 d2/0"]
         text: |
           The other primaries stay where they are, and node [[d has 2]]
@@ -433,7 +435,9 @@ chapters:
           partition 1 move to the bottom.
 
       - id: replica-order
-        view: { at: add.9~row, target: deciding, focus: board }
+        view: { at: add.9~row, panel: score, target: deciding, focus: board }
+        # (the scores come back with the first replica's decision)
+        multi: true
         expect: ["fact:add.9.partition=2", "fact:add.15.partition=0", "fact:add.16.partition=1"]
         text: |
           So the first decision is about [[partition 2]]'s replica,
@@ -485,7 +489,9 @@ chapters:
           to partitions 0 and 1.
 
       - id: balanced
-        view: { at: add.replicas, target: tally.d, focus: tallies }
+        view: { at: add.replicas, panel: none, target: tally.d, focus: tallies }
+        # (the replicas done: their scores go as the tallies show)
+        multi: true
         expect: ["fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
         text: |
           The rest of the replicas stay where they are, partitions 0
@@ -493,9 +499,7 @@ chapters:
           [[2 primaries and 2 replicas]].
 
       - id: in-order
-        view: { at: add.unsorted, panel: none, target: row.0 }
-        # (the plan done: the rows back in order, and the scores gone)
-        multi: true
+        view: { at: add.unsorted, target: row.0 }
         text: |
           With the plan done, [[the rows]] go back to name order, so
           we can read the next partition map partition by partition.
