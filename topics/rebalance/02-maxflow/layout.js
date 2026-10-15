@@ -1,4 +1,4 @@
-// The 01-vbmap explainer's geometry, with no DOM, so the build can
+// The 02-maxflow explainer's geometry, with no DOM, so the build can
 // check the narrative's references (cameras, anchors) against it.
 //
 // The picture: the document card (top left); the bucket's vbuckets as
@@ -7,10 +7,10 @@
 
 import { RUNS } from '../lib/maps.js';
 
-export const NODES = RUNS.story4.nodes;
+export const NODES = RUNS['maxflow-story4'].nodes;
 export const RACKS = { West: ['a', 'b', 'e'], East: ['c', 'd'] };
 export const rackOf = (n) => Object.keys(RACKS).find((r) => RACKS[r].includes(n));
-export const NUM_VBUCKETS = RUNS.story4.numVBuckets;
+export const NUM_VBUCKETS = RUNS['maxflow-story4'].numVBuckets;
 
 export const CANVAS = [0, 0, 1000, 700];
 

@@ -3,9 +3,12 @@
 // The naive one is the story's foil, made here: actives dealt evenly,
 // each node's replicas on the next node over.
 
-import RUNS from './runs.json' with { type: 'json' };
+import GOLDEN from './runs.json' with { type: 'json' };
 
-export { RUNS };
+// each run, by name; and, of each set of tries at a rebalance, the one
+// ns_server keeps (as the golden tool picked it)
+export const RUNS = GOLDEN.runs;
+export const PICKS = GOLDEN.picks;
 
 // A run's map, with node names: vbucket -> [active, replica, ...].
 export const mapOf = (run) => RUNS[run].map.map((chain) => chain.map((i) => RUNS[run].nodes[i]));

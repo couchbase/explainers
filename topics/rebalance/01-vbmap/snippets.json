@@ -20,87 +20,14 @@
   "path": "apps/ns_server/src/mb_map.erl",
   "title": "ns_server mb_map — calling vbmap",
   "start": 831,
-  "end": 839,
+  "end": 844,
   "highlight": [
    835,
-   837
+   837,
+   840
   ],
-  "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/mb_map.erl#L831-L839",
-  "code": "    Args0 = [\"--diag\", DiagPath,\n             \"--output-format\", \"json\",\n             \"--num-vbuckets\", integer_to_list(NumVBuckets),\n             \"--num-nodes\", integer_to_list(NumNodes),\n             \"--num-slaves\", integer_to_list(NumSlaves),\n             \"--num-replicas\", integer_to_list(NumReplicas),\n             \"--relax-all\"] ++\n        case UseGreedy of\n            true ->"
- },
- "vbmap.buildRFlowGraph": {
-  "id": "vbmap.buildRFlowGraph",
-  "repo": "vbmap",
-  "path": "vbmap_balance.go",
-  "title": "vbmap buildRFlowGraph() — how many vbuckets each pair of nodes carries, as a flow graph",
-  "start": 82,
-  "end": 143,
-  "highlight": [
-   97,
-   109,
-   137
-  ],
-  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/vbmap_balance.go#L82-L143",
-  "code": "func buildRFlowGraph(\n\tparams VbmapParams, ri RI, activeVbs []int, strict bool) (g *Graph) {\n\n\treplicasPerSlaveLo, replicasPerSlaveHi :=\n\t\treplicasPerSlave(params, strict)\n\n\tgraphName := fmt.Sprintf(\"Flow graph for R (%s)\", params)\n\tg = NewGraph(graphName)\n\n\tfor i, row := range ri.Matrix {\n\t\tnode := Node(i)\n\t\tnodeSrcV := NodeSourceVertex(node)\n\t\tnodeSinkV := NodeSinkVertex(node)\n\n\t\tnumVbsReplicated := activeVbs[i] * params.NumReplicas\n\t\tg.AddEdge(Source, nodeSrcV, numVbsReplicated, numVbsReplicated)\n\n\t\treplications := newRatFromInt(ri.NumInboundReplications(node))\n\n\t\tnumReplicas := &big.Rat{}\n\t\tnumReplicas.Mul(replications, replicasPerSlaveLo)\n\t\tnumReplicasLo := ratFloor(numReplicas)\n\n\t\tnumReplicas.Mul(replications, replicasPerSlaveHi)\n\t\tnumReplicas.Mul(replications, replicasPerSlaveHi)\n\t\tnumReplicasHi := ratCeil(numReplicas)\n\n\t\tg.AddEdge(nodeSinkV, Sink, numReplicasHi, numReplicasLo)\n\n\t\tvar maxVbsPerTag int\n\t\tif params.NumReplicas > 0 {\n\t\t\tmaxVbsPerTag = numVbsReplicated / params.NumReplicas\n\t\t}\n\t\tfor j, elem := range row {\n\t\t\tif elem == 0 {\n\t\t\t\tcontinue\n\t\t\t}\n\n\t\t\tdstNode := Node(j)\n\t\t\tdstNodeTag := params.Tags[dstNode]\n\n\t\t\tdstNodeSinkV := NodeSinkVertex(dstNode)\n\t\t\ttagV := TagNodeVertex{dstNodeTag, node}\n\n\t\t\tif !g.HasVertex(tagV) {\n\t\t\t\tg.AddEdge(nodeSrcV, tagV, maxVbsPerTag, 0)\n\t\t\t}\n\n\t\t\tvbsPerSlave := newRat(\n\t\t\t\tnumVbsReplicated, params.NumSlaves)\n\t\t\tvbsPerSlaveLo := ratFloor(vbsPerSlave)\n\t\t\tvbsPerSlaveHi := ratCeil(vbsPerSlave)\n\n\t\t\tg.AddEdge(\n\t\t\t\ttagV, dstNodeSinkV,\n\t\t\t\tvbsPerSlaveHi*elem,\n\t\t\t\tvbsPerSlaveLo*elem)\n\t\t}\n\t}\n\n\treturn\n}"
- },
- "vbmap.augmentFlow": {
-  "id": "vbmap.augmentFlow",
-  "repo": "vbmap",
-  "path": "graph.go",
-  "title": "vbmap augmentFlow() — breadth-first levels, then depth-first paths with room",
-  "start": 444,
-  "end": 489,
-  "highlight": [
-   449,
-   457,
-   463
-  ],
-  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/graph.go#L444-L489",
-  "code": "func (g *Graph) augmentFlow(source, sink GraphVertex) bool {\n\tfor _, vertexData := range g.vertices {\n\t\tvertexData.reset()\n\t}\n\n\tif !g.bfsUnsaturated(source, sink) {\n\t\treturn false\n\t}\n\n\tpath := augPath(nil)\n\tv := source\n\n\tfor {\n\t\tpathFound := g.dfsPath(v, sink, &path)\n\t\tif pathFound {\n\t\t\tcapacity := path.capacity()\n\t\t\tfirstSaturatedEdge := -1\n\n\t\t\tfor i, edge := range path {\n\t\t\t\tedge.pushFlow(capacity)\n\t\t\t\tif firstSaturatedEdge == -1 && edge.IsSaturated() {\n\t\t\t\t\tfirstSaturatedEdge = i\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tg.noteAugment()\n\n\t\t\tif firstSaturatedEdge == -1 {\n\t\t\t\tpanic(\"No saturated edge on augmenting path\")\n\t\t\t}\n\n\t\t\tv = path[firstSaturatedEdge].Src\n\t\t\tpath.truncate(firstSaturatedEdge)\n\t\t} else {\n\t\t\tif v == source {\n\t\t\t\tbreak\n\t\t\t}\n\n\t\t\tg.distances[v] = -1\n\t\t\tedge := path.removeLastEdge()\n\t\t\tv = edge.Src\n\t\t}\n\t}\n\n\treturn true\n}"
- },
- "vbmap.AddEdge": {
-  "id": "vbmap.AddEdge",
-  "repo": "vbmap",
-  "path": "graph.go",
-  "title": "vbmap AddEdge() — a lower bound becomes a supply edge and a demand edge",
-  "start": 539,
-  "end": 557,
-  "highlight": [
-   542,
-   551,
-   552
-  ],
-  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/graph.go#L539-L557",
-  "code": "func (g *Graph) AddEdge(src, dst GraphVertex, capacity, demand int) {\n\tg.checkNoEdge(src, dst)\n\n\tcapacity -= demand\n\n\tedge := g.addEdge(src, dst, capacity, demand, edgeNormal)\n\tredge := g.addEdge(dst, src, 0, 0, edgeReverse)\n\n\tedge.ReverseEdge = redge\n\tredge.ReverseEdge = edge\n\n\tif demand != 0 {\n\t\tdemandEdge := g.addDemandEdge(src, demandSink, demand)\n\t\tsupplyEdge := g.addDemandEdge(supplySource, dst, demand)\n\n\t\tedge.demandEdge = demandEdge\n\t\tedge.supplyEdge = supplyEdge\n\t}\n}"
- },
- "vbmap.buildFlowGraph": {
-  "id": "vbmap.buildFlowGraph",
-  "repo": "vbmap",
-  "path": "engine_maxflow.go",
-  "title": "vbmap buildFlowGraph() — the first flow, who replicates to whom",
-  "start": 142,
-  "end": 178,
-  "highlight": [
-   155,
-   166
-  ],
-  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/engine_maxflow.go#L142-L178",
-  "code": "func buildFlowGraph(params VbmapParams) (g *Graph) {\n\tgraphName := fmt.Sprintf(\"Flow graph for RI (%s)\", params)\n\tg = NewGraph(graphName)\n\n\ttags := params.Tags.TagsList()\n\ttagsNodes := params.Tags.TagsNodesMap()\n\n\tmaxRepsPerTag := maxReplicationsPerTag(params)\n\n\tfor _, node := range params.Nodes() {\n\t\tnodeTag := params.Tags[node]\n\t\tnodeSrcV := NodeSourceVertex(node)\n\n\t\tg.AddEdge(Source, nodeSrcV, params.NumSlaves, params.NumSlaves)\n\n\t\tfor _, tag := range tags {\n\t\t\tif tag == nodeTag {\n\t\t\t\tcontinue\n\t\t\t}\n\n\t\t\ttagNodesCount := len(tagsNodes[tag])\n\t\t\ttagCapacity := Min(tagNodesCount, maxRepsPerTag)\n\n\t\t\ttagV := TagVertex(tag)\n\t\t\tg.AddEdge(nodeSrcV, tagV, tagCapacity, 0)\n\t\t}\n\t}\n\n\tfor _, tag := range tags {\n\t\ttagNodes := tagsNodes[tag]\n\t\ttagV := TagVertex(tag)\n\n\t\tg.AddEdge(tagV, Sink, params.NumSlaves*len(tagNodes), 0)\n\t}\n\n\treturn\n}"
- },
- "vbmap.relax": {
-  "id": "vbmap.relax",
-  "repo": "vbmap",
-  "path": "engine_maxflow.go",
-  "title": "vbmap MaxFlowRIGenerator.Generate() — strict first, then relaxed, one rule at a time",
-  "start": 51,
-  "end": 82,
-  "highlight": [
-   54,
-   59,
-   68
-  ],
-  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/engine_maxflow.go#L51-L82",
-  "code": "\tfeasible, _ := g.FindFeasibleFlow()\n\tif !feasible && searchParams.RelaxSlaveBalance {\n\t\tfor {\n\t\t\tif !relaxSlaveBalance(g, params) {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\tfeasible, _ = g.FindFeasibleFlow()\n\t\t\tif feasible {\n\t\t\t\tdiag.Printf(\"Generated RI with \" +\n\t\t\t\t\t\"relaxed slave balance\")\n\t\t\t\tbreak\n\t\t\t}\n\t\t}\n\t}\n\n\tif !feasible && searchParams.RelaxReplicaBalance {\n\t\tfor {\n\t\t\tif !relaxReplicaBalance(g, params) {\n\t\t\t\tbreak\n\t\t\t}\n\n\t\t\tfeasible, _ = g.FindFeasibleFlow()\n\t\t\tif feasible {\n\t\t\t\tdiag.Printf(\"Generated RI with \" +\n\t\t\t\t\t\"relaxed replica balance\")\n\t\t\t\tbreak\n\t\t\t}\n\t\t}\n\t}\n\n\tif gen.dotPath != \"\" {\n\t\terr := g.Dot(gen.dotPath, gen.dotVerbose)"
+  "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/mb_map.erl#L831-L844",
+  "code": "    Args0 = [\"--diag\", DiagPath,\n             \"--output-format\", \"json\",\n             \"--num-vbuckets\", integer_to_list(NumVBuckets),\n             \"--num-nodes\", integer_to_list(NumNodes),\n             \"--num-slaves\", integer_to_list(NumSlaves),\n             \"--num-replicas\", integer_to_list(NumReplicas),\n             \"--relax-all\"] ++\n        case UseGreedy of\n            true ->\n                [\"--greedy\"];\n            _ ->\n                []\n        end,\n"
  },
  "ns_server.simple_minimize_moves": {
   "id": "ns_server.simple_minimize_moves",
@@ -159,5 +86,62 @@
   ],
   "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/ns_vbucket_mover.erl#L153-L156",
   "code": "    BackfillsLimit = get_backfills_per_node(FileBasedEnabled),\n    SchedulerState = vbucket_move_scheduler:prepare(\n                       OldMap, NewMap, Quirks,\n                       BackfillsLimit,"
+ },
+ "ns_server.use_greedy": {
+  "id": "ns_server.use_greedy",
+  "repo": "ns_server",
+  "path": "apps/ns_server/src/ns_rebalancer.erl",
+  "title": "ns_server ns_rebalancer — vbmap's greedy engine, on unless turned off",
+  "start": 95,
+  "end": 105,
+  "highlight": [
+   95
+  ],
+  "url": "https://github.com/couchbase/ns_server/blob/6c94fb43b31b6289265072f6302756ffc1a384f5/apps/ns_server/src/ns_rebalancer.erl#L95-L105",
+  "code": "    UseGreedy = ns_config:read_key_fast(use_vbmap_greedy_optimization, true),\n\n    %% Note that we don't need to have replication_topology here (in fact as\n    %% of today it's still returned by ns_bucket:config_to_map_options/1), but\n    %% these options are used to compute map_opts_hash which in turn is used\n    %% to decide if rebalance is needed. So if we remove this, old nodes will\n    %% wrongly believe that rebalance is needed even when the cluster is\n    %% balanced. See MB-15543 for details.\n    misc:update_proplist(Opts0, [{replication_topology, star},\n                                 {tags, Tags},\n                                 {use_vbmap_greedy_optimization, UseGreedy}])."
+ },
+ "vbmap.getLeastCostSlaves": {
+  "id": "vbmap.getLeastCostSlaves",
+  "repo": "vbmap",
+  "path": "greedy.go",
+  "title": "vbmap getLeastCostSlaves() — a partner for a node, in another rack, with the fewest partners",
+  "start": 163,
+  "end": 195,
+  "highlight": [
+   179,
+   184
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/greedy.go#L163-L195",
+  "code": "func getLeastCostSlaves(\n\tsp SlavePlacement, tagMap TagMap, costs Costs, currRI RIMap) []Node {\n\n\tminCost := -1\n\tactiveTag := tagMap[sp.active]\n\n\tcandidates := []Node{}\n\t// find the lowest cost valid slave nodes for the active node being\n\t// considered\n\tfor node, cost := range costs {\n\t\tnodeTag := tagMap[node]\n\t\t// A node is a valid slave for a given active node if its:\n\t\t// 1) not in the same tag as the active\n\t\t// 2) not a node that is already a slave for the given active node\n\t\t// 3) not using the same tag as previously assigned slaves for this node\n\t\t//    at this time\n\t\tisValidNode := nodeTag != activeTag &&\n\t\t\tcurrRI[sp.active][node] == 0 &&\n\t\t\t!sp.tagsUsed[nodeTag]\n\n\t\tif isValidNode {\n\t\t\tif minCost == -1 || cost < minCost {\n\t\t\t\t// first valid node or node with lower cost encountered.\n\t\t\t\tminCost = cost\n\t\t\t\tcandidates = []Node{node}\n\t\t\t} else if cost == minCost {\n\t\t\t\tcandidates = append(candidates, node)\n\t\t\t}\n\t\t}\n\t}\n\n\treturn candidates\n}"
+ },
+ "vbmap.getBestReplica": {
+  "id": "vbmap.getBestReplica",
+  "repo": "vbmap",
+  "path": "greedy.go",
+  "title": "vbmap getBestReplica() — a replica's node, the partner with the fewest replicas so far",
+  "start": 320,
+  "end": 382,
+  "highlight": [
+   334,
+   345,
+   364,
+   380
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/greedy.go#L320-L382",
+  "code": "func getBestReplica(\n\tap ActivePlacement,\n\ttagMap TagMap,\n\treplicaCosts map[Node]int,\n\tslaveCosts map[Node]int,\n\tprevVbmap Vbmap) (Node, bool) {\n\n\tvar lowestCostNodes []Node\n\tminReplicaCost := -1\n\tminSlaveCost := -1\n\n\tfor node, cost := range replicaCosts {\n\t\t// valid replica nodes for vbucket that is on a given active node are:\n\t\t// 1) on one of the valid slave nodes of the active node\n\t\tisValidNode := ap.slavesMap[node] != 0\n\n\t\tif isValidNode {\n\t\t\tslaveCost := slaveCosts[node]\n\t\t\t// we first compare the total replicas node is carrying and then\n\t\t\t// compare the total number of replicas the node is carrying from\n\t\t\t// the given active node (what is called here the \"slave coset\").\n\t\t\t// comparing total replica costs causes total replicas to end up\n\t\t\t// being balanced; comparing slave costs tends to cause replicas\n\t\t\t// from a given node to be approximately evenly balanced across the\n\t\t\t// slaves of that node.\n\t\t\tisCostLower := cost < minReplicaCost ||\n\t\t\t\t(cost == minReplicaCost && slaveCost < minSlaveCost)\n\n\t\t\tif minReplicaCost < 0 || isCostLower {\n\t\t\t\t// first valid node encountered or cost is lower\n\t\t\t\tminReplicaCost = cost\n\t\t\t\tminSlaveCost = slaveCost\n\t\t\t\tlowestCostNodes = []Node{node}\n\t\t\t} else if cost == minReplicaCost && slaveCost == minSlaveCost {\n\t\t\t\tlowestCostNodes = append(lowestCostNodes, node)\n\t\t\t}\n\t\t}\n\t}\n\n\tnewReplicaPicked := false\n\tcandidates := lowestCostNodes\n\n\tif prevVbmap != nil {\n\t\tcandidates = []Node{}\n\t\tpreferredReplicas := prevVbmap[ap.vb][1:]\n\t\tfor _, n := range lowestCostNodes {\n\t\t\tfor _, pr := range preferredReplicas {\n\t\t\t\tif n == pr {\n\t\t\t\t\tcandidates = append(candidates, n)\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n\t\tif len(candidates) == 0 {\n\t\t\tcandidates = lowestCostNodes\n\t\t\tnewReplicaPicked = true\n\t\t}\n\t}\n\n\t// pick a winner at random from the list of candidates\n\twinnerId := rand.Intn(len(candidates))\n\treturn candidates[winnerId], newReplicaPicked\n}"
+ },
+ "vbmap.getActivePlacements": {
+  "id": "vbmap.getActivePlacements",
+  "repo": "vbmap",
+  "path": "greedy.go",
+  "title": "vbmap getActivePlacements() — each node's actives, those it had first",
+  "start": 469,
+  "end": 524,
+  "highlight": [
+   483,
+   510
+  ],
+  "url": "https://github.com/couchbase/vbmap/blob/c15359c01056e099736e69d969ccfc94bb5a525c/greedy.go#L469-L524",
+  "code": "func getActivePlacements(ri RIMap, activeNumVbsMap map[Node]int,\n\tprevParams *prevVbmapParams, params *VbmapParams) []ActivePlacement {\n\n\taps := []ActivePlacement{}\n\n\tprevActiveVbsMap := prevParams.activeVbsMap\n\n\tvbsDone := make(map[int]bool)\n\n\tif prevActiveVbsMap != nil {\n\t\tfor active, numVbs := range activeNumVbsMap {\n\t\t\tif prevVbs, ok := prevActiveVbsMap[active]; ok {\n\t\t\t\tvar vbs []int\n\t\t\t\tif numVbs >= len(prevVbs) {\n\t\t\t\t\t// pick all the vbs used by 'active' in the previous vbmap.\n\t\t\t\t\tvbs = prevVbs\n\t\t\t\t} else {\n\t\t\t\t\t// Pick a part of the previously used vbs by 'active'.\n\t\t\t\t\tShuffle(prevVbs)\n\t\t\t\t\tvbs = prevVbs[0:numVbs]\n\t\t\t\t}\n\n\t\t\t\tactiveNumVbsMap[active] -= len(vbs)\n\n\t\t\t\tfor _, vb := range vbs {\n\t\t\t\t\tap := makeActivePlacement(vb, active, ri)\n\t\t\t\t\taps = append(aps, ap)\n\t\t\t\t\tvbsDone[vb] = true\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\t}\n\n\tspareVbs := []int{}\n\n\tfor vb := 0; vb < params.NumVBuckets; vb++ {\n\t\tif _, ok := vbsDone[vb]; !ok {\n\t\t\tspareVbs = append(spareVbs, vb)\n\t\t}\n\t}\n\n\t// Spread the spare vbs onto all the nodes\n\n\tvbIdx := 0\n\n\tfor active, numVbs := range activeNumVbsMap {\n\t\tfor numVbs > 0 {\n\t\t\tap := makeActivePlacement(spareVbs[vbIdx], active, ri)\n\t\t\taps = append(aps, ap)\n\t\t\tvbIdx++\n\t\t\tnumVbs--\n\t\t}\n\t}\n\n\treturn aps\n}"
  }
 }

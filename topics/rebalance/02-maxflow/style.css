@@ -1,4 +1,4 @@
-/* The 01-vbmap explainer's diagram. Colors are the topic's (see
+/* The 02-maxflow explainer's diagram. Colors are the topic's (see
    ../style.css and ../README.md for the rules). */
 .diagram .rack { stroke: none; }
 .diagram .rack-West { fill: var(--rack-west); }

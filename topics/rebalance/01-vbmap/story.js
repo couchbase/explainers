@@ -4,10 +4,9 @@
 // (../lib/runs.json) and the naive deal.
 
 import { STATES, STATE, statePath } from './states.js';
-import { NODES, NUM_VBUCKETS } from './layout.js';
-import { serving, vbucketOf, RUNS } from '../lib/maps.js';
-import { MAPS, SIX, HERO_KEY, HERO } from './deals.js';
-import { EDGES, FLOW, PATHS } from './plumbing.js';
+import { NODES, NUM_VBUCKETS, rackOf } from './layout.js';
+import { serving, vbucketOf, RUNS, PICKS } from '../lib/maps.js';
+import { MAPS, FIVE, SIX, HERO_KEY, HERO } from './deals.js';
 
 export { MAPS, HERO_KEY, HERO };
 
@@ -27,46 +26,42 @@ function facts() {
       out[`${name}.${k}.lost`] = serving(map, down).lost.length;
     }
     // how many of each node's replicas sit in its own rack
-    out[`${name}.sameRack`] = map.filter(([a, r]) => (a < 'c') === (r < 'c')).length;
+    out[`${name}.sameRack`] = map.filter(([a, r]) => rackOf(a) === rackOf(r)).length;
   }
-  // act 3: the network's pipes and max-flow's paths
-  for (const e of EDGES) if (e.from[0] === 'L') out[`pipe.${e.from.slice(2)}${e.to.slice(2)}`] = FLOW.flow[`${e.from}>${e.to}`];
-  for (const e of EDGES) if (e.from === 'S') out[`source.${e.to.slice(2)}`] = e.cap;
-  PATHS.forEach((p, i) => { out[`path.${i + 1}`] = `${p.vertices.map((v) => v.replace(/^[LR]\./, '')).join(' ')} ${p.push}`; });
-  out.paths = PATHS.length;
   // act 4: five nodes, racks of 3 and 2
-  const five = ['a', 'b', 'c', 'd', 'e'], west = ['a', 'b', 'e'];
+  const five = ['a', 'b', 'c', 'd', 'e'], six = [...five, 'f'];
   const count = (map, k, n) => map.filter((c) => c[k] === n).length;
-  out['uneven.serves'] = five.map((n) => `${n}${count(MAPS.uneven, 0, n)}`).join(' ');
-  out['uneven.holds'] = five.map((n) => `${n}${count(MAPS.uneven, 1, n)}`).join(' ');
-  out['uneven.west.actives'] = MAPS.uneven.filter((c) => west.includes(c[0])).length;
-  out['uneven.east.actives'] = MAPS.uneven.filter((c) => !west.includes(c[0])).length;
-  out['uneven.sameRack'] = MAPS.uneven.filter(([a, r]) => west.includes(a) === west.includes(r)).length;
-  out['uneven.hero'] = MAPS.uneven[HERO].join(',');
+  const perNode = (nodes, f) => nodes.map((n) => `${n}${f(n)}`).join(' ');
+  out['uneven.serves'] = perNode(five, (n) => count(MAPS.uneven, 0, n));
+  out['uneven.holds'] = perNode(five, (n) => count(MAPS.uneven, 1, n));
+  out['uneven.west.actives'] = MAPS.uneven.filter((c) => rackOf(c[0]) === 'West').length;
+  out['uneven.east.actives'] = MAPS.uneven.filter((c) => rackOf(c[0]) === 'East').length;
   // (vbuckets with a new home, and where node e's came from)
   out['uneven.rehomed'] = MAPS.uneven.filter((c, v) => c[0] !== MAPS.vbmap[v][0]).length;
-  out['uneven.e.from'] = [...new Set(MAPS.uneven.flatMap((c, v) => (c[0] === 'e' ? [MAPS.vbmap[v][0]] : [])))].join(',');
-  // what vbmap said it did (its diagnostics)
-  out['uneven.relaxed'] = /Generated RI with relaxed replica balance/.test(RUNS.uneven5.diag);
-  out['uneven.strictTried'] = /Trying to generate strict RI with NumSlaves=2/.test(RUNS.uneven5.diag);
-  // act 5: node f joins; the rebalance
-  const six = [...five, 'f'], sixWest = west;
-  const moved = (map) => map.flatMap((c, v) => c.filter((n) => !MAPS.uneven[v].includes(n)));
-  const land = (map) => six.map((n) => `${n}${moved(map).filter((x) => x === n).length}`).join(' ');
-  out['six.tries'] = SIX.tried.length;
-  out['six.best'] = `${SIX.best.order} ${SIX.best.seed}`;
-  out['six.dealt'] = SIX.best.asDealt.join(',');
-  out['six.seated'] = SIX.best.score.join(',');
-  out['six.dealt.range'] = `${Math.min(...SIX.tried.map((t) => t.asDealt[0]))}-${Math.max(...SIX.tried.map((t) => t.asDealt[0]))}`;
-  out['six.seated.range'] = `${Math.min(...SIX.tried.map((t) => t.score[0]))}-${Math.max(...SIX.tried.map((t) => t.score[0]))}`;
-  out['six.dealt.land'] = land(MAPS.dealt6);
-  out['six.land'] = land(MAPS.six);
-  out['six.serves'] = six.map((n) => `${n}${count(MAPS.six, 0, n)}`).join(' ');
-  out['six.holds'] = six.map((n) => `${n}${count(MAPS.six, 1, n)}`).join(' ');
-  out['six.sameRack'] = MAPS.six.filter(([a, r]) => sixWest.includes(a) === sixWest.includes(r)).length;
-  out['six.hero'] = MAPS.six[HERO].join(',');
-  out['six.promoted'] = MAPS.six.filter((c, v) => c[0] !== MAPS.uneven[v][0] && MAPS.uneven[v].includes(c[0])).length;
-  out['flow.total'] = FLOW.total;
+  out['uneven.e.from'] = [...new Set(MAPS.uneven.flatMap((c, v) => (c[0] === 'e' ? [MAPS.vbmap[v][0]] : [])))].sort().join(',');
+  // the rebalances: what ns_server's pick moves, and where its new
+  // copies land; its tries
+  for (const [name, R, before, nodes] of [['uneven', FIVE, MAPS.vbmap, five], ['six', SIX, MAPS.uneven, six]]) {
+    const added = R.best.map.flatMap((c, v) => c.filter((n) => !before[v].includes(n)));
+    out[`${name}.moves`] = R.best.score.join(',');
+    out[`${name}.dealt`] = R.best.asDealt.join(',');
+    out[`${name}.promoted`] = R.best.map.filter((c, v) => c[0] !== before[v][0] && before[v].includes(c[0])).length;
+    out[`${name}.land`] = perNode(nodes, (n) => added.filter((x) => x === n).length);
+    out[`${name}.tries`] = R.tried.length;
+    out[`${name}.best`] = `${R.best.order} ${R.best.seed}`;
+    out[`${name}.range`] = `${Math.min(...R.tried.map((t) => t.score[0]))}-${Math.max(...R.tried.map((t) => t.score[0]))}`;
+    // (the floor: a new node's copies are all new, and its actives all
+    // takeovers)
+    const newNode = nodes.at(-1);
+    out[`${name}.newNode.copies`] = count(R.best.map, 0, newNode) + count(R.best.map, 1, newNode);
+    out[`${name}.newNode.actives`] = count(R.best.map, 0, newNode);
+  }
+  out['six.serves'] = perNode(six, (n) => count(MAPS.six, 0, n));
+  out['six.holds'] = perNode(six, (n) => count(MAPS.six, 1, n));
+  // the engine: greedy, as ns_server runs it (and the picks agree
+  // with the golden tool's)
+  out['engine'] = [...new Set(Object.values(RUNS).filter((r) => !r.engine.startsWith('max')).map((r) => r.engine))].join(',');
+  out['picks.agree'] = FIVE.best.run === PICKS.five && SIX.best.run === PICKS.six;
   return out;
 }
 export const FACTS = facts();

@@ -1,4 +1,4 @@
-// The 01-vbmap explainer's page: the engine's story runner (see
+// The 02-maxflow explainer's page: the engine's story runner (see
 // engine/js/ui/story.js), with this explainer's diagram. Each step's
 // state comes from its view (`at`); the scroll plays every state
 // between the last step's and this one's, one change at a time (the

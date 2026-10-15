@@ -31,7 +31,7 @@
 .diagram .chip:hover .copy-letter { visibility: hidden; }
 .diagram .trail { fill: none; stroke-width: 1.2; stroke-opacity: 0.4; stroke-dasharray: 1 1; }
 .diagram .curtain { fill: var(--down); opacity: 0.55; }
-/* act 3: the seating chart, threads, network, pipes */
+/* act 3: the seating chart */
 .diagram .seat { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
 .diagram .seat-none { fill: var(--down-bg); stroke: none; }
 .diagram .chart-title { font: 600 14px var(--font-display); fill: var(--ink); }
@@ -39,16 +39,7 @@
 .diagram .chart-corner { stroke: var(--muted); stroke-width: 1; stroke-opacity: 0.6; }
 .diagram .chart-corner-label { font: 600 11px var(--font-display); fill: var(--muted); }
 .diagram .chart-sum { font: 600 14px var(--font-mono); fill: var(--muted); }
-.diagram .net-label { font: 650 16px var(--font-display); }
-.diagram .net-caption { font: 500 12px var(--font-mono); fill: var(--muted); }
-.diagram .thread { fill: none; stroke-width: 1.4; }
-.diagram .pipe { stroke: var(--faint); stroke-linecap: round; }
-.diagram .pipe-fill { stroke: var(--flow); stroke-linecap: round; }
-.diagram .pipe-hot { stroke: var(--accent); stroke-linecap: round; stroke-opacity: 0.35; }
-.diagram .pipe-label { font: 600 12px var(--font-mono); fill: var(--ink); }
-.diagram .net-end { fill: var(--ink); }
-.diagram .net-end-label { font: 650 16px var(--font-display); fill: var(--panel); }
-.diagram .flow-note { font: 600 14px var(--font-mono); fill: var(--ink); }
+.diagram .chart-label { font: 650 16px var(--font-display); }
 /* act 5: ns_server's tries */
 .diagram .tries-title { font: 600 14px var(--font-display); fill: var(--ink); }
 .diagram .tries-head { font: 600 12px var(--font-display); fill: var(--muted); }

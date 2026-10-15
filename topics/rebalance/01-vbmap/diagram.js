@@ -19,7 +19,7 @@ import {
 } from './layout.js';
 import { STATE, changed } from './states.js';
 import { MAPS, SIX, HERO, HERO_KEY } from './deals.js';
-import { buildPlumbing, drawPlumbing, pairXY } from './diagram-plumbing.js';
+import { buildChart, drawChart, pairXY } from './diagram-chart.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
 const COPIES = [];
@@ -54,8 +54,8 @@ function look(s, { v, k, key }) {
   const dealt = k === 0 ? s.actives : s.replicas;
   let x, y, node = null;
   if (dealt && s.view !== 'bins') {
-    // (in its seat, or a bead on its thread: its active left, its replica right)
-    [x, y] = pairXY(v, s.view, s.chartUp);
+    // (in its seat: its active left, its replica right)
+    [x, y] = pairXY(v, s.chartUp);
     x += k ? 8 : -8;
   } else if (dealt) {
     const [n, row, i] = SLOTS[s.map][key];
@@ -72,7 +72,7 @@ function look(s, { v, k, key }) {
   // (its color's map: the uneven deal's copies keep their old colors
   // till they're recolored, and through the rebalance, the colors of
   // where they were before it)
-  const colors = MAPS[s.map === 'uneven' ? (s.recolor ? 'uneven' : 'vbmap') : SIX_MAPS.includes(s.map) ? 'uneven' : s.map];
+  const colors = MAPS[s.map === 'uneven' ? (s.recolor ? 'uneven' : 'vbmap') : s.map === 'six' ? 'uneven' : s.map];
   const down = node && s.down.includes(node);
   const promoted = node && k === 1 && s.promoted && s.down.includes(chain[0]) && !down;
   const lost = s.lost && chain.every((n) => s.down.includes(n));
@@ -85,10 +85,11 @@ function look(s, { v, k, key }) {
     filled: k === 0 || promoted, promoted, lost: lost && k === 0,
     // (a six-node map's copy on a node that didn't hold its vbucket:
     // built from scratch)
-    fresh: !!node && SIX_MAPS.includes(s.map) && !MAPS.uneven[v].includes(node),
+    fresh: !!node && s.map in BEFORE && !MAPS[BEFORE[s.map]][v].includes(node),
   };
 }
-const SIX_MAPS = ['dealt6', 'six'];
+// (a rebalance's map, and the map it's from)
+const BEFORE = { uneven: 'vbmap', six: 'uneven' };
 const nodeColor = (n) => (n ? `var(--node-${n})` : 'var(--node-none)');
 
 function buildRedeal() {
@@ -192,7 +193,7 @@ export class Diagram {
     el('path', { d: `M${DOC.x + DOC.w},${DOC.y + DOC.h / 2} C${hx - 40},${DOC.y + DOC.h / 2} ${hx},${hy - 60} ${hx},${hy - 14}`, class: 'doc-line' }, this.doc);
     txt(this.doc, DOC.x + DOC.w + 20, DOC.y + 16, `crc32("${HERO_KEY}") → vbucket ${HERO}`, 'doc-hash');
     // act 3's chart, threads, pipes (under the copies)
-    buildPlumbing(this, g);
+    buildChart(this, g);
     // the redeal's trails (under the copies)
     buildRedeal();
     this.trails = Object.entries(REDEAL).map(([key, P]) => ({
@@ -237,13 +238,13 @@ export class Diagram {
   }
 
   // ns_server's nine tries at the six-node map: each node order and
-  // run, what vbmap's map would cost as dealt and once seated; the
+  // run, what vbmap's map would move as dealt and once seated; the
   // cheapest is kept.
   _buildTries(g) {
     const G = el('g', { opacity: 0 }, g), { x0, y0, dy } = TRIES;
     const cols = [x0, x0 + 112, x0 + 160, x0 + 380];
     const cost = ([copies, takeovers]) => `${copies} copies, ${takeovers} takeovers`;
-    txt(G, x0, y0 - 30, "ns_server's nine tries: vbmap's map, as dealt and as seated", 'tries-title');
+    txt(G, x0, y0 - 30, "ns_server's nine tries: what each of vbmap's maps would move", 'tries-title');
     ['node order', 'run', 'as vbmap dealt it', 'seated by ns_server'].forEach((h, i) => txt(G, cols[i], y0, h, 'tries-head'));
     SIX.tried.forEach((t, r) => {
       const y = y0 + (r + 1) * dy, best = t === SIX.best;
@@ -341,7 +342,7 @@ export class Diagram {
     op(this.dealLabel, f(field === 'scaffold' ? 'scaffold' : 'map', named(A), named(B)));
     op(this.cluster, f('scaffold', A.scaffold ? 1 : 0, B.scaffold ? 1 : 0));
     // act 3
-    drawPlumbing(this, A, B, q, field);
+    drawChart(this, A, B, q, field);
     // the redeal's trails: each drawn behind its copy as it goes, then
     // shown till they fade
     for (const t of this.trails) {

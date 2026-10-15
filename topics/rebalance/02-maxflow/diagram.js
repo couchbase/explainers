@@ -1,4 +1,4 @@
-// The 01-vbmap explainer's diagram: the bucket's vbuckets, each copy a
+// The 02-maxflow explainer's diagram: the bucket's vbuckets, each copy a
 // rounded rect, from a grid of tiles into the nodes' bins, through
 // failures and a better deal. Built once; main.js draws it partway
 // between two neighboring states (states.js), which differ in one

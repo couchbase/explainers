@@ -74,10 +74,6 @@ export const seatPairXY = (i, j, k, up) => {
   return [x + c / 4 + (k % 2) * (c / 2), y + 0.31 * c + Math.floor(k / 2) * 0.38 * c];
 };
 
-// the network: nodes on the left (their actives), on the right (their
-// replicas), a source and a sink
-export const NET = { lx: 330, rx: 690, y0: 150, dy: 140, sx: 140, tx: 880 };
-NET.midY = NET.y0 + 1.5 * NET.dy;
 
 // the first cluster a node's in
 export const firstLayout = (n) => Object.values(LAYOUT).find((L) => n in L.binX);
@@ -101,11 +97,6 @@ export const ANCHORS = {
   ...Object.fromEntries(ALL_NODES.map((n) => { const L = firstLayout(n); return [`count.${n}`, { p: [L.binX[n] + L.binW / 2 - 40, BIN.y + BIN.h - 16], needs: [] }]; })),
   ghost: { p: [RACK_BOX.West[0] + 10, RACK_BOX.West[1] + GHOST_DY - 8], needs: [] },
   'chart.title': { p: [CHART.x0 - 40, CHART.yUp - 62], needs: [] },
-  'net.left': { p: [NET.lx - 26, NET.y0], needs: [] },
-  'net.right': { p: [NET.rx - 26, NET.y0], needs: [] },
-  'pipe.ac': { p: [(NET.lx + NET.rx) / 2 - 20, NET.y0 - 8], needs: [] },
-  source: { p: [NET.sx - 24, NET.midY], needs: [] },
-  sink: { p: [NET.tx - 24, NET.midY], needs: [] },
   tries: { p: [TRIES.x0 - 10, TRIES.y0 - 26], needs: [] },
 };
 

@@ -16,49 +16,9 @@ ns_server.invoke_vbmap:
   repo: ns_server
   path: apps/ns_server/src/mb_map.erl
   anchor: "    Args0 = [\"--diag\", DiagPath,"
-  extent: 9
+  extent: 14
   title: ns_server mb_map — calling vbmap
-  highlight: ["\"--num-slaves\"", "\"--relax-all\""]
-
-vbmap.buildRFlowGraph:
-  repo: vbmap
-  path: vbmap_balance.go
-  anchor: "func buildRFlowGraph("
-  extent: func
-  title: vbmap buildRFlowGraph() — how many vbuckets each pair of nodes carries, as a flow graph
-  highlight: ["g.AddEdge(Source, nodeSrcV, numVbsReplicated, numVbsReplicated)", "g.AddEdge(nodeSinkV, Sink, numReplicasHi, numReplicasLo)", "vbsPerSlaveHi*elem,"]
-
-vbmap.augmentFlow:
-  repo: vbmap
-  path: graph.go
-  anchor: "func (g *Graph) augmentFlow(source, sink GraphVertex) bool {"
-  extent: func
-  title: vbmap augmentFlow() — breadth-first levels, then depth-first paths with room
-  highlight: ["g.bfsUnsaturated(source, sink)", "g.dfsPath(v, sink, &path)", "edge.pushFlow(capacity)"]
-
-vbmap.AddEdge:
-  repo: vbmap
-  path: graph.go
-  anchor: "func (g *Graph) AddEdge(src, dst GraphVertex, capacity, demand int) {"
-  extent: func
-  title: vbmap AddEdge() — a lower bound becomes a supply edge and a demand edge
-  highlight: ["capacity -= demand", "g.addDemandEdge(src, demandSink, demand)", "g.addDemandEdge(supplySource, dst, demand)"]
-
-vbmap.buildFlowGraph:
-  repo: vbmap
-  path: engine_maxflow.go
-  anchor: "func buildFlowGraph(params VbmapParams) (g *Graph) {"
-  extent: func
-  title: "vbmap buildFlowGraph() — the first flow, who replicates to whom"
-  highlight: ["g.AddEdge(Source, nodeSrcV, params.NumSlaves, params.NumSlaves)", "g.AddEdge(nodeSrcV, tagV, tagCapacity, 0)"]
-
-vbmap.relax:
-  repo: vbmap
-  path: engine_maxflow.go
-  anchor: "	feasible, _ := g.FindFeasibleFlow()"
-  extent: 32
-  title: vbmap MaxFlowRIGenerator.Generate() — strict first, then relaxed, one rule at a time
-  highlight: ["relaxSlaveBalance(g, params)", "relaxReplicaBalance(g, params)", "Generated RI with "]
+  highlight: ["\"--num-slaves\"", "\"--relax-all\"", "[\"--greedy\"]"]
 
 ns_server.simple_minimize_moves:
   repo: ns_server
@@ -91,3 +51,35 @@ ns_server.moves_per_node:
   extent: 4
   title: ns_server ns_vbucket_mover — the scheduler's limit on backfills per node (rebalanceMovesPerNode, 4 by default)
   highlight: ["BackfillsLimit"]
+
+ns_server.use_greedy:
+  repo: ns_server
+  path: apps/ns_server/src/ns_rebalancer.erl
+  anchor: "    UseGreedy = ns_config:read_key_fast(use_vbmap_greedy_optimization, true),"
+  extent: 11
+  title: ns_server ns_rebalancer — vbmap's greedy engine, on unless turned off
+  highlight: ["use_vbmap_greedy_optimization, true"]
+
+vbmap.getLeastCostSlaves:
+  repo: vbmap
+  path: greedy.go
+  anchor: "func getLeastCostSlaves("
+  extent: func
+  title: vbmap getLeastCostSlaves() — a partner for a node, in another rack, with the fewest partners
+  highlight: ["nodeTag != activeTag", "cost < minCost"]
+
+vbmap.getBestReplica:
+  repo: vbmap
+  path: greedy.go
+  anchor: "func getBestReplica("
+  extent: func
+  title: vbmap getBestReplica() — a replica's node, the partner with the fewest replicas so far
+  highlight: ["isValidNode := ap.slavesMap[node] != 0", "isCostLower := cost < minReplicaCost ||", "preferredReplicas := prevVbmap[ap.vb][1:]", "winnerId := rand.Intn(len(candidates))"]
+
+vbmap.getActivePlacements:
+  repo: vbmap
+  path: greedy.go
+  anchor: "func getActivePlacements(ri RIMap, activeNumVbsMap map[Node]int,"
+  extent: func
+  title: vbmap getActivePlacements() — each node's actives, those it had first
+  highlight: ["// pick all the vbs used by 'active' in the previous vbmap.", "// Spread the spare vbs onto all the nodes"]

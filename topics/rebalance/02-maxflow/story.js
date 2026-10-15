@@ -47,8 +47,8 @@ function facts() {
   out['uneven.rehomed'] = MAPS.uneven.filter((c, v) => c[0] !== MAPS.vbmap[v][0]).length;
   out['uneven.e.from'] = [...new Set(MAPS.uneven.flatMap((c, v) => (c[0] === 'e' ? [MAPS.vbmap[v][0]] : [])))].join(',');
   // what vbmap said it did (its diagnostics)
-  out['uneven.relaxed'] = /Generated RI with relaxed replica balance/.test(RUNS.uneven5.diag);
-  out['uneven.strictTried'] = /Trying to generate strict RI with NumSlaves=2/.test(RUNS.uneven5.diag);
+  out['uneven.relaxed'] = /Generated RI with relaxed replica balance/.test(RUNS['maxflow-uneven5'].diag);
+  out['uneven.strictTried'] = /Trying to generate strict RI with NumSlaves=2/.test(RUNS['maxflow-uneven5'].diag);
   // act 5: node f joins; the rebalance
   const six = [...five, 'f'], sixWest = west;
   const moved = (map) => map.flatMap((c, v) => c.filter((n) => !MAPS.uneven[v].includes(n)));

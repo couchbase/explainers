@@ -22,21 +22,10 @@
 //   ghost     a copy of the naive deal, shifted down, to compare
 //   chart     the seating chart's frame is shown (rows: actives' nodes;
 //             columns: replicas' nodes)
-//   view      where the copies are: 'bins' (on their nodes), 'chart'
-//             (in their seats), or 'net' (beads on the network's threads)
+//   view      where the copies are: 'bins' (on their nodes), or 'chart'
+//             (in their seats)
 //   chartUp   the chart is up in the cluster's place (else below it)
-//   sums      the chart's sums, and each seat's count, are shown
-//   arcs      each vbucket's thread, from its row through its seat to its
-//             column, is shown
-//   rowsOut   the rows' labels have moved out to the left, as nodes
-//   colsOut   the columns' labels have swung to the right, as nodes
-//   pipes     each seat's threads are bundled into a pipe
-//   source    the source, and its pipes to the left column, are shown
-//   sink      the sink, and the right column's pipes to it, are shown
-//   flow      how many of max-flow's paths have been pushed (all, till
-//             the pipes are emptied to show how)
-//   network   the network (its nodes, threads, pipes, source, sink) is
-//             shown, once it's built; it fades as one
+//   sums      the chart's sums are shown
 //   cluster   which nodes: 'four', 'five' once node e joins rack West, or
 //             'six' once node f joins rack East
 //   holds     each node's count says how many replicas it holds, too
@@ -44,18 +33,14 @@
 //             (till then, they keep their old ones, from vbmap's deal)
 //   tries     the table of ns_server's nine tries at the six-node map
 //
-// The maps (see deals.js): 'naive', 'vbmap' (four nodes), 'uneven' (five),
-// and for six nodes, 'dealt6' (vbmap's map, as it dealt it) and 'six'
-// (its chains, seated by ns_server). In a six-node map, a copy on a node
-// that didn't hold its vbucket before is built from scratch.
-
-import { PATHS } from './plumbing.js';
+// The maps (see deals.js): 'naive', 'vbmap' (four nodes), 'uneven' (five)
+// and 'six'. In the five- and six-node maps, a copy on a node that
+// didn't hold its vbucket before is built from scratch.
 
 const START = {
   doc: true, split: false, scaffold: false, actives: false, replicas: false, lifted: false, counts: false,
   map: 'naive', trails: true, down: [], promoted: false, lost: false, ghost: false,
-  chart: false, view: 'bins', chartUp: false, sums: false, arcs: false, rowsOut: false, colsOut: false, pipes: false, source: false, sink: false, flow: PATHS.length,
-  network: true, cluster: 'four', holds: false, recolor: false, tries: false,
+  chart: false, view: 'bins', chartUp: false, sums: false, cluster: 'four', holds: false, recolor: false, tries: false,
 };
 
 // nodes failing (down, then failed over), and coming back
@@ -83,35 +68,25 @@ const CHANGES = [
   ['vbmap.untrail', { trails: false }],
   ...fail('vbmap.c', ['c']),
   ...fail('vbmap.west', ['a', 'b']),
-  // act 3: the deal as a chart, a network, pipes, a flow
+  // act 3: the deal as a seating chart
   ['unghost', { ghost: false }],
   ['chart.frame', { chart: true }],
   ['chart.seated', { view: 'chart' }],
   ['chart.clear', { scaffold: false }],
   ['chart.up', { chartUp: true }],
   ['chart.sums', { sums: true }],
-  ['arcs', { arcs: true }],
-  ['turn.rows', { rowsOut: true }],
-  ['turn.cols', { colsOut: true }],
-  ['net', { view: 'net' }],
-  ['pipes', { pipes: true }],
-  ['source', { source: true }],
-  ['sink', { sink: true }],
-  ['flow.0', { flow: 0 }],
-  ...PATHS.map((_, k) => [`flow.${k + 1}`, { flow: k + 1 }]),
   // act 4: back to the nodes, then node e joins rack West
-  ['beads', { pipes: false }],
-  ['unnet', { network: false }],
-  ['home', { view: 'bins' }],
+  ['chart.down', { chartUp: false }],
   ['recluster', { scaffold: true }],
+  ['home', { view: 'bins' }],
+  ['unchart', { chart: false }],
   ['e.joins', { cluster: 'five' }],
   ['e.deal', { map: 'uneven' }],
   ['e.recolor', { recolor: true }],
   ['e.holds', { holds: true }],
   // act 5: node f joins rack East, and the cluster rebalances
   ['f.joins', { cluster: 'six' }],
-  ['six.dealt', { map: 'dealt6' }],
-  ['six.seated', { map: 'six' }],
+  ['six.deal', { map: 'six' }],
   ['six.tries', { tries: true }],
 ];
 

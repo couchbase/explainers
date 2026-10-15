@@ -5,9 +5,15 @@ cluster changes.
 
 - `01-vbmap/`: how ns_server's vbmap tool lays out vbuckets: told as a
   story about one document's vbucket, from a naive layout's failures
-  to vbmap's rules, its flow graphs and a rebalance. (Draft.)
+  to vbmap's rules, its greedy engine (ns_server's default) and two
+  rebalances. (Draft.)
+- `02-maxflow/`: the same story as it was told with vbmap's max-flow
+  engine (used when ns_server's greedy optimization is off): the
+  seating chart turned into a network of pipes. Kept to rework.
+  (Draft.)
 - `lib/`: the vbucket maps the explainers show, made by the real vbmap
-  binary (`lib/tools/vbmap-golden`, `npm run golden -- rebalance`).
+  binary (`lib/tools/vbmap-golden`, `npm run golden -- rebalance`), and
+  `rebalance.js`, a port of how ns_server picks a rebalance's map.
 
 ## Color and icon rules
 

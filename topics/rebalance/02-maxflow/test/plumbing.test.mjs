@@ -23,7 +23,7 @@ function vbmapR(run) {
 }
 
 test("the flow's R is vbmap's R", () => {
-  assert.deepEqual(R_FLOW, vbmapR('story4'));
+  assert.deepEqual(R_FLOW, vbmapR('maxflow-story4'));
 });
 
 test("the flow's R is what vbmap's map has", () => {
