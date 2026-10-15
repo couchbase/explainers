@@ -30,7 +30,7 @@ export class MovesPart {
       };
     }
     // the key, left of the bars, where there's room
-    [['mbar-add', 'copies built on it (add)'], ['mbar-del', 'copies deleted from it (del)']].forEach(([cls, label], i) => {
+    [['mbar-add', 'partitions added'], ['mbar-del', 'partitions deleted']].forEach(([cls, label], i) => {
       const ky = Z - 52 + i * 24;
       el('rect', { x: BOARD.x0, y: ky - 9, width: 14, height: 10, class: cls }, M.g);
       txt(M.g, BOARD.x0 + 20, ky, label, 'pkey');
