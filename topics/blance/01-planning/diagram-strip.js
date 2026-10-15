@@ -14,22 +14,24 @@ export class StripPart {
   _buildStrip(g) {
     const S = { g: el('g', { opacity: 0 }, g) };
     const sg = S.g;
-    // the title: "the planner's scores:", and after it, the decision in
-    // hand ("scoring partition 0's primary"), in its state's color
+    // the title: "the planner's scores:", and under it, the decision in
+    // hand ("scoring partition 0's primary"), in its state's color (a
+    // line kept, blank, when there's none)
     S.titlePre = txt(sg, BOARD.x0, STRIP.titleY, 'the planner\u2019s scores:', 'ptitle');
-    S.titleA = txt(sg, BOARD.x0, STRIP.titleY, '', 'ptitle');
-    S.titleB = txt(sg, BOARD.x0, STRIP.titleY, '', 'ptitle');
+    S.titleA = txt(sg, BOARD.x0, STRIP.titleY + 24, '', 'ptitle');
+    S.titleB = txt(sg, BOARD.x0, STRIP.titleY + 24, '', 'ptitle');
     S.subA = txt(sg, BOARD.x1 + 10, STRIP.titleY, '', 'pnote', 'end');
     S.subB = txt(sg, BOARD.x1 + 10, STRIP.titleY, '', 'pnote', 'end');
-    S.noteA = txt(sg, BOARD.x0, STRIP.titleY + 26, '', 'pnote');
-    S.noteB = txt(sg, BOARD.x0, STRIP.titleY + 26, '', 'pnote');
+    S.noteA = txt(sg, BOARD.x0, STRIP.titleY + 50, '', 'pnote');
+    S.noteB = txt(sg, BOARD.x0, STRIP.titleY + 50, '', 'pnote');
     S.axis = el('g', {}, sg);
     S.grid = [0, 1, 2, 3].map((v) => {
       const line = el('line', { x1: BOARD.col0, y1: scoreY(v), x2: BOARD.x1, y2: scoreY(v), class: v ? 'pgrid' : 'paxis' }, S.axis);
       txt(S.axis, BOARD.col0 - 8, scoreY(v) + 4, String(v), 'paxis-label', 'end');
       return line;
     });
-    txt(S.axis, BOARD.x0, scoreY(1.5) + 4, 'score', 'brow-label');
+    // (its name, beside its tick marks)
+    txt(S.axis, BOARD.col0 - 26, scoreY(1.5) + 4, 'score', 'brow-label', 'end');
     const W = STRIP.barW;
     // the pick's box: around all the candidates' scores, then the lowest's
     S.select = el('rect', { rx: 8, class: 'swon', opacity: 0 }, sg);
@@ -50,15 +52,6 @@ export class StripPart {
         why: txt(cg, x, STRIP.zeroY - 12, '', 'pterm', 'middle'),
       };
       S.cols[n] = col;
-    }
-    const ky = STRIP.labelY + 42;
-    let kx = BOARD.x0;
-    S.keyCount = null;
-    for (const [cls, label] of [['pbar-count pbar-primary', 'held, in this state'], ['pbar-spread', 'backing the same primary'], ['pbar-fill', 'all partitions (tie-breaker)']]) {
-      const r = el('rect', { x: kx, y: ky - 9, width: 14, height: 10, class: `pbar ${cls}` }, sg);
-      if (!S.keyCount) S.keyCount = r;
-      txt(sg, kx + 20, ky, label, 'pkey');
-      kx += 20 + label.length * 6.4 + 22;
     }
     return S;
   }
@@ -133,20 +126,14 @@ export class StripPart {
     };
     const [ta, na, ua] = text(FA, da, same ? sNow : sa), [tb, nb, ub] = text(FB, db, same ? sNow : sb);
     setText(S.titleA, ta); setText(S.titleB, tb);
-    // (the suffix just after the title, in the decision's state's color)
-    S.preW = S.preW || S.titlePre.getComputedTextLength();
-    for (const [e, d] of [[S.titleA, da], [S.titleB, db]]) {
-      e.setAttribute('x', (BOARD.x0 + S.preW + 7).toFixed(1));
-      e.setAttribute('class', `ptitle${d ? ` psuffix-${d.state}` : ''}`);
-    }
+    // (the decision's line, in its state's color)
+    for (const [e, d] of [[S.titleA, da], [S.titleB, db]]) e.setAttribute('class', `ptitle${d ? ` psuffix-${d.state}` : ''}`);
     setText(S.noteA, na); setText(S.noteB, nb);
     setText(S.subA, ua); setText(S.subB, ub);
     const cross = (eA, eB, a, b) => { op(eA, a === b ? 1 : 1 - q * 2); op(eB, a === b ? 0 : q * 2 - 1); };
     cross(S.titleA, S.titleB, ta, tb); cross(S.noteA, S.noteB, na, nb); cross(S.subA, S.subB, ua, ub);
     // the axis, as wide as the board
     for (const l of S.grid) l.setAttribute('x2', (BOARD.x0 + (this.boardW || BOARD.x1 - BOARD.x0)).toFixed(1));
-    const state = (same ? da : q < 0.5 ? da || db : db || da);
-    S.keyCount.setAttribute('class', `pbar pbar-count pbar-${state ? state.state : 'primary'}`);
     this.stripTops = {};
     for (const n of NODES) {
       const col = S.cols[n];

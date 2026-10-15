@@ -67,7 +67,7 @@ export class Diagram {
     const top = HEAD_Y - 28;
     if (name === 'board') return [BOARD.x0 - 8, top, bw + 16, BOARD.y1 - top + 8];
     if (name === 'tallies') return [BOARD.col0 - 6, TALLY_Y - 22, BOARD.x0 + bw - BOARD.col0 + 12, 62];
-    if (name === 'strip') return [BOARD.x0 - 8, STRIP.titleY - 30, bw + 16, STRIP.labelY + 56 - (STRIP.titleY - 30)];
+    if (name === 'strip') return [BOARD.x0 - 8, STRIP.titleY - 30, bw + 16, STRIP.labelY + 34 - (STRIP.titleY - 30)];
     const n = name.slice(4);
     return [colX(n) - BOARD.colW / 2 + 3, top, BOARD.colW - 6, STRIP.labelY + 28 - top];
   }

@@ -44,10 +44,11 @@ export const TALLY_Y = BOARD.y1 + 34;
 
 // ---- the score strip: a bar per node column, up from zero ----
 
-export const STRIP = { titleY: 650, zeroY: 838, unit: 48, barW: 30 };
+export const STRIP = { titleY: 650, zeroY: 880, unit: 48, barW: 30 };
 // the faint rule between the board (and its tallies) and the area under it
 export const SEP_Y = 612;
-STRIP.labelY = STRIP.zeroY + 40;
+// (the scores' labels, just under the baseline)
+STRIP.labelY = STRIP.zeroY + 22;
 // (a score's height: `unit` px per partition's worth)
 export const scoreY = (v) => STRIP.zeroY - v * STRIP.unit;
 
