@@ -403,43 +403,45 @@ chapters:
 
       - id: deal
         view: { at: e.deal, target: node.e }
-        expect: ["fact:uneven.serves=a6 b6 c7 d7 e6", "fact:uneven.sameRack=0", "fact:uneven.hero=b,d"]
+        expect: ["fact:uneven.serves=a7 b6 c7 d6 e6", "fact:uneven.sameRack=0", "fact:uneven.hero=b,c"]
         text: |
           vbmap deals again, for five nodes (a real run). The actives
           even out: [[node e]] takes 6, and every node serves 6 or 7.
-          Every replica still crosses racks. Vbucket 9 stays put, on
-          nodes b and d. Each copy keeps its old color, for now.
+          Every replica still crosses racks. Vbucket 9's active stays
+          on node b; its replica moves to node c. Each copy keeps its
+          old color, for now.
 
       - id: recolor
         view: { at: e.recolor, target: node.e }
-        expect: ["fact:uneven.rehomed=17", "fact:uneven.e.from=d"]
+        expect: ["fact:uneven.rehomed=14", "fact:uneven.e.from=d"]
         text: |
           Node e's 6 actives were node d's. And d took some of c's, c
-          some of b's, b some of a's: 17 vbuckets have a new home. To
+          some of b's, b one of a's: 14 vbuckets have a new home. To
           keep them easy to follow from here on, each copy now takes
           its new home's color: [[node e]]'s, green.
 
       - id: holds
         view: { at: e.holds, target: count.c }
-        expect: ["fact:uneven.holds=a5 b5 c9 d9 e4"]
+        expect: ["fact:uneven.holds=a5 b4 c10 d9 e4"]
         text: |
           But count the replicas each node holds: [[nodes c and d]]
-          hold 9 each, nodes a and b 5, and node e only 4. The two
-          nodes of rack East hold more than twice what node e does.
+          hold 10 and 9, node a 5, and nodes b and e only 4. The two
+          nodes of rack East hold more than twice what nodes b and e
+          do.
 
       - id: why
         view: { at: e.holds, target: rack.West }
-        expect: ["fact:uneven.west.actives=18", "fact:uneven.east.actives=14"]
+        expect: ["fact:uneven.west.actives=19", "fact:uneven.east.actives=13"]
         text: |
-          It's arithmetic. [[Rack West]]'s nodes serve 18 vbuckets, and
+          It's arithmetic. [[Rack West]]'s nodes serve 19 vbuckets, and
           each needs its replica outside rack West: on node c or node
-          d, 9 each. Rack East's 14 vbuckets spread their replicas over
-          three nodes: 5, 5 and 4. Copies in different racks, and
+          d, 10 and 9. Rack East's 13 vbuckets spread their replicas
+          over three nodes: 5, 4 and 4. Copies in different racks, and
           every node within one of the average: with racks of 3 and 2,
           both rules can't hold.
 
       - id: relax
-        view: { at: e.holds, target: count.d }
+        view: { at: e.holds, target: count.c }
         code: [vbmap.relax]
         expect: ["fact:uneven.strictTried=true", "fact:uneven.relaxed=true"]
         text: |
@@ -448,8 +450,8 @@ chapters:
           and tries again: first how evenly nodes back each other up,
           then how evenly replicas spread. Its diagnostics for this
           run say so: "Generated RI with relaxed replica balance".
-          Rack safety holds; balance gives, and [[node d]] carries
-          the extra.
+          Rack safety holds; balance gives, and [[node c]] and node d
+          carry the extra.
 
       - id: lesson
         text: |

@@ -77,6 +77,9 @@ func main() {
 			"-tags", strings.Join(tags, ","),
 			"-relax-all", "-seed", "1",
 			"-diag", diag, "-output-format", "json")
+		// (vbmap seeds math/rand with rand.Seed, which Go 1.24 made a
+		// no-op by default; this makes -seed count, so runs repeat)
+		cmd.Env = append(os.Environ(), "GODEBUG=randseednop=0")
 		cmd.Stderr = os.Stderr
 		stdout, err := cmd.Output()
 		check(err)
