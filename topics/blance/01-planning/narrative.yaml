@@ -179,23 +179,21 @@ chapters:
           the partitions in name order: so [[partition 0]] is sorted first.
 
       - id: states
-        view: { panel: score, target: scores, focus: strip }
+        view: { at: fresh.1~row, panel: score, target: scores, focus: strip }
         code: [blance.assign]
-        text: |
-          With the partitions sorted, the planner next loops through those partitions.
-          For each partition, the planner gives every
-          node [[a score]]: the lowest scoring node wins (will be assigned
-          the partition in the current state (primary)).
-
-      - id: decision
-        view: { at: fresh.1~row, target: scores, focus: strip }
         expect: ["fact:fresh.1.partition=0", "fact:fresh.1.state=primary"]
+        # (the scores come with the first decision)
+        multi: true
         text: |
-          So each step of the planner is one decision, about one
-          partition in one state, down the sorted list. The first
-          decision is partition 0's primary: partition 0's row is
-          outlined in the partition map, and [[the planner's scores]]
-          say so too.
+          With the partitions sorted, the planner next loops through
+          those partitions, one decision at a time. For each partition,
+          the planner gives every node a score: the lowest scoring node
+          wins (will be assigned the partition in the current state
+          (primary)).
+
+          The first decision is partition 0's primary: partition 0's
+          row is outlined in the partition map, and
+          [[the planner's scores]] say so too.
 
       - id: first
         view: { at: fresh.1, target: winner, focus: strip }
