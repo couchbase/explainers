@@ -35,6 +35,9 @@
 .diagram .seat { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
 .diagram .seat-none { fill: var(--down-bg); stroke: none; }
 .diagram .chart-title { font: 600 14px var(--font-display); fill: var(--ink); }
+.diagram .rack-tag { font: 600 12px var(--font-display); fill: var(--muted); }
+.diagram .chart-corner { stroke: var(--muted); stroke-width: 1; stroke-opacity: 0.6; }
+.diagram .chart-corner-label { font: 600 11px var(--font-display); fill: var(--muted); }
 .diagram .chart-sum { font: 600 14px var(--font-mono); fill: var(--muted); }
 .diagram .net-label { font: 650 16px var(--font-display); }
 .diagram .net-caption { font: 500 12px var(--font-mono); fill: var(--muted); }

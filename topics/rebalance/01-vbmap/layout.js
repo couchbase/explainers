@@ -63,14 +63,20 @@ export const DOC = { x: 40, y: 40, w: 230, h: 64 };
 
 // the seating chart: a row per node (its actives), a column per node
 // (the replicas it holds); below the cluster at first, then up
-export const CHART = { x0: 420, cell: 70, yDown: 440, yUp: 150 };
-export const chartCellXY = (i, j, up) => [CHART.x0 + j * CHART.cell, (up ? CHART.yUp : CHART.yDown) + i * CHART.cell];
+// (below, it's smaller, so it fits; it grows as it rises)
+export const CHART = { x0: 420, cell: 84, yDown: 440, yUp: 150, kDown: 70 / 84 };
+// the chart partway up (u, 0..1): its scale, and its top
+export const chartAt = (u) => ({ k: CHART.kDown + (1 - CHART.kDown) * u, y: CHART.yDown + (CHART.yUp - CHART.yDown) * u });
+export const chartCellXY = (i, j, up) => { const { k, y } = chartAt(+up); return [CHART.x0 + j * CHART.cell * k, y + i * CHART.cell * k]; };
 // a seat's pairs: 2 x 2, an active and its replica side by side
-export const seatPairXY = (i, j, k, up) => { const [x, y] = chartCellXY(i, j, up); return [x + 19 + (k % 2) * 32, y + 21 + Math.floor(k / 2) * 27]; };
+export const seatPairXY = (i, j, k, up) => {
+  const [x, y] = chartCellXY(i, j, up), c = CHART.cell * chartAt(+up).k;
+  return [x + c / 4 + (k % 2) * (c / 2), y + 0.31 * c + Math.floor(k / 2) * 0.38 * c];
+};
 
 // the network: nodes on the left (their actives), on the right (their
 // replicas), a source and a sink
-export const NET = { lx: 330, rx: 690, y0: 170, dy: 95, sx: 140, tx: 880 };
+export const NET = { lx: 330, rx: 690, y0: 150, dy: 140, sx: 140, tx: 880 };
 NET.midY = NET.y0 + 1.5 * NET.dy;
 
 // the first cluster a node's in
@@ -94,7 +100,7 @@ export const ANCHORS = {
   ...Object.fromEntries(ALL_NODES.map((n) => { const L = firstLayout(n); return [`node.${n}`, { p: [L.binX[n] + 6, BIN.y - 8], needs: [] }]; })),
   ...Object.fromEntries(ALL_NODES.map((n) => { const L = firstLayout(n); return [`count.${n}`, { p: [L.binX[n] + L.binW / 2 - 40, BIN.y + BIN.h - 16], needs: [] }]; })),
   ghost: { p: [RACK_BOX.West[0] + 10, RACK_BOX.West[1] + GHOST_DY - 8], needs: [] },
-  'chart.title': { p: [CHART.x0 - 40, CHART.yUp - 46], needs: [] },
+  'chart.title': { p: [CHART.x0 - 40, CHART.yUp - 62], needs: [] },
   'net.left': { p: [NET.lx - 26, NET.y0], needs: [] },
   'net.right': { p: [NET.rx - 26, NET.y0], needs: [] },
   'pipe.ac': { p: [(NET.lx + NET.rx) / 2 - 20, NET.y0 - 8], needs: [] },
