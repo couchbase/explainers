@@ -152,7 +152,7 @@ export function runStory({ simulation = false, setup }) {
   ui.zoomIn.addEventListener('click', () => camera.zoomAt(1.3));
   ui.zoomOut.addEventListener('click', () => camera.zoomAt(1 / 1.3));
   ui.recenter.addEventListener('click', () => camera.recenter());
-  ui.codeBtn.addEventListener('click', () => codeDrawer.open());
+  ui.codeBtn.addEventListener('click', () => (codeDrawer.isOpen ? codeDrawer.close() : codeDrawer.open()));
   document.addEventListener('keydown', (e) => {
     if (e.target.closest('input, select, textarea')) return;
     if (hooks.onKey) hooks.onKey(e);

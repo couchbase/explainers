@@ -57,7 +57,7 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
       if (st.code && st.code.length) {
         card.append(h('div', { class: 'code-chips' }, ...st.code.map((id) => {
           const sn = snippets[id];
-          return h('button', { class: 'code-chip', type: 'button', title: sn.title, onclick: () => codeDrawer.open(st.code, id) },
+          return h('button', { class: 'code-chip', type: 'button', title: sn.title, onclick: () => codeDrawer.toggle(st.code, id) },
             h('span', { class: 'repo', text: `${sn.repo}/${sn.path.split('/').pop()}` }), h('span', { class: 'sep', text: ' · ' }), h('span', { class: 'name', text: sn.title.split(' — ')[0] }));
         })));
       }

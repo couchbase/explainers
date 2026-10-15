@@ -34,7 +34,7 @@ test('desktop: scrolling activates every step without errors', async () => {
   await page.close();
 });
 
-test('code drawer shows highlighted, linked source', async () => {
+test('code drawer shows highlighted, linked source, toggles and resizes', async () => {
   const { page, errors } = await open({ width: 1440, height: 900 });
   await page.evaluate(() => document.getElementById('persister--open').scrollIntoView());
   await page.waitForTimeout(300);
@@ -45,7 +45,11 @@ test('code drawer shows highlighted, linked source', async () => {
   assert.match(href, /^https:\/\/github\.com\/blevesearch\/bleve\/blob\/9d2da23a5c58\/index\/scorch\/persister\.go#L\d+-L\d+$/);
   assert.ok(await drawer.locator('.ln.hl').count() > 0, 'has highlighted lines');
   assert.ok(await drawer.locator('.hljs-keyword').count() > 0, 'is syntax highlighted');
-  await page.keyboard.press('Escape');
+  // resizable, by CSS, from its bottom-left corner
+  assert.deepEqual(await page.evaluate(() => { const cs = getComputedStyle(document.querySelector('.drawer:not(.knobs)')); return [cs.resize, cs.direction]; }), ['horizontal', 'rtl']);
+  // the same chip again closes it (a toggle)
+  await page.locator('#persister--open .code-chip').first().click();
+  await page.waitForFunction(() => !document.querySelector('.drawer:not(.knobs)').classList.contains('open'));
   assert.deepEqual(errors, []);
   await page.close();
 });
