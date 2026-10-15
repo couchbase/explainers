@@ -14,14 +14,17 @@
 
 import { svgEl as el } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
-import { NODES, tally } from './scenarios.js';
-import { CANVAS, BOARD, STRIP, ANCHORS, colX, colX0, setSlots, rowY, chipX, HEAD_Y, TALLY_Y } from './layout.js';
+import { NODES, PARTITIONS, tally } from './scenarios.js';
+import { CANVAS, BOARD, STRIP, ANCHORS, colX, colX0, setSlots, setRows, rowY, chipX, HEAD_Y, TALLY_Y } from './layout.js';
 import { op, pickOf, boardW, slotsOf } from './diagram-shared.js';
 import { BoardPart } from './diagram-board.js';
 import { StripPart } from './diagram-strip.js';
 import { MovesPart } from './diagram-moves.js';
 import { ArrowsPart } from './diagram-arrows.js';
 export { FLY, flight, grown, through } from './diagram-shared.js';
+
+// A frame's rows: each partition's place, from the top.
+const rowsOf = (f) => Object.fromEntries((f.order || PARTITIONS).map((p, i) => [p, i]));
 
 export class Diagram {
   constructor(svg) {
@@ -92,6 +95,10 @@ export class Diagram {
       const t = `translate(${(colX(n) - colX0(n)).toFixed(1)} 0)`;
       for (const e of [this.cols[n].g, ...Object.values(this.cols[n].tags), this.strip.cols[n].g, this.movesArea.cols[n].g]) e.setAttribute('transform', t);
     }
+    // the rows' places, partway (a pass's sort moves them; so does the
+    // plan's end, back to name order)
+    const ra = rowsOf(FA), rb = rowsOf(FB);
+    setRows(Object.fromEntries(PARTITIONS.map((p) => [p, lerp(ra[p], rb[p], easeQuad(q))])));
     const sameD = FA.decision && FA.decision === FB.decision;
     const stageOf = (f) => f.stage ?? (f.decision ? pickOf(f.decision) : 0);
     this._drawBoard(FA, FB, q, sameD ? lerp(stageOf(FA), stageOf(FB), q) : null);
@@ -134,6 +141,8 @@ export class Diagram {
       const p = d && (this.stripTops || {})[id === 'winner' ? d.chosen[0] : id.slice(4)];
       return p ? { p, visible: strip } : { p: [0, 0], visible: false };
     }
+    // (a row: where it is now)
+    if (id.startsWith('row.')) return { p: [BOARD.labelX - 8, rowY(id.slice(4))], visible: true };
     if (id === 'deciding') return d ? { p: [BOARD.x0 + 4, rowY(d.partition)], visible: true } : { p: [0, 0], visible: false };
     if (id === 'chosen') return d ? { p: [chipX(d.chosen[0], d.state) - 20, rowY(d.partition)], visible: true } : { p: [0, 0], visible: false };
     const a = ANCHORS[id];

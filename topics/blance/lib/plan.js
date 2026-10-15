@@ -9,9 +9,11 @@
 // unique key (a partition's name, a node's position), so they don't
 // depend on the sort algorithm either.
 //
-// It also records what it did, for the explainer: with `trace`, every
-// decision (which partition, which state, the candidates, their score
-// terms, and who won), in order.
+// It also records what it did, for the explainer: with `trace`, each
+// state's pass (the order it sorted the partitions into, and each
+// partition's group in that sort), and every decision (which
+// partition, which state, the candidates, their score terms, and who
+// won), in order.
 
 export const MAX_ITERATIONS_PER_PLAN = 10;
 
@@ -283,9 +285,11 @@ function planNextMapInner(prevMap, partitionsToAssign, nodesAll, nodesToRemove, 
   }
 
   function assignStateToPartitions(stateName, constraints) {
-    const sorted = sortPartitions([...nextPartitions], {
-      stateName, prevMap, nodesToRemove, nodesToAdd, partitionWeights: opts.partitionWeights,
-    });
+    const sortOpts = { stateName, prevMap, nodesToRemove, nodesToAdd, partitionWeights: opts.partitionWeights };
+    const sorted = sortPartitions([...nextPartitions], sortOpts);
+    // (the pass's order, and each partition's group: 0, on a node
+    // leaving; 1, not yet on a node joining; 2, the rest)
+    if (trace) Object.assign(trace[trace.length - 1], { order: sorted.map((p) => p.name), groups: Object.fromEntries(sorted.map((p) => [p.name, partitionScore(p, sortOpts)[0]])) });
     const nodeToNodeCounts = {};
     for (const partition of sorted) {
       const w = opts.partitionWeights && partition.name in opts.partitionWeights ? opts.partitionWeights[partition.name] : 1;

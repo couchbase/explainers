@@ -202,5 +202,20 @@
   ],
   "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/api.go#L183-L190",
   "code": "type PlanNextMapOptions struct {\n\tModelStateConstraints map[string]int    // Keyed by stateName.\n\tPartitionWeights      map[string]int    // Keyed by partitionName.\n\tStateStickiness       map[string]int    // Keyed by stateName.\n\tNodeWeights           map[string]int    // Keyed by node.\n\tNodeHierarchy         map[string]string // Keyed by node; value is node's parent.\n\tHierarchyRules        HierarchyRules\n}"
+ },
+ "blance.sortPass": {
+  "id": "blance.sortPass",
+  "repo": "blance",
+  "path": "plan.go",
+  "title": "blance assignStateToPartitions() — each state's pass starts by sorting the partitions",
+  "start": 254,
+  "end": 263,
+  "highlight": [
+   258,
+   259,
+   263
+  ],
+  "url": "https://github.com/couchbase/blance/blob/a63f0a3c43ed2794d965d6b869220010ed4b72b7/plan.go#L254-L263",
+  "code": "\t\t// Sort the partitions to help reach a better assignment.\n\t\tp := &partitionSorter{\n\t\t\tstateName:        stateName,\n\t\t\tprevMap:          prevMap,\n\t\t\tnodesToRemove:    nodesToRemove,\n\t\t\tnodesToAdd:       nodesToAdd,\n\t\t\tpartitionWeights: opts.PartitionWeights,\n\t\t\ta:                append([]*Partition(nil), nextPartitions...),\n\t\t}\n\t\tsort.Sort(p)"
  }
 }

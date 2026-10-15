@@ -42,6 +42,12 @@ function facts() {
     const s = SCENARIOS[f.scenario];
     if (f.sub) continue;
     out[`${key}.counts`] = counts(s, f.board);
+    // a pass's sort: the rows' order, and how many go in each group
+    if (f.sort === 'sorted') {
+      const pass = key.replace('~sorted', '');
+      out[`${pass}.order`] = f.order.join(',');
+      for (const g of ['0', '1', '2']) out[`${pass}.group${g}`] = Object.values(f.pass.groups).filter((x) => x === g).length;
+    }
     if (!f.decision) continue;
     // a decision: its partition, state, winner, and each candidate's score
     out[`${key}.partition`] = f.decision.partition;

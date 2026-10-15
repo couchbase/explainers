@@ -5,6 +5,11 @@
 .diagram .bsub { font: 400 16px var(--font-body); fill: var(--muted); }
 .diagram .brow { fill: var(--faint); opacity: 0.6; }
 .diagram .brow-label { font: 500 14px var(--font-body); fill: var(--muted); }
+/* a row's group in its pass's sort: first, on a node leaving; then,
+   not on a node joining yet; then the rest */
+.diagram .bsort-tag { font: 600 11px var(--font-body); fill: var(--muted); }
+.diagram .bsort-g0 { fill: var(--leave); }
+.diagram .bsort-g1 { fill: var(--join); }
 .diagram .bband { fill: none; stroke: var(--accent); stroke-width: 2; }
 .diagram .bcol-line { stroke: var(--line); }
 .diagram .bnode { font: 600 16px var(--font-display); fill: var(--ink); }

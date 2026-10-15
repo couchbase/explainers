@@ -115,3 +115,11 @@ blance.options:
   extent: func
   title: blance PlanNextMapOptions — the knobs an app can set
   highlight: ["ModelStateConstraints", "PartitionWeights", "StateStickiness", "NodeWeights", "NodeHierarchy", "HierarchyRules"]
+
+blance.sortPass:
+  repo: blance
+  path: plan.go
+  anchor: "		// Sort the partitions to help reach a better assignment."
+  extent: 10
+  title: blance assignStateToPartitions() — each state's pass starts by sorting the partitions
+  highlight: ["sort.Sort(p)", "nodesToRemove:    nodesToRemove,", "nodesToAdd:       nodesToAdd,"]

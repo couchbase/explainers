@@ -24,11 +24,18 @@ export class BoardPart {
       txt(this.groupG, (xa + xb) / 2, GROUP_Y - 6, `server group ${grp}`, 'bgroup-label', 'middle');
     }
     // rows (as wide as the scenario's nodes)
+    // (the stripes stay put; the labels move with their rows, and under
+    // each, while a pass is on, its group in the pass's sort)
     this.rowRects = [];
+    this.rowLabels = {};
     for (const p of PARTITIONS) {
       const y = rowY(p);
       if (PARTITIONS.indexOf(p) % 2 === 0) this.rowRects.push(el('rect', { x: BOARD.x0, y: y - BOARD.rowH / 2, width: BOARD.x1 - BOARD.x0 + 10, height: BOARD.rowH, class: 'brow' }, g));
-      txt(g, BOARD.labelX, y + 5, `partition ${p}`, 'brow-label');
+      const lg = el('g', {}, g);
+      txt(lg, BOARD.labelX, 5, `partition ${p}`, 'brow-label');
+      const tag = txt(lg, BOARD.labelX, 19, '', 'bsort-tag');
+      op(tag, 0);
+      this.rowLabels[p] = { g: lg, tag };
     }
     // the board, apart from the area under it
     this.sep = el('line', { x1: BOARD.x0, y1: SEP_Y, x2: BOARD.x1 + 10, y2: SEP_Y, class: 'bsep' }, g);
@@ -132,6 +139,20 @@ export class BoardPart {
       op(c.g, o);
     }
     for (const [key, c] of this.chips) if (!shown.has(key)) op(c.g, 0);
+
+    // the rows' labels, where their rows are now; and while a pass is
+    // on, each one's group in its sort (the row in the pass's order)
+    const pa = FA.pass, pb = FB.pass, pn = q < 0.5 ? pa || pb : pb || pa;
+    for (const p of PARTITIONS) {
+      const r = this.rowLabels[p];
+      r.g.setAttribute('transform', `translate(0 ${rowY(p).toFixed(1)})`);
+      if (pn) {
+        const grp = pn.groups[p];
+        setText(r.tag, pn.labels[grp]);
+        r.tag.setAttribute('class', `bsort-tag bsort-g${grp}`);
+      }
+      op(r.tag, lerp(pa ? 1 : 0, pb ? 1 : 0, q));
+    }
 
     // the partition being decided
     const da = FA.decision, db = FB.decision;

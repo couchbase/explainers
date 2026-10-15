@@ -61,22 +61,38 @@ function seqOf(t) {
 // partition, prev to result), iterations, decisions}.
 //
 // A frame: {key, i (its place in the scenario), board, decision, k
-// (decisions made), stage (its place in the decision's seq)}; and after
-// each state's last decision, "fresh.primaries", the pass done (no
-// decision in hand, nothing left over from the last one). Each
+// (decisions made), stage (its place in the decision's seq), order (the
+// board's rows, top to bottom), pass (while a state's pass is on: its
+// state, each partition's group in its sort, and what the groups
+// mean)}; and after each state's last decision, "fresh.primaries", the
+// pass done (no decision in hand, nothing left over from the last one).
+// Each pass begins by sorting the partitions, in two frames:
+// "fresh.replicas~keys", each row's group shown, and
+// "fresh.replicas~sorted", the rows in the pass's order. Once the plan
+// is made, "fresh.unsorted": the rows back in name order. Each
 // decision has a frame per stage, "fresh.2~row", "fresh.2~a.count", on
 // the board as it was before it, and then its pick, "fresh.2", with it
 // made. A scenario that removes nodes ends with "remove.after": the
 // same board, with the nodes removed out of the cluster.
 function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {}, groups = false }) {
   const r = planNextMap(mapOf(prev), mapOf(prev), nodesAll, remove, add, MODEL, opts, { trace: true });
-  const frames = [{ key: `${id}.prev`, board: prev, decision: null, k: -1, i: 0 }];
-  const push = (f) => frames.push({ ...f, i: frames.length });
+  let order = [...PARTITIONS], pass = null;
+  const frames = [{ key: `${id}.prev`, board: prev, decision: null, k: -1, i: 0, order, pass }];
+  const push = (f) => frames.push({ order, pass, ...f, i: frames.length });
   let board = without(prev, remove);
   push({ key: `${id}.0`, board, decision: null, k: 0 });
+  // what the sort's groups mean, here
+  const labels = groupLabels(nodesAll, add, remove);
   let k = 0;
   for (const t of r.passes[0].trace) {
-    if (t.begin) continue;
+    if (t.begin) {
+      // the pass's sort: each row's group, then the rows in its order
+      pass = { state: t.state, groups: t.groups, labels };
+      push({ key: `${id}.${PLURAL[t.state]}~keys`, board, decision: null, k, sort: 'keys' });
+      order = t.order;
+      push({ key: `${id}.${PLURAL[t.state]}~sorted`, board, decision: null, k, sort: 'sorted' });
+      continue;
+    }
     const seq = seqOf(t);
     const decision = { ...t, k: k + 1, before: board, seq };
     seq.forEach((x, si) => {
@@ -88,10 +104,16 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
     push({ key: `${id}.${k}`, board, decision, k, stage: seq.length - 1 });
     // after a state's last decision, the pass done: "fresh.primaries"
     const next = r.passes[0].trace.slice(r.passes[0].trace.indexOf(t) + 1).find((x) => !x.begin);
-    if (!next || next.state !== t.state) push({ key: `${id}.${PLURAL[t.state]}`, board, decision: null, k, passDone: t.state });
+    if (!next || next.state !== t.state) {
+      pass = null;
+      push({ key: `${id}.${PLURAL[t.state]}`, board, decision: null, k, passDone: t.state });
+    }
   }
   const result = boardOf(r.nextMap);
   if (JSON.stringify(board) !== JSON.stringify(result)) throw new Error(`${id}: replaying the trace doesn't give the plan`);
+  // (the plan made: its rows back in name order, as the map is keyed)
+  order = [...PARTITIONS];
+  push({ key: `${id}.unsorted`, board, decision: null, k });
   push({ key: `${id}.end`, board: result, decision: null, k: k + 1, done: true });
   // (and once the rebalance is over, the nodes removed are gone: "remove.after")
   if (remove.length) push({ key: `${id}.after`, board: result, decision: null, k: k + 1, done: true, departed: true });
@@ -99,6 +121,19 @@ function scenario(id, title, { prev, nodesAll, remove = [], add = [], opts = {},
   return {
     id, title, nodes: nodesAll, joining: add, leaving: remove, groups,
     prev, result, frames, moves, iterations: r.iterations, decisions: k, opts,
+  };
+}
+
+// What a pass's sort groups mean (partitionSorter.Score): 0, a partition
+// on a node leaving, in that state; 1, one on no node joining yet; 2,
+// the rest. (With no node joining, blance puts every partition but the
+// leaving ones in group 1.)
+function groupLabels(nodesAll, add, remove) {
+  const all = add.length === nodesAll.length, joining = add.length === 1 ? `node ${add[0]}` : `nodes ${add.join(', ')}`;
+  return {
+    0: `on node ${remove.join(', ')}, leaving`,
+    1: !add.length ? 'the rest' : all ? 'on no node yet' : `not on ${joining} yet`,
+    2: !add.length ? 'the rest' : all ? 'on a node already' : `on ${joining} already`,
   };
 }
 

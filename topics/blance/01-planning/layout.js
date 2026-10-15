@@ -29,7 +29,12 @@ const SLOTS = Object.fromEntries(NODES.map((n, i) => [n, i]));
 export const setSlots = (s) => Object.assign(SLOTS, s);
 export const colX0 = (node) => BOARD.col0 + NODES.indexOf(node) * BOARD.colW + BOARD.colW / 2;
 export const colX = (node) => BOARD.col0 + SLOTS[node] * BOARD.colW + BOARD.colW / 2;
-export const rowY = (p) => BOARD.y0 + PARTITIONS.indexOf(p) * BOARD.rowH + BOARD.rowH / 2;
+// Each partition's row, from the top: its place in the order of the
+// frame drawn (each state's pass sorts the rows; the diagram sets them,
+// setRows, and every y follows).
+const ROWS = Object.fromEntries(PARTITIONS.map((p, i) => [p, i]));
+export const setRows = (r) => Object.assign(ROWS, r);
+export const rowY = (p) => BOARD.y0 + ROWS[p] * BOARD.rowH + BOARD.rowH / 2;
 // a cell's chip: primary on the left of the cell, replica on the right
 export const chipX = (node, state) => colX(node) + (state === 'primary' ? -20 : 20);
 export const HEAD_Y = BOARD.y0 - 26; // node names
