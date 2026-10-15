@@ -44,8 +44,10 @@
 
 .diagram .panel { fill: var(--panel); stroke: var(--line); }
 .diagram .ptitle { font: 600 18px var(--font-display); fill: var(--ink); }
-.diagram .ptitle.psuffix-primary { fill: var(--primary); }
-.diagram .ptitle.psuffix-replica { fill: var(--replica); }
+/* the scores' second line: the decision in hand, in its state's color */
+.diagram .ptitle2 { font: 400 15px var(--font-display); fill: var(--ink); }
+.diagram .ptitle2.psuffix-primary { fill: var(--primary); }
+.diagram .ptitle2.psuffix-replica { fill: var(--replica); }
 .diagram .pnote { font: 400 15px var(--font-body); fill: var(--muted); }
 .diagram .paxis { stroke: var(--muted); }
 .diagram .pgrid { stroke: var(--line); stroke-dasharray: 3 4; }

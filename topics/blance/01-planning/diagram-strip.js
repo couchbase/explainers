@@ -18,8 +18,8 @@ export class StripPart {
     // hand ("scoring partition 0's primary"), in its state's color (a
     // line kept, blank, when there's none)
     S.titlePre = txt(sg, BOARD.x0, STRIP.titleY, 'the planner\u2019s scores:', 'ptitle');
-    S.titleA = txt(sg, BOARD.x0, STRIP.titleY + 24, '', 'ptitle');
-    S.titleB = txt(sg, BOARD.x0, STRIP.titleY + 24, '', 'ptitle');
+    S.titleA = txt(sg, BOARD.x0, STRIP.titleY + 23, '', 'ptitle2');
+    S.titleB = txt(sg, BOARD.x0, STRIP.titleY + 23, '', 'ptitle2');
     S.subA = txt(sg, BOARD.x1 + 10, STRIP.titleY, '', 'pnote', 'end');
     S.subB = txt(sg, BOARD.x1 + 10, STRIP.titleY, '', 'pnote', 'end');
     S.noteA = txt(sg, BOARD.x0, STRIP.titleY + 50, '', 'pnote');
@@ -30,8 +30,8 @@ export class StripPart {
       txt(S.axis, BOARD.col0 - 8, scoreY(v) + 4, String(v), 'paxis-label', 'end');
       return line;
     });
-    // (its name, beside its tick marks)
-    txt(S.axis, BOARD.col0 - 26, scoreY(1.5) + 4, 'score', 'brow-label', 'end');
+    // (its name, beside its tick marks, turned to run up the axis)
+    txt(S.axis, 0, 0, 'score', 'brow-label', 'middle').setAttribute('transform', `translate(${BOARD.col0 - 28} ${scoreY(1.5)}) rotate(-90)`);
     const W = STRIP.barW;
     // the pick's box: around all the candidates' scores, then the lowest's
     S.select = el('rect', { rx: 8, class: 'swon', opacity: 0 }, sg);
@@ -127,7 +127,7 @@ export class StripPart {
     const [ta, na, ua] = text(FA, da, same ? sNow : sa), [tb, nb, ub] = text(FB, db, same ? sNow : sb);
     setText(S.titleA, ta); setText(S.titleB, tb);
     // (the decision's line, in its state's color)
-    for (const [e, d] of [[S.titleA, da], [S.titleB, db]]) e.setAttribute('class', `ptitle${d ? ` psuffix-${d.state}` : ''}`);
+    for (const [e, d] of [[S.titleA, da], [S.titleB, db]]) e.setAttribute('class', `ptitle2${d ? ` psuffix-${d.state}` : ''}`);
     setText(S.noteA, na); setText(S.noteB, nb);
     setText(S.subA, ua); setText(S.subB, ub);
     const cross = (eA, eB, a, b) => { op(eA, a === b ? 1 : 1 - q * 2); op(eB, a === b ? 0 : q * 2 - 1); };
