@@ -17,23 +17,23 @@ const PANEL = ['rules', 'keys', 'sorted'], GROUPS = ['keys', 'sorted'];
 export class SortPart {
   _buildSort(g) {
     const P = { g: el('g', { opacity: 0 }, g) };
-    const { x, y, h } = SORT_PANEL, dy = 40;
+    const { x, y, h } = SORT_PANEL, dy = 32;
     P.box = el('rect', { x, y, height: h, rx: 14, class: 'sort-panel' }, P.g);
-    txt(P.g, x + 28, y + 50, 'first, the planner sorts the partitions:', 'sort-title');
-    txt(P.g, x + 28, y + 104, 'ORDER BY', 'sort-code');
+    txt(P.g, x + 26, y + 42, 'first, the planner sorts the partitions:', 'sort-title');
+    txt(P.g, x + 26, y + 86, 'ORDER BY', 'sort-code');
     // (as a SQL comment: which nodes are leaving and joining, here)
-    P.nodes = txt(P.g, x + 220, y + 104, '', 'sort-comment');
+    P.nodes = txt(P.g, x + 186, y + 86, '', 'sort-comment');
     // a line per rule: the number a partition matching it gets first,
     // the rule, and as a comment, how many partitions it catches
     P.lines = Object.keys(SORT_RULES).map((grp, i) => {
-      const ly = y + 104 + (i + 1) * dy;
+      const ly = y + 86 + (i + 1) * dy;
       const lg = el('g', { class: `sort-line bsort-g${grp}` }, P.g);
-      txt(lg, x + 64, ly, `${+grp + 1}:`, 'sort-num');
-      txt(lg, x + 100, ly, `if ${SORT_RULES[grp]}`, 'sort-rule');
-      return { g: lg, count: txt(lg, x + 440, ly, '', 'sort-comment') };
+      txt(lg, x + 54, ly, `${+grp + 1}:`, 'sort-num');
+      txt(lg, x + 84, ly, `if ${SORT_RULES[grp]}`, 'sort-rule');
+      return { g: lg, count: txt(lg, x + 372, ly, '', 'sort-comment') };
     });
-    txt(P.g, x + 64, y + 104 + 4 * dy + 12, 'then heavier partitions first,', 'sort-code');
-    txt(P.g, x + 64, y + 104 + 5 * dy + 12, 'then by partition name', 'sort-code');
+    txt(P.g, x + 54, y + 86 + 4 * dy + 10, 'then heavier partitions first,', 'sort-code');
+    txt(P.g, x + 54, y + 86 + 5 * dy + 10, 'then by partition name', 'sort-code');
     return P;
   }
 
