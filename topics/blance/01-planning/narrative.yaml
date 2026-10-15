@@ -108,11 +108,12 @@ chapters:
         code: [blance.sortPass]
         text: |
           In short, for each state (primaries, then replicas), the
-          planner does two things. First, it sorts the partitions,
-          into the order it will take them in. Then it makes one greedy
-          pass down the sorted list, giving each partition to the node
-          with the lowest score. No lookahead, no undo: each decision
-          is made once, in order. Let's walk through it.
+          planner does two things. First, it sorts the partitions.
+          Then, it runs through the sorted partitions, assigning
+          each partition to the node with the lowest score
+          at that point, along with updating the scores along the way.
+
+          Let's walk through it.
 
   # ------------------------------------------------------------------
   - id: primaries
@@ -136,13 +137,14 @@ chapters:
         code: [blance.sortPass, blance.partitionOrder]
         expect: ["fact:fresh.primaries.order=0,1,2,3,4,5,6,7", "fact:fresh.primaries.group1=8"]
         text: |
-          But first, the sort. The planner puts partitions on a node
-          that's leaving first; then partitions not yet on any node
-          that's joining; then the rest (and within each group, heavier
-          partitions first, then by name). From scratch, nothing is on
-          any node yet, so all 8 partitions are in one group, and the
-          sort leaves them in name order: [[partition 0]] first. Under
-          each partition's name is its group.
+          First, the sort. The planner sorts partitions first related to nodes
+          that are leaving; then by partitions not yet on any node;
+          then the rest (and within each server group, with heavier
+          partitions first, then lastly by partition name).
+
+          At this point in our example, no partitions are assigned to any node,
+          so the
+          sort leaves the partitions in name order: [[partition 0]] comes first.
 
       - id: decision
         view: { at: fresh.1~row, target: deciding }
