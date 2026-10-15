@@ -23,6 +23,10 @@ export class BoardPart {
       el('path', { d: `M${xa},${GROUP_Y + 7} V${GROUP_Y} H${xb} V${GROUP_Y + 7}`, class: 'bgroup' }, this.groupG);
       txt(this.groupG, (xa + xb) / 2, GROUP_Y - 6, `server group ${grp}`, 'bgroup-label', 'middle');
     }
+    // the phase of the plan, in the board's top-left corner: "assigning
+    // primaries", then "assigning replicas", in each state's color
+    this.phase = Object.fromEntries(STATES.map((s) => [s, txt(g, BOARD.labelX - 22, HEAD_Y, `assigning ${s === 'primary' ? 'primaries' : 'replicas'}`, `bphase bphase-${s}`)]));
+    for (const e of Object.values(this.phase)) op(e, 0);
     // rows (as wide as the scenario's nodes)
     // (the stripes stay put; the labels move with their rows, and under
     // each, while a pass is on, its group in the pass's sort)
@@ -140,6 +144,9 @@ export class BoardPart {
     }
     for (const [key, c] of this.chips) if (!shown.has(key)) op(c.g, 0);
 
+    // the phase: a state's, from its pass's sort until its pass is done
+    const phaseOf = (f) => (f.pass ? f.pass.state : f.passDone || null);
+    for (const s of STATES) op(this.phase[s], lerp(phaseOf(FA) === s ? 1 : 0, phaseOf(FB) === s ? 1 : 0, q));
     // the rows' labels, where their rows are now; and while a pass is
     // on, each one's group in its sort (the row in the pass's order)
     const pa = FA.pass, pb = FB.pass, pn = q < 0.5 ? pa || pb : pb || pa;

@@ -139,7 +139,7 @@ chapters:
         text: |
           First, the sort. The planner sorts partitions first related to nodes
           that are leaving; then by partitions not yet on any node;
-          then the rest (and within each server group, with heavier
+          then the rest (and within each group, with heavier
           partitions first, then lastly by partition name).
 
           At this point in our example, no partitions are assigned to any node,
@@ -230,9 +230,13 @@ chapters:
         code: [blance.sortPass]
         expect: ["fact:fresh.replicas.order=0,1,2,3,4,5,6,7", "fact:fresh.replicas.group2=8"]
         text: |
-          The replicas' pass sorts the partitions again. Now every
-          partition has its primary on a node, so all 8 are in one
-          group again, and [[partition 0]] stays first.
+          Before assigning the replicas, the planner sorts the
+          partitions again, the same way.
+
+          At this point in our example, every partition has its
+          primary on a node, so all 8 partitions land in the same group
+          again, and the sort leaves them in name order:
+          [[partition 0]] comes first again.
 
       - id: greyed
         view: { at: fresh.9~row, target: node.a, focus: col.a }
@@ -312,9 +316,10 @@ chapters:
         code: [blance.partitionOrder, blance.nodeScore]
         expect: ["fact:add.primaries.order=0,1,2,3,4,5,6,7", "fact:add.1.partition=0", "fact:add.1.a.pre=3.0008"]
         text: |
-          The sort puts partitions not yet on node d first: here, all
-          of them, so they stay in name order, and the first decision
-          is partition 0's primary. Node a first: node a holds
+          First, the sort. Partitions not yet on node d come first. At
+          this point in our example, no partition is on node d yet, so
+          the sort leaves the partitions in name order, and the first
+          decision is partition 0's primary. Node a first: node a holds
           3 primaries, and before stickiness node [[a]] scores 3.0008.
 
       - id: stickiness
@@ -356,18 +361,20 @@ chapters:
         code: [blance.sortPass, blance.partitionOrder]
         expect: ["fact:add.replicas.order=2,3,4,5,6,7,0,1", "fact:add.replicas.group2=2"]
         text: |
-          Then the replicas, and the planner sorts the partitions
-          again, the same way: partitions not yet on node d go first.
-          But partitions 0 and 1 now have their primaries on node d,
-          so this time the sort moves them: [[partition 0]] and
-          partition 1 go to the bottom.
+          Next come the replicas, and the planner sorts the partitions
+          again, the same way, with partitions not yet on node d
+          first.
+
+          But at this point in our example, partitions 0 and 1 have
+          their primaries on node d, so this time the sort changes the
+          order: [[partition 0]] and partition 1 move to the bottom.
 
       - id: replica-order
         view: { at: add.9~row, target: deciding, focus: board }
         expect: ["fact:add.9.partition=2", "fact:add.15.partition=0", "fact:add.16.partition=1"]
         text: |
-          So the first decision is [[partition 2]]'s replica, and
-          partitions 0 and 1 come last.
+          So the first decision is about [[partition 2]]'s replica,
+          and partitions 0 and 1 come last.
 
       - id: replica-d
         view: { at: add.9, target: winner, focus: strip }
@@ -425,8 +432,8 @@ chapters:
       - id: in-order
         view: { at: add.unsorted, target: row.0 }
         text: |
-          The plan made, [[the rows]] go back in name order: the next
-          partition map, partition by partition.
+          With the plan done, [[the rows]] go back to name order, so
+          we can read the next partition map partition by partition.
 
       - id: moves
         view: { panel: moves, target: moves.total, focus: strip }
@@ -504,9 +511,12 @@ chapters:
         code: [blance.partitionOrder]
         expect: ["fact:remove.primaries.order=4,7,0,1,2,3,5,6", "fact:remove.primaries.group0=2"]
         text: |
-          Then the sort: partitions that were on a leaving node go
-          first. Node b held the primaries of partitions 4 and 7, so
-          [[partition 4]] and partition 7 move to the top.
+          Next, the sort. Partitions that were on a leaving node come
+          first.
+
+          In our example, node b held the primaries of partitions 4
+          and 7, so the sort moves [[partition 4]] and partition 7 to
+          the top.
 
       - id: scores
         view: { panel: score, target: scores, focus: strip }
@@ -528,15 +538,15 @@ chapters:
         view: { at: remove.replicas, target: tally.a, focus: tallies }
         expect: ["fact:remove.replicas.order=3,5,0,1,2,4,6,7", "fact:remove.replicas.counts=a3/3 c3/2 d2/3"]
         text: |
-          The rest go the same way (the replicas' pass sorts first the
-          partitions whose replicas were on node b, 3 and 5): node
-          [[a with 3 and 3]], node c with 3 and 2, and node d with 2
-          and 3.
+          The rest go the same way. (When the replicas' turn comes, the
+          sort moves partitions 3 and 5 to the top, since their
+          replicas were on node b.) In the end, node [[a has 3 and 3]],
+          node c has 3 and 2, and node d has 2 and 3.
 
       - id: in-order
         view: { at: remove.unsorted, target: row.0 }
         text: |
-          And [[the rows]] go back in name order.
+          With the plan done, [[the rows]] go back to name order.
 
       - id: moves
         view: { panel: moves, target: row.4, focus: strip, trace: "4" }
@@ -594,10 +604,10 @@ chapters:
         text: |
           Whether blance is assigning primaries or replicas, and
           whether nodes are joining or leaving, the planner is a sort
-          and two nested for-loops: for each state, sort the
-          partitions; then for each partition, in that order, sum up a
-          score for every node, and [[assign the partition]] to the
-          node with the lowest score.
+          and two nested for-loops. For each state, the planner first
+          sorts the partitions. Then, for each partition in that sorted
+          order, it sums up a score for every node, and
+          [[assigns the partition]] to the node with the lowest score.
 
           ```
           for each state, most important first:
@@ -626,9 +636,9 @@ chapters:
           So the takeaway: blance is simple.
 
           There's no search over possible partition maps and no
-          look ahead: first a sort, then a greedy pass down the sorted
-          partitions that fills in the partition map one partition at a
-          time, with a score that is mostly a
+          look ahead. First there's a sort, and then a greedy pass
+          through the sorted partitions that fills in the partition map
+          one partition at a time, with a score that is mostly a
           count of what each node already holds. The result is fast,
           easy to calculate and [[close to balanced]].
 
