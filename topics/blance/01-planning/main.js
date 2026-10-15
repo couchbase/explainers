@@ -90,8 +90,11 @@ runStory({
         const hold = rests[j] / w[j];
         f = hold > 0 ? clamp01((f - hold) / (1 - hold)) : f;
         const FA = FRAMES[path[j]], FB = FRAMES[path[j + 1]];
-        // (the panel follows the board's frame, or changes on its own)
-        diagram.draw(FA, FB, scrub ? clamp01(f) : easeQuad(clamp01(f)), A.panel, B.panel, p, FA, FB);
+        // (the panel changes with the step; in a long one, a panel going
+        // away goes once its sweep of decisions is done, with the
+        // attention box, and one coming goes first, before the sweep)
+        const pq = !scrub ? p : B.panel === 'none' ? clamp01((u - 0.9) / 0.04) : clamp01(u / 0.06);
+        diagram.draw(FA, FB, scrub ? clamp01(f) : easeQuad(clamp01(f)), A.panel, B.panel, pq, FA, FB);
         // the attention box: with the transition in a short step; in a
         // long one, once its sweep of decisions is done (it settles 0.9
         // of the way through the step, u; and a deep link lands at
