@@ -121,23 +121,16 @@ chapters:
     color: primary
     steps:
 
-      - id: states
-        view: { panel: score, target: scores, focus: strip }
-        code: [blance.states, blance.assign]
+      - id: phase
+        view: { at: fresh.primaries~phase, target: phase }
+        code: [blance.states]
         text: |
           The planner goes state by state, most important first: the
           planner assigns every partition's primary first, then assigns
-          every partition's replicas. Within that outer loop, the
-          planner loops partition by partition, and for each partition
-          gives every node [[a score]]: the lowest scoring node wins
-          (is assigned the partition).
+          every partition's replicas.
 
-      - id: phase
-        view: { at: fresh.primaries~phase, target: phase }
-        text: |
-          The planner starts with the primaries, and the top-left
-          corner of the partition map says so:
-          [[assigning primaries]].
+          So it starts with the primaries, and the top-left corner of
+          the partition map says so: [[assigning primaries]].
 
       - id: sort
         view: { at: fresh.primaries~rules, target: sort.rules }
@@ -167,6 +160,15 @@ chapters:
         text: |
           With every partition getting the same number, the sort leaves
           the partitions in name order: [[partition 0]] comes first.
+
+      - id: states
+        view: { panel: score, target: scores, focus: strip }
+        code: [blance.assign]
+        text: |
+          With the partitions sorted, the planner loops through them,
+          partition by partition, and for each partition gives every
+          node [[a score]]: the lowest scoring node wins (is assigned
+          the partition).
 
       - id: decision
         view: { at: fresh.1~row, target: deciding }
@@ -346,16 +348,24 @@ chapters:
           The planner starts again with the primaries:
           [[assigning primaries]].
 
-      - id: order
-        view: { at: add.1~a.fill, target: bar.a, focus: col.a }
-        code: [blance.partitionOrder, blance.nodeScore]
-        expect: ["fact:add.primaries.order=0,1,2,3,4,5,6,7", "fact:add.1.partition=0", "fact:add.1.a.pre=3.0008"]
+      - id: join-sort
+        view: { at: add.primaries~clear, target: row.0 }
+        code: [blance.partitionOrder]
+        expect: ["fact:add.primaries.order=0,1,2,3,4,5,6,7", "fact:add.primaries.group1=8"]
         text: |
           First, the sort. Partitions not yet on node d come first. At
           this point in our example, no partition is on node d yet, so
-          the sort leaves the partitions in name order, and the first
-          decision is partition 0's primary. Node a first: node a holds
-          3 primaries, and before stickiness node [[a]] scores 3.0008.
+          every partition gets a 2, and the sort leaves the partitions
+          in name order: [[partition 0]] comes first.
+
+      - id: order
+        view: { at: add.1~a.fill, target: bar.a, focus: col.a }
+        code: [blance.nodeScore]
+        expect: ["fact:add.1.partition=0", "fact:add.1.a.pre=3.0008"]
+        text: |
+          So the first decision is partition 0's primary, and the
+          scores. Node a first: node a holds 3 primaries, and before
+          stickiness node [[a]] scores 3.0008.
 
       - id: stickiness
         view: { at: add.1~a.sticky, target: bar.a, focus: col.a }
