@@ -505,7 +505,7 @@ chapters:
       - id: in-order
         view: { at: add.unsorted, target: row.0 }
         text: |
-          With the plan done, [[the rows]] go back to name order, so
+          With the plan done, let's view [[the rows]] again in name order, so
           we can read the next partition map partition by partition.
 
       - id: moves
@@ -641,7 +641,7 @@ chapters:
         # (the plan done: the rows back in order, and the scores gone)
         multi: true
         text: |
-          With the plan done, [[the rows]] go back to name order.
+          With the plan done, let's view [[the rows]] again in name order.
 
       - id: moves
         view: { panel: moves, target: row.4, focus: strip, trace: "4" }
