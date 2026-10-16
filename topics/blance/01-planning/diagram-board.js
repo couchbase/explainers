@@ -289,7 +289,7 @@ export class BoardPart {
       V.label.setAttribute('y', (y - 14).toFixed(1));
       V.label.setAttribute('text-anchor', 'middle');
       setText(V.label, 'stays put!');
-      V.label.setAttribute('class', 'vlabel vlabel-stays');
+      V.label.setAttribute('class', `vlabel vlabel-stays pick-${d.state}`);
     }
   }
 
