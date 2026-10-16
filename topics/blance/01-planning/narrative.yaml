@@ -38,8 +38,10 @@ chapters:
           nodes: a primary on one node, replicas on others.
 
           [blance](https://github.com/couchbase/blance) is a small,
-          open-source library in Go for distributed systems that
-          computes [[a partition map]]: on the right, we see a
+          open-source library written in Go.
+
+          It helps compute [[a partition map]] for distributed systems.
+          On the right, we see an example
           partition map with eight partitions (0 thru 7) assigned across
           three nodes (a, b, c).
 
@@ -62,16 +64,15 @@ chapters:
           how many nodes each state should have.
 
           On the right, we see that
-          [[the partitions]] each are assigned to a primary node and to a replica node.
+          [[each partition]] is assigned to a primary node and to a replica node.
 
       - id: primary
         view: { target: chip.P }
         expect: ["fact:fresh.end.counts=a3/3 b3/2 c2/3"]
         text: |
-          A [[P]] chip represents a primary: the partition's main copy,
-          the copy that the app normally works with.
+          A [[P]] chip represents an assignment of a partition to a primary node.
 
-          Partition 0's primary is on node a.
+          Partition 0's primary is node a.
 
           To blance, the primary is just the state
           with the highest priority of 0.
@@ -80,28 +81,28 @@ chapters:
         view: { target: chip.R }
         text: |
           An [[R]] chip represents a replica: another copy of the primary's data, on
-          another node, ready to take over (be promoted to primary) if the
-          primary's node is lost.
+          another node, ready to take over (or be promoted to primary) if the
+          primary node is lost.
 
           Partition 0's replica is on node c.
 
-          And, a replica never goes on its own primary's node: that
-          would be no help if the primary node fails.
+          A replica is never assigned to the same node as the primary node as
+          that would be no help if the primary node fails.
 
       - id: tallies
         view: { target: tally.a, focus: tallies }
         expect: ["fact:fresh.end.counts=a3/3 b3/2 c2/3"]
         text: |
-          Under each node's column are [[its tallies]]: how many
+          Under each node's column are the node [[tallies]]: how many
           primaries (P) and how many replicas (R) the node holds, shown
           as two bars and their counts.
 
           Node a holds 3 primaries and 3
-          replicas, node b 3 and 2, and node c 2 and 3: as even as eight
+          replicas, node b 3 and 2, and node c 2 and 3, which is about as even as eight
           partitions on three nodes can be.
 
           Keeping these tallies even or balanced, so
-          that no node holds much more than the others, is what
+          that no node holds many more paritions than the other nodes, is what
           blance's planner aims to achieve.
 
       - id: call
@@ -125,8 +126,8 @@ chapters:
           Briefly, here's what `PlanNextMapEx()` does: for each state (i.e., primaries, then replicas), the
           planner does two things. First, it sorts the partitions.
           Then, it runs through the sorted partitions in a single pass, assigning
-          each partition to the node with the lowest score
-          at that point, along with updating the score tallies along the way.
+          each partition to a node with the lowest score
+          at that point, and it continually updates the score tallies along the way.
 
           Let's walk through it.
 
@@ -142,7 +143,7 @@ chapters:
         text: |
           The planner works state by state, starting with most important state first.
 
-          So it starts with the primaries, and the top-left corner of
+          So it starts with assigning primaries, and the top-left corner of
           the partition map shows this by flipping to [[assigning primaries]].
 
       - id: sort
@@ -186,14 +187,13 @@ chapters:
         multi: true
         text: |
           With the partitions sorted, the planner next loops through
-          those partitions, one decision at a time. For each partition,
-          the planner gives every node a score: the lowest scoring node
-          wins (will be assigned the partition in the current state
-          (primary)).
+          those partitions. For each partition,
+          the planner will compute a score for every node, and the lowest scoring node
+          wins or will be assigned the partition in the current state
+          (primary).
 
-          The first decision is partition 0's primary: partition 0's
-          row is outlined in the partition map, and
-          [[the planner's scores]] say so too.
+          We'll first score the nodes for partition 0's primary, in the area for
+          [[the planner's scores]].
 
       - id: first
         view: { at: fresh.1, target: winner, focus: strip }
@@ -202,8 +202,10 @@ chapters:
         text: |
           Under the partition map, the planner calculates each node's
           score, shown in each node's column. Nothing is placed anywhere
-          yet, so every node scores 0. A tie goes to the node that comes
-          first in the node list, here the leftmost: node [[a]] wins and
+          yet, so every node scores 0.
+
+          A tie goes to the node that comes
+          first in the node list: node [[a]] wins and
           is assigned partition 0's primary, so a P chip appears in node
           a's column, above.
 
@@ -211,9 +213,8 @@ chapters:
         view: { at: fresh.2~row, target: scores, focus: strip }
         expect: ["fact:fresh.2.partition=1"]
         text: |
-          The next decision is partition 1's primary, and
-          [[the scores]] at the bottom start again at 0. The planner
-          scores the nodes one at a time, so let's follow along.
+          Next we move onwards to assigning partition 1's primary, so
+          [[the scores]] at the bottom are reset to 0.
 
       - id: count
         view: { at: fresh.2~a.count, target: bar.a, focus: col.a }
@@ -270,8 +271,9 @@ chapters:
       - id: replica-phase
         view: { at: fresh.replicas~phase, target: phase }
         text: |
-          With every partition's primary assigned, the planner changes
-          gears, and the corner of the partition map changes too:
+          With every partition's primary assigned, the planner moves
+          on to the next state of assigning replica partitions,
+          and the corner of the partition map changes too:
           [[assigning replicas]].
 
       - id: replica-sort
@@ -295,7 +297,7 @@ chapters:
         expect: ["fact:fresh.9.partition=0", "fact:fresh.9.state=replica"]
         text: |
           The replicas start again at partition 0. Partition 0's
-          primary is on node a, so [[node a's column]] is greyed out:
+          primary is on node a, so [[node a's column]] is greyed out and node a is not considered:
           a replica never goes on its own primary's node, where it would
           be no help if that node failed. So the planner doesn't score
           node a at all.
@@ -360,14 +362,12 @@ chapters:
       - id: joins
         view: { at: add.prev, target: node.d, focus: col.d }
         text: |
-          Now [[node d]] joins, and a rebalance asks for the next
-          partition map: from the current partition map, with node d as
-          a node to add.
+          Next, let's suppose a new [[node d]] joins the cluster. What happens?
 
       - id: join-phase
         view: { at: add.primaries~phase, target: phase }
         text: |
-          The planner starts again with the primaries:
+          The planner starts again with
           [[assigning primaries]].
 
       - id: join-sort
@@ -405,8 +405,10 @@ chapters:
         expect: ["fact:add.1.b=3.0006", "fact:add.1.c=2.0006", "fact:add.1.d=0.0000", "fact:add.1.winner=d"]
         text: |
           Then node b scores 3.0006, node c 2.0006, and node d, holding
-          nothing, 0: the lowest, so node [[d]] is assigned partition
-          0's primary, and partition 0's primary is reassigned from node
+          nothing, 0. Since node d has the lowest score, node [[d]] is assigned partition
+          0's primary.
+
+          Put another way, and partition 0's primary is reassigned from node
           a to node d.
 
       - id: sticky
@@ -425,12 +427,12 @@ chapters:
         expect: ["fact:add.primaries.counts=a2/3 b2/2 c2/3 d2/0"]
         text: |
           The other primaries stay where they are, and node [[d has 2]]
-          primaries, like every node.
+          primaries, just like every other node.
 
       - id: join-replica-phase
         view: { at: add.replicas~phase, target: phase }
         text: |
-          Then the planner changes gears to the replicas:
+          Then the planner moves onwards to
           [[assigning replicas]].
 
       - id: replica-sort
@@ -438,11 +440,11 @@ chapters:
         code: [blance.sortPass, blance.partitionOrder]
         expect: ["fact:add.replicas.group1=6", "fact:add.replicas.group2=2"]
         text: |
-          Next come the replicas, and the planner sorts the partitions
-          again, the same way, with partitions not yet on node d
+          The planner sorts the partitions
+          again, where partitions not yet on node d will be sorted
           first.
 
-          But at this point in our example, partitions 0 and 1 have
+          That is, at this point in our example, partitions 0 and 1 have
           their primaries on node d, so [[partition 0]] and partition 1
           get a 3, already on a joining node, while the other 6
           partitions get a 2.
@@ -460,9 +462,8 @@ chapters:
         multi: true
         expect: ["fact:add.9.partition=2", "fact:add.15.partition=0", "fact:add.16.partition=1"]
         text: |
-          So the first decision is about partition 2's replica, and
-          partitions 0 and 1 come last. [[The scores]] come back for
-          it.
+          Therefore, we start our pass through the partitions with partition 2, and
+          partitions 0 and 1 come last. Time to compute [[the scores]] again.
 
       - id: replica-d
         view: { at: add.9, target: winner, focus: strip }
