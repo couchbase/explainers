@@ -523,62 +523,67 @@ chapters:
       - id: in-order
         view: { at: add.unsorted, target: row.0 }
         text: |
-          With the plan done, let's view [[the rows]] again in name order, so
-          we can read the next partition map partition by partition.
+          With the plan done, let's view [[the rows]] again in name order.
 
       - id: moves
         view: { panel: moves, target: moves.total, focus: strip }
         code: [blance.CalcPartitionMoves]
         expect: ["fact:add.moves=10", "fact:add.moved=5"]
         text: |
-          As moves, from the old partition map to the new one (blance's
+          Here's a bar chart of moves involved in transitioning
+          from the old partition map to the new one (blance's
           `CalcPartitionMoves()`): [[10 moves]], over 5 partitions.
 
       - id: optimal
         view: { target: tally.d, focus: tallies }
         expect: ["fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2", "fact:add.fewest=8", "fact:add.moves=10"]
         text: |
-          But this isn't the best partition map possible. Node d needs
+          But this isn't the best partition map possible.
+
+          Node d needs
           [[4 partitions]], 2 primaries and 2 replicas, and each one
-          takes 2 moves: a copy built on node d, and a copy deleted from
-          another node. So, theoretically 8 moves would be enough
-          instead of 10 moves. Where do the other 2 moves
+          takes 2 moves: a partition built on node d, and a partition deleted from
+          another node. So, theoretically 8 moves should be enough
+          instead of 10 moves. Where do the 'extra' 2 moves
           come from?
 
       - id: detour-out
         view: { target: row.2, focus: board, trace: "2" }
         expect: ["fact:add.moves.2=add d:replica, del b"]
         text: |
-          [[Partition 2]]'s replica moved from node b to node d: a copy
-          built on node d, and a copy deleted from node b.
+          First, we see that [[partition 2]]'s replica moved from node b to node d.
 
       - id: detour-back
         view: { target: row.5, focus: board, trace: "5" }
         expect: ["fact:add.moves.5=add b:replica, del a"]
         text: |
-          Then [[partition 5]]'s replica moved from node a to node b, to
-          make up for the replica that node b gave up: a copy built on
-          node b, and a copy deleted from node a.
+          Then [[partition 5]]'s replica moved from node a to node b.
+
+          Maybe we should have just moved partition 5's replica to node d instead,
+          skipping the changes to node b?
 
       - id: detour
         view: { target: tally.b, focus: tallies }
         expect: ["fact:add.prev.counts=a3/3 b3/2 c2/3 d0/0", "fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
         text: |
-          So [[node b]] ends where it started, with 2 replicas, and 2
-          of the moves bought nothing. Moving partition 5's replica
-          straight from node a to node d, and leaving partition 2's
-          replica on node b would have meant just 8 moves instead of 10.
+          And leaving partition 2's
+          replica on [[node b]] would have meant just overall 8 moves instead of 10.
 
       - id: greedy
         view: { target: moves.total, focus: strip }
         text: |
           Why does blance find 10 moves instead of 8 moves?
-          Its planner is greedy: one
-          partition at a time, with no look ahead. When the planner
+
+          Its planner is greedy: it assigns one
+          partition at a time, with no look ahead.
+
+          When the planner
           decided partition 2's replica, node d held no replicas and
           scored the lowest, and the planner couldn't know that
           partition 5's replica, decided later, could go to node d
-          instead. So blance ends up computing [[10 moves]].
+          instead.
+
+          So blance ends up computing [[10 moves]].
 
   # ------------------------------------------------------------------
   - id: leave
@@ -731,42 +736,26 @@ chapters:
           whether nodes are joining or leaving, the planner is a sort
           and two nested for-loops. For each state, the planner first
           sorts the partitions. Then, for each partition in that sorted
-          order, it sums up a score for every node, and
+          order, it computes a score for every node, and
           [[assigns the partition]] to the node with the lowest score.
 
           ```
           for each state, most important first:
-            sort the partitions: on a leaving node first,
-              then not yet on a joining node, then the rest
-            for each partition, in that order:
+            sort the partitions
+            for each sorted partition:
               for each candidate node:
-                score = count + spread
-                      + tie-breaker - stickiness
-              assign the lowest scoring node
+                the node's score =
+                  count + spread
+                        + tie-breaker - stickiness
+              assign the the partition
+                to the lowest scoring node
           ```
-
-          A state that wants more than one node, say 2 replicas, gets
-          the lowest scoring nodes. And around both loops, a third loop
-          runs the whole pass again, up to 10 times, until a pass
-          changes nothing.
 
       - id: takeaway
         view: { target: tally.a }
         expect: ["fact:add.moves=10"]
         text: |
-          Joining and leaving nodes only change the inputs to the
-          loops: which nodes are candidates, how the sort orders the
-          partitions, and which nodes get the stickiness.
-
-          So the takeaway: blance is simple.
-
-          There's no search over possible partition maps and no
-          look ahead. First there's a sort, and then a greedy pass
-          through the sorted partitions that fills in the partition map
-          one partition at a time, with a score that is mostly a
-          count of what each node already holds. The result is fast,
-          easy to calculate and [[close to balanced]].
-
-          Although blance might not produce the most optimally perfect
-          partition maps in all situations,
-          it's simple, straightforward and relatively easy to understand.
+          So the takeaway: although blance might not always
+          produce the most optimal partition maps
+          with the least number of moves, it's approach is simple,
+          easy to calculate and [[balanced]].
