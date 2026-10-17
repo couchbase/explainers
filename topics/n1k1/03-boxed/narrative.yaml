@@ -170,25 +170,17 @@ chapters:
         view: { at: table, target: table }
         expect: ["fact:changed=6", "fact:changed.list=129.50>129.5,210.00>210,22.0>22,46.0>46,96.0>96,245.0>245"]
         text: |
-          Boxing doesn't just cost. It changes things. Here's
-          [[each order's total]], as written in its file, and as it
-          comes back out after boxing.
+          Boxing also changes things. A boxed number keeps its value,
+          but not its text. Of the 20 totals, 6 come back different
+          once boxed and written out again: [[these]].
 
-          6 of the 20 change: 210.00 comes back as 210, 245.0 as 245,
-          129.50 as 129.5. A boxed number keeps its value, not its
-          text.
-
-          The byte lane never turns the total into a value it keeps,
-          so the bytes stay as written. That's why the first
+          The byte lane never boxes them, which is why the first
           explainer's output said 210.00.
 
       - id: end
         view: { at: table }
         text: |
           So n1k1 runs each expression in the byte lane when it can,
-          and decides that once, at setup. For the rest, cbq's boxed
-          lane is there, slower but complete.
-
-          And the boxed lane stays for good, as the oracle: n1k1's
-          tests check each native expression against cbq's, answer for
-          answer.
+          deciding once, at setup. For the rest, cbq's boxed lane is
+          there, slower but complete, and n1k1's tests check every
+          native expression against it.

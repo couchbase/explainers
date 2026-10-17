@@ -32,10 +32,10 @@
 .diagram .tally.pass { fill: var(--copy); stroke: var(--ink); stroke-width: 1; }
 .diagram .tally-axis { stroke: var(--line); stroke-width: 1.5; }
 .diagram .tally-label { font: 600 11.5px var(--font-mono); fill: var(--ink); }
-.diagram .table-file { font: 500 12px var(--font-mono); fill: var(--muted); }
-.diagram .table-bytes { font: 600 12px var(--font-mono); fill: var(--slice); }
-.diagram .table-arrow { font: 500 12px var(--font-display); fill: var(--muted); }
-.diagram .table-boxed { font: 600 12px var(--font-mono); fill: var(--ink); }
-.diagram .table-boxed.diff { fill: var(--copy); }
-.diagram .table-type { font: 500 10.5px var(--font-mono); fill: var(--muted); }
-.diagram .diff { fill: var(--copy-bg); }
+.diagram .table-head { font: 600 11.5px var(--font-display); fill: var(--muted); }
+.diagram .table-file { font: 500 14px var(--font-mono); fill: var(--muted); }
+.diagram .table-bytes { font: 700 16px var(--font-mono); fill: var(--slice); }
+.diagram .table-arrow { font: 500 16px var(--font-display); fill: var(--muted); }
+.diagram .table-boxed { font: 700 16px var(--font-mono); fill: var(--copy); }
+.diagram .table-type { font: 500 12px var(--font-mono); fill: var(--muted); }
+.diagram rect.diff { fill: var(--copy-bg); }

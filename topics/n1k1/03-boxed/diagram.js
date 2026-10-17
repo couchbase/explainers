@@ -17,7 +17,7 @@ import {
   CANVAS, EXPR, BUF, charX, LANES, STAGE_Y, NODE, nodeXY, HEAP, BLOCKS, TALLY, TABLE, ANCHORS, BYTE_W,
 } from './layout.js';
 import { STATE, changed } from './states.js';
-import { ROWS, HERO, ALLOCS, STAGES, bytesOf } from '../lib/boxed.js';
+import { ROWS, HERO, ALLOCS, STAGES, CHANGED, bytesOf } from '../lib/boxed.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
 const at = (e, x, y) => e.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
@@ -145,21 +145,22 @@ export class Diagram {
       this.tallies[lane] = { g: T, bars };
     }
 
-    // the totals: in the file, and boxed and written back
+    // the totals that change, boxed: as written, and boxed and written
+    // back
     this.table = el('g', { opacity: 0 }, g);
     el('rect', { x: TABLE.x, y: TABLE.y, width: TABLE.w, height: TABLE.h, rx: 10, class: 'lane' }, this.table);
-    txt(this.table, TABLE.x + 14, TABLE.y + 22, 'each order\'s total: as written in its file (what the byte lane keeps), and boxed and written back', 'lane-title');
-    this.tableRows = ROWS.map((r, i) => {
-      const col = Math.floor(i / 10), row = i % 10;
-      const x = TABLE.x + 24 + col * 470, y = TABLE.y + 56 + row * TABLE.dy;
+    txt(this.table, TABLE.x + 24, TABLE.y + 30, `the ${CHANGED.length} totals that change, boxed and written back:`, 'lane-title');
+    const cols = [TABLE.x + 40, TABLE.x + 230, TABLE.x + 340, TABLE.x + 390, TABLE.x + 500];
+    ['order', 'as written', '', 'boxed', 'as a'].forEach((h, k) => txt(this.table, cols[k], TABLE.y + 66, h, 'table-head'));
+    this.tableRows = CHANGED.map((r, i) => {
+      const y = TABLE.y + 104 + i * 40;
       const tg = el('g', { opacity: 0 }, this.table);
-      const diff = r.totalBoxed !== r.order.total.bytes;
-      if (diff) el('rect', { x: x - 8, y: y - 15, width: 420, height: 22, rx: 4, class: 'diff' }, tg);
-      txt(tg, x, y, r.file, 'table-file');
-      txt(tg, x + 150, y, r.order.total.bytes, 'table-bytes');
-      txt(tg, x + 222, y, '→', 'table-arrow');
-      txt(tg, x + 250, y, r.totalBoxed, `table-boxed${diff ? ' diff' : ''}`);
-      txt(tg, x + 320, y, r.totalType.replace('value.', ''), 'table-type');
+      el('rect', { x: cols[0] - 12, y: y - 22, width: 590, height: 32, rx: 5, class: 'diff' }, tg);
+      txt(tg, cols[0], y, r.file, 'table-file');
+      txt(tg, cols[1], y, r.order.total.bytes, 'table-bytes');
+      txt(tg, cols[2], y, '→', 'table-arrow');
+      txt(tg, cols[3], y, r.totalBoxed, 'table-boxed');
+      txt(tg, cols[4], y, r.totalType.replace('value.', ''), 'table-type');
       return tg;
     });
 
@@ -230,7 +231,7 @@ export class Diagram {
     // the totals table: once the lanes have gone, row by row
     const tOn = (s) => (s.table ? 1 : 0);
     op(this.table, field === 'table' ? seg(q, 0.5, 0.6) : tOn(B));
-    this.tableRows.forEach((r, i) => op(r, field === 'table' ? seg(q, 0.55 + i * 0.02, 0.6 + i * 0.02) : tOn(B)));
+    this.tableRows.forEach((r, i) => op(r, field === 'table' ? seg(q, 0.55 + i * 0.07, 0.62 + i * 0.07) : tOn(B)));
   }
 
   setTarget(p) {
