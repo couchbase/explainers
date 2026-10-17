@@ -1,0 +1,29 @@
+# Source repos the n1k1 explainers link into, pinned to the n1k1 commit
+# they were modeled on. `local` lists candidate checkouts used by `npm
+# run snippets` and the golden tools; the first that exists wins ($HOME
+# and env vars are expanded). EXPLAINERS_SRC_<NAME> overrides them.
+n1k1:
+  github: https://github.com/couchbase/n1k1
+  commit: d101acbfb319a9d6b53cc3a3df4580d7e0203229
+  local:
+    - $HOME/go/src/github.com/couchbase/n1k1
+# cbq, the parser and planner n1k1 reuses: its fork, at the version
+# n1k1's go.mod replaces couchbase/query with
+n1k1-query:
+  github: https://github.com/couchbase/n1k1-query
+  commit: edd1747b2dcecf6c24172d5a72e8df57c7c83adf
+  local:
+    - $HOME/go/pkg/mod/github.com/couchbase/n1k1-query@v0.0.0-20260704004447-edd1747b2dce
+# the heap that ORDER BY keeps its rows in (and spills to disk)
+rhmap:
+  github: https://github.com/couchbase/rhmap
+  commit: 382c58dcc131
+  local:
+    - $HOME/go/pkg/mod/github.com/couchbase/rhmap@v0.0.0-20260727204225-382c58dcc131
+# finds a field's value in a JSON document's bytes, without parsing it
+jsonparser:
+  github: https://github.com/buger/jsonparser
+  commit: v1.1.2
+  version: v1.1.2
+  local:
+    - $HOME/go/pkg/mod/github.com/buger/jsonparser@v1.1.2

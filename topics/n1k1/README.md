@@ -1,0 +1,40 @@
+# The n1k1 topic
+
+n1k1 is a SQL++ engine for local files: point it at a directory of
+JSON (or CSV, Parquet, ...) files, and query them, with no server. It
+reuses cbq's (Couchbase's query service's) parser and planner, and
+runs the plan in its own engine, which keeps values as raw JSON bytes.
+
+- `01-query/`: the life of one query, `SELECT id, customer, total FROM
+  orders WHERE total > 200 ORDER BY total DESC`, on n1k1's own
+  `examples/shop` data: the files as keyspaces, cbq's plan and n1k1's
+  rewiring of it, rows pushed up through the operators, and where the
+  bytes are copied. (Draft.)
+- `lib/`: the example data, plan, stats and rows, from the real n1k1
+  binary (`lib/tools/query-golden`, `npm run golden -- n1k1`, which
+  builds n1k1 from the checkout in `sources.yaml` with `-tags n1ql`),
+  and `query.js`, the query worked through in JS on the same files,
+  which the tests check against n1k1's rows and stats.
+
+## Color and icon rules
+
+| Mark | Means |
+|---|---|
+| teal | bytes in the record buffer, the scan's recycled buffer for the doc it read last: a value that's a slice of it (a chip, with a dashed line to its bytes), and those bytes, marked |
+| amber | bytes copied somewhere else: a quoted id or string, a row on the sort's heap, decoded values pointing into the heap's copy |
+| violet | cbq's planner: its plan's operators, before n1k1 converts them |
+| red | only a row the filter drops (✕) |
+| a box, stacked | an operator; the data goes up, from the scan at the bottom |
+| a grey chip in a box | a register: one of an operator's labels |
+| black pill | `yieldErr(nil)`, the end of input, going up |
+| numbered amber circle | the summary's copies, in order |
+
+## Motion rules
+
+The scroll is the timeline: each step's state is one of `01-query`'s
+states (`states.js`), and between neighbors one field changes. The rows'
+journey is one event per state (a file read, tested, projected, pushed
+onto the heap), so a step that sweeps many files plays each file's
+events in turn. A row's values move up as an operator passes them on;
+values the project makes fade in where they land; a dropped row fades
+before the next file's arrives.

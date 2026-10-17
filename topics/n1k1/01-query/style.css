@@ -1,0 +1,72 @@
+/* The 01-query explainer's diagram. Colors are the topic's (see
+   ../style.css and ../README.md for the rules). */
+.diagram .query { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.diagram .query-text { font: 500 14px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .panel { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.diagram .panel-title { font: 600 13px var(--font-display); fill: var(--muted); }
+
+/* the data directory */
+.diagram .tree-text { font: 500 12px var(--font-mono); fill: var(--ink); }
+.diagram .tree-note { font: 400 11px var(--font-display); fill: var(--muted); }
+.diagram .tag { fill: var(--panel); stroke: var(--muted); stroke-width: 1; }
+.diagram .tag-keyspace { stroke: var(--ink); }
+.diagram .tag-text { font: 600 10px var(--font-display); fill: var(--ink); }
+.diagram .file-name { font: 400 11px var(--font-mono); fill: var(--muted); }
+.diagram .file-name.pass { fill: var(--ink); font-weight: 600; }
+.diagram .file-name.dropped { fill: var(--muted); opacity: 0.7; }
+.diagram .file-total { font: 500 11px var(--font-mono); fill: var(--slice); }
+.diagram .file-total.pass { font-weight: 700; fill: var(--ink); }
+.diagram .file-total.dropped { fill: var(--muted); text-decoration: line-through; opacity: 0.75; }
+.diagram .file-mark { font: 700 11px var(--font-display); }
+.diagram .file-mark.pass { fill: var(--ink); }
+.diagram .file-mark.dropped { fill: var(--drop); }
+.diagram .file-hl { fill: var(--slice-bg); }
+
+/* the record buffer */
+.diagram .buf { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.diagram .buf.held { stroke: var(--slice); stroke-width: 2; }
+.diagram .buf-text { font: 500 10.5px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .buf-hl { fill: var(--slice-bg); stroke: var(--slice); stroke-width: 1.2; }
+.diagram .buf-idx { font: 600 9.5px var(--font-mono); fill: var(--slice); }
+.diagram .buf-end { font: 400 9px var(--font-mono); fill: var(--muted); }
+.diagram .slice-line { fill: none; stroke: var(--slice); stroke-width: 1.4; stroke-dasharray: 3 2.5; }
+
+/* the plan */
+.diagram .op { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.diagram .op.cbq { fill: var(--cbq-bg); stroke: var(--cbq); }
+.diagram .op-title { font: 600 13px var(--font-mono); fill: var(--ink); }
+.diagram .op-title.cbq { fill: var(--cbq); }
+.diagram .op-params { font: 400 9.2px var(--font-mono); fill: var(--muted); white-space: pre; }
+.diagram .op-count { font: 500 11px var(--font-mono); fill: var(--muted); }
+.diagram .op-test { font: 600 10.5px var(--font-mono); fill: var(--ink); }
+.diagram .op-test.pass { fill: var(--ink); }
+.diagram .op-test.dropped { fill: var(--drop); }
+.diagram .chip { fill: var(--panel-2); stroke: var(--line); stroke-width: 1; }
+.diagram .chip-label { font: 500 8.5px var(--font-mono); fill: var(--muted); }
+.diagram .yield { fill: none; stroke: var(--muted); stroke-width: 1.4; }
+.diagram .arrow-head { fill: var(--muted); }
+.diagram .note-title { font: 600 11.5px var(--font-display); fill: var(--muted); }
+.diagram .note-text { font: 500 10.5px var(--font-mono); fill: var(--ink); white-space: pre; }
+
+/* the row in flight: a value that's a slice of the record buffer
+   (teal), or a copy (amber) */
+.diagram .tok { stroke-width: 1.2; }
+.diagram .tok.slice { fill: var(--slice-bg); stroke: var(--slice); }
+.diagram .tok.copy { fill: var(--copy-bg); stroke: var(--copy); }
+.diagram .tok-text { font: 600 9.5px var(--font-mono); white-space: pre; }
+.diagram .tok-text.slice { fill: var(--slice); }
+.diagram .tok-text.copy { fill: var(--copy); }
+.diagram .drop-mark { font: 800 16px var(--font-display); fill: var(--drop); }
+.diagram .eof { fill: var(--ink); }
+.diagram .eof-text { font: 600 10px var(--font-mono); fill: var(--panel); }
+
+/* the heap and the output */
+.diagram .heap-key { fill: var(--copy); }
+.diagram .heap-key-text { font: 700 10px var(--font-mono); fill: var(--panel); }
+.diagram .heap-row { fill: var(--copy-bg); stroke: var(--copy); stroke-width: 1; }
+.diagram .heap-row-text { font: 500 9.5px var(--font-mono); fill: var(--copy); white-space: pre; }
+.diagram .heap-note { font: 400 10px var(--font-display); fill: var(--muted); }
+.diagram .out-text { font: 500 9px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .badge { fill: var(--copy); }
+.diagram .badge-text { font: 700 10px var(--font-display); fill: var(--panel); }
+.diagram .focus { fill: none; stroke: var(--focus); stroke-width: 2.2; }

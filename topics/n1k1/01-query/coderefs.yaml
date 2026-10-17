@@ -1,0 +1,192 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields: repo, path, anchor (a unique line),
+# extent (lines, or func: up to the next "}" at column 0), title,
+# highlight (lines to mark, by a substring).
+
+glue.datastore:
+  repo: n1k1
+  path: glue/stmt.go
+  anchor: "	ds, err := file.NewDatastore(dsPath)"
+  extent: 6
+  title: n1k1 glue — the data directory, as cbq's file datastore
+
+cbq.namespaces:
+  repo: n1k1-query
+  path: datastore/file/file.go
+  anchor: "func (s *store) loadNamespaces() (e errors.Error) {"
+  extent: func
+  title: cbq's file datastore loadNamespaces() — each directory, a namespace
+  highlight: ["if dirEntry.IsDir() {", "p, e = newNamespace(s, dirEntry.Name())"]
+
+glue.plan:
+  repo: n1k1
+  path: glue/stmt.go
+  anchor: "	qp, _, err, _ := planner.Build(s, g.Datastore, g.Systemstore,"
+  extent: 4
+  title: n1k1 glue — cbq's planner makes the plan
+
+conv.exec:
+  repo: n1k1
+  path: glue/conv.go
+  anchor: "func ExecConv(p plan.Operator) (*base.Op, []interface{}, error) {"
+  extent: 20
+  title: n1k1 ExecConv() — cbq's plan, converted into n1k1's operators
+
+conv.scan:
+  repo: n1k1
+  path: glue/conv.go
+  anchor: "func (c *Conv) recordsScan(o plan.Operator, alias string) (interface{}, error) {"
+  extent: func
+  title: n1k1 Conv.recordsScan() — a primary scan becomes datastore-scan-records
+  highlight: ["Kind:   \"datastore-scan-records\"", "Labels: base.Labels{\".\" + LabelSuffix(alias), \"^id\"}"]
+
+conv.fetch:
+  repo: n1k1
+  path: glue/conv.go
+  anchor: "func (c *Conv) VisitFetch(o *plan.Fetch) (interface{}, error) {"
+  extent: 23
+  title: n1k1 Conv.VisitFetch() — after a records scan, a no-op
+  highlight: ["if c.TopOp != nil && c.TopOp.Kind == \"datastore-scan-records\" {", "return c.TopOp, nil"]
+
+conv.order:
+  repo: n1k1
+  path: glue/conv.go
+  anchor: "		// Augmented projection: the projected terms, plus a pass-through of the source's"
+  extent: 64
+  title: n1k1 Conv.VisitOrder() — carry the doc through for the sort, then strip it
+  highlight: ["aug := &base.Op{", "aug.Labels = append(aug.Labels, srcLabel)", "Kind:     \"order-offset-limit\",", "strip := &base.Op{"]
+
+cbq.gt:
+  repo: n1k1-query
+  path: expression/comp_gt.go
+  anchor: "func NewGT(first, second Expression) Function {"
+  extent: func
+  title: cbq NewGT() — a > b is made as b < a
+  highlight: ["return NewLT(second, first)"]
+
+base.types:
+  repo: n1k1
+  path: base/base.go
+  anchor: "type Val []byte // JSON encoded, usually treated as immutable."
+  extent: 1
+  title: n1k1 base.Val — a value is JSON bytes
+
+base.labels:
+  repo: n1k1
+  path: base/base.go
+  anchor: "type Labels []string // Ex: [`.`, `.[\"address\",\"city\"]`, `^id`, `^aggregates|count(*)`]."
+  extent: 13
+  title: n1k1 base.Labels — a row's registers, by name; looked up once, at setup
+  highlight: ["func (a Labels) IndexOf(s string) int {"]
+
+expr.optimize:
+  repo: n1k1
+  path: glue/expr_optimize.go
+  anchor: "func ExprTreeOptimize(labels base.Labels, e expression.Expression,"
+  extent: func
+  title: n1k1 ExprTreeOptimize() — native if it can be, at setup
+  highlight: ["exprTreeOptimizeNative(labels, e, buf, strict)"]
+
+cmp.static:
+  repo: n1k1
+  path: engine/expr_cmp.go
+  anchor: "func ExprCmpStatic(lzVars *base.Vars, labels base.Labels,"
+  extent: 64
+  title: n1k1 ExprCmpStatic() — the constant parsed once; each row's value parsed as it's compared
+  highlight: ["staticVal, staticType := base.Parse([]byte(json))", "staticF64, err = base.ParseFloat64(staticVal)", "lzF64, lzErr := base.ParseFloat64(lzValX)", "if staticF64 < lzF64 {"]
+
+exec.op:
+  repo: n1k1
+  path: engine/op.go
+  anchor: "func ExecOp(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,"
+  extent: 10
+  title: n1k1 ExecOp() — an operator, given where to yield its rows
+
+op.filter:
+  repo: n1k1
+  path: engine/op_filter.go
+  anchor: "func OpFilter(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,"
+  extent: func
+  title: n1k1 OpFilter() — wrap the parent's yield, then run the child
+  highlight: ["lzYieldVals = func(lzVals base.Vals) {", "if base.ValTruthy(lzVal) {", "lzYieldValsOrig(lzVals)", "ExecOp(o.Children[0], lzVars, lzYieldVals, lzYieldErr, pathNextF, \"\")"]
+
+scan.loop:
+  repo: n1k1
+  path: glue/datastore_scan.go
+  anchor: "	var idBuf []byte"
+  extent: 38
+  title: n1k1 DatastoreScanRecords() — each record, yielded as [doc, ^id]
+  highlight: ["idBuf = strconv.AppendQuote(idBuf[:0], string(rec.ID))", "vals = append(vals[:0], base.Val(rec.Doc))", "yieldVals(vals)", "yieldErr(nil)"]
+
+records.read:
+  repo: n1k1
+  path: records/records.go
+  anchor: "func newJSONSource(r io.Reader, closers []io.Closer, idPrefix, stem string) (*jsonSource, error) {"
+  extent: 12
+  title: n1k1 records — a file read whole into a pooled buffer, its docs split out
+  highlight: ["buf := jsonBufPool.Get().(*bytes.Buffer)", "_, rerr := buf.ReadFrom(r)", "docs, serr = splitJSONValues(s.docs, buf.Bytes())"]
+
+records.split:
+  repo: n1k1
+  path: records/records.go
+  anchor: "func splitJSONValues(dst [][]byte, data []byte) ([][]byte, error) {"
+  extent: 12
+  title: n1k1 splitJSONValues() — each doc copied into a recycled buffer
+  highlight: ["docs = append(docs, append(old[idx][:0], v...))"]
+
+path.get:
+  repo: n1k1
+  path: base/base.go
+  anchor: "func ValPathGet(val Val, path []string, valOut Val) (Val, Val) {"
+  extent: func
+  title: n1k1 ValPathGet() — a field's bytes, found in place
+  highlight: ["v, vType, _, err := jsonparser.Get(val, path...)", "valOut = append(append(append(valOut[:0], '\"'), v...), '\"')", "return v, valOut"]
+
+op.project:
+  repo: n1k1
+  path: engine/op_project.go
+  anchor: "		lzYieldVals = func(lzVals base.Vals) {"
+  extent: 10
+  title: n1k1 OpProject() — a row's new values, in reused registers
+  highlight: ["lzValsOut := lzValsReuse[:0]", "lzYieldValsOrig(lzValsOut)"]
+
+op.order.push:
+  repo: n1k1
+  path: engine/op_order.go
+  anchor: "				if lzErr == nil && lzNeedPush {"
+  extent: 19
+  title: n1k1 OpOrderOffsetLimit() — each row encoded, copied onto the heap
+  highlight: ["lzEncoded, lzErr = base.ValsProjectedEncode(lzVals, lzValsOut,", "heap.Push(lzHeap, lzEncoded)"]
+
+heap.encode:
+  repo: n1k1
+  path: base/heap.go
+  anchor: "func ValsProjectedEncode(vals, projected Vals, out []byte,"
+  extent: func
+  title: n1k1 ValsProjectedEncode() — the sort key, then the row
+  highlight: ["out, err = ValsEncodeCanonical(projected, out, valComparer)", "out = ValsEncode(vals, out)"]
+
+heap.create:
+  repo: n1k1
+  path: base/heap.go
+  anchor: "func CreateHeapValsProjected(ctx *Ctx,"
+  extent: 30
+  title: n1k1 CreateHeapValsProjected() — an rhmap heap, in chunks that spill to files
+  highlight: ["heapChunkSizeBytes := 1024 * 1024", "dataChunkSizeBytes := 16 * 1024 * 1024"]
+
+op.order.eof:
+  repo: n1k1
+  path: engine/op_order.go
+  anchor: "		lzYieldErr = func(lzErrIn error) {"
+  extent: 44
+  title: n1k1 OpOrderOffsetLimit() — at the end of input, sort, and yield the rows
+  highlight: ["if lzErrIn == nil { // If no error, yield our sorted items.", "lzErr := lzHeap.Sort(offset)", "lzValsPre = base.ValsProjectedDecodeVals(lzItem, lzValsPre[:0])", "lzYieldValsOrig(lzValsPre)"]
+
+self.object:
+  repo: n1k1
+  path: base/self.go
+  anchor: "func ValsSelfObject(keyTokens [][]byte, indices []int, vals Vals, out []byte) []byte {"
+  extent: func
+  title: n1k1 ValsSelfObject() — a row's JSON, its values' bytes appended as they are
+  highlight: ["out = append(out, keyTokens[i]...)", "out = append(out, v...)"]

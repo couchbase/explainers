@@ -1,0 +1,61 @@
+/* The n1k1 topic's look, shared by its explainers: cool paper, ink,
+   and two colors for where bytes live: teal, the record buffer the
+   scan reads into (and a value that's a slice of it); amber, bytes
+   copied somewhere else. Violet is cbq's planner; red is only for a
+   row the filter drops. After the engine's styles, before each
+   explainer's. */
+:root {
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --bg: #f3f4f1;
+  --panel: #fcfcfa;
+  --panel-2: #eef0ec;
+  --ink: #1a1d1c;
+  --muted: #5f6662;
+  --line: #d3d8d3;
+  --faint: #e6e9e4;
+  --accent: #0f766e;
+  --focus: #2563eb;
+
+  --slice: #0f766e;
+  --slice-bg: #d5efe9;
+  --copy: #b45309;
+  --copy-bg: #fbe8cf;
+  --cbq: #6d28d9;
+  --cbq-bg: #f1ebfc;
+  --drop: #dc2626;
+
+  --sec-query: #1a1d1c;
+  --sec-plan: #6d28d9;
+  --sec-push: #0f766e;
+  --sec-out: #b45309;
+  --sec-neutral: #5f6662;
+
+  --code-bg: #eef0ec;
+  --code-hl: #d5efe9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121514; --panel: #1a1e1c; --panel-2: #161917; --ink: #e8ece9; --muted: #9aa39e; --line: #343b37; --faint: #222825;
+    --accent: #2dd4bf; --focus: #7ea6ff;
+    --slice: #2dd4bf; --slice-bg: #133a35; --copy: #f59e0b; --copy-bg: #3d2a10; --cbq: #a78bfa; --cbq-bg: #2a2140; --drop: #f87171;
+    --sec-query: #e8ece9; --sec-plan: #a78bfa; --sec-push: #2dd4bf; --sec-out: #f59e0b; --sec-neutral: #9aa39e;
+    --code-bg: #161917; --code-hl: #133a35;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121514; --panel: #1a1e1c; --panel-2: #161917; --ink: #e8ece9; --muted: #9aa39e; --line: #343b37; --faint: #222825;
+  --accent: #2dd4bf; --focus: #7ea6ff;
+  --slice: #2dd4bf; --slice-bg: #133a35; --copy: #f59e0b; --copy-bg: #3d2a10; --cbq: #a78bfa; --cbq-bg: #2a2140; --drop: #f87171;
+  --sec-query: #e8ece9; --sec-plan: #a78bfa; --sec-push: #2dd4bf; --sec-out: #f59e0b; --sec-neutral: #9aa39e;
+  --code-bg: #161917; --code-hl: #133a35;
+}
+
+/* its chapters' colors */
+.sec-query { --sec: var(--sec-query); }
+.sec-plan { --sec: var(--sec-plan); }
+.sec-push { --sec: var(--sec-push); }
+.sec-out { --sec: var(--sec-out); }
+.sec-neutral { --sec: var(--sec-neutral); }

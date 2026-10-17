@@ -1,0 +1,15 @@
+# n1k1: SQL++ for local files, and the query engine inside it.
+title: "Inside n1k1: a SQL++ engine for local files"
+# the short name in each explainer's header, linking up to the topic's index
+label: "n1k1"
+# for the topic's index page
+subtitle: >-
+  How n1k1 runs SQL++ over a directory of JSON files: files become
+  keyspaces, cbq's planner makes the plan, and n1k1's engine pushes
+  rows up through it as raw JSON bytes, copying them only where it
+  must.
+# its fonts (Google Fonts families), set as the engine's --font-* in style.css
+fonts:
+  - "Schibsted Grotesk:wght@500;600;700"
+  - "Source Serif 4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400"
+  - "JetBrains Mono:wght@400;500;600"

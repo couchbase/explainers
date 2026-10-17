@@ -1,0 +1,363 @@
+# The first n1k1 explainer: the life of one query, from its text to
+# the rows n1k1 prints, through cbq's planner and n1k1's engine, with
+# an eye on where the bytes go. No simulation: each step moves `at`,
+# one of the diagram's states (states.js), and the scroll plays every
+# state in between, one change at a time. The data, plan, stats and
+# rows are real: from the n1k1 binary itself (../lib/tools/query-golden).
+# Every number in the text is checked by `expect`.
+
+sources: [n1k1, n1k1-query, rhmap, jsonparser]
+draft: true
+title: "The life of a query in n1k1"
+subtitle: >-
+  One SQL++ query over a directory of JSON files, from its text to the
+  rows n1k1 prints: cbq's planner makes the plan, n1k1 rewires it, and
+  its engine pushes rows up through it as raw JSON bytes, copying them
+  only where it must.
+audience: People who build or study database internals
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: files
+    title: "A query, and some files"
+    color: query
+    steps:
+
+      - id: query
+        view: { at: start, target: query }
+        expect: ["fact:files=20"]
+        text: |
+          Here's [[a query]], in SQL++, the query language of
+          Couchbase. We'll run it with n1k1, a SQL++ engine for local
+          files. You point n1k1 at a directory of data files, and
+          query them, with no server.
+
+          The directory here is n1k1's own example data,
+          examples/shop, with 20 orders in it. We'll run with n1k1's
+          indexes turned off (`-index off`), so the query reads every
+          order.
+
+          This explainer follows the query from its text to the rows
+          that n1k1 prints. Along the way, we'll watch where the bytes
+          go, since that's where n1k1 differs most from a typical
+          engine.
+
+      - id: keyspaces
+        view: { at: ns, target: keyspace, focus: dir }
+        code: [glue.datastore, cbq.namespaces]
+        expect: ["fact:files=20", "fact:customers=4"]
+        text: |
+          First, n1k1 needs to know what `orders` is. For that, it
+          uses cbq's file datastore. cbq is Couchbase's query service,
+          and n1k1 reuses its parser, its planner, and this.
+
+          The file datastore maps directories onto Couchbase's names.
+          Each directory in the data directory is a namespace (here,
+          default), and each directory in that is [[a keyspace]]. So
+          `FROM orders` means default:orders, the 20 files in
+          default/orders/. (customers/, with 4 files, is another
+          keyspace, which this query doesn't read.)
+
+      - id: doc
+        view: { at: peek, target: buffer }
+        expect: ["fact:doc1001.bytes=109", "fact:order-1001.total=129.50"]
+        text: |
+          Each order is a file holding one JSON document. Here's
+          [[order-1001.json]], all 109 bytes of it.
+
+          Keep these bytes in mind. n1k1 keeps a document as the bytes
+          it was read as, and much of this story is about which of
+          those bytes get copied, and where.
+
+  # ------------------------------------------------------------------
+  - id: plan
+    title: "The plan"
+    color: plan
+    steps:
+
+      - id: cbq
+        view: { at: cbq, target: plan }
+        code: [glue.plan]
+        text: |
+          n1k1 has no SQL++ parser or planner of its own. It uses
+          cbq's. cbq parses the query and plans it against the file
+          datastore, into [[cbq's plan]].
+
+          Read it from the bottom up, the way the data goes. A
+          PrimaryScan of orders comes first (with no index to use, it
+          reads every doc). Then a Fetch of each doc, the Filter, the
+          InitialProject of the three fields, and the Order.
+
+      - id: gt
+        view: { at: cbq, target: op.2, focus: query.where }
+        code: [cbq.gt]
+        expect: ["fact:plan.filter=(200 < (`orders`.`total`))"]
+        text: |
+          Something has already changed. The query says
+          `total > 200`, but [[cbq's Filter]] says
+          `200 < total`.
+
+          cbq's parser never makes a greater-than. Its NewGT makes the
+          same comparison as a less-than, with the two sides swapped.
+          It's the same test, and this is the form n1k1 will see.
+
+      - id: fetch
+        view: { at: nofetch, target: op.4 }
+        code: [conv.fetch]
+        text: |
+          Next, n1k1 converts cbq's plan into its own operators, in
+          its ExecConv. The first thing to go is the Fetch.
+
+          In cbq, a primary scan yields only document keys, and the
+          Fetch then gets each document by its key. But n1k1's scan
+          of a directory [[reads whole documents]] already, so
+          there's nothing left to fetch. The Fetch goes, and the
+          operators above it move down.
+
+      - id: convert
+        view: { at: n1k1, target: op.4 }
+        code: [conv.exec, conv.scan]
+        text: |
+          The rest map one to one, from the bottom up. The PrimaryScan
+          becomes [[datastore-scan-records]], which walks the
+          keyspace's directory and reads its files.
+
+          The Filter becomes filter, the InitialProject becomes
+          project, and the Order becomes order-offset-limit (which
+          would also do any OFFSET and LIMIT, but this query has
+          none).
+
+      - id: augment
+        view: { at: aug, target: op.2 }
+        code: [conv.order]
+        text: |
+          There's a catch with the sort. The planner reads
+          `ORDER BY total` as `orders`.`total`, a field of the orders
+          document. But the project keeps only id, customer and total,
+          so above the project, there's no orders document left to
+          find the total in.
+
+          So ExecConv [[augments the project]] with one more output,
+          a labelPath that passes the whole document through. Now the
+          sort can find its key.
+
+      - id: strip
+        view: { at: strip, target: op.0 }
+        code: [conv.order]
+        expect: ["fact:plan.ops=5", "fact:plan.top=project"]
+        text: |
+          The document isn't part of the result, though. So ExecConv
+          adds [[one more project]] on top, to strip it off again.
+
+          That's n1k1's whole plan, 5 operators. It's what n1k1's
+          `.explain` command prints for this query.
+
+      - id: labels
+        view: { at: labels, target: chips.4 }
+        code: [base.labels, base.types]
+        text: |
+          Each operator's rows are a list of values, one per
+          [[label]]. The scan's rows have two values. `.["orders"]` is
+          the document, and `^id` is its id (the ^ marks metadata,
+          which stays out of results). The filter passes on its
+          child's rows, so it has the same labels. The project has its
+          four outputs, and so on up.
+
+          A label works like a register's name. An operator that reads
+          a label looks up its position once, at setup. From then on,
+          it reads each row's value at that position.
+
+          And a value is just the bytes of some JSON, a Go `[]byte`.
+          There are no value objects wrapped around them.
+
+      - id: setup
+        view: { at: prepared, target: op.3, focus: prepared }
+        code: [expr.optimize, cmp.static]
+        text: |
+          Before any row arrives, each operator [[sets up]] its
+          expressions. The filter's `200 < orders.total` has two
+          things done once, now.
+
+          The 200 is parsed into a float64. And `orders.total` becomes
+          a native path into the `.["orders"]` register, so the filter
+          won't need cbq's expression evaluator, which works on boxed
+          values. (When n1k1 can't make an expression native, it falls
+          back to cbq's evaluator, at a cost per row.)
+
+  # ------------------------------------------------------------------
+  - id: push
+    title: "Rows, pushed up"
+    color: push
+    steps:
+
+      - id: yields
+        view: { at: yields, target: yields }
+        code: [exec.op, op.filter]
+        text: |
+          Now for the rows. n1k1's engine [[pushes]] them up the plan.
+
+          At setup, each operator wraps its parent's yield function in
+          its own, then runs its child. So the scan, at the bottom,
+          drives. It calls yield with each row, which runs the
+          filter's code, which calls the project's, and so on up. It's
+          all on one goroutine, one row at a time, with no iterators
+          and no batches.
+
+          The counters are n1k1's stats, which count rows as they go
+          by. The sort's heap and the output are on the right.
+
+      - id: read
+        view: { at: 1001.read, target: buffer }
+        code: [scan.loop, records.read, records.split]
+        text: |
+          The scan reads order-1001.json. It reads the whole file into
+          a pooled buffer, and copies the document out into a
+          recycled [[record buffer]].
+
+          Then it yields a row of two values. The document is a slice
+          of the record buffer, pointing at its bytes, with no copy.
+          The id, "order-1001", comes from the file's name, quoted
+          into a small buffer of the scan's own.
+
+      - id: test
+        view: { at: 1001.filter, target: filter.test }
+        code: [path.get, cmp.static]
+        expect: ["fact:order-1001.total=129.50", "fact:order-1001.range=55:61"]
+        text: |
+          The filter looks for total in the document's bytes, with
+          jsonparser. jsonparser skims the bytes without parsing them
+          into anything, and returns the total as a slice, bytes
+          55 to 61, `129.50`. Nothing is copied.
+
+          The filter parses those 6 bytes into a float64, and
+          compares. [[200 < 129.50 is false]], so the filter drops the
+          row. Its counters say 1 row in, 0 out.
+
+      - id: passes
+        view: { at: 1003.filter, target: filter.test }
+        code: [op.filter]
+        expect: ["fact:order-1002.total=49.99", "fact:order-1003.total=210.00"]
+        text: |
+          order-1002.json goes the same way, with its 49.99.
+
+          The scan reuses its record buffer for each file, so
+          order-1003.json's bytes now sit where order-1002.json's
+          were. Its total is 210.00, and [[200 < 210.00 is true]], so
+          the filter passes the row up.
+
+      - id: project
+        view: { at: 1003.project, target: chips.2 }
+        code: [op.project, path.get]
+        text: |
+          The project makes [[its four values]]. The total is again a
+          slice of the record buffer, `210.00`, and so is the
+          document.
+
+          The id and customer are strings, and jsonparser returns a
+          string without its quotes. So n1k1 copies each one, quotes
+          and all, into a small buffer of the project's own. Those are
+          copies, but small ones, into buffers reused row after row.
+          The scan's `^id` goes no further.
+
+      - id: heap
+        view: { at: 1003.order, target: heap }
+        code: [op.order.push, heap.encode, heap.create]
+        text: |
+          The sort can't keep slices of the record buffer, since the
+          scan's next file will overwrite it. So the sort
+          [[copies the row onto its heap]], encoded: the sort key
+          first (the total, in a canonical form), then the row's four
+          values, the whole document included.
+
+          The heap is rhmap's, kept in chunks. The first chunk is in
+          memory. A big sort spills more chunks to files, mmap'd.
+
+      - id: sweep
+        view: { at: 1020.order, target: scan.count, focus: files }
+        expect: ["fact:passed.ids=1003,1019,1020", "fact:order-1019.total=245.0", "fact:order-1020.total=389.99", "fact:stats.scan=20/20", "fact:stats.filter=20 3"]
+        text: |
+          The scan goes on through the rest of the files, one row at a
+          time. Only two more pass, order-1019.json (245.0) and
+          order-1020.json (389.99), and they go onto the heap, too.
+
+          At this point in our example, [[the counters]] match the
+          stats n1k1 prints for this query. The scan yielded 20 rows,
+          and the filter took in 20 and passed 3.
+
+  # ------------------------------------------------------------------
+  - id: out
+    title: "End of input, and out"
+    color: out
+    steps:
+
+      - id: eof
+        view: { at: eof, target: op.1 }
+        code: [scan.loop, op.order.eof]
+        text: |
+          After its last file, the scan says so the same way it sends
+          rows, with a call. It calls `yieldErr(nil)`, the error
+          callback, with no error.
+
+          That goes up through the filter and the project to
+          [[the sort]], which only now knows it has all its rows.
+
+      - id: sort
+        view: { at: sorted, target: heap }
+        code: [op.order.eof]
+        expect: ["fact:sorted=389.99,245.0,210.00"]
+        text: |
+          The sort [[sorts its heap]], by total, descending: 389.99,
+          245.0, 210.00.
+
+      - id: first
+        view: { at: out.1, target: out }
+        code: [op.order.eof, self.object]
+        expect: ["fact:row1={\"id\":\"1020\",\"customer\":\"alice\",\"total\":389.99}"]
+        text: |
+          Then it yields the rows, in order. Each comes off the heap,
+          decoded into the sort's registers as slices of the heap's
+          copy. The last project leaves the document behind.
+
+          And n1k1 writes [[the row]] out as JSON by appending bytes:
+          each key, then its value's bytes, as they are.
+
+      - id: rest
+        view: { at: out.3, target: out }
+        expect: ["fact:rows=3", "fact:row2={\"id\":\"1019\",\"customer\":\"carol\",\"total\":245.0}", "fact:row3={\"id\":\"1003\",\"customer\":\"alice\",\"total\":210.00}", "fact:stats.order=3 3"]
+        text: |
+          The other two rows go the same way.
+
+          Notice [[the totals]], 245.0 and 210.00. n1k1 printed them
+          exactly as they were written in the files. Their bytes were
+          never turned into numbers and printed back. (The filter did
+          parse each total, to compare it, but kept only the answer.)
+
+      - id: copies
+        view: { at: copies }
+        text: |
+          To sum up, here's where this query copied bytes.
+
+          1. Each file, read into a pooled buffer, then its document
+             into the record buffer.
+          2. Each id, quoted, by the scan.
+          3. Each passing row's id and customer strings, by the
+             project.
+          4. Each passing row, whole, onto the sort's heap.
+          5. The output.
+
+          Everything else was a slice of bytes already in memory, and
+          no value was ever boxed.
+
+      - id: end
+        view: { at: copies }
+        text: |
+          Copy 4 is the one to watch. Each row that passes puts its
+          whole document on the heap, because of the project that
+          carries it for the sort. With a LIMIT, the sort keeps only
+          as many rows as it needs, dropping the rest as it goes.
+          Without one, a big result spills to disk, in rhmap's chunks.
+
+          That's the life of one query in n1k1: cbq's planner, a
+          plan rewired for files, and rows pushed up as raw JSON
+          bytes.

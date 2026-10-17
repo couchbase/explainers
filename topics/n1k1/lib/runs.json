@@ -1,0 +1,153 @@
+{
+ "query": "SELECT id, customer, total FROM orders WHERE total > 200 ORDER BY total DESC",
+ "dataset": "examples/shop",
+ "tables": [
+  "3 keyspaces — copy/paste to try:",
+  "  customers          json · 4 files    SELECT COUNT(*) FROM customers;",
+  "  orders             json · 20 files   SELECT * FROM orders LIMIT 3;",
+  "  `.sql++`:default   json · 1 file     SELECT * FROM `.sql++`:default LIMIT 5;",
+  "  backticked name? in a shell wrap the -c arg in 'single quotes' (backticks are command-substitution in \"double quotes\"), or use -f <file>. In this REPL, paste as-is."
+ ],
+ "plan": [
+  "project  [labelPath, labelPath, labelPath]",
+  "  order-offset-limit  [.[\"id\"] .[\"customer\"] .[\"total\"] .[\"orders\"]]",
+  "    project  [(`orders`.`id`), (`orders`.`customer`), (`orders`.`total`), labelPath]",
+  "      filter  (200 < (`orders`.`total`))",
+  "        datastore-scan-records  [.[\"orders\"] ^id]"
+ ],
+ "rows": [
+  "{\"id\":\"1020\",\"customer\":\"alice\",\"total\":389.99}",
+  "{\"id\":\"1019\",\"customer\":\"carol\",\"total\":245.0}",
+  "{\"id\":\"1003\",\"customer\":\"alice\",\"total\":210.00}"
+ ],
+ "stats": [
+  "op                          RowsIn  RowsOut",
+  "order-offset-limit               3        3",
+  "  filter                        20        3",
+  "    datastore-scan-records            20/20"
+ ],
+ "files": [
+  {
+   "name": "order-1001.json",
+   "path": "default/orders/order-1001.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1001\",\"customer\":\"alice\",\"total\":129.50,\"items\":3,\"status\":\"shipped\",\"ts\":\"2026-01-15\"}"
+  },
+  {
+   "name": "order-1002.json",
+   "path": "default/orders/order-1002.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1002\",\"customer\":\"bob\",\"total\":49.99,\"items\":1,\"status\":\"pending\",\"ts\":\"2026-02-03\"}"
+  },
+  {
+   "name": "order-1003.json",
+   "path": "default/orders/order-1003.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1003\",\"customer\":\"alice\",\"total\":210.00,\"items\":5,\"status\":\"shipped\",\"ts\":\"2026-02-20\"}"
+  },
+  {
+   "name": "order-1004.json",
+   "path": "default/orders/order-1004.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1004\",\"customer\":\"carol\",\"total\":18.75,\"items\":1,\"status\":\"shipped\",\"ts\":\"2026-01-04\"}"
+  },
+  {
+   "name": "order-1005.json",
+   "path": "default/orders/order-1005.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1005\",\"customer\":\"dave\",\"total\":22.0,\"items\":1,\"status\":\"shipped\",\"ts\":\"2026-01-06\"}"
+  },
+  {
+   "name": "order-1006.json",
+   "path": "default/orders/order-1006.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1006\",\"customer\":\"bob\",\"total\":27.4,\"items\":2,\"status\":\"cancelled\",\"ts\":\"2026-01-09\"}"
+  },
+  {
+   "name": "order-1007.json",
+   "path": "default/orders/order-1007.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1007\",\"customer\":\"alice\",\"total\":33.1,\"items\":1,\"status\":\"shipped\",\"ts\":\"2026-01-11\"}"
+  },
+  {
+   "name": "order-1008.json",
+   "path": "default/orders/order-1008.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1008\",\"customer\":\"carol\",\"total\":34.99,\"items\":2,\"status\":\"shipped\",\"ts\":\"2026-01-14\"}"
+  },
+  {
+   "name": "order-1009.json",
+   "path": "default/orders/order-1009.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1009\",\"customer\":\"dave\",\"total\":41.25,\"items\":2,\"status\":\"pending\",\"ts\":\"2026-01-18\"}"
+  },
+  {
+   "name": "order-1010.json",
+   "path": "default/orders/order-1010.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1010\",\"customer\":\"bob\",\"total\":46.0,\"items\":1,\"status\":\"shipped\",\"ts\":\"2026-01-22\"}"
+  },
+  {
+   "name": "order-1011.json",
+   "path": "default/orders/order-1011.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1011\",\"customer\":\"alice\",\"total\":52.3,\"items\":3,\"status\":\"shipped\",\"ts\":\"2026-01-25\"}"
+  },
+  {
+   "name": "order-1012.json",
+   "path": "default/orders/order-1012.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1012\",\"customer\":\"carol\",\"total\":58.8,\"items\":2,\"status\":\"shipped\",\"ts\":\"2026-01-28\"}"
+  },
+  {
+   "name": "order-1013.json",
+   "path": "default/orders/order-1013.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1013\",\"customer\":\"dave\",\"total\":63.15,\"items\":3,\"status\":\"shipped\",\"ts\":\"2026-02-02\"}"
+  },
+  {
+   "name": "order-1014.json",
+   "path": "default/orders/order-1014.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1014\",\"customer\":\"bob\",\"total\":71.99,\"items\":4,\"status\":\"pending\",\"ts\":\"2026-02-05\"}"
+  },
+  {
+   "name": "order-1015.json",
+   "path": "default/orders/order-1015.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1015\",\"customer\":\"alice\",\"total\":84.5,\"items\":2,\"status\":\"shipped\",\"ts\":\"2026-02-09\"}"
+  },
+  {
+   "name": "order-1016.json",
+   "path": "default/orders/order-1016.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1016\",\"customer\":\"carol\",\"total\":96.0,\"items\":5,\"status\":\"shipped\",\"ts\":\"2026-02-12\"}"
+  },
+  {
+   "name": "order-1017.json",
+   "path": "default/orders/order-1017.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1017\",\"customer\":\"dave\",\"total\":118.4,\"items\":4,\"status\":\"shipped\",\"ts\":\"2026-02-16\"}"
+  },
+  {
+   "name": "order-1018.json",
+   "path": "default/orders/order-1018.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1018\",\"customer\":\"bob\",\"total\":156.25,\"items\":6,\"status\":\"shipped\",\"ts\":\"2026-02-19\"}"
+  },
+  {
+   "name": "order-1019.json",
+   "path": "default/orders/order-1019.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1019\",\"customer\":\"carol\",\"total\":245.0,\"items\":7,\"status\":\"shipped\",\"ts\":\"2026-02-23\"}"
+  },
+  {
+   "name": "order-1020.json",
+   "path": "default/orders/order-1020.json",
+   "doc": "{\"type\":\"order\",\"id\":\"1020\",\"customer\":\"alice\",\"total\":389.99,\"items\":9,\"status\":\"shipped\",\"ts\":\"2026-02-27\"}"
+  }
+ ],
+ "customers": [
+  {
+   "name": "alice.json",
+   "path": "default/customers/alice.json",
+   "doc": "{\"type\":\"customer\",\"id\":\"alice\",\"name\":\"Alice Chan\",\"city\":\"Seattle\",\"since\":2019}"
+  },
+  {
+   "name": "bob.json",
+   "path": "default/customers/bob.json",
+   "doc": "{\"type\":\"customer\",\"id\":\"bob\",\"name\":\"Bob Ortiz\",\"city\":\"Austin\",\"since\":2023}"
+  },
+  {
+   "name": "carol.json",
+   "path": "default/customers/carol.json",
+   "doc": "{\"type\":\"customer\",\"id\":\"carol\",\"name\":\"Carol Diaz\",\"city\":\"Seattle\",\"since\":2021}"
+  },
+  {
+   "name": "dave.json",
+   "path": "default/customers/dave.json",
+   "doc": "{\"type\":\"customer\",\"id\":\"dave\",\"name\":\"Dave Kim\",\"city\":\"Austin\",\"since\":2020}"
+  }
+ ]
+}

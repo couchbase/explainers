@@ -378,6 +378,10 @@ topics/
                          is diagram.js plus parts, diagram-{board,strip,moves,arrows,shared}.js
     02-moving/           a rebalance over time, from the orchestrator's simulation
     03-groups/           server groups: 01-planning's page (its domain and main), its own story
+  n1k1/                  a SQL++ engine for local files (see its README.md)
+    lib/                 the real n1k1's run of the story's query (tools/query-golden), and
+                         the query worked in JS (query.js), checked against it
+    01-query/            the life of a query: plan, rows pushed up, where bytes are copied
 dist/                    the built pages (committed; published by GitHub Pages)
 .github/workflows/       CI, and GitHub Pages publishing
 ```
