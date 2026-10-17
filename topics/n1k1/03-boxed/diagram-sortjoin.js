@@ -118,32 +118,53 @@ export function drawOrder(P, A, B, q, field, vis) {
     taken = cur;
   }
   if (field === 'order' && lvl(A) === 2 && lvl(B) === 3) sortU = q;
-  const rowY = (i, s) => O_ROW.y + lerp(i, RANK[i], s) * O_ROW.dy;
+  // The sort, as insertions, one sorted place at a time: for place k,
+  // the rows between the next row and place k move down one, making
+  // room, then that row travels into place on an arc, like a right
+  // paren, out to the right and back (the farther, the wider).
+  const k = sortU >= 1 ? N : Math.min(N - 1, Math.floor(sortU * N)), v = sortU >= 1 ? 1 : sortU * N - k;
+  const room = easeQuad(seg(v, 0, 0.25)), move = easeQuad(seg(v, 0.25, 0.6));
+  // (a row's slot: placed rows at their ranks; the rest after them, in
+  // their first order)
+  const slotAt = (i, placed) => {
+    if (RANK[i] < placed) return RANK[i];
+    return placed + ROWS.filter((_, j) => RANK[j] >= placed && j < i).length;
+  };
+  const m = k < N ? RANK.indexOf(k) : -1;
+  const place = (i) => {
+    if (sortU <= 0) return [0, i];
+    if (k >= N || RANK[i] < k) return [0, RANK[i]];
+    if (i === m) {
+      const from = slotAt(i, k), d = Math.abs(from - k) * O_ROW.dy;
+      return [Math.min(110, 0.5 * d) * Math.sin(Math.PI * move), lerp(from, k, move)];
+    }
+    // (a row the moving one passes: down one, making room)
+    const from = slotAt(i, k), to = from < slotAt(m, k) ? from + 1 : from;
+    return [0, lerp(from, to, room)];
+  };
+  const rowY = (slot) => O_ROW.y + slot * O_ROW.dy;
   let cbqBytes = taken * O_KEY, n1k1Bytes = taken * O_PUSH;
   for (const side of SIDES) {
     P.rows[side].forEach((r, i) => {
-      // (in the sort, each row moves in its own stretch, one after another)
-      const s = sortU >= 1 ? 1 : sortU <= 0 ? 0 : easeQuad(seg(sortU, RANK[i] / N * 0.8, RANK[i] / N * 0.8 + 0.2));
-      at(r.g, 0, rowY(i, s));
+      const [x, slot] = place(i);
+      at(r.g, x, rowY(slot));
       op(r.chip, i < taken || (i === cur && u >= 0.25) ? 1 : 0);
     });
   }
   // the row being taken in: its key (or copy) made, then its parcel
   // falls
   if (cur >= 0) {
-    const y = rowY(cur, 0) - 12;
+    const y = rowY(cur) - 12;
     fall(P, 'cbq', seg(u, 0.35, 0.95), G.cols.cbq + 184, y, cbqBytes, O_TOTAL, 'its sort key', O_KEY);
     fall(P, 'n1k1', seg(u, 0.35, 0.95), G.cols.n1k1 + 184, y, n1k1Bytes, O_TOTAL, 'its []byte header', O_PUSH);
     if (u >= 0.95) { cbqBytes += O_KEY; n1k1Bytes += O_PUSH; }
   } else if (sortU > 0 && sortU < 1) {
-    // (the sort: cbq's compares leave a little for each row, as it
-    // settles; n1k1's leave nothing)
-    const k = Math.min(N - 1, Math.floor(sortU * N)), v = sortU * N - k;
+    // (the sort: cbq's compares leave a little for each place, once its
+    // row's in it; n1k1's leave nothing)
     cbqBytes += k * O_CMP;
-    const i = RANK.indexOf(k);
-    fall(P, 'cbq', seg(v, 0.2, 0.9), G.cols.cbq + 184, rowY(i, 1) - 12, cbqBytes, O_TOTAL, 'compares', O_CMP);
+    fall(P, 'cbq', seg(v, 0.6, 0.95), G.cols.cbq + 184, rowY(k) - 12, cbqBytes, O_TOTAL, 'compares', O_CMP);
     op(P.parcels.n1k1.g, 0);
-    if (v >= 0.9) cbqBytes += O_CMP;
+    if (v >= 0.95) cbqBytes += O_CMP;
   } else {
     op(P.parcels.cbq.g, 0); op(P.parcels.n1k1.g, 0);
     if (sortU >= 1) cbqBytes += N * O_CMP;
