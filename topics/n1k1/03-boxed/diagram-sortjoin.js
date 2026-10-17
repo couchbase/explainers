@@ -92,7 +92,11 @@ export function buildOrder(g) {
       const rg = el('g', {}, root);
       el('rect', { x: x0 - 6, y: -11, width: 340, height: 15, rx: 3, class: 'sort-hl', opacity: 0 }, rg);
       txt(rg, x0, 0, r.file.replace('.json', ''), 'sort-row');
-      txt(rg, x0 + 108, 0, r.order.total.bytes, 'sort-total');
+      // (its total, aligned on the decimal point: the whole part to its
+      // left, the rest from it)
+      const [whole, frac] = r.order.total.bytes.split('.');
+      txt(rg, x0 + 132, 0, whole, 'sort-total', 'end');
+      if (frac !== undefined) txt(rg, x0 + 132, 0, `.${frac}`, 'sort-total');
       const chip = el('g', { opacity: 0 }, rg);
       if (side === 'cbq') {
         el('rect', { x: x0 + 170, y: -10, width: 150, height: 13, rx: 3, class: 'node node-heap' }, chip);
