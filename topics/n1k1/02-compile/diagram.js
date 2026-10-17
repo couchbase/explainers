@@ -46,7 +46,10 @@ const SLIDE = 40;
 const BALL_X = CODE.x - 12;
 // a turning line's progress: line j of n, each in its own stretch of q
 // (overlapping a little, so the eye's carried on to the next)
-const turnAt = (q, j, n) => seg(q, j / n, (j + 1) / n);
+// (the first part of a line's stretch is the ball's, moving to it and
+// settling; the line's change plays only after)
+const BALL_SHARE = 0.25;
+const turnAt = (q, j, n) => seg(q, (j + BALL_SHARE) / n, (j + 1) / n);
 
 // An emit change's stretches of q: the hole going, the room made, the
 // held code flying in, then each new line, printed in turn.
@@ -255,7 +258,7 @@ export class Diagram {
     if (turning.length) {
       const x = A.inter === 0 ? seg(q, 0.08, 1) : q;
       const k = Math.min(turning.length - 1, Math.floor(x * turning.length));
-      const k0 = Math.max(0, k - 1), local = easeQuad(seg(x * turning.length - k, 0, 0.3));
+      const k0 = Math.max(0, k - 1), local = easeQuad(seg(x * turning.length - k, 0, BALL_SHARE * 0.8));
       const y = lerp(srcRowY(this.srcRows.indexOf(turning[k0])), srcRowY(this.srcRows.indexOf(turning[k])), k === 0 ? 1 : local);
       this._ball(BALL_X, y - 3.5, 1);
     } else if (this.cur.state.panel === 'src' && this.cur.state.inter > 0 && !field) {
@@ -295,7 +298,7 @@ export class Diagram {
           const u = easeQuad(seg(q, T.leave[0], T.leave[1]));
           y = ya; x = -SLIDE * u; o = 1 - u;
         } else if (onB && !onA) {
-          const j = T.entering.indexOf(k), u = easeQuad(seg(q, ...T.printAt(j)));
+          const j = T.entering.indexOf(k), [a0, a1] = T.printAt(j), u = easeQuad(seg(q, a0 + (a1 - a0) * BALL_SHARE, a1));
           x = SLIDE * (1 - u); o = u;
         }
       }
@@ -324,7 +327,7 @@ export class Diagram {
       } else {
         const x2 = clamp01((q - p0) / (1 - p0)) * n, j = Math.min(n - 1, Math.floor(x2));
         const yj = (i) => emitRowY(slotOf(B, T.entering[i]) + 1);
-        const y = j === 0 ? yj(0) : lerp(yj(j - 1), yj(j), easeQuad(seg(x2 - j, 0, 0.35)));
+        const y = j === 0 ? yj(0) : lerp(yj(j - 1), yj(j), easeQuad(seg(x2 - j, 0, BALL_SHARE * 0.8)));
         this._ball(BALL_X, y - 3.5, 1);
       }
     } else if (this.cur.state.panel === 'emit' && !field) {
