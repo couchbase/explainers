@@ -9,9 +9,11 @@
 //   twenty  the twenty rows' tallies are shown, under the heaps
 //   group   GROUP BY, in the lanes' place: 0, not shown; 1, both
 //           engines' group tables, empty; 2, after all 20 rows
-//   order   ORDER BY, compared, in the lanes' place: how many of its
-//           cards are shown (0..2), cbq's and then n1k1's
-//   join    the hash JOIN, compared, the same way
+//   order   ORDER BY, in the lanes' place: 0, not shown; 1, the rows,
+//           unsorted; 2, each taken in, row by row; 3, sorted
+//   join    the hash JOIN, in the lanes' place: 0, not shown; 1, the
+//           orders, waiting; 2, the build, order by order; 3, the probe,
+//           customer by customer, each match joined
 //   table   the totals table, boxed and written back, in the lanes' place
 //   fallback  which lane a query took, as n1k1's stats say
 //
@@ -27,8 +29,8 @@ const CHANGES = [
   ['twenty', { twenty: true }],
   ['group.1', { group: 1 }],
   ['group.2', { group: 2 }],
-  ...[1, 2].map((k) => [`order.${k}`, { order: k }]),
-  ...[1, 2].map((k) => [`join.${k}`, { join: k }]),
+  ...[1, 2, 3].map((k) => [`order.${k}`, { order: k }]),
+  ...[1, 2, 3].map((k) => [`join.${k}`, { join: k }]),
   ['table', { table: true }],
   ['fallback', { fallback: true }],
 ];

@@ -17,6 +17,8 @@ function sizeOf(a, b) {
   if (field === 'twenty') return 2.5;
   // (the sweep through the 20 rows, one at a time)
   if (field === 'group' && B.group === 2) return 14;
+  if (field === 'order') return [0, 1, 10, 6][B.order];
+  if (field === 'join') return [0, 1, 10, 12][B.join];
   if (field === 'table') return 2;
   return 1;
 }

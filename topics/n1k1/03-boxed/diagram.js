@@ -17,7 +17,8 @@ import {
   CANVAS, EXPR, BUF, charX, LANES, STAGE_Y, NODE, nodeXY, HEAP, BLOCKS, TALLY, TABLE, ANCHORS, BYTE_W,
 } from './layout.js';
 import { STATE, changed, panelOf } from './states.js';
-import { buildQueries, drawQueries, buildGroup, drawGroup, buildOthers, drawOthers, buildFallback, drawFallback } from './diagram-panels.js';
+import { buildQueries, drawQueries, buildGroup, drawGroup, buildFallback, drawFallback } from './diagram-panels.js';
+import { buildOrder, drawOrder, buildJoin, drawJoin } from './diagram-sortjoin.js';
 import { ROWS, HERO, ALLOCS, STAGES, CHANGED, bytesOf } from '../lib/boxed.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -118,6 +119,10 @@ export class Diagram {
       });
       this.lanes[lane] = { g: L, counter, nodes };
     }
+    // (the lines to the row's bytes, drawn over both lanes' panels: each
+    // lane's were made with it, so the next lane's panel would cover
+    // them)
+    for (const lane of ['boxed', 'bytes']) for (const N of this.lanes[lane].nodes) if (N.line) g.appendChild(N.line);
     // the boxed lane's blocks, each as wide as its bytes
     this.blocks = BLOCKS.map((b) => {
       const bg = el('g', { opacity: 0 }, g);
@@ -142,10 +147,10 @@ export class Diagram {
       });
       const all = ROWS.reduce((s, r) => s + (lane === 'boxed' ? r.boxedAllocs : r.nativeAllocs), 0);
       const bytes = lane === 'boxed' ? ROWS.reduce((s, r) => s + bytesOf(r), 0) : 0;
-      txt(T, lx, TALLY.y + 40, `${ROWS.length} rows:`, 'tally-label');
-      txt(T, lx, TALLY.y + 58, `${fmt(all)} allocations`, 'tally-label');
-      txt(T, lx, TALLY.y + 76, `${fmt(bytes)} bytes`, 'tally-label');
-      this.tallies[lane] = { g: T, bars };
+      // (the totals, counting up as the bars come: see draw)
+      void all; void bytes;
+      const labels = [40, 58, 76].map((dy) => txt(T, lx, TALLY.y + dy, '', 'tally-label'));
+      this.tallies[lane] = { g: T, bars, labels };
     }
 
     // the totals that change, boxed: as written, and boxed and written
@@ -172,8 +177,8 @@ export class Diagram {
 
     // the later panels, in the lanes' place
     this.group = buildGroup(g);
-    this.order = buildOthers(g, 0);
-    this.join = buildOthers(g, 1);
+    this.order = buildOrder(g);
+    this.join = buildJoin(g);
     this.fallback = buildFallback(g);
 
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
@@ -242,10 +247,19 @@ export class Diagram {
     for (const lane of ['boxed', 'bytes']) {
       const T = this.tallies[lane], on = (s) => (s.twenty ? 1 : 0);
       op(T.g, (field === 'twenty' ? seg(q, 0, 0.1) : on(B) || (A.twenty ? 1 : 0)) * lo);
+      let shown = 0;
       T.bars.forEach((bar, i) => {
         const v = field === 'twenty' ? seg(q, 0.1 + (i / 20) * 0.85, 0.1 + ((i + 1) / 20) * 0.85) : on(B);
         op(bar, v);
+        if (v > 0) shown = i + 1;
       });
+      // (the totals so far: each bar's row counted as it appears)
+      const rs = ROWS.slice(0, shown);
+      const allocs = rs.reduce((t, r) => t + (lane === 'boxed' ? r.boxedAllocs : r.nativeAllocs), 0);
+      const bytes = lane === 'boxed' ? rs.reduce((t, r) => t + bytesOf(r), 0) : 0;
+      setText(T.labels[0], `${shown} rows:`);
+      setText(T.labels[1], `${fmt(allocs)} allocations`);
+      setText(T.labels[2], `${fmt(bytes)} bytes`);
     }
 
     // the totals table: once the lanes have gone, row by row
@@ -260,8 +274,8 @@ export class Diagram {
 
     // the later panels
     drawGroup(this.group, A, B, q, field, vis('group'));
-    drawOthers(this.order, A, B, q, field, vis('order'), entering('order'));
-    drawOthers(this.join, A, B, q, field, vis('join'), entering('join'));
+    drawOrder(this.order, A, B, q, field, vis('order'));
+    drawJoin(this.join, A, B, q, field, vis('join'));
     drawFallback(this.fallback, A, B, q, field, vis('fallback'), entering('fallback'));
   }
 

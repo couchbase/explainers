@@ -6,7 +6,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { PANEL, GROUP as G } from './layout.js';
-import { GROUP, CUSTOMERS, ORDER, JOIN } from '../lib/boxed.js';
+import { GROUP, CUSTOMERS } from '../lib/boxed.js';
 import { RUN } from '../lib/query.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -196,67 +196,6 @@ export function drawGroup(P, A, B, q, field, vis) {
   setText(P.cbqEach, `about ${Math.round(GROUP.cbqPerRow)} allocations and ${fmt(GROUP.cbqPerRowBytes)} bytes per row`);
   setText(P.cbqStages, `the key ${fmt(SB.key)} · SUM ${fmt(SB.sum)} · COUNT ${fmt(SB.count)}`);
   setText(P.n1k1Count, `${rowsDone} rows: ${GROUP.n1k1PerRow} allocations per row`);
-}
-
-// ---- ORDER BY and JOIN, compared ----
-
-// (each one's measured cost, by stage: "n allocations, b bytes")
-const cost = (x) => `${x.count} allocations, about ${fmt(x.bytes)} bytes`;
-const OS = Object.fromEntries(ORDER.cbqStages.map((x) => [x.stage, x]));
-const JS = Object.fromEntries(JOIN.cbqStages.map((x) => [x.stage, x]));
-const ROWS3 = [
-  ['ORDER BY total DESC', '20 orders', [
-    'each row\'s sort key, evaluated, and kept', `as a boxed copy: ${cost(OS.SortKey)} per row;`,
-    'compared with Collate, which adds', `${cost(OS.SortCompare)} per row`,
-  ], [
-    'each row copied into the heap\'s bytes;', `${fmt(ORDER.n1k1Setup)} allocations at setup, then`, `${Math.round(ORDER.n1k1PerRow)} per row: ${ORDER.n1k1PushBytes} bytes, Go boxing the row\'s`, '[]byte header for container/heap\'s Push',
-  ]],
-  ['hash JOIN on o.customer = c.id', `${JOIN.build} orders, ${JOIN.probe} customers`, [
-    `build, per order: ${cost(JS.Build)}`, `probe, per customer: ${cost(JS.Probe)}`, `per joined row: ${cost(JS.Joined)}`,
-  ], [
-    'keys as canonical bytes, in an rhmap;', `${fmt(JOIN.n1k1Setup)} allocations at setup, then`, `${Math.round(JOIN.n1k1PerRow)} per row; a joined row is two rows\' slices`,
-  ]],
-];
-
-// One of them, ORDER BY's (k = 0) or the JOIN's (1), as its own panel.
-export function buildOthers(g, k) {
-  const P = { g: el('g', { opacity: 0 }, g), cards: [], field: k ? 'join' : 'order' };
-  const root = P.g;
-  el('rect', { x: PANEL.x, y: PANEL.y, width: PANEL.w, height: PANEL.h, rx: 10, class: 'lane' }, root);
-  const cx = [PANEL.x + 20, PANEL.x + 180, PANEL.x + 570], cw = 370;
-  txt(root, cx[1], PANEL.y + 34, 'cbq: boxed values', 'lane-title');
-  txt(root, cx[2], PANEL.y + 34, 'n1k1: bytes', 'lane-title');
-  let y = PANEL.y + 70;
-  for (const [name, sub, a, b] of [ROWS3[k]]) {
-    const h = Math.max(a.length, b.length) * 20 + 22;
-    // (the row's name comes with its cbq card)
-    const ca = el('g', { opacity: 0 }, root);
-    txt(ca, cx[0], y + 22, name.split(' ')[0] === 'hash' ? 'hash JOIN' : 'ORDER BY', 'others-name');
-    txt(ca, cx[0], y + 40, name.replace(/^(ORDER BY|hash JOIN) ?(on )?/, ''), 'others-sub');
-    txt(ca, cx[0], y + 56, sub, 'others-sub');
-    el('rect', { x: cx[1] - 12, y, width: cw, height: h, rx: 8, class: 'card-cbq' }, ca);
-    a.forEach((l, k) => txt(ca, cx[1], y + 24 + k * 20, l, 'others-cbq'));
-    const cb = el('g', { opacity: 0 }, root);
-    el('rect', { x: cx[2] - 12, y, width: cw, height: h, rx: 8, class: 'card-n1k1' }, cb);
-    b.forEach((l, k) => txt(cb, cx[2], y + 24 + k * 20, l, 'others-n1k1'));
-    P.cards.push(ca, cb);
-    y += h + 40;
-  }
-  txt(root, cx[0], PANEL.y + PANEL.h - 20, k ? 'Measured: cbq\'s steps, as its execution/join_hash.go takes them (beyond boxing the rows); n1k1\'s joinHash op.' : 'Measured: cbq\'s steps, as its execution/order.go takes them (beyond boxing the rows); n1k1\'s order op.', 'others-note');
-  return P;
-}
-
-// The cards: as many as the state's level, each new one sliding in.
-export function drawOthers(P, A, B, q, field, vis, entering) {
-  op(P.g, vis);
-  P.cards.forEach((c, i) => {
-    const on = (s) => (i < s[P.field] ? 1 : 0);
-    let u = on(B);
-    if (field === P.field && on(A) !== on(B)) u = entering ? seg(q, 0.65, 1) : seg(q, 0.15, 0.85);
-    const e = easeQuad(u);
-    at(c, 30 * (1 - e), 0);
-    op(c, e * vis);
-  });
 }
 
 // ---- which lane: n1k1's stats ----

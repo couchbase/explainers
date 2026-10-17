@@ -36,7 +36,7 @@ export const BLOCKS = [];
   }
 }
 // the twenty rows' tallies, under the blocks
-export const TALLY = { y: 580, h: 100, w: 13, gap: 3.5 };
+export const TALLY = { y: 580, h: 100, w: 12, gap: 3 };
 
 // the panels in the lanes' and heaps' place: GROUP BY, ORDER BY and
 // JOIN, and the stats
