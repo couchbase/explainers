@@ -59,7 +59,7 @@ export function runStory({ simulation = false, setup }) {
     ...ch, href: `#${ch.id}--${ch.steps[0].id}`, first: firstStepOf[ci],
   })), (ci) => jumpTo(firstStepOf[ci]));
 
-  const ctl = { current: -1, scrolled: false };
+  const ctl = { current: -1, scrolled: false, jumping: false };
   const story = {
     data, narrative, steps, views, page, ui, stepEls, codeDrawer, camera, overlay, toc, reduceMotion, ctl,
     enter, jumpTo,
@@ -173,13 +173,37 @@ export function runStory({ simulation = false, setup }) {
   // (the step changes as the shown scroll position reaches it: see render)
   window.addEventListener('scroll', () => { ctl.scrolled = true; }, { passive: true });
 
-  // Jumps (no smooth scroll through everything in between) to step i,
-  // fully settled.
+  // Goes to step i, fully settled: a fast scroll (quick even for a long
+  // way, so the steps in between flash by), or, for a reader who'd
+  // rather not have motion, a jump. Touching the wheel, the screen or a
+  // key on the way stops it where it is.
+  let jumping = null;
   function jumpTo(i) {
-    window.scrollTo({ top: scrollYFor(stepEls[i], 1) + 2, behavior: 'instant' });
+    const to = scrollYFor(stepEls[i], 1) + 2, from = window.scrollY;
     ctl.scrolled = true;
-    snap();
-    enter(shown().i);
+    if (jumping) jumping.stop();
+    const land = () => { jumping = null; ctl.jumping = false; snap(); enter(shown().i); };
+    if (reduceMotion || Math.abs(to - from) < 2) {
+      window.scrollTo({ top: to, behavior: 'instant' });
+      return land();
+    }
+    // (a quarter of a second, and more the farther it goes, to 2/3)
+    const ms = Math.min(650, 250 + (Math.abs(to - from) / window.innerHeight) * 25);
+    const t0 = performance.now(), ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
+    let raf = 0;
+    const stop = () => { cancelAnimationFrame(raf); for (const ev of STOPS) window.removeEventListener(ev, stop); jumping = null; ctl.jumping = false; };
+    const STOPS = ['wheel', 'touchstart', 'keydown', 'mousedown'];
+    for (const ev of STOPS) window.addEventListener(ev, stop, { passive: true });
+    jumping = { stop };
+    ctl.jumping = true;
+    const step = (now) => {
+      const t = Math.min(1, (now - t0) / ms);
+      window.scrollTo({ top: from + (to - from) * ease(t), behavior: 'instant' });
+      if (t < 1) { raf = requestAnimationFrame(step); return; }
+      for (const ev of STOPS) window.removeEventListener(ev, stop);
+      land();
+    };
+    raf = requestAnimationFrame(step);
   }
 
   // Deep links (#chapter--step) land with the step fully settled. The
