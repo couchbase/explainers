@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inside n1k1: a SQL++ engine for local files</title>
+<meta name="description" content="How n1k1 runs SQL++ over a directory of JSON files: files become keyspaces, cbq's planner makes the plan, and n1k1's engine pushes rows up through it as raw JSON bytes, copying them only where it must.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: story on the left, one large diagram in the middle
+   that the story zooms around and opens up section by section, and
+   charts on the right with leader lines into the diagram. Each section
+   has its own color, used for its frame, lid, story headings and the
+   "where am I" breadcrumb.
+
+   These are the engine's neutral tokens and its default fonts. A
+   topic's look (its palette, section colors, fonts) is in
+   topics/<topic>/style.css, after these; an explainer's own styles,
+   in topics/<topic>/<name>/style.css, come last. */
+:root {
+  --bg: #f2f4f6;
+  --panel: #ffffff;
+  --panel-2: #f7f9fa;
+  --ink: #16202a;
+  --muted: #5a6977;
+  --line: #d3dae0;
+  --faint: #e7ecf0;
+  --accent: #c2410c;
+  --flow: #7b8a97;
+
+  --sec-neutral: #5a6977;
+
+  --code-bg: #f6f8fa;
+  --code-hl: #fff4d6;
+  --code-kw: #a3266b;
+  --code-str: #1d6a3a;
+  --code-com: #6b7785;
+  --code-fn: #1d5fb0;
+  --code-num: #9a5b00;
+
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", "Arial Narrow", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 6px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
+    --accent: #fb7a3c; --flow: #7f8f9c; --sec-neutral: #93a2ae;
+    --code-bg: #11171c; --code-hl: #3a3218; --code-kw: #f07ab8; --code-str: #7fd29a; --code-com: #7c8a96; --code-fn: #8cb8ff; --code-num: #f0b35a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
+  --accent: #fb7a3c; --flow: #7f8f9c; --sec-neutral: #93a2ae;
+  --code-bg: #11171c; --code-hl: #3a3218; --code-kw: #f07ab8; --code-str: #7fd29a; --code-com: #7c8a96; --code-fn: #8cb8ff; --code-num: #f0b35a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 1rem/1.6 var(--font-body); }
+a { color: var(--accent); }
+code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.sec-neutral { --sec: var(--sec-neutral); }
+
+/* a draft: a red band across its card's top-right corner */
+.is-draft { position: relative; overflow: hidden; }
+.draft-stamp {
+  position: absolute; top: 1.1rem; right: -2.6rem; width: 9rem; transform: rotate(45deg);
+  background: #c62828; color: #fff; text-align: center;
+  font: 700 0.8rem/1.7 var(--font-body); letter-spacing: 0.18em; text-transform: uppercase;
+  pointer-events: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+/* and in the page's bottom-left corner, wherever the reader is */
+/* (big, so it's unmistakable, with "work in progress" under the
+   word; a little smaller on a phone) */
+.draft-corner { position: fixed; left: 0; bottom: 0; width: 16rem; height: 16rem; overflow: hidden; pointer-events: none; z-index: 30; }
+.draft-corner .draft-stamp { top: auto; right: auto; bottom: 3.3rem; left: -6.3rem; width: 23rem; padding: 0.35rem 0 0.45rem; transform: rotate(45deg); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32); }
+.draft-corner .draft-word { display: block; font-size: 1.7rem; line-height: 1.25; letter-spacing: 0.26em; }
+.draft-corner .draft-sub { display: block; font-size: 0.72rem; line-height: 1.4; letter-spacing: 0.14em; font-weight: 600; opacity: 0.92; }
+@media (max-width: 600px) {
+  .draft-corner { width: 11rem; height: 11rem; }
+  .draft-corner .draft-stamp { bottom: 2.3rem; left: -4.4rem; width: 16rem; padding: 0.2rem 0 0.3rem; }
+  .draft-corner .draft-word { font-size: 1.15rem; }
+  .draft-corner .draft-sub { font-size: 0.55rem; }
+}
+/* the end card: after the last step has scrolled off, and, at the
+   bottom of the page, stopped in the middle of the screen */
+.next-card { margin: 85vh 0 calc(50vh - 4.5rem); }
+.story:has(> .next-card) { padding-bottom: 0; }
+.next-link { font: 600 1.15rem var(--font-display); color: var(--accent); text-decoration: none; }
+.next-link:hover { text-decoration: underline; }
+.next-link + .up-link, .end-note + .up-link { margin-top: 1rem; }
+.up-link + .top-link { margin-top: 0.35rem; }
+.next-link + .top-link, .end-note + .top-link { margin-top: 1rem; }
+.end-note { font: 600 1.15rem var(--font-display); color: var(--ink); }
+.up-link, .top-link { display: block; font: 500 0.95rem var(--font-body); color: var(--muted); text-decoration: none; }
+.up-link:hover, .top-link:hover { color: var(--accent); text-decoration: underline; }
+
+/* ---------- layout ----------
+   Wide screens: the diagram fills the window behind a transparent story
+   column whose text sits on opaque cards; the camera frames its region
+   to the right of the story. The charts column opens on the right when
+   --chrome (0..1, set from the scroll position) says so. */
+
+.layout {
+  --chrome: 0;
+  --gutter: max(16px, 2vw);
+  --story-w: min(27rem, 38vw);
+  --charts-w: calc(var(--chrome) * 18rem);
+  position: relative;
+}
+.story {
+  position: relative;
+  z-index: 2;
+  width: var(--story-w);
+  margin-left: var(--gutter);
+  padding-block: 4.5rem 45vh;
+  pointer-events: none; /* let drags reach the diagram between cards */
+}
+.story .card { pointer-events: auto; }
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+.toolbar {
+  position: absolute;
+  z-index: 3;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  left: calc(var(--gutter) + var(--story-w) + 1.5rem);
+  right: calc(var(--charts-w) + 1rem);
+}
+.viewport {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+.charts {
+  /* transparent, like the story column: each chart is its own card */
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: var(--charts-w);
+  z-index: 1;
+  padding: 4rem calc(var(--chrome) * 1rem) 1rem 0;
+  pointer-events: none;
+}
+.charts .chart { pointer-events: auto; }
+.diagram { display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.viewport.dragging .diagram { cursor: grabbing; }
+.zoom { position: absolute; right: calc(var(--charts-w) + 0.6rem); bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.zbtn {
+  width: 2rem; height: 2rem;
+  font: 500 1rem/1 var(--font-body);
+  color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer;
+}
+.zbtn:hover { border-color: var(--accent); }
+.zoom-hint { font: 400 0.6875rem/1 var(--font-mono); color: var(--muted); }
+@media (max-width: 1100px) { .zoom-hint { display: none; } }
+.charts { display: flex; flex-direction: column; gap: 1.6rem; overflow: hidden; }
+.chart { min-width: 15rem; padding: 0.7rem 0.85rem 0.8rem; }
+.overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 4; overflow: visible; }
+
+/* ---------- story ---------- */
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--faint);
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(20, 30, 40, 0.08);
+  padding: 1.1rem 1.35rem;
+}
+.hero { margin-bottom: 4rem; padding-block: 1.6rem; }
+.eyebrow { font: 600 0.75rem/1.2 var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+a.eyebrow { text-decoration: none; }
+a.eyebrow:hover { text-decoration: underline; }
+.hero h1 { font: 600 2.4rem/1.08 var(--font-display); margin: 0.5rem 0 1rem; text-wrap: balance; }
+.hero .subtitle { color: var(--muted); font-size: 1.15rem; line-height: 1.45; }
+.hero .subtitle p { margin: 0; }
+.hero .meta { margin-top: 1.25rem; font: 400 0.75rem/1.5 var(--font-mono); color: var(--muted); }
+.hero .meta a { color: inherit; }
+.scroll-hint { margin-top: 2.5rem; font: 500 0.875rem var(--font-body); color: var(--muted); }
+
+.chapter-title {
+  font: 600 1.5rem/1.15 var(--font-display);
+  margin: 5rem 0 0;
+  color: var(--ink);
+  text-wrap: balance;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  width: fit-content;
+  max-width: 100%;
+  padding-block: 0.7rem;
+}
+.chapter-dot { flex: none; width: 0.75rem; height: 0.75rem; border-radius: 3px; background: var(--sec); }
+.step {
+  min-height: 70vh;
+  padding-block: 2rem;
+  max-width: 62ch;
+}
+.step.step-long { min-height: 170vh; }
+/* a scrubbing step's text stays in view while it plays */
+.card pre { font: 400 0.8rem/1.55 var(--font-mono); background: var(--code-bg); border-radius: 6px; padding: 0.7rem 0.9rem; margin: 0.9rem 0; overflow-x: auto; }
+.card pre code { font-size: inherit; }
+.step.step-scrub > .card { position: sticky; top: 18vh; }
+.step .card { opacity: 0.55; transition: opacity 0.4s ease; }
+.step.active .card { opacity: 1; }
+.step p { margin: 0 0 0.9em; }
+.step ul, .step ol { padding-left: 1.3em; margin: 0 0 0.9em; }
+.step li { margin-bottom: 0.3em; }
+.step strong { font-weight: 600; }
+.hl { font-weight: 600; }
+.step.active .hl { color: var(--accent); }
+
+.code-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
+.code-chip {
+  font: 400 0.75rem/1.3 var(--font-mono);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  text-align: left;
+  cursor: pointer;
+}
+.code-chip.stacked { border-radius: 10px; }
+.code-chip.stacked > .repo, .code-chip.stacked > .name { display: block; }
+.code-chip.stacked > .sep { display: none; }
+.code-chip .sep { color: var(--muted); }
+.code-chip:hover { border-color: var(--accent); color: var(--accent); }
+.code-chip .repo { color: var(--muted); }
+
+/* ---------- toolbar ---------- */
+
+.toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap; min-width: 0; font: 400 0.75rem/1 var(--font-mono); color: var(--muted); }
+.toolbar .spacer { flex: 1; }
+.tools { display: grid; justify-items: end; align-items: center; }
+.tools > * { grid-area: 1 / 1; }
+.controls { display: inline-flex; align-items: center; gap: 0.5rem; }
+.clock { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 9ch; }
+.crumb { display: inline-flex; align-items: center; gap: 0.45rem; font: 600 0.8125rem/1 var(--font-display); letter-spacing: 0.03em; color: var(--ink); }
+.crumb-dot { width: 0.7rem; height: 0.7rem; border-radius: 3px; background: var(--sec); }
+.btn {
+  font: 500 0.75rem/1 var(--font-body);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.65rem;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------- overlay lines ---------- */
+
+.callout { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.callout-end { fill: var(--accent); }
+.leader { fill: none; stroke: var(--muted); stroke-opacity: 0.45; stroke-width: 1; }
+.leader-end { fill: var(--muted); fill-opacity: 0.7; }
+
+/* ---------- diagram ----------
+   Shared basics; each explainer's own diagram styles are in
+   topics/<topic>/<name>/style.css, appended after these. */
+
+.diagram text { font-family: var(--font-mono); }
+.arrowhead { fill: var(--flow); }
+.target-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-opacity: 0.5; }
+/* ---------- contents ---------- */
+
+.toc {
+  position: fixed;
+  z-index: 12;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  left: var(--gutter, 16px);
+}
+.toc-btn {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  font: 600 0.8125rem/1 var(--font-display); letter-spacing: 0.03em;
+  color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 0.5rem 0.75rem; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.toc-btn:hover, .toc-btn[aria-expanded="true"] { border-color: var(--muted); }
+.toc-icon { font-size: 0.95rem; color: var(--muted); }
+.toc-panel {
+  position: absolute; top: calc(100% + 0.4rem); left: 0;
+  width: min(22rem, calc(100vw - 32px));
+  max-height: calc(100vh - 5rem); overflow-y: auto;
+  padding: 0.5rem;
+  display: flex; flex-direction: column; gap: 1px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+.toc-head { font: 600 0.6875rem/1 var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0.5rem 0.6rem 0.6rem; }
+.toc-item {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  padding: 0.5rem 0.6rem; border-radius: var(--radius);
+  font: 500 0.9375rem/1.25 var(--font-display); color: var(--ink); text-decoration: none;
+}
+.toc-item .chapter-dot { width: 0.6rem; height: 0.6rem; }
+.toc-item:hover, .toc-item:focus-visible { background: var(--faint); outline: none; }
+.toc-item.current { background: color-mix(in srgb, var(--sec) 12%, var(--panel)); font-weight: 600; }
+
+/* ---------- drawers ---------- */
+
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(52rem, 100vw);
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.18);
+  z-index: 20;
+  display: flex; flex-direction: column;
+  transform: translateX(105%);
+  transition: transform 0.25s ease;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.drawer.open { transform: none; }
+/* the code drawer: resizable, wider or narrower, by dragging its
+   bottom-left corner (rtl puts CSS's resize handle on the left, and
+   makes the drag grow it leftwards; its content goes back to ltr) */
+.drawer:not(.knobs) { resize: horizontal; overflow: hidden; direction: rtl; min-width: min(20rem, 100vw); max-width: 100vw; }
+.drawer:not(.knobs) > * { direction: ltr; }
+.drawer header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--line); }
+.drawer header h2 { font: 600 1rem/1.3 var(--font-display); margin: 0; flex: 1; min-width: 0; }
+.drawer .tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; padding: 0.5rem 1rem; border-bottom: 1px solid var(--line); }
+.drawer .tabs .btn[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+.drawer .body { flex: 1; overflow: auto; min-height: 0; }
+.drawer .where { padding: 0.5rem 1rem; font: 400 0.75rem/1.4 var(--font-mono); color: var(--muted); display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; }
+.code { font: 400 0.78rem/1.55 var(--font-mono); background: var(--code-bg); margin: 0; padding: 0.5rem 0; overflow-x: auto; tab-size: 4; }
+.code .ln { display: flex; white-space: pre; padding-right: 1rem; }
+.code .ln.hl { background: var(--code-hl); font-weight: 400; }
+.code .n { flex: none; width: 4.5ch; text-align: right; padding-right: 1.2ch; color: var(--muted); user-select: none; }
+.hljs-keyword, .hljs-built_in, .hljs-type { color: var(--code-kw); }
+.hljs-string { color: var(--code-str); }
+.hljs-comment { color: var(--code-com); font-style: italic; }
+.hljs-title, .hljs-title.function_ { color: var(--code-fn); }
+.hljs-number, .hljs-literal { color: var(--code-num); }
+
+/* ---------- narrower screens ---------- */
+
+@media (max-width: 1250px) {
+  .layout { --charts-w: 0px; --story-w: min(24rem, 40vw); }
+  .charts { display: none; }
+}
+/* Phones: the diagram is a sticky panel on top; the story scrolls below. */
+@media (max-width: 900px) {
+  .layout { display: flex; flex-direction: column; padding-inline: 16px; --story-w: 100%; --gutter: 0px; }
+  .stage { position: sticky; inset: auto; top: 0; order: -1; height: 56vh; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.4rem; padding-block: 0.5rem; }
+  .toolbar { position: static; flex-wrap: wrap; padding-left: 7.5rem; min-height: 2.1rem; }
+  .toc { top: calc(env(safe-area-inset-top, 0px) + 0.5rem); left: 16px; }
+  .viewport { position: relative; inset: auto; flex: 1; min-height: 0; }
+  .tools, .controls { display: flex; flex-wrap: wrap; gap: 0.4rem; min-width: 0; }
+  .story { width: auto; margin-left: 0; padding-block: 1rem 60vh; pointer-events: auto; }
+  .step { min-height: 50vh; scroll-margin-top: 58vh; }
+  .step.step-scrub > .card { top: 60vh; }
+  /* (the next card stops under the diagram, not behind it) */
+  .story:has(> .next-card) { padding-bottom: 6vh; }
+  .next-card { margin-bottom: 0; }
+  .hero h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* The n1k1 topic's look, shared by its explainers: cool paper, ink,
+   and two colors for where bytes live: teal, the record buffer the
+   scan reads into (and a value that's a slice of it); amber, bytes
+   copied somewhere else. Violet is cbq's planner; red is only for a
+   row the filter drops. After the engine's styles, before each
+   explainer's. */
+:root {
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --bg: #f3f4f1;
+  --panel: #fcfcfa;
+  --panel-2: #eef0ec;
+  --ink: #1a1d1c;
+  --muted: #5f6662;
+  --line: #d3d8d3;
+  --faint: #e6e9e4;
+  --accent: #0f766e;
+  --focus: #2563eb;
+
+  --slice: #0f766e;
+  --slice-bg: #d5efe9;
+  --copy: #b45309;
+  --copy-bg: #fbe8cf;
+  --cbq: #6d28d9;
+  --cbq-bg: #f1ebfc;
+  --drop: #dc2626;
+
+  --sec-query: #1a1d1c;
+  --sec-plan: #6d28d9;
+  --sec-push: #0f766e;
+  --sec-out: #b45309;
+  --sec-neutral: #5f6662;
+
+  --code-bg: #eef0ec;
+  --code-hl: #d5efe9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121514; --panel: #1a1e1c; --panel-2: #161917; --ink: #e8ece9; --muted: #9aa39e; --line: #343b37; --faint: #222825;
+    --accent: #2dd4bf; --focus: #7ea6ff;
+    --slice: #2dd4bf; --slice-bg: #133a35; --copy: #f59e0b; --copy-bg: #3d2a10; --cbq: #a78bfa; --cbq-bg: #2a2140; --drop: #f87171;
+    --sec-query: #e8ece9; --sec-plan: #a78bfa; --sec-push: #2dd4bf; --sec-out: #f59e0b; --sec-neutral: #9aa39e;
+    --code-bg: #161917; --code-hl: #133a35;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121514; --panel: #1a1e1c; --panel-2: #161917; --ink: #e8ece9; --muted: #9aa39e; --line: #343b37; --faint: #222825;
+  --accent: #2dd4bf; --focus: #7ea6ff;
+  --slice: #2dd4bf; --slice-bg: #133a35; --copy: #f59e0b; --copy-bg: #3d2a10; --cbq: #a78bfa; --cbq-bg: #2a2140; --drop: #f87171;
+  --sec-query: #e8ece9; --sec-plan: #a78bfa; --sec-push: #2dd4bf; --sec-out: #f59e0b; --sec-neutral: #9aa39e;
+  --code-bg: #161917; --code-hl: #133a35;
+}
+
+/* its chapters' colors */
+.sec-query { --sec: var(--sec-query); }
+.sec-plan { --sec: var(--sec-plan); }
+.sec-push { --sec: var(--sec-push); }
+.sec-out { --sec: var(--sec-out); }
+.sec-neutral { --sec: var(--sec-neutral); }
+
+.index { max-width: 44rem; margin: 0 auto; padding: 3rem 16px 6rem; }
+.index h1 { font: 600 2.4rem/1.08 var(--font-display); margin: 0.5rem 0 1rem; text-wrap: balance; }
+.index .subtitle { color: var(--muted); font-size: 1.15rem; line-height: 1.45; }
+.index .subtitle p { margin: 0; }
+.index h2 { font: 600 1.5rem/1.15 var(--font-display); margin: 3rem 0 0.5rem; }
+.index h2 a { color: var(--ink); text-decoration: none; }
+.index h2 a:hover { text-decoration: underline; }
+.entries { list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: 1rem; }
+.entry { display: flex; gap: 1rem; align-items: baseline; }
+.entry .num { font: 600 1.15rem var(--font-mono); color: var(--muted); }
+.entry a.title { font: 600 1.25rem/1.2 var(--font-display); color: var(--ink); text-decoration: none; }
+.entry a.title:hover { color: var(--accent); }
+.entry p { margin: 0.4rem 0 0; color: var(--muted); }
+.showcase { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.8rem; }
+.shot { display: block; width: min(260px, 100%); border-radius: 8px; border: 1px solid var(--line); overflow: hidden; }
+.shot:hover { border-color: var(--accent); }
+/* a sprite: its frames stacked top to bottom; a clip steps through
+   them, holding its first a moment and its last a while; a still
+   shows its one */
+.shot .sprite { background-image: var(--light); background-size: 100% calc(var(--frames) * 100%); background-repeat: no-repeat; }
+.shot .playing { animation: shot-play var(--seconds) infinite; animation-timing-function: var(--steps); }
+@keyframes shot-play { 0%, 10% { background-position: 0 0; } 70%, 100% { background-position: 0 100%; } }
+@media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
+@media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
+@media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
+
+</style>
+</head>
+<body>
+<main class="index"><a class="eyebrow" href="../index.html">← All explainers</a>
+<h1>Inside n1k1: a SQL++ engine for local files</h1>
+<div class="subtitle"><p>How n1k1 runs SQL++ over a directory of JSON files: files become keyspaces, cbq&#39;s planner makes the plan, and n1k1&#39;s engine pushes rows up through it as raw JSON bytes, copying them only where it must.</p>
+</div>
+<ol class="entries"><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<span class="num">01</span>
+<div><a class="title" href="01-query.html">The life of a query in n1k1</a><p>One SQL++ query over a directory of JSON files, from its text to the rows n1k1 prints: cbq&#39;s planner makes the plan, n1k1 rewires it, and its engine pushes rows up through it as raw JSON bytes, copying them only where it must.</p>
+</div></li></ol></main>
+</body>
+</html>

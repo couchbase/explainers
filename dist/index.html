@@ -432,6 +432,13 @@ a.eyebrow:hover { text-decoration: underline; }
 <span class="num">02</span>
 <div><a class="title" href="cbft/02-zap-format.html">Inside a zap segment: how scorch stores and finds your docs</a><p>What scorch reads, byte by byte, when a query asks for a word: the file layout, vellum FSTs, roaring bitmaps and stored fields.</p>
 <div class="showcase"><a class="shot" href="cbft/02-zap-format.html#fst--tails" title="A field's terms becoming a vellum FST, equal tails merged"><div class="sprite playing" role="img" aria-label="A field's terms becoming a vellum FST, equal tails merged" style="--light: url('cbft/showcase/02-zap-format-1-light.jpg'); --dark: url('cbft/showcase/02-zap-format-1-dark.jpg'); --frames: 20; --seconds: 3.3s; --steps: steps(20, jump-none); aspect-ratio: 420 / 220"></div></a></div></div></li></ol>
+<h2><a href="n1k1/index.html">Inside n1k1: a SQL++ engine for local files</a></h2>
+<div class="subtitle"><p>How n1k1 runs SQL++ over a directory of JSON files: files become keyspaces, cbq&#39;s planner makes the plan, and n1k1&#39;s engine pushes rows up through it as raw JSON bytes, copying them only where it must.</p>
+</div>
+<ol class="entries"><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<span class="num">01</span>
+<div><a class="title" href="n1k1/01-query.html">The life of a query in n1k1</a><p>One SQL++ query over a directory of JSON files, from its text to the rows n1k1 prints: cbq&#39;s planner makes the plan, n1k1 rewires it, and its engine pushes rows up through it as raw JSON bytes, copying them only where it must.</p>
+</div></li></ol>
 <h2><a href="rebalance/index.html">Inside rebalance: placing and moving vbuckets</a></h2>
 <div class="subtitle"><p>How Couchbase decides which servers hold each vbucket&#39;s copies, so a failure never overloads one server or loses data, and how a rebalance moves the copies when servers come and go.</p>
 </div>
