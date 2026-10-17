@@ -1,0 +1,194 @@
+# The third n1k1 explainer: one filter, one row, two lanes. n1k1 runs an
+# expression in its byte lane when it can, and falls back to cbq's
+# boxed lane when it can't. Here's 01-query's filter run both ways on
+# the same row, stage by stage, with what each lane leaves on the Go
+# heap; then all 20 rows; then what boxing does to the totals. No
+# simulation: each step moves `at`, one of the diagram's states
+# (states.js). The numbers are measured, by ../lib/tools/boxed-golden,
+# which runs both lanes with n1k1's own code and counts their
+# allocations with Go's heap profiler. Every number in the text is
+# checked by `expect`.
+
+sources: [n1k1, n1k1-query, jsonparser]
+draft: true
+title: "Boxed or bytes: where the garbage goes"
+subtitle: >-
+  One filter, run two ways on the same row. cbq's evaluator boxes the
+  row into Go values, and leaves them on the heap; n1k1's byte lane
+  points into the row's own bytes, and leaves nothing. Here's each
+  allocation, measured, and what boxing does to a number on the way.
+audience: People who build or study database internals
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: one
+    title: "One filter, one row"
+    color: query
+    steps:
+
+      - id: filter
+        view: { at: start, target: expr }
+        code: [expr.tree]
+        expect: ["fact:hero.total.bytes=210.00"]
+        text: |
+          In the first explainer, n1k1 tested each order with
+          [[this filter]], `200 < orders.total`. At setup, n1k1 turned
+          the filter into native code that works on JSON bytes.
+
+          n1k1 can't do that for every expression, though. For one it
+          can't, it falls back to cbq's own evaluator, which works on
+          boxed values: Go objects built from the JSON.
+
+          So here's the same filter, on the same row, order-1003 (its
+          total is 210.00), run both ways.
+
+      - id: lanes
+        view: { at: lanes, target: lane.boxed }
+        code: [design.exprs]
+        text: |
+          On the left is [[the boxed lane]], cbq's Evaluate, as n1k1's
+          fallback runs it. On the right is the byte lane, n1k1's
+          native code.
+
+          Each lane goes through the same four stages: get the doc,
+          find the total, compare it with 200, and give the answer.
+          Under each lane is the Go heap. Everything a lane allocates
+          for this row lands there, as a block as wide as its bytes.
+
+  # ------------------------------------------------------------------
+  - id: stages
+    title: "Stage by stage"
+    color: plan
+    steps:
+
+      - id: boxed-convert
+        view: { at: boxed.1, target: boxed.0 }
+        code: [convert, parsed.new]
+        expect: ["fact:hero.convert.bytes=1360", "fact:hero.parsed.bytes=480", "fact:hero.id.count=4", "fact:hero.id.bytes=192"]
+        text: |
+          To evaluate anything, cbq needs [[the row as one value]]. So
+          n1k1's ConvertVals builds one: a map for the row, room in it
+          for "orders", and a parsedValue (480 bytes) that wraps the
+          doc's bytes, to parse them later. Then an annotatedValue,
+          with a map for its META, and the doc's id, parsed and boxed:
+          4 allocations, 192 bytes, for an id this filter never reads.
+
+          That's 1,360 bytes before the filter looks at anything.
+
+      - id: bytes-doc
+        view: { at: bytes.1, target: bytes.0 }
+        text: |
+          The byte lane builds nothing. The doc is already in
+          [[register 0]], as a slice of the record buffer.
+
+      - id: boxed-find
+        view: { at: boxed.2, target: boxed.1 }
+        code: [parsed.field]
+        expect: ["fact:hero.evaluate.bytes=304", "fact:hero.total.type=value.intValue", "fact:hero.total.boxed=210"]
+        text: |
+          Now `orders.total`. The parsedValue scans the doc's bytes for
+          "total", with a scanner of its own, and parses what it finds
+          into [[a boxed number]], another 304 bytes in all.
+
+          Notice what it made: an intValue, 210. The `.00` is gone.
+          We'll come back to that.
+
+      - id: bytes-find
+        view: { at: bytes.2, target: bytes.1 }
+        code: [path.get]
+        expect: ["fact:hero.total.range=55:61"]
+        text: |
+          The byte lane finds the total with jsonparser, which returns
+          [[a slice]] of the doc's own bytes, 55 to 61: `210.00`, just
+          as it's written.
+
+      - id: boxed-compare
+        view: { at: boxed.3, target: boxed.2 }
+        expect: ["fact:hero.compare.bytes=16"]
+        text: |
+          cbq compares its two boxed numbers, 200 and 210, through
+          their Compare methods, which allocate [[a working value]],
+          16 bytes. The answer is a boolValue, true.
+
+      - id: bytes-compare
+        view: { at: bytes.3, target: bytes.2 }
+        code: [cmp.static]
+        text: |
+          The byte lane parses the 6 bytes into a float64, 210, which
+          lives [[on the stack]], and compares it with 200, a float64
+          it parsed once, at setup.
+
+      - id: boxed-answer
+        view: { at: boxed.4, target: heap.boxed }
+        expect: ["fact:hero.boxed.allocs=15", "fact:hero.boxed.bytes=1680"]
+        text: |
+          Last, the boxed answer is written back as JSON, `true`, into
+          a buffer that's reused, so that's free.
+
+          In all, the boxed lane left 15 allocations and 1,680 bytes
+          on [[the heap]], for one row. (The profiler groups a few
+          tiny allocations into one block, so there are fewer blocks
+          than allocations.)
+
+      - id: bytes-answer
+        view: { at: bytes.4, target: heap.bytes }
+        expect: ["fact:hero.native.allocs=0"]
+        text: |
+          The byte lane's answer is a `true` that it made once, at
+          setup, and hands out for every row that passes.
+
+          In all, the byte lane left [[nothing]] on the heap: 0
+          allocations.
+
+  # ------------------------------------------------------------------
+  - id: many
+    title: "Twenty rows"
+    color: push
+    steps:
+
+      - id: twenty
+        view: { at: twenty, target: tally }
+        expect: ["fact:rows=20", "fact:rows.same=true", "fact:rows.boxed.allocs=328", "fact:rows.boxed.bytes=33824", "fact:rows.native.allocs=0", "fact:rows.boxed.min=14", "fact:rows.boxed.max=18"]
+        text: |
+          Over all 20 orders, the two lanes give the same answers.
+
+          [[The boxed lane]] leaves 14 to 18 allocations per row, 328
+          in all, and 33,824 bytes, which Go's garbage collector must
+          then find and free. The byte lane leaves 0, row after row.
+
+          That's the whole reason for the byte lane. The work per row
+          is small either way. It's the garbage that adds up.
+
+  # ------------------------------------------------------------------
+  - id: fidelity
+    title: "What boxing changes"
+    color: out
+    steps:
+
+      - id: totals
+        view: { at: table, target: table }
+        expect: ["fact:changed=6", "fact:changed.list=129.50>129.5,210.00>210,22.0>22,46.0>46,96.0>96,245.0>245"]
+        text: |
+          Boxing doesn't just cost. It changes things. Here's
+          [[each order's total]], as written in its file, and as it
+          comes back out after boxing.
+
+          6 of the 20 change: 210.00 comes back as 210, 245.0 as 245,
+          129.50 as 129.5. A boxed number keeps its value, not its
+          text.
+
+          The byte lane never turns the total into a value it keeps,
+          so the bytes stay as written. That's why the first
+          explainer's output said 210.00.
+
+      - id: end
+        view: { at: table }
+        text: |
+          So n1k1 runs each expression in the byte lane when it can,
+          and decides that once, at setup. For the rest, cbq's boxed
+          lane is there, slower but complete.
+
+          And the boxed lane stays for good, as the oracle: n1k1's
+          tests check each native expression against cbq's, answer for
+          answer.

@@ -1,0 +1,41 @@
+/* The 03-boxed explainer's diagram. Colors are the topic's (see
+   ../style.css and ../README.md for the rules): amber, the heap; teal,
+   the record buffer's bytes; grey, no heap cost. */
+.diagram .expr { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.diagram .expr-text { font: 600 16px var(--font-mono); fill: var(--ink); }
+.diagram .expr-sub { font: 500 11.5px var(--font-display); fill: var(--muted); }
+.diagram .buf { fill: var(--panel); stroke: var(--slice); stroke-width: 1.5; }
+.diagram .buf-text { font: 500 11px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .buf-label { font: 500 10.5px var(--font-display); fill: var(--muted); }
+.diagram .buf-hl { fill: var(--slice-bg); stroke: var(--slice); stroke-width: 1.2; }
+.diagram .lane { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.diagram .heap { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
+.diagram .lane-title { font: 600 13px var(--font-display); fill: var(--ink); }
+.diagram .stage-name { font: 600 11px var(--font-display); fill: var(--muted); }
+.diagram .heap-count { font: 600 12px var(--font-mono); fill: var(--copy); }
+.diagram .heap-none { font: 500 12px var(--font-display); fill: var(--muted); font-style: italic; }
+.diagram .node { stroke-width: 1.3; }
+.diagram rect.node-heap { fill: var(--copy-bg); stroke: var(--copy); }
+.diagram rect.node-slice { fill: var(--slice-bg); stroke: var(--slice); }
+.diagram rect.node-free { fill: var(--panel-2); stroke: var(--line); }
+.diagram .node-title { font: 600 10px var(--font-mono); white-space: pre; }
+.diagram .node-title.node-heap { fill: var(--copy); }
+.diagram .node-title.node-slice { fill: var(--slice); }
+.diagram .node-title.node-free { fill: var(--ink); }
+.diagram .node-sub { font: 500 9.5px var(--font-display); fill: var(--muted); }
+.diagram .buf-line { fill: none; stroke-width: 1.3; stroke-dasharray: 3 2.5; }
+.diagram .line-heap { stroke: var(--copy); }
+.diagram .line-slice { stroke: var(--slice); }
+.diagram .block { fill: var(--copy); }
+.diagram .block-text { font: 700 9.5px var(--font-mono); fill: var(--panel); }
+.diagram .tally { fill: var(--copy); }
+.diagram .tally.pass { fill: var(--copy); stroke: var(--ink); stroke-width: 1; }
+.diagram .tally-axis { stroke: var(--line); stroke-width: 1.5; }
+.diagram .tally-label { font: 600 11.5px var(--font-mono); fill: var(--ink); }
+.diagram .table-file { font: 500 12px var(--font-mono); fill: var(--muted); }
+.diagram .table-bytes { font: 600 12px var(--font-mono); fill: var(--slice); }
+.diagram .table-arrow { font: 500 12px var(--font-display); fill: var(--muted); }
+.diagram .table-boxed { font: 600 12px var(--font-mono); fill: var(--ink); }
+.diagram .table-boxed.diff { fill: var(--copy); }
+.diagram .table-type { font: 500 10.5px var(--font-mono); fill: var(--muted); }
+.diagram .diff { fill: var(--copy-bg); }

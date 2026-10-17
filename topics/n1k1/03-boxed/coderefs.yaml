@@ -1,0 +1,69 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields: repo, path, anchor (a unique line),
+# extent (lines, or func: up to the next "}" at column 0), title,
+# highlight (lines to mark, by a substring).
+
+expr.tree:
+  repo: n1k1
+  path: glue/expr.go
+  anchor: "func ExprTree(vars *base.Vars, labels base.Labels,"
+  extent: func
+  title: n1k1 ExprTree() — the byte lane if it can be; else cbq's boxed lane
+  highlight: ["paramsOut, ok := ExprTreeOptimize(labels, expr, &buf, scoped)", "v, err := cv.Convert(vals)", "vResult, err := expr.Evaluate(v, context)", "err = vResult.WriteJSON(nil, &buf, \"\", \"\", true)"]
+
+convert:
+  repo: n1k1
+  path: glue/expr.go
+  anchor: "func (s *ConvertVals) Convert(vals base.Vals) (value.Value, error) {"
+  extent: 110
+  title: n1k1 ConvertVals.Convert() — a row's byte values, boxed into one value.Value
+  highlight: ["v = value.NewValue(map[string]interface{}{})", "vv := variantAwareParsed(vals[i])", "err := subObj.SetField(path[len(path)-1], vv)"]
+
+parsed.new:
+  repo: n1k1-query
+  path: value/parsed.go
+  anchor: "func NewParsedValueWithOptions(bytes []byte, isValidated, useState bool) Value {"
+  extent: 30
+  title: cbq NewParsedValueWithOptions() — a scalar parsed now; an object wrapped, to parse later
+  highlight: ["p, err := json.SimpleUnmarshal(bytes)"]
+
+parsed.field:
+  repo: n1k1-query
+  path: value/parsed.go
+  anchor: "func (this *parsedValue) Field(field string) (Value, bool) {"
+  extent: 60
+  title: cbq parsedValue.Field() — find a field in the raw bytes, then box it
+  highlight: ["func (this *parsedValue) Field(field string) (Value, bool) {"]
+
+path.get:
+  repo: n1k1
+  path: base/base.go
+  anchor: "func ValPathGet(val Val, path []string, valOut Val) (Val, Val) {"
+  extent: func
+  title: n1k1 ValPathGet() — a field's bytes, found in place
+  highlight: ["v, vType, _, err := jsonparser.Get(val, path...)", "return v, valOut"]
+
+cmp.static:
+  repo: n1k1
+  path: engine/expr_cmp.go
+  anchor: "func ExprCmpStatic(lzVars *base.Vars, labels base.Labels,"
+  extent: 64
+  title: n1k1 ExprCmpStatic() — the constant parsed once; each row's value parsed as it's compared
+  highlight: ["staticF64, err = base.ParseFloat64(staticVal)", "lzF64, lzErr := base.ParseFloat64(lzValX)", "if staticF64 < lzF64 {"]
+
+design.exprs:
+  repo: n1k1
+  path: docs/design/DESIGN-exprs.md
+  anchor: "# Design: Native Expression Coverage"
+  extent: 22
+  title: n1k1 DESIGN-exprs.md — the byte lane grows; cbq's stays, as the oracle
+  highlight: ["the cbq fallback stays forever as the correctness", "cbq fallback 384 B/8 allocs (190 ns)."]
+
+bench.arith:
+  repo: n1k1
+  path: test/benchmark/bench_expr_arith_test.go
+  anchor: "func evalCBQ(b *testing.B, expr expression.Expression) {"
+  extent: func
+  title: n1k1's benchmark of the boxed lane, a+b — box, Evaluate, unbox
+  highlight: ["item := value.NewValue(map[string]interface{}{\"a\": 12345, \"b\": 678}) // box (Convert)", "r, err := expr.Evaluate(item, ctx)", "_ = r.WriteJSON(nil, &buf, \"\", \"\", true) // unbox to bytes"]

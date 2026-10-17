@@ -1,0 +1,117 @@
+{
+ "expr.tree": {
+  "id": "expr.tree",
+  "repo": "n1k1",
+  "path": "glue/expr.go",
+  "title": "n1k1 ExprTree() — the byte lane if it can be; else cbq's boxed lane",
+  "start": 83,
+  "end": 232,
+  "highlight": [
+   121,
+   156,
+   205,
+   220
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/glue/expr.go#L83-L232",
+  "code": "func ExprTree(vars *base.Vars, labels base.Labels,\n\tparams []interface{}, path string) (exprFunc base.ExprFunc) {\n\t// Copy the boxed expression before stripCovers rewrites it: stripCovers maps the tree\n\t// IN PLACE (MapChildren writes operands[i]), and a cbq expression also caches during\n\t// Evaluate -- neither is concurrency-safe. The K-way merge / co-advance run per-file\n\t// (or per-branch) children on separate producer goroutines that SHARE this op's\n\t// params[0] expression object, so each op-setup must own its tree. The copy is once\n\t// per op-setup (not per row), so it stays off the hot path.\n\texpr := stripCovers(params[0].(expression.Expression).Copy())\n\n\tvar buf bytes.Buffer\n\n\t// resetScope: the star (\".*\") projection passes this marker so its row is NOT\n\t// scoped over corrParent/withScope below -- SELECT * must spread only the row's\n\t// own fields, not the hidden scope vars (WITH aliases, or an outer correlated\n\t// row). Mirrors query's ResetParent(nil) for the star term\n\t// (execution/project_initial.go). See VisitInitialProject.\n\tresetScope := len(params) > 1 && params[1] == exprResetScope\n\n\t// \"scoped\" evaluation wraps each row as a scope over a parent so identifiers\n\t// not in the row resolve to the outer correlated row (corrParent) or the WITH\n\t// aliases (withScope). When scoped we must skip the optimized expr path: it\n\t// evaluates using only this op's labels and can't see the parent. The star\n\t// (resetScope) never needs the parent, so it stays on the fast path.\n\tgc, isGlue := vars.Temps[0].(*GlueContext)\n\tscoped := isGlue && !resetScope && (gc.corrParent != nil || gc.withScope != nil)\n\n\t// Try the native (byte-oriented, allocation-avoiding) expr path. When a scope\n\t// is active (scoped), pass strict=true: ExprTreeOptimize then accepts the\n\t// expression only if every field reference provably resolves to a local\n\t// label. Otherwise an identifier that actually lives in the parent scope\n\t// (corrParent / withScope) would be silently mis-navigated against the local\n\t// row and yield MISSING -- which is why the scoped case historically skipped\n\t// the native path wholesale. A scoped expression that is fully local (e.g. a\n\t// recursive CTE step's arithmetic over its own `FROM <cte>` row, or a\n\t// correlated subquery predicate touching only the subquery's own fields) thus\n\t// still avoids the per-row Convert round-trip; anything referencing the parent\n\t// fails strict and falls through to the parent-aware cbq fallback below.\n\tparamsOut, ok := ExprTreeOptimize(labels, expr, &buf, scoped)\n\tif ok {\n\t\t// TODO: Compiled approach should probably invoke something\n\t\t// like vars.MakeExprFunc().\n\t\treturn engine.MakeExprFunc(vars, labels, paramsOut, path, \"\")\n\t}\n\n\tcontext, ok := vars.Temps[0].(expression.Context)\n\tif !ok {\n\t\tcontext = NewExprGlueContext(vars.Ctx.Now)\n\t}\n\n\tcv, err := NewConvertVals(labels)\n\tif err != nil {\n\t\treturn func(vals base.Vals, yieldErr base.YieldErr) base.Val {\n\t\t\tyieldErr(err)\n\t\t\treturn base.ValMissing\n\t\t}\n\t}\n\n\t// TODO: Need to propagate the vars to the expression, too,\n\t// perhaps related to bindings?\n\n\t// Count each row taking this boxed lane into the request's root counter (see\n\t// GlueContext.BoxedEvals). Resolved once here; nil for a non-request context.\n\tvar boxedCtr *int64\n\tif isGlue {\n\t\tboxedCtr = &gc.getRoot().boxedEvals\n\t}\n\n\treturn func(vals base.Vals, yieldErr base.YieldErr) base.Val {\n\t\tif boxedCtr != nil {\n\t\t\tatomic.AddInt64(boxedCtr, 1)\n\t\t}\n\n\t\tv, err := cv.Convert(vals)\n\t\tif err != nil {\n\t\t\tyieldErr(err)\n\t\t\treturn base.ValMissing\n\t\t}\n\n\t\t// Scope this row over its parent so identifiers not in the row resolve to\n\t\t// the outer correlated row (corrParent) or the WITH aliases (withScope);\n\t\t// corrParent wins when both are set (a subquery's rows scope over the outer\n\t\t// row). The star projection is exempt (resetScope -> scoped is false), so\n\t\t// SELECT * spreads only the row's own fields, not these hidden scope vars.\n\t\tif scoped {\n\t\t\tparent := gc.corrParent\n\t\t\tif parent == nil {\n\t\t\t\tparent = gc.withScope\n\t\t\t}\n\t\t\t// A no-FROM sub-SELECT (e.g. the innermost `SELECT RAW a` in\n\t\t\t// `SELECT RAW (SELECT RAW a)`) yields a single empty row that Convert\n\t\t\t// maps to a nil value. Scope an EMPTY object over the parent so the\n\t\t\t// outer identifier still resolves through it -- and, crucially, so a\n\t\t\t// nested subquery chains its parent through this scope (the outer\n\t\t\t// subquery's empty row becomes the inner subquery's corrParent, whose\n\t\t\t// own empty row scopes over it, reaching the outermost row). Without\n\t\t\t// this the identifier is unresolvable and the row collapses.\n\t\t\tif v == nil {\n\t\t\t\tv = value.NewScopeValue(map[string]interface{}{}, parent)\n\t\t\t} else if av, ok := v.(value.AnnotatedValue); ok {\n\t\t\t\t// Prefer SetParent: when v already wraps a ScopeValue it re-parents\n\t\t\t\t// in place, preserving v's annotations -- notably a subquery\n\t\t\t\t// aggregate's \"^aggregates\" attachment, which SUM(...)/COUNT(...)\n\t\t\t\t// read back. But annotatedValue.SetParent returns nil when the\n\t\t\t\t// underlying value is NOT a ScopeValue (the common case -- Convert\n\t\t\t\t// backs an aggregate row with a plain object). Don't let that nil out\n\t\t\t\t// the row (it would make the aggregate re-evaluate against a nil item\n\t\t\t\t// -- the correlated-aggregate 'nil item'); instead rebuild an\n\t\t\t\t// annotated ScopeValue over the parent and copy the annotations\n\t\t\t\t// forward so the aggregate / META() attachment still resolves.\n\t\t\t\tif sv := av.SetParent(parent); sv != nil {\n\t\t\t\t\tv = sv\n\t\t\t\t} else if m, ok := av.Actual().(map[string]interface{}); ok {\n\t\t\t\t\tnav := value.NewAnnotatedValue(value.NewScopeValue(m, parent))\n\t\t\t\t\tnav.CopyAnnotations(av)\n\t\t\t\t\tv = nav\n\t\t\t\t}\n\t\t\t} else if m, ok := v.Actual().(map[string]interface{}); ok {\n\t\t\t\tv = value.NewScopeValue(m, parent)\n\t\t\t}\n\t\t}\n\n\t\tvResult, err := expr.Evaluate(v, context)\n\t\tif err != nil {\n\t\t\tyieldErr(err)\n\t\t\treturn base.ValMissing\n\t\t}\n\n\t\t// A projected expression that evaluates to MISSING is omitted from the\n\t\t// result object (N1QL semantics). Signal that by yielding an empty val,\n\t\t// which ConvertVals.Convert turns into UnsetField. (NULL is kept.)\n\t\tif vResult == nil || vResult.Type() == value.MISSING {\n\t\t\treturn base.ValMissing\n\t\t}\n\n\t\tbuf.Reset()\n\n\t\terr = vResult.WriteJSON(nil, &buf, \"\", \"\", true)\n\t\tif err != nil {\n\t\t\tyieldErr(err)\n\t\t\treturn base.ValMissing\n\t\t}\n\n\t\t// TODO: Need to convert back any annotations or attachments\n\t\t// that are associated with the vResult?  The params[1], for\n\t\t// example, might hold the wanted output labels, if any.\n\n\t\treturn base.Val(buf.Bytes())\n\t}\n}"
+ },
+ "convert": {
+  "id": "convert",
+  "repo": "n1k1",
+  "path": "glue/expr.go",
+  "title": "n1k1 ConvertVals.Convert() — a row's byte values, boxed into one value.Value",
+  "start": 292,
+  "end": 401,
+  "highlight": [
+   320,
+   376,
+   378
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/glue/expr.go#L292-L401",
+  "code": "func (s *ConvertVals) Convert(vals base.Vals) (value.Value, error) {\n\tif len(s.Labels) != len(vals) {\n\t\treturn nil, fmt.Errorf(\"Convert, Labels.len(%+v) != vals.len(%+v)\",\n\t\t\ts.Labels, vals)\n\t}\n\n\tvar v value.Value // The result of the merged vals.\n\n\t// The labels emit each keyspace doc as a `.`-path label immediately\n\t// followed by its `^id` attachment (see conv.go). lastParent/lastKey track\n\t// the most-recently-set doc field so a following `^id` can attach the\n\t// metadata to that sub-value (so META(alias).id resolves), rather than to\n\t// the outer row. Reset whenever the preceding label wasn't a doc-set.\n\tvar lastParent value.Value\n\tvar lastKey string\n\nOUTER:\n\tfor i, label := range s.Labels {\n\t\tswitch label[0] {\n\t\tcase '.': // Label is a path into v of where to set vals[i].\n\t\t\tlastParent, lastKey = nil, \"\"\n\n\t\t\tif label == \".*\" {\n\t\t\t\t// Star spread: merge vals[i]'s fields into v when it is an\n\t\t\t\t// object; a non-object contributes nothing (so SELECT path.*\n\t\t\t\t// over a scalar yields {}). v is forced to an object so the\n\t\t\t\t// result is {} rather than null when nothing merges.\n\t\t\t\tif v == nil {\n\t\t\t\t\tv = value.NewValue(map[string]interface{}{})\n\t\t\t\t}\n\n\t\t\t\tif len(vals[i]) > 0 {\n\t\t\t\t\tsv := variantAwareParsed(vals[i])\n\t\t\t\t\tif sv.Type() == value.OBJECT {\n\t\t\t\t\t\tfor fk, fv := range sv.Fields() {\n\t\t\t\t\t\t\tif err := v.SetField(fk, fv); err != nil {\n\t\t\t\t\t\t\t\treturn nil, err\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\n\t\t\t\tcontinue OUTER\n\t\t\t}\n\n\t\t\tif label == \".\" {\n\t\t\t\tif v != nil {\n\t\t\t\t\treturn nil, fmt.Errorf(\"Convert, v non-nil on '.'\")\n\t\t\t\t}\n\n\t\t\t\t// TODO: Is vals[i] always JSON encoded so the skip\n\t\t\t\t// validation is safe here?\n\t\t\t\tv = variantAwareParsed(vals[i])\n\n\t\t\t\tcontinue OUTER\n\t\t\t}\n\n\t\t\tif v == nil {\n\t\t\t\tv = value.NewValue(map[string]interface{}{})\n\t\t\t}\n\n\t\t\tsubObj := v // Navigate down to the right subObj.\n\n\t\t\tpath := s.LabelPaths[i]\n\n\t\t\tfor j := 0; j < len(path)-1; j++ {\n\t\t\t\tsubObjNext, ok := subObj.Field(path[j])\n\t\t\t\tif ok {\n\t\t\t\t\tsubObj = subObjNext\n\t\t\t\t} else {\n\t\t\t\t\tm := map[string]interface{}{}\n\n\t\t\t\t\terr := subObj.SetField(path[j], m)\n\t\t\t\t\tif err != nil {\n\t\t\t\t\t\treturn nil, fmt.Errorf(\"subObj: %+v, key: %s, err: %v\", subObj, path[j], err)\n\t\t\t\t\t}\n\n\t\t\t\t\tsubObj = value.NewValue(m)\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tif len(vals[i]) > 0 {\n\t\t\t\t// TODO: Is vals[i] always JSON encoded so the skip\n\t\t\t\t// validation is safe here?\n\t\t\t\tvv := variantAwareParsed(vals[i])\n\n\t\t\t\terr := subObj.SetField(path[len(path)-1], vv)\n\t\t\t\tif err != nil {\n\t\t\t\t\treturn nil, err\n\t\t\t\t}\n\n\t\t\t\t// Remember this doc-set so a following `^id` attaches the\n\t\t\t\t// document metadata to it (enables META(alias).id).\n\t\t\t\tlastParent, lastKey = subObj, path[len(path)-1]\n\t\t\t} else {\n\t\t\t\tsubObj.UnsetField(path[len(path)-1])\n\t\t\t}\n\n\t\tcase '^': // The label is an attachment name for vals[i].\n\t\t\t// Only THREE attachment kinds are boxed onto the value for downstream boxed\n\t\t\t// consumers: \"^id\" (META().id), \"^smeta\" (SEARCH_META/SEARCH_SCORE), and\n\t\t\t// \"^aggregates|<fn>\" (cbq Aggregate.Evaluate reads ATT_AGGREGATES). Every OTHER\n\t\t\t// \"^name\" label is an INTERNAL byte-lane column consumed POSITIONALLY by its op\n\t\t\t// -- \"^worderby\" (window ORDER BY, op_window ValIdx), \"^ekey\"/\"^rkey\"/\"^epart\"/\n\t\t\t// \"^rpart\" (ASOF merge-join keys), \"^cseN\" (CSE slots), \"^resetScope\" -- and is\n\t\t\t// NEVER a boxed attachment. Skip those. Boxing one routed through attKey's\n\t\t\t// catch-all onto ATT_AGGREGATES, so a plain \"^name\" binary value clobbered the\n\t\t\t// real \"^aggregates|...\" map (interface conversion: binaryValue vs map) whenever\n\t\t\t// both were present -- e.g. `SELECT *` (whole-row) beside a no-operand window\n\t\t\t// function (ROW_NUMBER/RANK/COUNT(*) OVER, which emit \"^worderby\"). Operand"
+ },
+ "parsed.new": {
+  "id": "parsed.new",
+  "repo": "n1k1-query",
+  "path": "value/parsed.go",
+  "title": "cbq NewParsedValueWithOptions() — a scalar parsed now; an object wrapped, to parse later",
+  "start": 66,
+  "end": 95,
+  "highlight": [
+   74
+  ],
+  "url": "https://github.com/couchbase/n1k1-query/blob/edd1747b2dcecf6c24172d5a72e8df57c7c83adf/value/parsed.go#L66-L95",
+  "code": "func NewParsedValueWithOptions(bytes []byte, isValidated, useState bool) Value {\n\tparsedType := identifyType(bytes)\n\n\t// Atomic types\n\tswitch parsedType {\n\tcase NUMBER, STRING, BOOLEAN, NULL:\n\n\t\t// for scalar values we can skip validation, as the simple unmarshaler will validate while scanning\n\t\tp, err := json.SimpleUnmarshal(bytes)\n\t\tif err != nil {\n\t\t\treturn binaryValue(bytes)\n\t\t}\n\n\t\treturn NewValue(p)\n\tcase BINARY:\n\t\treturn binaryValue(bytes)\n\t}\n\n\t// Container types\n\n\t// skip validation if already done elsewhere\n\tif !isValidated && json.Validate(bytes) != nil {\n\t\treturn binaryValue(bytes)\n\t}\n\n\trv := newParsedValue()\n\trv.raw = bytes\n\trv.len = uint64(len(bytes))\n\trv.parsedType = parsedType\n\trv.useState = useState"
+ },
+ "parsed.field": {
+  "id": "parsed.field",
+  "repo": "n1k1-query",
+  "path": "value/parsed.go",
+  "title": "cbq parsedValue.Field() — find a field in the raw bytes, then box it",
+  "start": 306,
+  "end": 365,
+  "highlight": [
+   306
+  ],
+  "url": "https://github.com/couchbase/n1k1-query/blob/edd1747b2dcecf6c24172d5a72e8df57c7c83adf/value/parsed.go#L306-L365",
+  "code": "func (this *parsedValue) Field(field string) (Value, bool) {\n\tthis.RLock()\n\tparsed := this.parsed\n\traw := this.raw\n\tthis.RUnlock()\n\tif parsed != nil {\n\t\treturn parsed.Field(field)\n\t}\n\n\tif this.parsedType != OBJECT {\n\t\treturn missingField(field), false\n\t}\n\n\tif this.fields != nil {\n\t\tthis.RLock()\n\t\tresult, ok := this.fields[field]\n\t\tthis.RUnlock()\n\t\tif ok {\n\t\t\tresult.Track()\n\t\t\treturn NewValue(result), true\n\t\t}\n\t}\n\n\tif raw != nil {\n\t\tvar res []byte\n\t\tvar err error\n\n\t\tgoahead := int32(0)\n\t\tif this.useState {\n\t\t\tgoahead = atomic.AddInt32(&this.used, 1)\n\t\t\tdefer func() {\n\t\t\t\tif atomic.AddInt32(&this.used, -1) == 0 && this.cleanupState {\n\t\t\t\t\tthis.keyState.Release()\n\t\t\t\t\tthis.indexState.Release()\n\t\t\t\t}\n\t\t\t}()\n\t\t}\n\n\t\t// Two operators can use the same value at the same time this is particularly the case for unnest, which scans\n\t\t// an object looking for array elements.  Since the state is, well, statefull, we'll only let the first served modify it,\n\t\t// while the other will have to go the slow route.\n\t\t// For small documents manipulating the state is costly, so we do a scan anyway\n\t\tuseState := this.useState && goahead == 1\n\t\tif useState {\n\t\t\tjson.SetKeyState(&this.keyState, this.raw)\n\t\t\tres, err = this.keyState.FindKey(field)\n\t\t} else {\n\t\t\tres, err = json.FindKey(raw, field)\n\t\t}\n\t\tif err != nil {\n\t\t\treturn missingField(field), false\n\t\t}\n\t\tif res != nil {\n\n\t\t\t// since this field was part of a validated value,\n\t\t\t// we don't need to validate it again\n\t\t\tval := NewParsedValueWithOptions(res, true, this.useState)\n\n\t\t\tif useState {\n\t\t\t\tthis.Lock()"
+ },
+ "path.get": {
+  "id": "path.get",
+  "repo": "n1k1",
+  "path": "base/base.go",
+  "title": "n1k1 ValPathGet() — a field's bytes, found in place",
+  "start": 132,
+  "end": 153,
+  "highlight": [
+   142,
+   152
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/base/base.go#L132-L153",
+  "code": "func ValPathGet(val Val, path []string, valOut Val) (Val, Val) {\n\tif len(val) > 0 && val[0] == SigilVariant {\n\t\t// A VARIANT-carrier value can't be walked by jsonparser; delegate to the\n\t\t// registered variant navigator (see base/variant.go). Absent a hook, a VARIANT\n\t\t// reads as MISSING rather than mis-parsing its bytes as JSON.\n\t\tif VariantPathGet != nil {\n\t\t\treturn VariantPathGet(val, path, valOut)\n\t\t}\n\t\treturn ValMissing, valOut\n\t}\n\tv, vType, _, err := jsonparser.Get(val, path...)\n\tif err != nil {\n\t\treturn ValMissing, valOut\n\t}\n\n\tif vType == jsonparser.String {\n\t\tvalOut = append(append(append(valOut[:0], '\"'), v...), '\"')\n\t\treturn valOut, valOut\n\t}\n\n\treturn v, valOut\n}"
+ },
+ "cmp.static": {
+  "id": "cmp.static",
+  "repo": "n1k1",
+  "path": "engine/expr_cmp.go",
+  "title": "n1k1 ExprCmpStatic() — the constant parsed once; each row's value parsed as it's compared",
+  "start": 78,
+  "end": 141,
+  "highlight": [
+   93,
+   130,
+   139
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/engine/expr_cmp.go#L78-L141",
+  "code": "func ExprCmpStatic(lzVars *base.Vars, labels base.Labels,\n\tparams []interface{}, path string, cmps []base.Val,\n\tcmpEQ base.Val, cmpEQOnly bool, parami int) (lzExprFunc base.ExprFunc) {\n\tjson := params[parami].([]interface{})[1].(string)\n\n\tstaticVal, staticType := base.Parse([]byte(json))\n\n\tstaticTypeHasValue := base.ParseTypeHasValue(staticType)\n\n\tvar staticF64 float64 // Optimize further when static is number.\n\tvar staticF64Ok bool\n\n\tif base.ParseTypeToValType[staticType] == base.ValTypeNumber {\n\t\tvar err error\n\n\t\tstaticF64, err = base.ParseFloat64(staticVal)\n\t\tif err == nil {\n\t\t\tstaticF64Ok = true\n\t\t}\n\t}\n\n\texprX := params[(parami+1)%2].([]interface{})\n\n\tcmpLT, cmpGT := cmps[0], cmps[1] // Ex: static < expr.\n\tif parami == 1 {\n\t\tcmpLT, cmpGT = cmps[1], cmps[0] // Ex: expr < static.\n\t}\n\n\tif LzScope {\n\t\tvar lzCmpLT base.Val = cmpLT // <== varLift: lzCmpLT by path\n\t\tvar lzCmpEQ base.Val = cmpEQ // <== varLift: lzCmpEQ by path\n\t\tvar lzCmpGT base.Val = cmpGT // <== varLift: lzCmpGT by path\n\n\t\tlzX := MakeExprFunc(lzVars, labels, exprX, path, \"X\") // !lzRHS, via: lzExprFunc\n\n\t\tvar lzValStatic base.Val = base.Val(staticVal) // <== varLift: lzValStatic by path\n\n\t\tlzExprFunc = func(lzVals base.Vals, lzYieldErr base.YieldErr) (lzVal base.Val) {\n\t\t\t_, _, _ = lzCmpLT, lzCmpEQ, lzCmpGT\n\n\t\t\tif LzScope {\n\t\t\t\tif !staticTypeHasValue { // !lz\n\t\t\t\t\tlzVal = lzValStatic\n\t\t\t\t} else { // !lz\n\t\t\t\t\tlzVal = lzX(lzVals, lzYieldErr) // <== emitCaptured: path \"X\"\n\n\t\t\t\t\tlzValX, lzTypeX := base.Parse(lzVal)\n\t\t\t\t\tif base.ParseTypeHasValue(lzTypeX) {\n\t\t\t\t\t\tlzCmpNeeded := true\n\n\t\t\t\t\t\tif staticF64Ok { // !lz\n\t\t\t\t\t\t\tif base.ParseTypeToValType[lzTypeX] == base.ValTypeNumber {\n\t\t\t\t\t\t\t\tlzF64, lzErr := base.ParseFloat64(lzValX)\n\t\t\t\t\t\t\t\tif lzErr == nil {\n\t\t\t\t\t\t\t\t\tlzCmpNeeded = false\n\n\t\t\t\t\t\t\t\t\tif staticF64 == lzF64 {\n\t\t\t\t\t\t\t\t\t\tlzVal = lzCmpEQ\n\t\t\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t\t\tlzVal = lzCmpGT\n\t\t\t\t\t\t\t\t\t\tif !cmpEQOnly { // !lz\n\t\t\t\t\t\t\t\t\t\t\tif staticF64 < lzF64 {\n\t\t\t\t\t\t\t\t\t\t\t\tlzVal = lzCmpLT\n\t\t\t\t\t\t\t\t\t\t\t}"
+ },
+ "design.exprs": {
+  "id": "design.exprs",
+  "repo": "n1k1",
+  "path": "docs/design/DESIGN-exprs.md",
+  "title": "n1k1 DESIGN-exprs.md — the byte lane grows; cbq's stays, as the oracle",
+  "start": 1,
+  "end": 22,
+  "highlight": [
+   6,
+   21
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/docs/design/DESIGN-exprs.md#L1-L22",
+  "code": "# Design: Native Expression Coverage\n\nn1k1 evaluates a growing set of SQL++/N1QL expressions **natively** (byte-oriented,\nallocation-avoiding, compiler-friendly) and **delegates the rest to cbq-query\n(`n1k1-query`)**, whose `Evaluate()` boxes into `value.Value` and garbages per row. The\nnative library grows incrementally; **the cbq fallback stays forever as the correctness\noracle** (every native op is validated by a differential test against it,\n`glue/expr_test.go`).\n\n## Status & remaining TODOs\n\n_Last reviewed: 2026-07-23._\n\n**Done:** a large native byte-lane (zero steady-state garbage) covering arithmetic,\ncomparisons, three-valued logical AND/OR, predicates/type-checks, CASE and\nconditional-unknown selectors, string/numeric/math funcs, constant-pattern REGEXP,\narray/object readers + builders + literals, comprehensions (ANY/EVERY/FIRST/ARRAY/OBJECT,\nsingle-binding), the `self` / `SELECT *` projection, native grouped-aggregate reads, and\nboxing-free result output. Window functions are a broadly-complete op subsystem (see\nbelow). Measured (`bench_expr_arith_test.go`): native `a+b` is 0 B/0 allocs (31 ns) vs\ncbq fallback 384 B/8 allocs (190 ns).\n"
+ },
+ "bench.arith": {
+  "id": "bench.arith",
+  "repo": "n1k1",
+  "path": "test/benchmark/bench_expr_arith_test.go",
+  "title": "n1k1's benchmark of the boxed lane, a+b — box, Evaluate, unbox",
+  "start": 80,
+  "end": 97,
+  "highlight": [
+   87,
+   88,
+   93
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/test/benchmark/bench_expr_arith_test.go#L80-L97",
+  "code": "func evalCBQ(b *testing.B, expr expression.Expression) {\n\tctx := glue.NewExprGlueContext(time.Now())\n\tvar buf bytes.Buffer\n\n\tb.ReportAllocs()\n\tb.ResetTimer()\n\tfor i := 0; i < b.N; i++ {\n\t\titem := value.NewValue(map[string]interface{}{\"a\": 12345, \"b\": 678}) // box (Convert)\n\t\tr, err := expr.Evaluate(item, ctx)                                   // evaluate (boxes result)\n\t\tif err != nil {\n\t\t\tb.Fatal(err)\n\t\t}\n\t\tbuf.Reset()\n\t\t_ = r.WriteJSON(nil, &buf, \"\", \"\", true) // unbox to bytes\n\t}\n\tb.StopTimer()\n\tsink = buf.Bytes()\n}"
+ }
+}

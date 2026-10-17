@@ -15,6 +15,11 @@ runs the plan in its own engine, which keeps values as raw JSON bytes.
   early-bound (`// !lz`) and late-bound (`lz…`); intermed_build turning
   the late-bound ones into Emit calls; and the Go the compiler prints
   for 01-query's filter and project, fused. (Draft.)
+- `03-boxed/`: 01-query's filter on one row, run two ways: cbq's boxed
+  lane (Convert, Evaluate, WriteJSON) beside n1k1's byte lane, stage by
+  stage, each allocation landing on the Go heap as a block as wide as
+  its bytes; then the 20 rows' tallies; then what boxing does to the
+  totals (210.00 comes back as 210). (Draft.)
 - `lib/`: the example data, plan, stats and rows, from the real n1k1
   binary (`lib/tools/query-golden`, `npm run golden -- n1k1`, which
   builds n1k1 from the checkout in `sources.yaml` with `-tags n1ql`),
@@ -24,6 +29,11 @@ runs the plan in its own engine, which keeps values as raw JSON bytes.
   the interpreter's source, intermed_build's version of it (run afresh),
   the Go the compiler emits, and the rows from both engines, in
   `compile.json`; `compile.js` pairs and tags its lines for the page.
+  And for 03-boxed, both expression lanes measured for real
+  (`lib/tools/boxed-golden`): each row's answers, allocations (Go's
+  `testing.AllocsPerRun`) and, for the boxed lane, each allocation by
+  where it happened (Go's heap profiler, at a rate of 1), in
+  `boxed.json`; `boxed.js` reads it for the page.
 
 ## Color and icon rules
 
@@ -48,7 +58,9 @@ the seam's hole). A plan box has its operator's stripe down its left
 side, and fills with a tint of its color while the compiler's at it; an
 emitted line's stripe is the operator that printed it, and each block
 of lines starts with its glyph. In the summary, blue marks what's baked in, amber the
-calls left per row. The red ball is the pen: the line intermed_build
+calls left per row.
+
+The red ball is the pen: the line intermed_build
 is turning, or the compiler is printing. Changes play one line at a
 time: a line's replacement appears way over on the right, beside it
 (or, if the two don't fit, on the blank line above), and the two wait
@@ -56,6 +68,11 @@ there side by side, to compare; then the old line slides out left as it
 fades, and the new one moves into its place; when code goes into a hole, the hole goes first, then
 the code below moves down to make room, then the new lines are printed,
 one by one.
+
+In 03-boxed, amber is the Go heap: a boxed value, and the block it
+leaves there (as wide as its bytes); teal is the record buffer's bytes,
+and a slice of them; grey is a value with no heap cost (on the stack, a
+constant made at setup, or a reused buffer).
 
 ## Motion rules
 
