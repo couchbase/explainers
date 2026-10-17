@@ -41,7 +41,7 @@ export const TALLY = { y: 580, h: 100, w: 12, gap: 3 };
 // the panels in the lanes' and heaps' place: GROUP BY, ORDER BY and
 // JOIN, and the stats
 export const PANEL = { x: 30, y: 108, w: 940, h: 598 };
-export const GROUP = { cols: { cbq: 30, n1k1: 515 }, w: 455, rowY: 236, dy: 50, heapY: 486, heapH: 220 };
+export const GROUP = { cols: { cbq: 30, n1k1: 515 }, w: 455, rowY: 252, dy: 50, heapY: 486, heapH: 220 };
 
 // the totals table, in the lanes' place
 export const TABLE = { x: 30, y: 108, w: 940, h: 362, dy: 30 };
