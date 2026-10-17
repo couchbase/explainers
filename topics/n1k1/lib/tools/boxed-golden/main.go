@@ -101,6 +101,7 @@ import (
 	"github.com/couchbase/query/expression"
 	"github.com/couchbase/query/parser/n1ql"
 	"github.com/couchbase/query/value"
+	cbqutil "github.com/couchbase/query/util"
 )
 
 // Where a boxed-lane allocation happened: its stage, and what it is,
@@ -262,10 +263,14 @@ func main() {
 		_ = value.MISSING
 		rows = append(rows, r)
 	}
-	json.NewEncoder(os.Stdout).Encode(map[string]interface{}{"expr": "200 < orders.total", "rows": rows, "group": groupBy(files)})
+	json.NewEncoder(os.Stdout).Encode(map[string]interface{}{"expr": "200 < orders.total", "rows": rows, "group": groupBy(files), "order": orderBy(files), "join": joinHash(files)})
 }
 
 func round(x float64) float64 { return math.Round(x) }
+
+// (amortized costs, which can wobble by a byte from run to run: to the
+// nearest 10)
+func round10(x float64) float64 { return math.Round(x/10) * 10 }
 
 // ---- GROUP BY: SELECT customer, SUM(total), COUNT(*) ... GROUP BY customer
 
@@ -401,7 +406,7 @@ func groupBy(files []string) map[string]interface{} {
 	}
 	var breakdown []map[string]interface{}
 	for _, k := range []string{"key", "sum", "count", "group"} {
-		breakdown = append(breakdown, map[string]interface{}{"stage": k, "count": math.Round(stages[k][0]*10) / 10, "bytes": math.Round(stages[k][1])})
+		breakdown = append(breakdown, map[string]interface{}{"stage": k, "count": math.Round(stages[k][0]*10) / 10, "bytes": round10(stages[k][1])})
 	}
 	// n1k1: its group op, over the rows as inline data; allocations per
 	// row, from 20 rows vs 1,000
@@ -456,11 +461,297 @@ func groupBy(files []string) map[string]interface{} {
 		steps = append(steps, gstep{string(c), string(t), string(sv), string(cnt), fmt.Sprintf("% x", s1), fmt.Sprintf("% x", c1)})
 	}
 	return map[string]interface{}{
-		"cbqPerRow": math.Round(perRow*10) / 10, "cbqPerRowBytes": math.Round(perRowBytes), "cbqBoxPerRow": math.Round(stages["box"][0]*10) / 10,
+		"cbqPerRow": math.Round(perRow*10) / 10, "cbqPerRowBytes": round10(perRowBytes), "cbqBoxPerRow": math.Round(stages["box"][0]*10) / 10,
 		"cbqStages": breakdown, "cbqGroups": cbqOut,
 		"n1k1Setup": a1, "n1k1PerRow": math.Max(0, math.Round((a50-a1)/float64(49*len(rows))*100)/100), "n1k1Groups": out,
 		"steps": steps,
 	}
+}
+
+// ---- ORDER BY total DESC, and the hash JOIN of orders and customers
+
+// docs: the order (or customer) files' docs, and their ids
+func docs(files []string) (rows []base.Vals, data string) {
+	var b strings.Builder
+	b.WriteString("\n")
+	for _, f := range files {
+		x, _ := os.ReadFile(f)
+		x = bytes.TrimSpace(x)
+		rows = append(rows, base.Vals{x, []byte(fmt.Sprintf("%q", strings.TrimSuffix(filepath.Base(f), ".json")))})
+		b.Write(x)
+		b.WriteString("\n")
+	}
+	return rows, b.String()
+}
+
+// n1k1's allocations for an op over its data, once (setup and all), and
+// per row: from the data once, and 50 times over
+func n1k1Cost(mk func(times int) *base.Op, rows int) (float64, float64) {
+	exec := func(o *base.Op) {
+		vars := &base.Vars{Temps: make([]interface{}, 16), Ctx: rt.NewSpillCtx(os.TempDir() + "/n1k1-boxed-golden-op")}
+		engine.ExecOp(o, vars, func(base.Vals) {}, func(err error) {
+			if err != nil {
+				panic(err)
+			}
+		}, "", "")
+	}
+	o1, o50 := mk(1), mk(50)
+	a1 := testing.AllocsPerRun(20, func() { exec(o1) })
+	a50 := testing.AllocsPerRun(20, func() { exec(o50) })
+	return a1, math.Max(0, math.Round((a50-a1)/float64(49*rows)*100)/100)
+}
+
+// profiled: the allocations of f, by which of the named stage funcs
+// they happened in, per unit (n units per run, M runs)
+func profiled(stages []string, M, n int, f func()) []map[string]interface{} {
+	runtime.MemProfileRate = 1
+	before := stageProfile(stages)
+	for k := 0; k < M; k++ {
+		f()
+	}
+	runtime.GC()
+	after := stageProfile(stages)
+	runtime.MemProfileRate = 512 * 1024
+	var out []map[string]interface{}
+	for _, st := range stages {
+		a, b := after[st], before[st]
+		out = append(out, map[string]interface{}{"stage": strings.TrimPrefix(st, "main.cbq"),
+			"count": math.Round(float64(a[0]-b[0])/float64(M*n)*10) / 10, "bytes": round10(float64(a[1]-b[1]) / float64(M*n))})
+	}
+	return out
+}
+
+func stageProfile(stages []string) map[string][2]int64 {
+	runtime.GC()
+	n, _ := runtime.MemProfile(nil, true)
+	recs := make([]runtime.MemProfileRecord, n+100)
+	n, _ = runtime.MemProfile(recs, true)
+	out := map[string][2]int64{}
+	for _, r := range recs[:n] {
+		fr := runtime.CallersFrames(r.Stack())
+		var fs []string
+		for {
+			f, more := fr.Next()
+			fs = append(fs, f.Function)
+			if !more {
+				break
+			}
+		}
+		all := strings.Join(fs, " ")
+		for _, st := range stages {
+			if strings.Contains(all, st+" ") || strings.HasSuffix(all, st) {
+				x := out[st]
+				x[0] += r.AllocObjects
+				x[1] += r.AllocBytes
+				out[st] = x
+				break
+			}
+		}
+	}
+	return out
+}
+
+var octx = glue.NewGlueContext(time.Unix(0, 0))
+var oterm = expression.NewField(expression.NewIdentifier("orders"), expression.NewFieldName("total", false))
+
+// cbq's sort key for a row: evaluated, copied, kept on the row (as its
+// getOriginalCachedValue does)
+//
+//go:noinline
+func cbqSortKey(item value.AnnotatedValue) {
+	rv, _ := oterm.Evaluate(item.Original(), octx)
+	item.SetAttachment(0, rv.CopyForUpdate())
+}
+
+// cbq's compare: the two rows' kept keys, collated (as its lessThan does)
+//
+//go:noinline
+func cbqSortCompare(a, b value.AnnotatedValue) bool {
+	ka, _ := a.GetAttachment(0).(value.Value)
+	kb, _ := b.GetAttachment(0).(value.Value)
+	return ka.Collate(kb) > 0 // DESC
+}
+
+func orderBy(files []string) map[string]interface{} {
+	rows, data := docs(files)
+	cv, _ = glue.NewConvertVals(labels)
+	items := make([]value.AnnotatedValue, len(rows))
+	run := func() {
+		for i, r := range rows {
+			items[i] = boxRow(r)
+		}
+		for _, it := range items {
+			cbqSortKey(it)
+		}
+		sort.SliceStable(items, func(i, j int) bool { return cbqSortCompare(items[i], items[j]) })
+	}
+	stages := profiled([]string{"main.cbqSortKey", "main.cbqSortCompare"}, 200, len(rows), run)
+	var sorted []string
+	run()
+	for _, it := range items {
+		k, _ := it.GetAttachment(0).(value.Value)
+		sorted = append(sorted, fmt.Sprint(k))
+	}
+	mk := func(times int) *base.Op {
+		return &base.Op{Kind: "order-offset-limit", Labels: base.Labels{` + "`" + `.["orders"]` + "`" + `},
+			Params: []interface{}{
+				[]interface{}{[]interface{}{"labelPath", ` + "`" + `.["orders"]` + "`" + `, "total"}},
+				[]interface{}{"desc"},
+			},
+			Children: []*base.Op{{Kind: "scan", Labels: base.Labels{` + "`" + `.["orders"]` + "`" + `}, Params: []interface{}{"jsonsData", strings.Repeat(data, times)}}}}
+	}
+	setup, perRow := n1k1Cost(mk, len(rows))
+	// (n1k1's per-row allocation, and where: the push onto its heap)
+	o50 := mk(50)
+	runtime.MemProfileRate = 1
+	before := pushProfile()
+	for k := 0; k < 5; k++ {
+		vars := &base.Vars{Temps: make([]interface{}, 16), Ctx: rt.NewSpillCtx(os.TempDir() + "/n1k1-boxed-golden-order")}
+		engine.ExecOp(o50, vars, func(base.Vals) {}, func(error) {}, "", "")
+	}
+	runtime.GC()
+	after := pushProfile()
+	runtime.MemProfileRate = 512 * 1024
+	pushN, pushB := float64(after[0]-before[0])/float64(5*50*len(rows)), float64(after[1]-before[1])/float64(5*50*len(rows))
+	return map[string]interface{}{"cbqStages": stages, "cbqSorted": sorted, "n1k1Setup": setup, "n1k1PerRow": perRow,
+		"n1k1PushAllocs": math.Round(pushN*100) / 100, "n1k1PushBytes": math.Round(pushB)}
+}
+
+// the allocations made right in the order op's per-row func (its push
+// onto the heap): the first frame on their stacks
+func pushProfile() [2]int64 {
+	runtime.GC()
+	n, _ := runtime.MemProfile(nil, true)
+	recs := make([]runtime.MemProfileRecord, n+100)
+	n, _ = runtime.MemProfile(recs, true)
+	var out [2]int64
+	for _, r := range recs[:n] {
+		f, _ := runtime.CallersFrames(r.Stack()).Next()
+		if f.Function == "github.com/couchbase/n1k1/engine.OpOrderOffsetLimit.func1" {
+			out[0] += r.AllocObjects
+			out[1] += r.AllocBytes
+		}
+	}
+	return out
+}
+
+var jctx = glue.NewGlueContext(time.Unix(0, 0))
+var jbuild = expression.NewField(expression.NewIdentifier("o"), expression.NewFieldName("customer", false))
+var jprobe = expression.NewField(expression.NewIdentifier("c"), expression.NewFieldName("id", false))
+var jon = expression.NewEq(jbuild, jprobe)
+var jtab *cbqutil.HashTable
+
+// cbq's hash join, its steps: a build row's key evaluated, and put in
+// its hash table (marshaled to JSON, to hash it); a probe row's key
+// evaluated, and looked up; and each match joined (as processAnsiExec
+// does: the probe row copied, the build side set into it, the ON
+// clause evaluated)
+//
+//go:noinline
+func cbqBuild(item value.AnnotatedValue) {
+	k, _ := jbuild.Evaluate(item, jctx)
+	if err := jtab.Put(k, item, value.MarshalValue, value.EqualValueMissingNull, 0); err != nil {
+		panic(err)
+	}
+}
+
+//go:noinline
+func cbqProbe(item value.AnnotatedValue) []value.AnnotatedValue {
+	k, _ := jprobe.Evaluate(item, jctx)
+	var out []value.AnnotatedValue
+	v, err := jtab.Get(k, value.MarshalValue, value.EqualValue)
+	for err == nil && v != nil {
+		out = append(out, v.(value.AnnotatedValue))
+		v, err = jtab.GetNext()
+	}
+	return out
+}
+
+//go:noinline
+func cbqJoined(item, right value.AnnotatedValue) bool {
+	joined := item.Copy().(value.AnnotatedValue)
+	val, _ := right.Field("o")
+	joined.SetField("o", val)
+	r, _ := jon.Evaluate(joined, jctx)
+	return r.Truth()
+}
+
+func joinHash(files []string) map[string]interface{} {
+	orders, odata := docs(files)
+	cfiles, _ := filepath.Glob(filepath.Join(filepath.Dir(files[0]), "../customers/*.json"))
+	sort.Strings(cfiles)
+	customers, cdata := docs(cfiles)
+	ocv, _ := glue.NewConvertVals(base.Labels{` + "`" + `.["o"]` + "`" + `, "^id"})
+	ccv, _ := glue.NewConvertVals(base.Labels{` + "`" + `.["c"]` + "`" + `, "^id"})
+	box := func(c *glue.ConvertVals, r base.Vals) value.AnnotatedValue {
+		v, _ := c.Convert(r)
+		av, ok := v.(value.AnnotatedValue)
+		if !ok {
+			av = value.NewAnnotatedValue(v)
+		}
+		return av
+	}
+	ob := make([]value.AnnotatedValue, len(orders))
+	cb := make([]value.AnnotatedValue, len(customers))
+	matches := 0
+	run := func() {
+		for i, r := range orders {
+			ob[i] = box(ocv, r)
+		}
+		for i, r := range customers {
+			cb[i] = box(ccv, r)
+		}
+		jtab = cbqutil.NewHashTable(cbqutil.HASH_TABLE_FOR_HASH_JOIN, float64(len(orders)), 1)
+		for _, it := range ob {
+			cbqBuild(it)
+		}
+		matches = 0
+		for _, it := range cb {
+			for _, m := range cbqProbe(it) {
+				if cbqJoined(it, m) {
+					matches++
+				}
+			}
+		}
+	}
+	const M = 100
+	runtime.MemProfileRate = 1
+	stages := []string{"main.cbqBuild", "main.cbqProbe", "main.cbqJoined"}
+	before := stageProfile(stages)
+	for k := 0; k < M; k++ {
+		run()
+	}
+	runtime.GC()
+	after := stageProfile(stages)
+	runtime.MemProfileRate = 512 * 1024
+	per := map[string]float64{"main.cbqBuild": float64(len(orders)), "main.cbqProbe": float64(len(customers)), "main.cbqJoined": float64(matches)}
+	var out []map[string]interface{}
+	for _, st := range stages {
+		a, b := after[st], before[st]
+		out = append(out, map[string]interface{}{"stage": strings.TrimPrefix(st, "main.cbq"), "per": per[st],
+			"count": math.Round(float64(a[0]-b[0])/M/per[st]*10) / 10, "bytes": round10(float64(a[1]-b[1]) / M / per[st])})
+	}
+	mk := func(times int) *base.Op {
+		return &base.Op{Kind: "joinHash-inner", Labels: base.Labels{` + "`" + `.["o"]` + "`" + `, ` + "`" + `.["c"]` + "`" + `},
+			Params: []interface{}{
+				[]interface{}{"labelPath", ` + "`" + `.["o"]` + "`" + `, "customer"},
+				[]interface{}{"labelPath", ` + "`" + `.["c"]` + "`" + `, "id"},
+			},
+			Children: []*base.Op{
+				{Kind: "scan", Labels: base.Labels{` + "`" + `.["o"]` + "`" + `}, Params: []interface{}{"jsonsData", strings.Repeat(odata, times)}},
+				{Kind: "scan", Labels: base.Labels{` + "`" + `.["c"]` + "`" + `}, Params: []interface{}{"jsonsData", cdata}},
+			}}
+	}
+	var joined int
+	vars := &base.Vars{Temps: make([]interface{}, 16), Ctx: rt.NewSpillCtx(os.TempDir() + "/n1k1-boxed-golden-join")}
+	engine.ExecOp(mk(1), vars, func(base.Vals) { joined++ }, func(err error) {
+		if err != nil {
+			panic(err)
+		}
+	}, "", "")
+	setup, perRow := n1k1Cost(mk, len(orders))
+	return map[string]interface{}{"cbqStages": out, "cbqMatches": matches, "n1k1Joined": joined, "n1k1Setup": setup, "n1k1PerRow": perRow,
+		"build": len(orders), "probe": len(customers)}
 }
 
 // the GROUP BY's allocations, by stage, from the frames on their stacks

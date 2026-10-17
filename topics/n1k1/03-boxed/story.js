@@ -4,7 +4,7 @@
 // (../lib/boxed.json, from tools/boxed-golden).
 
 import { STATES, STATE, statePath } from './states.js';
-import { ROWS, HERO, ALLOCS, CHANGED, GROUP, bytesOf } from '../lib/boxed.js';
+import { ROWS, HERO, ALLOCS, CHANGED, GROUP, ORDER, JOIN, bytesOf } from '../lib/boxed.js';
 import { RUN } from '../lib/query.js';
 
 export const VIEW_KEYS = {
@@ -51,6 +51,15 @@ function facts() {
       return GROUP.cbqGroups.some((x) => x.startsWith(`{"0":${c}} sum=${sum} `) && x.includes(` count=${n} `));
     }),
     'group.alice.sum': GROUP.n1k1Groups.find((g) => g.startsWith('"alice"')).split(' ')[1],
+    // ORDER BY and JOIN
+    ...Object.fromEntries(ORDER.cbqStages.flatMap((x) => [[`order.cbq.${x.stage}.count`, x.count], [`order.cbq.${x.stage}.bytes`, x.bytes]])),
+    'order.n1k1.setup': ORDER.n1k1Setup,
+    'order.n1k1.perRow': Math.round(ORDER.n1k1PerRow),
+    'order.n1k1.push.bytes': ORDER.n1k1PushBytes,
+    ...Object.fromEntries(JOIN.cbqStages.flatMap((x) => [[`join.cbq.${x.stage}.count`, x.count], [`join.cbq.${x.stage}.bytes`, x.bytes]])),
+    'join.n1k1.setup': JOIN.n1k1Setup,
+    'join.n1k1.perRow': Math.round(JOIN.n1k1PerRow),
+    'join.rows': `${JOIN.cbqMatches} ${JOIN.n1k1Joined}`,
     // which lane: n1k1's stats line, for a query it can't make native
     'lanes.native.expr': RUN.lanes[0].stats.some((x) => x.startsWith('expr:')),
     'lanes.boxed.expr': RUN.lanes[1].stats.find((x) => x.startsWith('expr:')),

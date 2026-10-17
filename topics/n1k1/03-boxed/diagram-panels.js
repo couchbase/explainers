@@ -6,7 +6,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { PANEL, GROUP as G } from './layout.js';
-import { GROUP, CUSTOMERS } from '../lib/boxed.js';
+import { GROUP, CUSTOMERS, ORDER, JOIN } from '../lib/boxed.js';
 import { RUN } from '../lib/query.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -64,10 +64,6 @@ export function buildGroup(g) {
       return r;
     });
   }
-  // the old boxed values, as they're replaced: falling to the heap
-  P.ghost = el('g', { opacity: 0 }, root);
-  el('rect', { x: 0, y: 0, width: 136, height: 30, rx: 5, class: 'node node-heap' }, P.ghost);
-  P.ghostText = txt(P.ghost, 6, 15, '', 'node-title node-heap');
   // the heaps
   for (const side of ['cbq', 'n1k1']) {
     const x = G.cols[side];
@@ -80,6 +76,11 @@ export function buildGroup(g) {
   P.cbqStages = txt(root, G.cols.cbq + 14, G.heapY + 138, '', 'node-sub');
   txt(root, G.cols.n1k1 + 14, G.heapY + 62, `${fmt(GROUP.n1k1Setup)} allocations, once, at setup`, 'tally-label');
   P.n1k1Count = txt(root, G.cols.n1k1 + 14, G.heapY + 100, '', 'tally-label');
+  // the old boxed values, as they're replaced: falling to the heap (made
+  // last, so they're drawn over the heap's panel)
+  P.ghost = el('g', { opacity: 0 }, root);
+  el('rect', { x: 0, y: 0, width: 136, height: 30, rx: 5, class: 'node node-heap' }, P.ghost);
+  P.ghostText = txt(P.ghost, 6, 15, '', 'node-title node-heap');
   txt(root, G.cols.n1k1 + 14, G.heapY + 120, 'each row updates its group\'s 16 bytes, in place', 'node-sub');
   return P;
 }
@@ -135,21 +136,21 @@ export function drawGroup(P, A, B, q, field, vis) {
 
 // ---- ORDER BY and JOIN, compared ----
 
+// (each one's measured cost, by stage: "n allocations, b bytes")
+const cost = (x) => `${x.count} allocations, about ${fmt(x.bytes)} bytes`;
+const OS = Object.fromEntries(ORDER.cbqStages.map((x) => [x.stage, x]));
+const JS = Object.fromEntries(JOIN.cbqStages.map((x) => [x.stage, x]));
 const ROWS3 = [
-  ['ORDER BY', [
-    'each row a boxed value; its sort keys', 'evaluated, and kept as boxed copies;', 'compared with Collate; spilled by', 'writing values out, re-boxed on reading',
+  ['ORDER BY total DESC', '20 orders', [
+    'each row\'s sort key, evaluated, and kept', `as a boxed copy: ${cost(OS.SortKey)} a row;`,
+    'compared with Collate, which adds', `${cost(OS.SortCompare)} a row`,
   ], [
-    'each row copied into the heap\'s bytes:', 'its sort key made canonical, the row', 'as is; compared by reading the JSON', 'bytes; the heap spills in chunks',
+    'each row copied into the heap\'s bytes;', `${fmt(ORDER.n1k1Setup)} allocations at setup, then`, `${Math.round(ORDER.n1k1PerRow)} a row: ${ORDER.n1k1PushBytes} bytes, Go boxing the row\'s`, '[]byte header for container/heap\'s Push',
   ]],
-  ['hash JOIN', [
-    'boxed keys, marshaled to JSON just to', 'hash them; an entry object per build', 'row, in memory only; a new joined', 'value for every candidate pair',
+  ['hash JOIN on o.customer = c.id', `${JOIN.build} orders, ${JOIN.probe} customers`, [
+    `build, per order: ${cost(JS.Build)}`, `probe, per customer: ${cost(JS.Probe)}`, `per joined row: ${cost(JS.Joined)}`,
   ], [
-    'the key\'s canonical bytes, in an rhmap;', 'build rows copied once into chunks,', 'which can spill; a joined row is the', 'two rows\' slices, side by side',
-  ]],
-  ['nested-loop JOIN', [
-    'the inner side re-run per outer row;', 'a new joined value for every pair,', 'with the ON clause evaluated boxed',
-  ], [
-    'the inner side re-run per outer row;', 'a joined row is slices; the ON clause', 'native, if it can be',
+    'keys as canonical bytes, in an rhmap;', `${fmt(JOIN.n1k1Setup)} allocations at setup, then`, `${Math.round(JOIN.n1k1PerRow)} a row; a joined row is two rows\' slices`,
   ]],
 ];
 
@@ -161,15 +162,17 @@ export function buildOthers(g) {
   txt(root, cx[1], PANEL.y + 34, 'cbq: boxed values', 'lane-title');
   txt(root, cx[2], PANEL.y + 34, 'n1k1: bytes', 'lane-title');
   let y = PANEL.y + 74;
-  for (const [name, a, b] of ROWS3) {
+  for (const [name, sub, a, b] of ROWS3) {
     const rg = el('g', { opacity: 0 }, root);
-    txt(rg, cx[0], y, name, 'others-name');
+    txt(rg, cx[0], y, name.split(' ')[0] === 'hash' ? 'hash JOIN' : 'ORDER BY', 'others-name');
+    txt(rg, cx[0], y + 18, name.replace(/^(ORDER BY|hash JOIN) ?(on )?/, ''), 'others-sub');
+    txt(rg, cx[0], y + 34, sub, 'others-sub');
     a.forEach((l, k) => txt(rg, cx[1], y + k * 18, l, 'others-cbq'));
     b.forEach((l, k) => txt(rg, cx[2], y + k * 18, l, 'others-n1k1'));
     P.rows.push(rg);
-    y += Math.max(a.length, b.length) * 18 + 36;
+    y += Math.max(a.length, b.length, 3) * 18 + 48;
   }
-  txt(root, cx[0], PANEL.y + PANEL.h - 20, 'From reading both engines\' code (cbq\'s execution/order.go, join_hash.go, join_nl.go; n1k1\'s op_order.go, op_join_hash.go, op_join_nl.go): not measured here.', 'others-note');
+  txt(root, cx[0], PANEL.y + PANEL.h - 20, 'Measured: cbq\'s steps, as its execution/order.go and join_hash.go take them (beyond boxing the rows); n1k1\'s order and joinHash ops.', 'others-note');
   return P;
 }
 

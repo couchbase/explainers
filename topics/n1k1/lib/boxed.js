@@ -27,3 +27,9 @@ export const CHANGED = ROWS.filter((r) => r.totalBoxed !== r.order.total.bytes);
 export const GROUP = GOLDEN.group;
 // the groups, in the order they first appear
 export const CUSTOMERS = [...new Set(GROUP.steps.map((s) => s.customer))];
+
+// ORDER BY total DESC, and orders JOIN customers ON o.customer = c.id
+// (a hash join): cbq's steps, measured by stage; n1k1's ops, at setup
+// and per row
+export const ORDER = GOLDEN.order;
+export const JOIN = GOLDEN.join;

@@ -192,13 +192,13 @@ chapters:
 
       - id: sweep
         view: { at: group.2, target: group.heap }
-        expect: ["fact:group.cbq.perRow=27", "fact:group.cbq.perRowBytes=2137", "fact:group.cbq.key.bytes=1163", "fact:group.cbq.sum.bytes=648", "fact:group.cbq.count.bytes=326", "fact:group.n1k1.setup=102", "fact:group.n1k1.perRow=0", "fact:group.groups=4", "fact:group.same=true", "fact:group.alice.sum=899.3900000000001"]
+        expect: ["fact:group.cbq.perRow=27", "fact:group.cbq.perRowBytes=2140", "fact:group.cbq.key.bytes=1160", "fact:group.cbq.sum.bytes=650", "fact:group.cbq.count.bytes=330", "fact:group.n1k1.setup=102", "fact:group.n1k1.perRow=0", "fact:group.groups=4", "fact:group.same=true", "fact:group.alice.sum=899.3900000000001"]
         text: |
           Here are the 20 rows, one at a time. On the left, each row
           makes a new boxed SUM and COUNT for its group, and the old
           ones fall to [[the heap]]. With the key, that's about 27
-          allocations and 2,137 bytes a row (the key 1,163, SUM 648,
-          COUNT 326), on top of boxing the row itself.
+          allocations and 2,140 bytes a row (the key about 1,160, SUM
+          650, COUNT 330), on top of boxing the row itself.
 
           On the right, n1k1 makes 102 allocations once, at setup, for
           its map and buffers, and then 0 a row. Each row's update
@@ -216,22 +216,25 @@ chapters:
       - id: compare
         view: { at: others, target: others }
         code: [cbq.order, op.order, cbq.hashjoin, op.hashjoin]
+        expect: ["fact:order.cbq.SortKey.count=5.8", "fact:order.cbq.SortKey.bytes=570", "fact:order.cbq.SortCompare.count=3.4", "fact:order.cbq.SortCompare.bytes=50", "fact:order.n1k1.setup=94", "fact:order.n1k1.perRow=1", "fact:order.n1k1.push.bytes=24", "fact:join.cbq.Build.bytes=660", "fact:join.cbq.Probe.bytes=740", "fact:join.cbq.Joined.count=13", "fact:join.cbq.Joined.bytes=1140", "fact:join.n1k1.setup=93", "fact:join.n1k1.perRow=0", "fact:join.rows=20 20"]
         text: |
-          ORDER BY and JOIN follow the same pattern. Here they are
-          compared, from reading [[both engines' code]] (we haven't
-          measured them here).
+          ORDER BY and JOIN follow the same pattern, [[measured]] the
+          same way.
 
-          cbq sorts boxed rows, with their sort keys evaluated and kept
-          as boxed copies, and compares them with Collate. Its hash
-          join marshals boxed keys to JSON just to hash them, keeps an
-          entry object per row, and makes a new joined value for every
-          candidate pair.
+          To sort, cbq evaluates each row's sort key and keeps it as a
+          boxed copy, about 570 bytes a row, then compares with Collate. n1k1
+          copies each row into its sort heap's bytes, once. It makes 1
+          allocation a row, and a telling one: 24 bytes, Go itself
+          boxing the row's []byte header, to pass it to
+          container/heap's Push, which takes an `any`.
 
-          n1k1 copies each row into its sort heap's bytes, once, and
-          compares by reading the JSON bytes. Its hash join keys an
-          rhmap with the key's canonical bytes, and a joined row is just
-          the two rows' slices, side by side. Both its sort heap and
-          its hash table can spill to files.
+          To join orders with their customers, cbq marshals each boxed
+          key to JSON just to hash it (about 660 bytes per order put in,
+          740 per customer looked up), and makes a new joined value for
+          each match, 13 allocations and about 1,140 bytes. n1k1 keys an
+          rhmap with the key's canonical bytes, and a joined row is
+          just the two rows' slices, side by side: 0 allocations a row,
+          after 93 at setup. Both make the same 20 joined rows.
 
   # ------------------------------------------------------------------
   - id: fidelity

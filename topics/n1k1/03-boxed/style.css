@@ -54,3 +54,4 @@
 .diagram .term-text.boxed { fill: var(--copy); font-weight: 700; }
 .diagram .term-hl { fill: var(--copy-bg); }
 .diagram .term-note { font: 500 11px var(--font-display); fill: var(--slice); font-style: italic; }
+.diagram .others-sub { font: 500 10.5px var(--font-mono); fill: var(--muted); }
