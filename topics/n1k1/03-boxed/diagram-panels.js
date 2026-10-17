@@ -232,14 +232,14 @@ export function buildSummary(g) {
   const P = { g: el('g', { opacity: 0 }, g), rows: [] };
   const root = P.g;
   el('rect', { x: PANEL.x, y: 22, width: PANEL.w, height: PANEL.y + PANEL.h - 22, rx: 10, class: 'lane' }, root);
-  txt(root, PANEL.x + 20, 52, 'in sum: what each operation leaves on the Go heap, per row, measured', 'lane-title');
+  txt(root, PANEL.x + 20, 52, 'in sum: what each operation leaves on the Go heap, per row', 'lane-title');
   const OS = Object.fromEntries(ORDER.cbqStages.map((x) => [x.stage, x]));
   const JS = Object.fromEntries(JOIN.cbqStages.map((x) => [x.stage, x]));
   const rows = [
-    ['the filter', 'orders.total > 200', `${HERO.boxedAllocs} allocations, ${fmt(bytesOf(HERO))} bytes`, bytesOf(HERO), '0', 0, 'order-1003'],
-    ['GROUP BY', 'SUM(total), COUNT(*)', `about ${Math.round(GROUP.cbqPerRow)} allocations, ${fmt(GROUP.cbqPerRowBytes)} bytes`, GROUP.cbqPerRowBytes, `0, after ${GROUP.n1k1Setup} at setup`, 0, 'beyond boxing the row'],
-    ['ORDER BY', 'total DESC', `about ${Math.round(OS.SortKey.count + OS.SortCompare.count)} allocations, ${fmt(OS.SortKey.bytes + OS.SortCompare.bytes)} bytes`, OS.SortKey.bytes + OS.SortCompare.bytes, `${Math.round(ORDER.n1k1PerRow)}, ${ORDER.n1k1PushBytes} bytes, after ${ORDER.n1k1Setup} at setup`, ORDER.n1k1PushBytes, 'the key, and compares'],
-    ['hash JOIN', 'o.customer = c.id', `${JS.Joined.count} allocations, ${fmt(JS.Joined.bytes)} bytes`, JS.Joined.bytes, `0, after ${JOIN.n1k1Setup} at setup`, 0, 'per joined row'],
+    ['the filter', 'orders.total > 200', `${HERO.boxedAllocs} allocations, ${fmt(bytesOf(HERO))} bytes`, bytesOf(HERO), ['0 allocations, 0 bytes', ''], 0, 'order-1003'],
+    ['GROUP BY', 'SUM(total), COUNT(*)', `about ${Math.round(GROUP.cbqPerRow)} allocations, ${fmt(GROUP.cbqPerRowBytes)} bytes`, GROUP.cbqPerRowBytes, ['0 allocations, 0 bytes', `after ${GROUP.n1k1Setup} allocations, once, at setup`], 0, 'beyond boxing the row'],
+    ['ORDER BY', 'total DESC', `about ${Math.round(OS.SortKey.count + OS.SortCompare.count)} allocations, ${fmt(OS.SortKey.bytes + OS.SortCompare.bytes)} bytes`, OS.SortKey.bytes + OS.SortCompare.bytes, [`${Math.round(ORDER.n1k1PerRow)} allocation, ${ORDER.n1k1PushBytes} bytes`, `Go boxing a []byte header; after ${ORDER.n1k1Setup} allocations, once, at setup`], ORDER.n1k1PushBytes, 'the key, and compares'],
+    ['hash JOIN', 'o.customer = c.id', `${JS.Joined.count} allocations, ${fmt(JS.Joined.bytes)} bytes`, JS.Joined.bytes, ['0 allocations, 0 bytes', `after ${JOIN.n1k1Setup} allocations, once, at setup`], 0, 'per joined row'],
   ];
   const max = Math.max(...rows.map((r) => r[3]));
   const x0 = PANEL.x + 20, xc = PANEL.x + 230, xn = PANEL.x + 600, bw = 330;
@@ -254,7 +254,8 @@ export function buildSummary(g) {
     el('rect', { x: xc, y: y - 4, width: Math.max(2, (bw * cb) / max), height: 22, rx: 3, class: 'block' }, rg);
     txt(rg, xc, y + 38, cbq, 'others-cbq');
     el('rect', { x: xn, y: y - 4, width: Math.max(2, (bw * nb) / max), height: 22, rx: 3, class: nb ? 'block' : 'block-zero' }, rg);
-    txt(rg, xn, y + 38, n1k1, 'others-n1k1');
+    txt(rg, xn, y + 38, n1k1[0], 'others-n1k1');
+    txt(rg, xn, y + 54, n1k1[1], 'node-sub');
     P.rows.push(rg);
   });
   const notes = [
