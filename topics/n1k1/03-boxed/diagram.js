@@ -17,7 +17,7 @@ import {
   CANVAS, EXPR, BUF, charX, LANES, STAGE_Y, NODE, nodeXY, HEAP, BLOCKS, TALLY, TABLE, ANCHORS, BYTE_W,
 } from './layout.js';
 import { STATE, changed, panelOf } from './states.js';
-import { buildQueries, drawQueries, buildGroup, drawGroup, buildFallback, drawFallback, buildSummary, drawSummary } from './diagram-panels.js';
+import { reveal, buildQueries, drawQueries, buildGroup, drawGroup, buildFallback, drawFallback, buildSummary, drawSummary } from './diagram-panels.js';
 import { buildOrder, drawOrder, buildJoin, drawJoin, buildWindow, drawWindow } from './diagram-sortjoin.js';
 import { ROWS, HERO, ALLOCS, STAGES, CHANGED, bytesOf } from '../lib/boxed.js';
 
@@ -157,19 +157,33 @@ export class Diagram {
     // back
     this.table = el('g', { opacity: 0 }, g);
     el('rect', { x: TABLE.x, y: TABLE.y, width: TABLE.w, height: TABLE.h, rx: 10, class: 'lane' }, this.table);
-    txt(this.table, TABLE.x + 24, TABLE.y + 30, `the ${CHANGED.length} totals that change, boxed and written back:`, 'lane-title');
+    // (first the question: these totals, as written, and what comes
+    // back, boxed?; then the answer)
+    this.tableParts = [];
+    const head = (t, level, hide) => {
+      const hg = el('g', {}, this.table);
+      txt(hg, TABLE.x + 24, TABLE.y + 30, t, 'lane-title');
+      this.tableParts.push({ el: hg, level, hide });
+    };
+    head(`${CHANGED.length} of the orders' totals, as written in their files. What comes back, boxed?`, 1, 2);
+    head(`the ${CHANGED.length} totals that change, boxed and written back:`, 2);
     const cols = [TABLE.x + 40, TABLE.x + 230, TABLE.x + 340, TABLE.x + 390, TABLE.x + 500];
-    ['order', 'as written', '', 'boxed', 'as a'].forEach((h, k) => txt(this.table, cols[k], TABLE.y + 66, h, 'table-head'));
-    this.tableRows = CHANGED.map((r, i) => {
-      const y = TABLE.y + 104 + i * 40;
-      const tg = el('g', { opacity: 0 }, this.table);
-      el('rect', { x: cols[0] - 12, y: y - 22, width: 590, height: 32, rx: 5, class: 'diff' }, tg);
-      txt(tg, cols[0], y, r.file, 'table-file');
-      txt(tg, cols[1], y, r.order.total.bytes, 'table-bytes');
-      txt(tg, cols[2], y, '→', 'table-arrow');
-      txt(tg, cols[3], y, r.totalBoxed, 'table-boxed');
-      txt(tg, cols[4], y, r.totalType.replace('value.', ''), 'table-type');
-      return tg;
+    const heads = el('g', {}, this.table);
+    ['order', 'as written', '', 'boxed', 'as a'].forEach((h, k) => txt(heads, cols[k], TABLE.y + 66, h, 'table-head'));
+    this.tableParts.push({ el: heads, level: 1 });
+    CHANGED.forEach((r, i) => {
+      const y = TABLE.y + 104 + i * 40, n = CHANGED.length;
+      const hl = el('rect', { x: cols[0] - 12, y: y - 22, width: 590, height: 32, rx: 5, class: 'diff' }, this.table);
+      const a = el('g', {}, this.table);
+      txt(a, cols[0], y, r.file, 'table-file');
+      txt(a, cols[1], y, r.order.total.bytes, 'table-bytes');
+      txt(a, cols[2], y, '→', 'table-arrow');
+      const ask = el('g', {}, this.table);
+      txt(ask, cols[3], y, '?', 'table-ask');
+      const b = el('g', {}, this.table);
+      txt(b, cols[3], y, r.totalBoxed, 'table-boxed');
+      txt(b, cols[4], y, r.totalType.replace('value.', ''), 'table-type');
+      this.tableParts.push({ el: a, level: 1, i, n }, { el: ask, level: 1, hide: 2, i, n }, { el: hl, level: 2, i, n }, { el: b, level: 2, i, n });
     });
 
     // the later sections' queries, in the filter's place
@@ -266,7 +280,7 @@ export class Diagram {
 
     // the totals table: once the lanes have gone, row by row
     op(this.table, vis('table'));
-    this.tableRows.forEach((r, i) => op(r, entering('table') ? seg(q, 0.55 + i * 0.07, 0.62 + i * 0.07) : vis('table')));
+    reveal(this.tableParts, 'table', A, B, q, field, 1);
 
     // the top: the filter and its row, or the section's query
     const filterOn = (p) => (['none', 'lanes', 'table'].includes(p) ? 1 : 0);
@@ -279,8 +293,8 @@ export class Diagram {
     drawOrder(this.order, A, B, q, field, vis('order'));
     drawJoin(this.join, A, B, q, field, vis('join'));
     drawWindow(this.window, A, B, q, field, vis('window'));
-    drawFallback(this.fallback, A, B, q, field, vis('fallback'), entering('fallback'));
-    drawSummary(this.summary, A, B, q, field, vis('summary'), entering('summary'));
+    drawFallback(this.fallback, A, B, q, field, vis('fallback'));
+    drawSummary(this.summary, A, B, q, field, vis('summary'));
   }
 
   setTarget(p) {

@@ -14,17 +14,20 @@
 //   join    the hash JOIN, in the lanes' place: 0, not shown; 1, the
 //           orders, waiting; 2, the build, order by order; 3, the probe,
 //           customer by customer, each match joined
-//   table   the totals table, boxed and written back, in the lanes' place
+//   table   the totals table, in the lanes' place: 1, the totals, as
+//           written, and a question; 2, the answer: as boxed
 //   window  a window function, in the lanes' place: 0, not shown; 1, the
 //           rows, in their partitions; 2, row by row, each running total
-//   fallback  which lane a query took, as n1k1's stats say
-//   summary   all of it together: each operation's cost per row, in both
+//   fallback  which lane a query took, as n1k1's stats say: 1, a native
+//           query's; 2, and one with a boxed expression
+//   summary   all of it together, each operation's cost per row: 1, cbq's;
+//           2, and n1k1's; 3, and what to take away
 //
 // Only one of the lanes, group, order, join, table, fallback and summary
 // panels shows
 // at a time: the last one turned on.
 
-const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, order: 0, join: 0, window: 0, table: false, fallback: false, summary: false };
+const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, order: 0, join: 0, window: 0, table: 0, fallback: 0, summary: 0 };
 
 const CHANGES = [
   ['start', {}],
@@ -36,9 +39,9 @@ const CHANGES = [
   ...[1, 2, 3].map((k) => [`order.${k}`, { order: k }]),
   ...[1, 2, 3].map((k) => [`join.${k}`, { join: k }]),
   ...[1, 2].map((k) => [`window.${k}`, { window: k }]),
-  ['table', { table: true }],
-  ['fallback', { fallback: true }],
-  ['summary', { summary: true }],
+  ...[1, 2].map((k) => [`table.${k}`, { table: k }]),
+  ...[1, 2].map((k) => [`fallback.${k}`, { fallback: k }]),
+  ...[1, 2, 3].map((k) => [`summary.${k}`, { summary: k }]),
 ];
 
 export const STATES = [];

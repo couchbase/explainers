@@ -23,6 +23,29 @@ const lastStep = (n, c) => {
   return k;
 };
 
+// ---- parts of a panel, revealed a level at a time ----
+
+// Each part shows once the state's level (s[name]) reaches its level.
+// Parts coming in with the panel fade in after it; parts coming in on a
+// later step fade in one after another, in order (i of n, within their
+// level).
+export function reveal(parts, name, A, B, q, field, vis) {
+  const la = A[name] || 0, lb = B[name] || 0;
+  for (const { el: e, level, i = 0, n = 1, hide } of parts) {
+    const on = (l) => (l >= level && !(hide && l >= hide) ? 1 : 0);
+    let o = on(lb);
+    if (field === name && on(la) !== on(lb)) {
+      // (each part's own stretch of the step; a part leaving goes in its
+      // first half, one coming in arrives in its second, so the two never
+      // overlap)
+      const [start, span] = la === 0 ? [0.55, 0.4] : [0.1, 0.8];
+      const a = start + (span * i) / n, b = start + (span * (i + 1)) / n, m = (a + b) / 2;
+      o = on(lb) ? seg(q, la === 0 ? a : m, b) : 1 - seg(q, a, m);
+    }
+    op(e, o * vis);
+  }
+}
+
 // ---- each later section's query, at the top, its key terms marked ----
 
 // a query, as runs of text: [text, marked?]
@@ -225,15 +248,16 @@ export function buildFallback(g) {
   return P;
 }
 
-export function drawFallback(P, A, B, q, field, vis, entering) {
+// (the cards: the first query's, then, a step later, the second's)
+export function drawFallback(P, A, B, q, field, vis) {
   op(P.g, vis);
-  P.cards.forEach((c, i) => op(c, entering ? seg(q, 0.55 + i * 0.2, 0.75 + i * 0.2) : vis));
+  reveal(P.cards.map((c, i) => ({ el: c, level: i + 1 })), 'fallback', A, B, q, field, 1);
 }
 
 // ---- in sum: each operation's cost per row, in both engines ----
 
 export function buildSummary(g) {
-  const P = { g: el('g', { opacity: 0 }, g), rows: [] };
+  const P = { g: el('g', { opacity: 0 }, g) };
   const root = P.g;
   el('rect', { x: PANEL.x, y: 22, width: PANEL.w, height: PANEL.y + PANEL.h - 22, rx: 10, class: 'lane' }, root);
   txt(root, PANEL.x + 20, 52, 'in sum: what each operation leaves on the Go heap, per row', 'lane-title');
@@ -248,48 +272,53 @@ export function buildSummary(g) {
   ];
   const max = Math.max(...rows.map((r) => r[3]));
   const x0 = PANEL.x + 20, xc = PANEL.x + 230, xn = PANEL.x + 600, bw = 330;
-  txt(root, xc, 92, 'cbq: boxed values', 'lane-title');
-  txt(root, xn, 92, 'n1k1: bytes', 'lane-title');
-  txt(root, xc, 108, 'bytes per row, as bars', 'node-sub');
-  txt(root, xn, 108, 'bytes per row, as bars', 'node-sub');
+  P.parts = [];
+  const head = (x, t, level) => {
+    const hg = el('g', {}, root);
+    txt(hg, x, 92, t, 'lane-title');
+    txt(hg, x, 108, 'bytes per row, as bars', 'node-sub');
+    P.parts.push({ el: hg, level });
+  };
+  head(xc, 'cbq: boxed values', 1);
+  head(xn, 'n1k1: bytes', 2);
   rows.forEach(([name, what, cbq, cb, n1k1, nb, note], k) => {
     const y = 132 + k * 78;
-    const rg = el('g', { opacity: 0 }, root);
-    txt(rg, x0, y, name, 'others-name');
-    txt(rg, x0, y + 18, what, 'others-sub');
-    txt(rg, x0, y + 34, note, 'node-sub');
     // (each bar: its bytes per row, written in it, or beside it if it's
     // too thin)
-    const bar = (x, b, zero) => {
+    const bar = (g2, x, b, zero) => {
       const w = Math.max(2, (bw * b) / max);
-      el('rect', { x, y: y - 4, width: w, height: 22, rx: 3, class: zero ? 'block-zero' : 'block' }, rg);
-      if (w > 70) txt(rg, x + 8, y + 11, `${fmt(b)} bytes`, 'bar-in');
-      else txt(rg, x + w + 6, y + 11, `${fmt(b)} bytes`, 'bar-out');
+      el('rect', { x, y: y - 4, width: w, height: 22, rx: 3, class: zero ? 'block-zero' : 'block' }, g2);
+      if (w > 70) txt(g2, x + 8, y + 11, `${fmt(b)} bytes`, 'bar-in');
+      else txt(g2, x + w + 6, y + 11, `${fmt(b)} bytes`, 'bar-out');
     };
-    bar(xc, cb, false);
-    txt(rg, xc, y + 38, cbq, 'alloc-text cbq');
-    bar(xn, nb, !nb);
-    txt(rg, xn, y + 38, n1k1[0], 'alloc-text n1k1');
-    txt(rg, xn, y + 54, n1k1[1], 'node-sub');
-    P.rows.push(rg);
+    // (the operation, and cbq's cost: the first step; n1k1's: the next)
+    const ca = el('g', {}, root);
+    txt(ca, x0, y, name, 'others-name');
+    txt(ca, x0, y + 18, what, 'others-sub');
+    txt(ca, x0, y + 34, note, 'node-sub');
+    bar(ca, xc, cb, false);
+    txt(ca, xc, y + 38, cbq, 'alloc-text cbq');
+    const cn = el('g', {}, root);
+    bar(cn, xn, nb, !nb);
+    txt(cn, xn, y + 38, n1k1[0], 'alloc-text n1k1');
+    txt(cn, xn, y + 54, n1k1[1], 'node-sub');
+    P.parts.push({ el: ca, level: 1, i: k, n: rows.length }, { el: cn, level: 2, i: k, n: rows.length });
   });
   const notes = [
     `And boxing changes what it boxes: ${CHANGED.length} of the ${ROWS.length} totals came back different (210.00 as 210).`,
     'n1k1 picks the byte lane once, at setup, wherever it can; cbq\'s lane stays, for the rest, and as the oracle its tests check against.',
     'To see which lane a query took: n1k1 -stats final.',
   ];
-  P.notes = notes.map((t, k) => {
-    const ng = el('g', { opacity: 0 }, root);
+  notes.forEach((t, k) => {
+    const ng = el('g', {}, root);
     txt(ng, x0, 548 + k * 24, t, 'summary-note');
-    return ng;
+    P.parts.push({ el: ng, level: 3, i: k, n: notes.length });
   });
   return P;
 }
 
-export function drawSummary(P, A, B, q, field, vis, entering) {
+// (cbq's column, row by row; then n1k1's; then the notes)
+export function drawSummary(P, A, B, q, field, vis) {
   op(P.g, vis);
-  // (row by row, then the notes)
-  const items = [...P.rows, ...P.notes];
-  const step = 0.4 / items.length;
-  items.forEach((r, i) => op(r, entering ? seg(q, 0.55 + i * step, 0.6 + i * step) : vis));
+  reveal(P.parts, 'summary', A, B, q, field, 1);
 }
