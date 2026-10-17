@@ -86,7 +86,7 @@ export class Diagram {
     this.bufIdx = [0, 1].map(() => txt(this.buf, 0, BUF.y + 30 + BUF.line, '', 'buf-idx', 'middle'));
 
     // the lines from a value that's a slice to the bytes it points at
-    // (under the plan's boxes: they show in the gaps)
+    // (moved over the plan's boxes, below)
     this.slices = Array.from({ length: TOKENS + 1 }, () => el('path', { class: 'slice-line', opacity: 0 }, g));
 
     // the plan
@@ -127,6 +127,10 @@ export class Diagram {
     txt(this.prepared, px, py + 18, '200  →  a float64, parsed now', 'note-text');
     txt(this.prepared, px, py + 36, '`orders`.`total`  →  a path into', 'note-text');
     txt(this.prepared, px + 132, py + 52, 'register .["orders"]', 'note-text');
+
+    // (the slice lines, over the plan's boxes, so they're seen whole;
+    // and under the row's values, which they start from)
+    for (const p of this.slices) g.appendChild(p);
 
     // the row in flight: its values, in the registers of the operator
     // that holds it

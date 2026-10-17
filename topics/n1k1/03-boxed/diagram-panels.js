@@ -303,7 +303,7 @@ export function buildSummary(g) {
     bar(cn, xn, nb, !nb);
     txt(cn, xn, y + 38, n1k1[0], 'alloc-text n1k1');
     txt(cn, xn, y + 54, n1k1[1], 'node-sub');
-    P.parts.push({ el: ca, level: 1, i: k, n: rows.length }, { el: cn, level: 2, i: k, n: rows.length });
+    P.parts.push({ el: ca, level: 1, i: k, n: rows.length }, { el: cn, level: 2, i: k, n: rows.length + 3 });
   });
   const notes = [
     `And boxing changes what it boxes: ${CHANGED.length} of the ${ROWS.length} totals came back different (210.00 as 210).`,
@@ -313,7 +313,8 @@ export function buildSummary(g) {
   notes.forEach((t, k) => {
     const ng = el('g', {}, root);
     txt(ng, x0, 548 + k * 24, t, 'summary-note');
-    P.parts.push({ el: ng, level: 3, i: k, n: notes.length });
+    // (after n1k1's column, on the same step)
+    P.parts.push({ el: ng, level: 2, i: rows.length + k, n: rows.length + notes.length });
   });
   return P;
 }

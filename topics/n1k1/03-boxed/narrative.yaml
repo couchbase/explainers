@@ -408,9 +408,9 @@ chapters:
           Here it is all together: [[what each operation leaves]] on
           the Go heap, per row. First, cbq's.
 
-          It boxes. The filter, GROUP BY, the window and the JOIN each
-          leave about 900 to 2,200 bytes per row, and ORDER BY about
-          600.
+          It boxes. The filter, GROUP BY, the window and the JOIN
+          each leave about 900 to 2,200 bytes per row, and ORDER BY
+          about 600.
 
       - id: summary-n1k1
         view: { at: summary.2, target: summary }
@@ -419,15 +419,3 @@ chapters:
           And [[n1k1's]]: nothing per row, but for the 24 bytes Go
           itself boxes when n1k1 sorts. Its allocations come once, at
           setup.
-
-      - id: end
-        view: { at: summary.3, target: summary }
-        expect: ["fact:changed=6"]
-        text: |
-          And [[boxing changes what it boxes]]: 6 of the 20 totals
-          came back different.
-
-          So n1k1 runs each expression in the byte lane when it can,
-          deciding once, at setup. For the rest, cbq's boxed lane is
-          there, slower but complete, and n1k1's tests check every
-          native expression against it.

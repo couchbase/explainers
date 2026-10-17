@@ -24,7 +24,7 @@
 //   fallback  which lane a query took, as n1k1's stats say: 1, a native
 //           query's; 2, and one with a boxed expression
 //   summary   all of it together, each operation's cost per row: 1, cbq's;
-//           2, and n1k1's; 3, and what to take away
+//           2, and n1k1's, and what to take away
 //
 // Only one of the lanes, group, order, join, table, fallback and summary
 // panels shows
@@ -44,7 +44,7 @@ const CHANGES = [
   ...[1, 2, 3].map((k) => [`window.${k}`, { window: k }]),
   ...[1, 2].map((k) => [`table.${k}`, { table: k }]),
   ...[1, 2].map((k) => [`fallback.${k}`, { fallback: k }]),
-  ...[1, 2, 3].map((k) => [`summary.${k}`, { summary: k }]),
+  ...[1, 2].map((k) => [`summary.${k}`, { summary: k }]),
 ];
 
 export const STATES = [];
