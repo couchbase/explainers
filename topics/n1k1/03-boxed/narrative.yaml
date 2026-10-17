@@ -195,10 +195,12 @@ chapters:
         expect: ["fact:group.cbq.perRow=27", "fact:group.cbq.perRowBytes=2140", "fact:group.cbq.key.bytes=1160", "fact:group.cbq.sum.bytes=650", "fact:group.cbq.count.bytes=330", "fact:group.n1k1.setup=102", "fact:group.n1k1.perRow=0", "fact:group.groups=4", "fact:group.same=true", "fact:group.alice.sum=899.3900000000001"]
         text: |
           Here are the 20 rows, one at a time. On the left, each row
-          makes a new boxed SUM and COUNT for its group, and the old
-          ones fall to [[the heap]]. With the key, that's about 27
-          allocations and 2,140 bytes a row (the key about 1,160, SUM
-          650, COUNT 330), on top of boxing the row itself.
+          leaves three things on [[the heap]]: the key it made to find
+          its group (about 1,160 bytes), and its group's old SUM and
+          COUNT, replaced by new boxed ones (with what those steps
+          made, about 650 and 330 bytes). The bar grows by each one as
+          it lands: about 27 allocations and 2,140 bytes a row, on top
+          of boxing the row itself.
 
           On the right, n1k1 makes 102 allocations once, at setup, for
           its map and buffers, and then 0 a row. Each row's update
@@ -213,28 +215,56 @@ chapters:
     color: push
     steps:
 
-      - id: compare
-        view: { at: others, target: others }
-        code: [cbq.order, op.order, cbq.hashjoin, op.hashjoin]
-        expect: ["fact:order.cbq.SortKey.count=5.8", "fact:order.cbq.SortKey.bytes=570", "fact:order.cbq.SortCompare.count=3.4", "fact:order.cbq.SortCompare.bytes=50", "fact:order.n1k1.setup=94", "fact:order.n1k1.perRow=1", "fact:order.n1k1.push.bytes=24", "fact:join.cbq.Build.bytes=660", "fact:join.cbq.Probe.bytes=740", "fact:join.cbq.Joined.count=13", "fact:join.cbq.Joined.bytes=1140", "fact:join.n1k1.setup=93", "fact:join.n1k1.perRow=0", "fact:join.rows=20 20"]
+      - id: order-cbq
+        view: { at: others.1, target: others }
+        code: [cbq.order]
+        expect: ["fact:order.cbq.SortKey.count=5.8", "fact:order.cbq.SortKey.bytes=570", "fact:order.cbq.SortCompare.count=3.4", "fact:order.cbq.SortCompare.bytes=50"]
         text: |
-          ORDER BY and JOIN follow the same pattern, [[measured]] the
-          same way.
+          ORDER BY and JOIN follow the same pattern, and we've
+          [[measured them]] the same way. First, `ORDER BY total DESC`,
+          over the 20 orders.
 
-          To sort, cbq evaluates each row's sort key and keeps it as a
-          boxed copy, about 570 bytes a row, then compares with Collate. n1k1
-          copies each row into its sort heap's bytes, once. It makes 1
-          allocation a row, and a telling one: 24 bytes, Go itself
-          boxing the row's []byte header, to pass it to
-          container/heap's Push, which takes an `any`.
+          cbq evaluates each row's sort key and keeps it on the row as
+          a boxed copy: 5.8 allocations, about 570 bytes a row. Its
+          compares, with Collate, add 3.4 more, about 50 bytes.
 
-          To join orders with their customers, cbq marshals each boxed
-          key to JSON just to hash it (about 660 bytes per order put in,
-          740 per customer looked up), and makes a new joined value for
-          each match, 13 allocations and about 1,140 bytes. n1k1 keys an
-          rhmap with the key's canonical bytes, and a joined row is
-          just the two rows' slices, side by side: 0 allocations a row,
-          after 93 at setup. Both make the same 20 joined rows.
+      - id: order-n1k1
+        view: { at: others.2, target: others }
+        code: [op.order]
+        expect: ["fact:order.n1k1.setup=94", "fact:order.n1k1.perRow=1", "fact:order.n1k1.push.bytes=24"]
+        text: |
+          n1k1 copies each row into [[its sort heap's bytes]], once:
+          94 allocations at setup, then 1 a row.
+
+          And that one is telling. It's 24 bytes, Go itself boxing the
+          row's []byte header, to pass it to container/heap's Push,
+          which takes an `any`. Even a byte lane boxes, where Go's
+          interfaces make it.
+
+      - id: join-cbq
+        view: { at: others.3, target: others }
+        code: [cbq.hashjoin]
+        expect: ["fact:join.cbq.Build.bytes=660", "fact:join.cbq.Probe.bytes=740", "fact:join.cbq.Joined.count=13", "fact:join.cbq.Joined.bytes=1140"]
+        text: |
+          Now a hash JOIN: orders with their customers, on
+          `o.customer = c.id`.
+
+          cbq puts each order in [[its hash table]], marshaling the
+          boxed key to JSON just to hash it: about 660 bytes an order.
+          Looking up each customer costs about 740 more. And for each
+          match, it makes a new joined value: 13 allocations, about
+          1,140 bytes.
+
+      - id: join-n1k1
+        view: { at: others.4, target: others }
+        code: [op.hashjoin]
+        expect: ["fact:join.n1k1.setup=93", "fact:join.n1k1.perRow=0", "fact:join.rows=20 20"]
+        text: |
+          n1k1 keys [[an rhmap]] with the join key's canonical bytes,
+          and a joined row is just the two rows' slices, side by side:
+          93 allocations at setup, then 0 a row.
+
+          Both make the same 20 joined rows.
 
   # ------------------------------------------------------------------
   - id: fidelity

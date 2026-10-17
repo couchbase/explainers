@@ -76,16 +76,35 @@ export function buildGroup(g) {
   P.cbqStages = txt(root, G.cols.cbq + 14, G.heapY + 138, '', 'node-sub');
   txt(root, G.cols.n1k1 + 14, G.heapY + 62, `${fmt(GROUP.n1k1Setup)} allocations, once, at setup`, 'tally-label');
   P.n1k1Count = txt(root, G.cols.n1k1 + 14, G.heapY + 100, '', 'tally-label');
-  // the old boxed values, as they're replaced: falling to the heap (made
-  // last, so they're drawn over the heap's panel)
-  P.ghost = el('g', { opacity: 0 }, root);
-  el('rect', { x: 0, y: 0, width: 136, height: 30, rx: 5, class: 'node node-heap' }, P.ghost);
-  P.ghostText = txt(P.ghost, 6, 15, '', 'node-title node-heap');
+  // each row's garbage, by stage, falling to the heap: the key it made
+  // to look up its group, and the SUM and COUNT it replaced, each with
+  // what that stage left behind (made last, so they're drawn over the
+  // heap's panel)
+  P.parcels = PARCELS.map((pc) => {
+    const pg = el('g', { opacity: 0 }, root);
+    el('rect', { x: 0, y: 0, width: pc.w, height: 30, rx: 5, class: 'node node-heap' }, pg);
+    const t = txt(pg, 6, 13, '', 'node-title node-heap');
+    txt(pg, 6, 25, `+${fmt(pc.bytes)} bytes`, 'node-sub');
+    return { ...pc, g: pg, t };
+  });
   txt(root, G.cols.n1k1 + 14, G.heapY + 120, 'each row updates its group\'s 16 bytes, in place', 'node-sub');
   return P;
 }
 
 const MAXW = G.w - 28;
+// (the stages' bytes, per row, as measured)
+const SB = Object.fromEntries(GROUP.cbqStages.map((x) => [x.stage, x.bytes]));
+const ROWB = SB.key + SB.sum + SB.count;
+// a row's parcels: where each starts (its cell's x, in the cbq table),
+// and when it falls, in the row's stretch of the scroll
+const PARCELS = [
+  { stage: 'key', dx: 0, w: 120, fall: [0.08, 0.36] },
+  { stage: 'sum', dx: 144, w: 136, fall: [0.46, 0.7] },
+  { stage: 'count', dx: 294, w: 92, fall: [0.62, 0.86] },
+].map((p) => ({ ...p, bytes: SB[p.stage] }));
+// when a row's values change: after its key's fallen, before the old
+// ones fall
+const SWAP = 0.42;
 
 export function drawGroup(P, A, B, q, field, vis) {
   op(P.g, vis);
@@ -95,14 +114,14 @@ export function drawGroup(P, A, B, q, field, vis) {
     const x = q * N;
     cur = Math.min(N - 1, Math.floor(x));
     u = x - cur;
-    n = cur + (u >= 0.5 ? 1 : 0);
+    n = cur + (u >= SWAP ? 1 : 0);
   }
   const st = cur >= 0 ? STEPS[cur] : null;
   setText(P.ticker, st ? `row ${cur + 1} of ${N}: ${st.customer}, total ${st.total}` : n === N ? `all ${N} rows done` : '');
   for (const side of ['cbq', 'n1k1']) {
     P.rows[side].forEach((r) => {
       const k = lastStep(n, r.c);
-      op(r.g, k >= 0 || (st && st.customer === r.c && u >= 0.3) ? 1 : 0);
+      op(r.g, k >= 0 || (st && st.customer === r.c && u >= SWAP) ? 1 : 0);
       op(r.hl, st && st.customer === r.c ? Math.sin(Math.PI * u) : 0);
       const s = k >= 0 ? STEPS[k] : null;
       if (side === 'cbq') {
@@ -116,22 +135,29 @@ export function drawGroup(P, A, B, q, field, vis) {
       }
     });
   }
-  // (the boxed SUM it replaced, falling to the heap)
+  // the row's parcels: each falls to the end of the heap's bar, and the
+  // bar grows by its bytes as it lands
+  let landed = (cur >= 0 ? cur : n) * ROWB;
   const prev = st ? lastStep(cur, st.customer) : -1;
-  if (st && prev >= 0 && u >= 0.5) {
-    const i = CUSTOMERS.indexOf(st.customer), w = easeQuad(seg(u, 0.5, 1));
-    at(P.ghost, lerp(G.cols.cbq + 156, G.cols.cbq + 14 + MAXW * (cur / N), w), lerp(G.rowY + i * G.dy - 18, G.heapY + 42, w));
-    setText(P.ghostText, STEPS[prev].sum);
-    op(P.ghost, 1 - w * 0.8);
-  } else op(P.ghost, 0);
-  // the heaps: cbq's grows by each row's garbage; n1k1's doesn't
-  const rows = cur >= 0 ? cur + u : n;
-  P.bar.setAttribute('width', (MAXW * (rows / N)).toFixed(1));
-  setText(P.cbqCount, `${Math.round(rows)} rows: ${fmt(Math.round(rows * GROUP.cbqPerRowBytes))} bytes`);
+  P.parcels.forEach((pc) => {
+    if (!st) { op(pc.g, 0); return; }
+    const w = easeQuad(seg(u, pc.fall[0], pc.fall[1]));
+    const i = CUSTOMERS.indexOf(st.customer), x0 = G.cols.cbq + 12 + pc.dx - 6, y0 = G.rowY + i * G.dy - 18;
+    const endX = G.cols.cbq + 14 + Math.min(MAXW - pc.w, (MAXW * landed) / (N * ROWB));
+    at(pc.g, lerp(x0, endX, w), lerp(y0, G.heapY + 42, w));
+    op(pc.g, u < pc.fall[0] ? (pc.stage === 'key' ? seg(u, 0, pc.fall[0]) : 0) : u >= pc.fall[1] ? 0 : 1);
+    const old = prev >= 0 ? STEPS[prev] : null;
+    setText(pc.t, pc.stage === 'key' ? `{"0":${st.customer}}` : pc.stage === 'sum' ? `SUM was ${old ? old.sum : 'null'}` : `COUNT was ${old ? old.count : '0'}`);
+    if (u >= pc.fall[1]) landed += pc.bytes;
+  });
+  // the heaps: cbq's grows by each row's garbage, as it lands; n1k1's
+  // doesn't
+  P.bar.setAttribute('width', ((MAXW * landed) / (N * ROWB)).toFixed(1));
+  const rowsDone = cur >= 0 ? cur + (u >= PARCELS[2].fall[1] ? 1 : 0) : n;
+  setText(P.cbqCount, `${rowsDone} rows: ${fmt(landed)} bytes`);
   setText(P.cbqEach, `about ${Math.round(GROUP.cbqPerRow)} allocations and ${fmt(GROUP.cbqPerRowBytes)} bytes a row`);
-  const S = Object.fromEntries(GROUP.cbqStages.map((x) => [x.stage, x]));
-  setText(P.cbqStages, `the key ${fmt(S.key.bytes)} · SUM ${fmt(S.sum.bytes)} · COUNT ${fmt(S.count.bytes)}`);
-  setText(P.n1k1Count, `${Math.round(rows)} rows: ${GROUP.n1k1PerRow} allocations a row`);
+  setText(P.cbqStages, `the key ${fmt(SB.key)} · SUM ${fmt(SB.sum)} · COUNT ${fmt(SB.count)}`);
+  setText(P.n1k1Count, `${rowsDone} rows: ${GROUP.n1k1PerRow} allocations a row`);
 }
 
 // ---- ORDER BY and JOIN, compared ----
@@ -155,30 +181,43 @@ const ROWS3 = [
 ];
 
 export function buildOthers(g) {
-  const P = { g: el('g', { opacity: 0 }, g), rows: [] };
+  const P = { g: el('g', { opacity: 0 }, g), cards: [] };
   const root = P.g;
   el('rect', { x: PANEL.x, y: PANEL.y, width: PANEL.w, height: PANEL.h, rx: 10, class: 'lane' }, root);
-  const cx = [PANEL.x + 20, PANEL.x + 180, PANEL.x + 570];
+  const cx = [PANEL.x + 20, PANEL.x + 180, PANEL.x + 570], cw = 370;
   txt(root, cx[1], PANEL.y + 34, 'cbq: boxed values', 'lane-title');
   txt(root, cx[2], PANEL.y + 34, 'n1k1: bytes', 'lane-title');
-  let y = PANEL.y + 74;
+  let y = PANEL.y + 56;
   for (const [name, sub, a, b] of ROWS3) {
-    const rg = el('g', { opacity: 0 }, root);
-    txt(rg, cx[0], y, name.split(' ')[0] === 'hash' ? 'hash JOIN' : 'ORDER BY', 'others-name');
-    txt(rg, cx[0], y + 18, name.replace(/^(ORDER BY|hash JOIN) ?(on )?/, ''), 'others-sub');
-    txt(rg, cx[0], y + 34, sub, 'others-sub');
-    a.forEach((l, k) => txt(rg, cx[1], y + k * 18, l, 'others-cbq'));
-    b.forEach((l, k) => txt(rg, cx[2], y + k * 18, l, 'others-n1k1'));
-    P.rows.push(rg);
-    y += Math.max(a.length, b.length, 3) * 18 + 48;
+    const h = Math.max(a.length, b.length) * 20 + 22;
+    // (the row's name comes with its cbq card)
+    const ca = el('g', { opacity: 0 }, root);
+    txt(ca, cx[0], y + 22, name.split(' ')[0] === 'hash' ? 'hash JOIN' : 'ORDER BY', 'others-name');
+    txt(ca, cx[0], y + 40, name.replace(/^(ORDER BY|hash JOIN) ?(on )?/, ''), 'others-sub');
+    txt(ca, cx[0], y + 56, sub, 'others-sub');
+    el('rect', { x: cx[1] - 12, y, width: cw, height: h, rx: 8, class: 'card-cbq' }, ca);
+    a.forEach((l, k) => txt(ca, cx[1], y + 24 + k * 20, l, 'others-cbq'));
+    const cb = el('g', { opacity: 0 }, root);
+    el('rect', { x: cx[2] - 12, y, width: cw, height: h, rx: 8, class: 'card-n1k1' }, cb);
+    b.forEach((l, k) => txt(cb, cx[2], y + 24 + k * 20, l, 'others-n1k1'));
+    P.cards.push(ca, cb);
+    y += h + 40;
   }
   txt(root, cx[0], PANEL.y + PANEL.h - 20, 'Measured: cbq\'s steps, as its execution/order.go and join_hash.go take them (beyond boxing the rows); n1k1\'s order and joinHash ops.', 'others-note');
   return P;
 }
 
+// The cards: as many as the state's level, each new one sliding in.
 export function drawOthers(P, A, B, q, field, vis, entering) {
   op(P.g, vis);
-  P.rows.forEach((r, i) => op(r, entering ? seg(q, 0.55 + i * 0.13, 0.7 + i * 0.13) : vis));
+  P.cards.forEach((c, i) => {
+    const on = (s) => (i < s.others ? 1 : 0);
+    let u = on(B);
+    if (field === 'others' && on(A) !== on(B)) u = entering ? seg(q, 0.65, 1) : seg(q, 0.15, 0.85);
+    const e = easeQuad(u);
+    at(c, 30 * (1 - e), 0);
+    op(c, e * vis);
+  });
 }
 
 // ---- which lane: n1k1's stats ----

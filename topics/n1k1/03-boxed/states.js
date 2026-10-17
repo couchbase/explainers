@@ -9,14 +9,15 @@
 //   twenty  the twenty rows' tallies are shown, under the heaps
 //   group   GROUP BY, in the lanes' place: 0, not shown; 1, both
 //           engines' group tables, empty; 2, after all 20 rows
-//   others  ORDER BY and JOIN, compared, in the lanes' place
+//   others  ORDER BY and JOIN, compared, in the lanes' place: how many of
+//           its cards are shown (0..4), cbq's and n1k1's, in turn
 //   table   the totals table, boxed and written back, in the lanes' place
 //   fallback  which lane a query took, as n1k1's stats say
 //
 // Only one of the lanes, group, others, table and fallback panels shows
 // at a time: the last one turned on.
 
-const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, others: false, table: false, fallback: false };
+const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, others: 0, table: false, fallback: false };
 
 const CHANGES = [
   ['start', {}],
@@ -25,7 +26,7 @@ const CHANGES = [
   ['twenty', { twenty: true }],
   ['group.1', { group: 1 }],
   ['group.2', { group: 2 }],
-  ['others', { others: true }],
+  ...[1, 2, 3, 4].map((k) => [`others.${k}`, { others: k }]),
   ['table', { table: true }],
   ['fallback', { fallback: true }],
 ];
