@@ -36,10 +36,13 @@ export const OUT = { x: 704, y: 104, w: 284, h: 92 };
 export const HEAP = { x: 704, y: 214, w: 284, h: 168, dy: 34 };
 export const heapRowY = (i) => HEAP.y + 44 + i * HEAP.dy;
 
-// the record buffer: one doc's bytes, in a row; a character's x
-export const BUF = { x: 270, y: 590, w: 715, h: 62, font: 10.5 };
+// the record buffer: one doc's bytes, in two lines, broken after the
+// comma that follows its total (so a total's always on the first); a
+// first-line character's x
+export const BUF = { x: 270, y: 584, w: 500, h: 76, font: 12, line: 22 };
 export const CHAR_W = BUF.font * 0.6;
 export const charX = (i) => BUF.x + 14 + i * CHAR_W;
+export const lineBreak = (o) => o.total.end + 1;
 
 export const LIDS = {};
 export const BUBBLES = {};

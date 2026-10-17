@@ -12,7 +12,7 @@
 import { svgEl as el, svgText as txt, setText, setCls } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import {
-  CANVAS, QUERY, FILES, TREE, fileY, treeY, OP, opY, CHIP, chipXY, OUT, HEAP, heapRowY, BUF, charX, ANCHORS,
+  CANVAS, QUERY, FILES, TREE, fileY, treeY, OP, opY, CHIP, chipXY, OUT, HEAP, heapRowY, BUF, charX, lineBreak, ANCHORS,
 } from './layout.js';
 import { STATE, changed } from './states.js';
 import { OPS, OP_IDS, opLook, rowAt, bufferAt, countersAt, filesAt, heapAt, outputAt, short } from './flow.js';
@@ -78,10 +78,12 @@ export class Diagram {
     this.bufLabel = txt(g, BUF.x, BUF.y + BUF.h + 18, '', 'panel-title');
     this.buf = el('g', { opacity: 0 }, g);
     this.bufBox = el('rect', { x: BUF.x, y: BUF.y, width: BUF.w, height: BUF.h, rx: 8, class: 'buf' }, this.buf);
-    this.bufHls = [0, 1].map(() => el('rect', { y: BUF.y + 15, height: 19, rx: 3, class: 'buf-hl', opacity: 0 }, this.buf));
-    this.bufText = txt(this.buf, charX(0), BUF.y + 29, '', 'buf-text');
-    this.bufIdx = [0, 1].map(() => txt(this.buf, 0, BUF.y + 50, '', 'buf-idx', 'middle'));
-    this.bufEnds = [txt(this.buf, charX(0), BUF.y + 50, '0', 'buf-end'), txt(this.buf, 0, BUF.y + 50, '', 'buf-end', 'end')];
+    this.bufHls = [0, 1].map(() => el('rect', { y: BUF.y + 14, height: 21, rx: 3, class: 'buf-hl', opacity: 0 }, this.buf));
+    // (its two lines; a slice's byte range goes under the first, where
+    // the second line's always too short to reach)
+    this.bufText = el('g', {}, this.buf);
+    this.bufLines = [0, 1].map((k) => txt(this.bufText, charX(0), BUF.y + 30 + k * BUF.line, '', 'buf-text'));
+    this.bufIdx = [0, 1].map(() => txt(this.buf, 0, BUF.y + 30 + BUF.line, '', 'buf-idx', 'middle'));
 
     // the lines from a value that's a slice to the bytes it points at
     // (under the plan's boxes: they show in the gaps)
@@ -219,10 +221,10 @@ export class Diagram {
     op(this.bufText, swap ? Math.abs(1 - 2 * q) : 1);
     op(this.bufLabel, swap ? 1 : f(field, ba ? 1 : 0, bb ? 1 : 0));
     if (bs) {
-      setText(this.bufText, bs.order.doc);
+      const br = lineBreak(bs.order);
+      setText(this.bufLines[0], bs.order.doc.slice(0, br));
+      setText(this.bufLines[1], bs.order.doc.slice(br));
       setText(this.bufLabel, bs.read ? `the record buffer: ${bs.order.name}'s doc, held till the scan's next file` : `${bs.order.name}, as it is on disk: ${bs.order.doc.length} bytes`);
-      setText(this.bufEnds[1], String(bs.order.doc.length));
-      this.bufEnds[1].setAttribute('x', charX(bs.order.doc.length).toFixed(1));
     }
 
     // the plan: each operator's place, name and params
@@ -392,7 +394,7 @@ export class Diagram {
       const l = lines[i];
       if (!l) { op(p, 0); return; }
       const [s0, s1] = l.range, whole = s0 === 0 && s1 === (tr || rb || ra).order.doc.length;
-      const x1 = whole ? charX(0) + 30 : (charX(s0) + charX(s1)) / 2, y1 = BUF.y + 15;
+      const x1 = whole ? charX(0) + 30 : (charX(s0) + charX(s1)) / 2, y1 = BUF.y + 14;
       const [x0, y0] = l.from;
       p.setAttribute('d', `M${x0.toFixed(1)},${y0.toFixed(1)} C${x0.toFixed(1)},${(y0 + 60).toFixed(1)} ${x1.toFixed(1)},${(y1 - 70).toFixed(1)} ${x1.toFixed(1)},${y1}`);
       op(p, l.o * 0.9);

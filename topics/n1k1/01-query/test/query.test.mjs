@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { RUN, ORDERS, PASSED, SORTED, outputRow } from '../../lib/query.js';
 import { OPS, opLook } from '../flow.js';
 import { STATE } from '../states.js';
+import { lineBreak, CHAR_W, BUF } from '../layout.js';
 
 test('the rows: filtered, sorted and printed as n1k1 did, byte for byte', () => {
   assert.deepEqual(SORTED.map(outputRow), RUN.rows);
@@ -36,5 +37,11 @@ test('each total: found where it is in its doc', () => {
   for (const o of ORDERS) {
     assert.equal(o.doc.slice(o.total.start, o.total.end), o.total.bytes);
     assert.ok(/^\d+(\.\d+)?$/.test(o.total.bytes), o.name);
+    // (the record buffer's two lines: the total on the first, and the
+    // second too short to reach under it, where its byte range goes)
+    const br = lineBreak(o);
+    assert.equal(o.doc[br - 1], ',', o.name);
+    assert.ok(o.doc.length - br < o.total.start, o.name);
+    assert.ok(br * CHAR_W + 28 <= BUF.w, o.name);
   }
 });
