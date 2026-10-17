@@ -171,14 +171,20 @@ chapters:
     color: plan
     steps:
 
+      - id: query
+        view: { at: group.1, target: query }
+        text: |
+          Aggregates next. [[This query]] adds up each customer's
+          orders, with SUM(total), and counts them, with COUNT(*).
+
+          As the 20 rows go by, each engine keeps 4 groups, one per
+          customer, and updates one group per row. How does each keep
+          them?
+
       - id: tables
-        view: { at: group.1, target: group.cbq }
+        view: { at: group.2, target: group.cbq }
         code: [cbq.group, cbq.sum, op.group, agg.sum]
         text: |
-          Aggregates go the same way. Take `SELECT customer,
-          SUM(total), COUNT(*) FROM orders GROUP BY customer`, and look
-          at how each engine keeps its groups.
-
           [[cbq keeps a Go map]]. For each row, it evaluates the
           group's key, boxes it into a map, and marshals that to a
           string, to look the group up. Each aggregate's running value
@@ -191,7 +197,7 @@ chapters:
           new bytes over the old.
 
       - id: sweep
-        view: { at: group.2, target: group.heap }
+        view: { at: group.3, target: group.heap }
         expect: ["fact:group.cbq.perRow=27", "fact:group.cbq.perRowBytes=2140", "fact:group.cbq.key.bytes=1160", "fact:group.cbq.sum.bytes=650", "fact:group.cbq.count.bytes=330", "fact:group.n1k1.setup=102", "fact:group.n1k1.perRow=0", "fact:group.groups=4", "fact:group.same=true", "fact:group.alice.sum=899.3900000000001"]
         text: |
           Here are the 20 rows, one at a time. On the left, each row
@@ -215,18 +221,23 @@ chapters:
     color: push
     steps:
 
+      - id: query
+        view: { at: order.1, target: query }
+        text: |
+          ORDER BY next. [[This query]] sorts the 20 orders by total,
+          biggest first.
+
       - id: rows
-        view: { at: order.1, target: others }
+        view: { at: order.2, target: others }
         code: [cbq.order, op.order]
         text: |
-          ORDER BY follows the same pattern, and we've measured it the
-          same way: `ORDER BY total DESC`, over [[the 20 orders]], cbq
-          on the left and n1k1 on the right.
+          We've measured it the same way: [[the 20 orders]], cbq on
+          the left and n1k1 on the right.
 
           Each engine first takes in all the rows, and only then sorts.
 
       - id: taken
-        view: { at: order.2, target: others }
+        view: { at: order.3, target: others }
         expect: ["fact:order.cbq.SortKey.count=5.8", "fact:order.cbq.SortKey.bytes=570", "fact:order.n1k1.setup=94", "fact:order.n1k1.perRow=1", "fact:order.n1k1.push.bytes=24"]
         text: |
           Row by row: cbq evaluates each row's sort key and keeps it on
@@ -241,7 +252,7 @@ chapters:
           interfaces make it.
 
       - id: sorted
-        view: { at: order.3, target: others }
+        view: { at: order.4, target: others }
         expect: ["fact:order.cbq.SortCompare.count=3.4", "fact:order.cbq.SortCompare.bytes=50"]
         text: |
           Then [[the sort]]. cbq compares its boxed keys with Collate,
@@ -256,17 +267,23 @@ chapters:
     color: push
     steps:
 
+      - id: query
+        view: { at: join.1, target: query }
+        text: |
+          JOINs, too. [[This query]] joins each order with its
+          customer, on `o.customer = c.id`. Both engines make it a hash
+          JOIN.
+
       - id: waiting
-        view: { at: join.1, target: others }
+        view: { at: join.2, target: others }
         code: [cbq.hashjoin, op.hashjoin]
         text: |
-          JOINs, too. Here's a hash JOIN: orders with their customers,
-          on `o.customer = c.id`. First, each engine builds a hash
-          table from [[the 20 orders]], keyed by customer. Then it
-          probes it with each customer, and joins each match.
+          First, each engine builds a hash table from
+          [[the 20 orders]], keyed by customer. Then it probes it with
+          each customer, and joins each match.
 
       - id: build
-        view: { at: join.2, target: others }
+        view: { at: join.3, target: others }
         expect: ["fact:join.cbq.Build.bytes=660", "fact:join.n1k1.setup=93", "fact:join.n1k1.perRow=0"]
         text: |
           The build, order by order. cbq puts each order in its hash
@@ -278,7 +295,7 @@ chapters:
           setup, then 0 per row.
 
       - id: probe
-        view: { at: join.3, target: others }
+        view: { at: join.4, target: others }
         expect: ["fact:join.cbq.Probe.bytes=740", "fact:join.cbq.Joined.count=13", "fact:join.cbq.Joined.bytes=1140", "fact:join.rows=20 20"]
         text: |
           Then the probe, customer by customer. cbq's lookup of each
@@ -295,17 +312,23 @@ chapters:
     color: push
     steps:
 
+      - id: query
+        view: { at: window.1, target: query }
+        text: |
+          Window functions, too. [[This query]] gives each order a
+          running total of its customer's orders so far: `SUM(total)
+          OVER (PARTITION BY customer ORDER BY id)`.
+
       - id: partitions
-        view: { at: window.1, target: others }
+        view: { at: window.2, target: others }
         code: [cbq.window, op.window]
         text: |
-          Window functions, too. Take a running total per customer,
-          `SUM(total) OVER (PARTITION BY customer ORDER BY id)`. Each
-          engine reads [[the rows in their partitions]], a customer's
-          orders together, by id, and gives each row the sum so far.
+          Each engine reads [[the rows in their partitions]], a
+          customer's orders together, by id, and gives each row the sum
+          so far.
 
       - id: running
-        view: { at: window.2, target: others }
+        view: { at: window.3, target: others }
         expect: ["fact:window.cbq.count=8.7", "fact:window.cbq.bytes=920", "fact:window.n1k1.perRow=0", "fact:window.rows=20", "fact:window.alice4=424.90000000000003"]
         text: |
           Row by row. For each row, cbq attaches a map for its

@@ -66,6 +66,7 @@ export const ANCHORS = {
   others: { p: [PANEL.x, PANEL.y + 20], needs: [] },
   fallback: { p: [PANEL.x, PANEL.y + 20], needs: [] },
   summary: { p: [PANEL.x, 46], needs: [] },
+  query: { p: [30, 42], needs: [] },
 };
 
 export const SECTION_COLORS = ['query', 'plan', 'push', 'out', 'neutral'];

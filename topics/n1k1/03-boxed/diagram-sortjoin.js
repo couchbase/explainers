@@ -117,7 +117,7 @@ export function buildOrder(g) {
 export function drawOrder(P, A, B, q, field, vis) {
   op(P.g, vis);
   const N = ROWS.length;
-  const lvl = (s) => s.order;
+  const lvl = (s) => Math.max(0, s.order - 1); // (its level 1 is the query alone)
   let taken = lvl(B) >= 2 ? N : 0, cur = -1, u = 0, sortU = lvl(B) >= 3 ? 1 : 0;
   if (field === 'order' && lvl(A) === 1 && lvl(B) === 2) {
     const x = q * N;
@@ -252,7 +252,7 @@ export function buildJoin(g) {
 // the probe (customer by customer, each match joined).
 export function drawJoin(P, A, B, q, field, vis) {
   op(P.g, vis);
-  const N = ROWS.length, E = PROBE.length, lvl = (s) => s.join;
+  const N = ROWS.length, E = PROBE.length, lvl = (s) => Math.max(0, s.join - 1); // (its level 1 is the query alone)
   let built = lvl(B) >= 2 ? N : 0, bcur = -1, bu = 0, done = lvl(B) >= 3 ? E : 0, pcur = -1, pu = 0;
   if (field === 'join' && lvl(A) === 1 && lvl(B) === 2) {
     const x = q * N;
@@ -363,7 +363,7 @@ export function buildWindow(g) {
 // running total.
 export function drawWindow(P, A, B, q, field, vis) {
   op(P.g, vis);
-  const N = WINDOW_ROWS.length, lvl = (s) => s.window;
+  const N = WINDOW_ROWS.length, lvl = (s) => Math.max(0, s.window - 1); // (its level 1 is the query alone)
   let done = lvl(B) >= 2 ? N : 0, cur = -1, u = 0;
   if (field === 'window' && lvl(A) === 1 && lvl(B) === 2) {
     const x = q * N;

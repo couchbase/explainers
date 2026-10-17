@@ -286,7 +286,16 @@ export class Diagram {
     const filterOn = (p) => (['none', 'lanes', 'table'].includes(p) ? 1 : 0);
     const fa = filterOn(pa), fb = filterOn(pb);
     op(this.top, !field || fa === fb ? fb : fa ? 1 - easeQuad(seg(q, 0, 0.45)) : easeQuad(seg(q, 0.55, 1)));
-    drawQueries(this.queries, vis);
+    // (a section's query: shown from its query-alone step on, and held,
+    // not faded, as its panel comes in below)
+    const base = (p) => p.replace(/-q$/, '');
+    const qvis = (name) => {
+      const ba = base(pa), bb = base(pb);
+      if (!field || ba === bb) return bb === name ? 1 : 0;
+      if (ba === name) return 1 - easeQuad(seg(q, 0, 0.45));
+      return bb === name ? easeQuad(seg(q, 0.55, 1)) : 0;
+    };
+    drawQueries(this.queries, qvis);
 
     // the later panels
     drawGroup(this.group, A, B, q, field, vis('group'));

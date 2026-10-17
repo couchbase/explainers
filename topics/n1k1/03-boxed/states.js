@@ -7,17 +7,20 @@
 //   boxed   how many of the boxed lane's stages have run (0..4)
 //   bytes   how many of the byte lane's stages have run (0..4)
 //   twenty  the twenty rows' tallies are shown, under the heaps
-//   group   GROUP BY, in the lanes' place: 0, not shown; 1, both
-//           engines' group tables, empty; 2, after all 20 rows
-//   order   ORDER BY, in the lanes' place: 0, not shown; 1, the rows,
-//           unsorted; 2, each taken in, row by row; 3, sorted
-//   join    the hash JOIN, in the lanes' place: 0, not shown; 1, the
-//           orders, waiting; 2, the build, order by order; 3, the probe,
-//           customer by customer, each match joined
+//   group   GROUP BY, in the lanes' place: 0, not shown; 1, its query
+//           alone; 2, both engines' group tables, empty; 3, after all
+//           20 rows
+//   order   ORDER BY, in the lanes' place: 0, not shown; 1, its query
+//           alone; 2, the rows, unsorted; 3, each taken in, row by row;
+//           4, sorted
+//   join    the hash JOIN, in the lanes' place: 0, not shown; 1, its
+//           query alone; 2, the orders, waiting; 3, the build, order by
+//           order; 4, the probe, customer by customer, each match joined
 //   table   the totals table, in the lanes' place: 1, the totals, as
 //           written, and a question; 2, the answer: as boxed
-//   window  a window function, in the lanes' place: 0, not shown; 1, the
-//           rows, in their partitions; 2, row by row, each running total
+//   window  a window function, in the lanes' place: 0, not shown; 1, its
+//           query alone; 2, the rows, in their partitions; 3, row by
+//           row, each running total
 //   fallback  which lane a query took, as n1k1's stats say: 1, a native
 //           query's; 2, and one with a boxed expression
 //   summary   all of it together, each operation's cost per row: 1, cbq's;
@@ -34,11 +37,11 @@ const CHANGES = [
   ['lanes', { lanes: true }],
   ...[1, 2, 3, 4].flatMap((k) => [[`boxed.${k}`, { boxed: k }], [`bytes.${k}`, { bytes: k }]]),
   ['twenty', { twenty: true }],
-  ['group.1', { group: 1 }],
-  ['group.2', { group: 2 }],
-  ...[1, 2, 3].map((k) => [`order.${k}`, { order: k }]),
-  ...[1, 2, 3].map((k) => [`join.${k}`, { join: k }]),
-  ...[1, 2].map((k) => [`window.${k}`, { window: k }]),
+  // (each of these sections: its query alone, first, at level 1)
+  ...[1, 2, 3].map((k) => [`group.${k}`, { group: k }]),
+  ...[1, 2, 3, 4].map((k) => [`order.${k}`, { order: k }]),
+  ...[1, 2, 3, 4].map((k) => [`join.${k}`, { join: k }]),
+  ...[1, 2, 3].map((k) => [`window.${k}`, { window: k }]),
   ...[1, 2].map((k) => [`table.${k}`, { table: k }]),
   ...[1, 2].map((k) => [`fallback.${k}`, { fallback: k }]),
   ...[1, 2, 3].map((k) => [`summary.${k}`, { summary: k }]),
@@ -67,9 +70,11 @@ export function panelOf(s) {
   if (s.summary) return 'summary';
   if (s.fallback) return 'fallback';
   if (s.table) return 'table';
-  if (s.window) return 'window';
-  if (s.join) return 'join';
-  if (s.order) return 'order';
-  if (s.group) return 'group';
+  // (a section at level 1 shows its query alone: its panel, '<name>-q')
+  const q = (name) => (s[name] === 1 ? `${name}-q` : name);
+  if (s.window) return q('window');
+  if (s.join) return q('join');
+  if (s.order) return q('order');
+  if (s.group) return q('group');
   return s.lanes ? 'lanes' : 'none';
 }

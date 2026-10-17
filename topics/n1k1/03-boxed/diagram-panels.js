@@ -174,8 +174,9 @@ const SWAP = 0.42;
 export function drawGroup(P, A, B, q, field, vis) {
   op(P.g, vis);
   // rows applied: none, or all; or, sweeping, one at a time
-  let n = B.group >= 2 ? N : 0, cur = -1, u = 0;
-  if (field === 'group' && A.group === 1 && B.group === 2) {
+  // (its level 1 is the query alone; 2, the tables; 3, after the rows)
+  let n = B.group >= 3 ? N : 0, cur = -1, u = 0;
+  if (field === 'group' && A.group === 2 && B.group === 3) {
     const x = q * N;
     cur = Math.min(N - 1, Math.floor(x));
     u = x - cur;

@@ -16,10 +16,10 @@ function sizeOf(a, b) {
   if (field === 'boxed' || field === 'bytes') return 0.6 + 0.5 * NODES[field].filter((n) => n.stage === B[field] - 1).length;
   if (field === 'twenty') return 2.5;
   // (the sweep through the 20 rows, one at a time)
-  if (field === 'group' && B.group === 2) return 14;
-  if (field === 'order') return [0, 1, 10, 6][B.order];
-  if (field === 'join') return [0, 1, 10, 12][B.join];
-  if (field === 'window') return [0, 1, 12][B.window];
+  if (field === 'group' && B.group === 3) return 14;
+  if (field === 'order') return [0, 1, 1, 10, 6][B.order];
+  if (field === 'join') return [0, 1, 1, 10, 12][B.join];
+  if (field === 'window') return [0, 1, 1, 12][B.window];
   if (field === 'table') return 2;
   return 1;
 }
