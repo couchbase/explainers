@@ -50,7 +50,8 @@ func main() {
 	bin := filepath.Join(tmp, "n1k1")
 	build := exec.Command("go", "build", "-tags", "n1ql", "-o", bin, "./cmd/n1k1")
 	build.Dir = src
-	build.Env = append(os.Environ(), "CGO_ENABLED=0", "GOPROXY=off")
+	// (read-only: never touch the checkout's go.mod)
+	build.Env = append(os.Environ(), "CGO_ENABLED=0", "GOPROXY=off", "GOFLAGS=-mod=readonly")
 	build.Stderr = os.Stderr
 	check(build.Run())
 
