@@ -324,8 +324,29 @@ chapters:
           one of its two expressions ran in the boxed lane, once for
           each of the 20 rows.
 
+  # ------------------------------------------------------------------
+  - id: sum
+    title: "In sum"
+    color: neutral
+    steps:
+
+      - id: summary
+        view: { at: summary, target: summary }
+        expect: ["fact:hero.boxed.bytes=1680", "fact:group.cbq.perRowBytes=2140", "fact:join.cbq.Joined.bytes=1140", "fact:order.n1k1.push.bytes=24", "fact:changed=6"]
+        text: |
+          Here it is all together: [[what each operation leaves]] on
+          the Go heap, per row, in each engine.
+
+          cbq boxes. The filter, GROUP BY and the JOIN each leave about
+          1,100 to 2,200 bytes per row, and ORDER BY about 600. n1k1
+          leaves nothing per row, but for the 24 bytes Go itself boxes
+          when n1k1 sorts. Its allocations come once, at setup.
+
+          And boxing changes what it boxes: 6 of the 20 totals came
+          back different.
+
       - id: end
-        view: { at: fallback }
+        view: { at: summary }
         text: |
           So n1k1 runs each expression in the byte lane when it can,
           deciding once, at setup. For the rest, cbq's boxed lane is

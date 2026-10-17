@@ -16,11 +16,13 @@
 //           customer by customer, each match joined
 //   table   the totals table, boxed and written back, in the lanes' place
 //   fallback  which lane a query took, as n1k1's stats say
+//   summary   all of it together: each operation's cost per row, in both
 //
-// Only one of the lanes, group, order, join, table and fallback panels shows
+// Only one of the lanes, group, order, join, table, fallback and summary
+// panels shows
 // at a time: the last one turned on.
 
-const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, order: 0, join: 0, table: false, fallback: false };
+const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, order: 0, join: 0, table: false, fallback: false, summary: false };
 
 const CHANGES = [
   ['start', {}],
@@ -33,6 +35,7 @@ const CHANGES = [
   ...[1, 2, 3].map((k) => [`join.${k}`, { join: k }]),
   ['table', { table: true }],
   ['fallback', { fallback: true }],
+  ['summary', { summary: true }],
 ];
 
 export const STATES = [];
@@ -55,6 +58,7 @@ export function statePath(a, b) {
 
 // The panel a state shows, in the lanes' place.
 export function panelOf(s) {
+  if (s.summary) return 'summary';
   if (s.fallback) return 'fallback';
   if (s.table) return 'table';
   if (s.join) return 'join';

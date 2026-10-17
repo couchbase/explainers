@@ -6,7 +6,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { PANEL, GROUP as G } from './layout.js';
-import { GROUP, CUSTOMERS } from '../lib/boxed.js';
+import { GROUP, CUSTOMERS, ROWS, HERO, ORDER, JOIN, CHANGED, bytesOf } from '../lib/boxed.js';
 import { RUN } from '../lib/query.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -224,4 +224,55 @@ export function buildFallback(g) {
 export function drawFallback(P, A, B, q, field, vis, entering) {
   op(P.g, vis);
   P.cards.forEach((c, i) => op(c, entering ? seg(q, 0.55 + i * 0.2, 0.75 + i * 0.2) : vis));
+}
+
+// ---- in sum: each operation's cost per row, in both engines ----
+
+export function buildSummary(g) {
+  const P = { g: el('g', { opacity: 0 }, g), rows: [] };
+  const root = P.g;
+  el('rect', { x: PANEL.x, y: 22, width: PANEL.w, height: PANEL.y + PANEL.h - 22, rx: 10, class: 'lane' }, root);
+  txt(root, PANEL.x + 20, 52, 'in sum: what each operation leaves on the Go heap, per row, measured', 'lane-title');
+  const OS = Object.fromEntries(ORDER.cbqStages.map((x) => [x.stage, x]));
+  const JS = Object.fromEntries(JOIN.cbqStages.map((x) => [x.stage, x]));
+  const rows = [
+    ['the filter', 'orders.total > 200', `${HERO.boxedAllocs} allocations, ${fmt(bytesOf(HERO))} bytes`, bytesOf(HERO), '0', 0, 'order-1003'],
+    ['GROUP BY', 'SUM(total), COUNT(*)', `about ${Math.round(GROUP.cbqPerRow)} allocations, ${fmt(GROUP.cbqPerRowBytes)} bytes`, GROUP.cbqPerRowBytes, `0, after ${GROUP.n1k1Setup} at setup`, 0, 'beyond boxing the row'],
+    ['ORDER BY', 'total DESC', `about ${Math.round(OS.SortKey.count + OS.SortCompare.count)} allocations, ${fmt(OS.SortKey.bytes + OS.SortCompare.bytes)} bytes`, OS.SortKey.bytes + OS.SortCompare.bytes, `${Math.round(ORDER.n1k1PerRow)}, ${ORDER.n1k1PushBytes} bytes, after ${ORDER.n1k1Setup} at setup`, ORDER.n1k1PushBytes, 'the key, and compares'],
+    ['hash JOIN', 'o.customer = c.id', `${JS.Joined.count} allocations, ${fmt(JS.Joined.bytes)} bytes`, JS.Joined.bytes, `0, after ${JOIN.n1k1Setup} at setup`, 0, 'per joined row'],
+  ];
+  const max = Math.max(...rows.map((r) => r[3]));
+  const x0 = PANEL.x + 20, xc = PANEL.x + 230, xn = PANEL.x + 600, bw = 330;
+  txt(root, xc, 92, 'cbq: boxed values', 'lane-title');
+  txt(root, xn, 92, 'n1k1: bytes', 'lane-title');
+  rows.forEach(([name, what, cbq, cb, n1k1, nb, note], k) => {
+    const y = 132 + k * 92;
+    const rg = el('g', { opacity: 0 }, root);
+    txt(rg, x0, y, name, 'others-name');
+    txt(rg, x0, y + 18, what, 'others-sub');
+    txt(rg, x0, y + 34, note, 'node-sub');
+    el('rect', { x: xc, y: y - 4, width: Math.max(2, (bw * cb) / max), height: 22, rx: 3, class: 'block' }, rg);
+    txt(rg, xc, y + 38, cbq, 'others-cbq');
+    el('rect', { x: xn, y: y - 4, width: Math.max(2, (bw * nb) / max), height: 22, rx: 3, class: nb ? 'block' : 'block-zero' }, rg);
+    txt(rg, xn, y + 38, n1k1, 'others-n1k1');
+    P.rows.push(rg);
+  });
+  const notes = [
+    `And boxing changes what it boxes: ${CHANGED.length} of the ${ROWS.length} totals came back different (210.00 as 210).`,
+    'n1k1 picks the byte lane once, at setup, wherever it can; cbq\'s lane stays, for the rest, and as the oracle its tests check against.',
+    'To see which lane a query took: n1k1 -stats final.',
+  ];
+  P.notes = notes.map((t, k) => {
+    const ng = el('g', { opacity: 0 }, root);
+    txt(ng, x0, 520 + k * 26, t, 'summary-note');
+    return ng;
+  });
+  return P;
+}
+
+export function drawSummary(P, A, B, q, field, vis, entering) {
+  op(P.g, vis);
+  // (row by row, then the notes)
+  const items = [...P.rows, ...P.notes];
+  items.forEach((r, i) => op(r, entering ? seg(q, 0.55 + i * 0.06, 0.62 + i * 0.06) : vis));
 }

@@ -65,6 +65,7 @@ export const ANCHORS = {
   'group.heap': { p: [GROUP.cols.cbq, GROUP.heapY + 20], needs: [] },
   others: { p: [PANEL.x, PANEL.y + 20], needs: [] },
   fallback: { p: [PANEL.x, PANEL.y + 20], needs: [] },
+  summary: { p: [PANEL.x, 46], needs: [] },
 };
 
 export const SECTION_COLORS = ['query', 'plan', 'push', 'out', 'neutral'];

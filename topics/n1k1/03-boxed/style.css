@@ -72,3 +72,5 @@
 .diagram rect.joined-slice { fill: var(--panel); stroke: var(--slice); stroke-width: 1.3; stroke-dasharray: 3 2; }
 .diagram .sort-hl { fill: var(--focus); fill-opacity: 0.15; }
 .diagram .sort-trail { fill: none; stroke: var(--focus); stroke-width: 1.5; stroke-dasharray: 1 1; }
+.diagram rect.block-zero { fill: var(--slice); }
+.diagram .summary-note { font: 500 13px var(--font-display); fill: var(--ink); }

@@ -17,7 +17,7 @@ import {
   CANVAS, EXPR, BUF, charX, LANES, STAGE_Y, NODE, nodeXY, HEAP, BLOCKS, TALLY, TABLE, ANCHORS, BYTE_W,
 } from './layout.js';
 import { STATE, changed, panelOf } from './states.js';
-import { buildQueries, drawQueries, buildGroup, drawGroup, buildFallback, drawFallback } from './diagram-panels.js';
+import { buildQueries, drawQueries, buildGroup, drawGroup, buildFallback, drawFallback, buildSummary, drawSummary } from './diagram-panels.js';
 import { buildOrder, drawOrder, buildJoin, drawJoin } from './diagram-sortjoin.js';
 import { ROWS, HERO, ALLOCS, STAGES, CHANGED, bytesOf } from '../lib/boxed.js';
 
@@ -180,6 +180,7 @@ export class Diagram {
     this.order = buildOrder(g);
     this.join = buildJoin(g);
     this.fallback = buildFallback(g);
+    this.summary = buildSummary(g);
 
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
     this.cur = null;
@@ -277,6 +278,7 @@ export class Diagram {
     drawOrder(this.order, A, B, q, field, vis('order'));
     drawJoin(this.join, A, B, q, field, vis('join'));
     drawFallback(this.fallback, A, B, q, field, vis('fallback'), entering('fallback'));
+    drawSummary(this.summary, A, B, q, field, vis('summary'), entering('summary'));
   }
 
   setTarget(p) {
