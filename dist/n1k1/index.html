@@ -406,6 +406,14 @@ a.eyebrow:hover { text-decoration: underline; }
   --cbq: #6d28d9;
   --cbq-bg: #f1ebfc;
   --drop: #dc2626;
+  /* 02-compile: a line that's early-bound (run once, at setup), late-
+     bound (per row), and a seam */
+  --early: #1d4ed8;
+  --early-bg: #dbe6fb;
+  --late: #0f766e;
+  --late-bg: #d5efe9;
+  --seam: #6d28d9;
+  --seam-bg: #ece3fb;
 
   --sec-query: #1a1d1c;
   --sec-plan: #6d28d9;
@@ -421,6 +429,7 @@ a.eyebrow:hover { text-decoration: underline; }
     --bg: #121514; --panel: #1a1e1c; --panel-2: #161917; --ink: #e8ece9; --muted: #9aa39e; --line: #343b37; --faint: #222825;
     --accent: #2dd4bf; --focus: #7ea6ff;
     --slice: #2dd4bf; --slice-bg: #133a35; --copy: #f59e0b; --copy-bg: #3d2a10; --cbq: #a78bfa; --cbq-bg: #2a2140; --drop: #f87171;
+    --early: #7ea6ff; --early-bg: #1b2a4a; --late: #2dd4bf; --late-bg: #133a35; --seam: #a78bfa; --seam-bg: #2a2140;
     --sec-query: #e8ece9; --sec-plan: #a78bfa; --sec-push: #2dd4bf; --sec-out: #f59e0b; --sec-neutral: #9aa39e;
     --code-bg: #161917; --code-hl: #133a35;
   }
@@ -429,6 +438,7 @@ a.eyebrow:hover { text-decoration: underline; }
   --bg: #121514; --panel: #1a1e1c; --panel-2: #161917; --ink: #e8ece9; --muted: #9aa39e; --line: #343b37; --faint: #222825;
   --accent: #2dd4bf; --focus: #7ea6ff;
   --slice: #2dd4bf; --slice-bg: #133a35; --copy: #f59e0b; --copy-bg: #3d2a10; --cbq: #a78bfa; --cbq-bg: #2a2140; --drop: #f87171;
+    --early: #7ea6ff; --early-bg: #1b2a4a; --late: #2dd4bf; --late-bg: #133a35; --seam: #a78bfa; --seam-bg: #2a2140;
   --sec-query: #e8ece9; --sec-plan: #a78bfa; --sec-push: #2dd4bf; --sec-out: #f59e0b; --sec-neutral: #9aa39e;
   --code-bg: #161917; --code-hl: #133a35;
 }
@@ -476,6 +486,9 @@ a.eyebrow:hover { text-decoration: underline; }
 <ol class="entries"><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">01</span>
 <div><a class="title" href="01-query.html">The life of a query in n1k1</a><p>One SQL++ query over a directory of JSON files, from its text to the rows n1k1 prints: cbq&#39;s planner makes the plan, n1k1 rewires it, and its engine pushes rows up through it as raw JSON bytes, copying them only where it must.</p>
+</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<span class="num">02</span>
+<div><a class="title" href="02-compile.html">One source, two engines: how n1k1 compiles a query</a><p>n1k1&#39;s query compiler isn&#39;t written separately from its interpreter. It&#39;s generated from the interpreter&#39;s own source, by marking which lines run once and which run per row. Here&#39;s the filter, turning into a code printer, and the Go it prints, fused.</p>
 </div></li></ol></main>
 </body>
 </html>
