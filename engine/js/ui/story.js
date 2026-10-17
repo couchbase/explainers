@@ -82,10 +82,18 @@ export function runStory({ simulation = false, setup }) {
     ui.crumb.hidden = !cam.label;
     ui.codeBtn.disabled = !(st.code && st.code.length);
     codeDrawer.setDefault(st.code || []);
-    if (ctl.scrolled) {
-      try { history.replaceState(null, '', `#${stepEls[i].id}`); } catch { /* sandboxed */ }
-    }
+    if (ctl.scrolled) syncHash(i);
   }
+
+  // The URL's fragment names the step in view, so a reload or a shared
+  // link lands there; back at the very top, it names none, so a reload
+  // starts at the top.
+  function syncHash(i) {
+    const hash = window.scrollY <= 0 ? '' : `#${stepEls[i].id}`;
+    if (location.hash === hash) return;
+    try { history.replaceState(null, '', `${location.pathname}${location.search}${hash}`); } catch { /* sandboxed */ }
+  }
+  window.addEventListener('scroll', () => { if (ctl.scrolled && ctl.current >= 0) syncHash(ctl.current); }, { passive: true });
 
   // The story callout for step i's highlighted phrase, if it's in view.
   const anchorOf = hooks.anchor || ((id) => diagram.anchor(id));

@@ -52,3 +52,16 @@ test('planning page: its header links up to the blance topic index', async () =>
   assert.equal(await page.evaluate(() => document.querySelector('a.eyebrow').textContent), 'blance');
   await page.close();
 });
+
+test('planning page: the URL names the step in view, and none back at the top', async () => {
+  const { page, errors } = await openPage(browser, { page: planning });
+  await page.mouse.move(700, 400);
+  for (let i = 0; i < 12; i++) { await page.mouse.wheel(0, 600); await page.waitForTimeout(100); }
+  await page.waitForTimeout(400);
+  assert.match(await page.evaluate(() => location.hash), /^#[\w-]+--[\w-]+$/);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(400);
+  assert.equal(await page.evaluate(() => location.hash), '');
+  assert.deepEqual(errors, []);
+  await page.close();
+});
