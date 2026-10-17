@@ -4,7 +4,7 @@
 // (../lib/boxed.json, from tools/boxed-golden).
 
 import { STATES, STATE, statePath } from './states.js';
-import { ROWS, HERO, ALLOCS, CHANGED, GROUP, ORDER, JOIN, bytesOf } from '../lib/boxed.js';
+import { ROWS, HERO, ALLOCS, CHANGED, GROUP, ORDER, JOIN, WINDOW, WINDOW_ROWS, bytesOf } from '../lib/boxed.js';
 import { RUN } from '../lib/query.js';
 
 export const VIEW_KEYS = {
@@ -60,6 +60,12 @@ function facts() {
     'join.n1k1.setup': JOIN.n1k1Setup,
     'join.n1k1.perRow': Math.round(JOIN.n1k1PerRow),
     'join.rows': `${JOIN.cbqMatches} ${JOIN.n1k1Joined}`,
+    // the window
+    'window.cbq.count': WINDOW.cbqStages[0].count,
+    'window.cbq.bytes': WINDOW.cbqStages[0].bytes,
+    'window.n1k1.perRow': WINDOW.n1k1WindowPerRow,
+    'window.rows': WINDOW_ROWS.length,
+    'window.alice4': WINDOW_ROWS.filter((r) => r.customer === 'alice')[3].runningText,
     // which lane: n1k1's stats line, for a query it can't make native
     'lanes.native.expr': RUN.lanes[0].stats.some((x) => x.startsWith('expr:')),
     'lanes.boxed.expr': RUN.lanes[1].stats.find((x) => x.startsWith('expr:')),

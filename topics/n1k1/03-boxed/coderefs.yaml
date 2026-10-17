@@ -128,3 +128,18 @@ op.hashjoin:
   anchor: "func OpJoinHash(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,"
   extent: 60
   title: n1k1 OpJoinHash() — an rhmap keyed by the join key's canonical bytes
+
+cbq.window:
+  repo: n1k1-query
+  path: execution/window.go
+  anchor: "func (this *WindowAggregate) processWindowAggregates(c int64, item value.AnnotatedValue) bool {"
+  extent: func
+  title: cbq WindowAggregate.processWindowAggregates() — each row's window values, boxed, kept on the row
+  highlight: ["err = aInfo.evaluate(this, wf, c)", "aggregates[aInfo.id] = aInfo.val"]
+
+op.window:
+  repo: n1k1
+  path: engine/op_window.go
+  anchor: "func OpWindowFrames(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,"
+  extent: 40
+  title: n1k1 OpWindowFrames() — each row's frame, folded in bytes

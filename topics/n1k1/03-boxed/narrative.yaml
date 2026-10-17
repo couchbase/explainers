@@ -290,6 +290,39 @@ chapters:
           and costs nothing. Both make the same 20 joined rows.
 
   # ------------------------------------------------------------------
+  - id: window
+    title: "WINDOW"
+    color: push
+    steps:
+
+      - id: partitions
+        view: { at: window.1, target: others }
+        code: [cbq.window, op.window]
+        text: |
+          Window functions, too. Take a running total per customer,
+          `SUM(total) OVER (PARTITION BY customer ORDER BY id)`. Each
+          engine reads [[the rows in their partitions]], a customer's
+          orders together, by id, and gives each row the sum so far.
+
+      - id: running
+        view: { at: window.2, target: others }
+        expect: ["fact:window.cbq.count=8.7", "fact:window.cbq.bytes=920", "fact:window.n1k1.perRow=0", "fact:window.rows=20", "fact:window.alice4=424.90000000000003"]
+        text: |
+          Row by row. For each row, cbq attaches a map for its
+          results, makes a new boxed running sum, copies it to carry to
+          the next row, and makes its final value: ~8.7 allocations,
+          ~920 bytes per row, onto [[its heap]].
+
+          n1k1 copies each partition's rows once, as bytes, and folds
+          the running sum, an 8-byte float64, in place. Its window adds
+          0 allocations per row: we ran its query on 20 orders and on
+          1,000, with the window and without, and the difference rounds
+          to nothing.
+
+          Both give the same running totals, down to alice's fourth,
+          424.90000000000003.
+
+  # ------------------------------------------------------------------
   - id: fidelity
     title: "What boxing changes"
     color: out
@@ -337,8 +370,9 @@ chapters:
           Here it is all together: [[what each operation leaves]] on
           the Go heap, per row, in each engine.
 
-          cbq boxes. The filter, GROUP BY and the JOIN each leave about
-          1,100 to 2,200 bytes per row, and ORDER BY about 600. n1k1
+          cbq boxes. The filter, GROUP BY, the window and the JOIN
+          each leave about 900 to 2,200 bytes per row, and ORDER BY
+          about 600. n1k1
           leaves nothing per row, but for the 24 bytes Go itself boxes
           when n1k1 sorts. Its allocations come once, at setup.
 

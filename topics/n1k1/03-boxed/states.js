@@ -15,6 +15,8 @@
 //           orders, waiting; 2, the build, order by order; 3, the probe,
 //           customer by customer, each match joined
 //   table   the totals table, boxed and written back, in the lanes' place
+//   window  a window function, in the lanes' place: 0, not shown; 1, the
+//           rows, in their partitions; 2, row by row, each running total
 //   fallback  which lane a query took, as n1k1's stats say
 //   summary   all of it together: each operation's cost per row, in both
 //
@@ -22,7 +24,7 @@
 // panels shows
 // at a time: the last one turned on.
 
-const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, order: 0, join: 0, table: false, fallback: false, summary: false };
+const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, order: 0, join: 0, window: 0, table: false, fallback: false, summary: false };
 
 const CHANGES = [
   ['start', {}],
@@ -33,6 +35,7 @@ const CHANGES = [
   ['group.2', { group: 2 }],
   ...[1, 2, 3].map((k) => [`order.${k}`, { order: k }]),
   ...[1, 2, 3].map((k) => [`join.${k}`, { join: k }]),
+  ...[1, 2].map((k) => [`window.${k}`, { window: k }]),
   ['table', { table: true }],
   ['fallback', { fallback: true }],
   ['summary', { summary: true }],
@@ -61,6 +64,7 @@ export function panelOf(s) {
   if (s.summary) return 'summary';
   if (s.fallback) return 'fallback';
   if (s.table) return 'table';
+  if (s.window) return 'window';
   if (s.join) return 'join';
   if (s.order) return 'order';
   if (s.group) return 'group';

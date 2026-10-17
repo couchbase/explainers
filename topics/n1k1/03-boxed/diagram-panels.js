@@ -6,7 +6,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { PANEL, GROUP as G } from './layout.js';
-import { GROUP, CUSTOMERS, ROWS, HERO, ORDER, JOIN, CHANGED, bytesOf } from '../lib/boxed.js';
+import { GROUP, CUSTOMERS, ROWS, HERO, ORDER, JOIN, WINDOW, CHANGED, bytesOf } from '../lib/boxed.js';
 import { RUN } from '../lib/query.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -30,12 +30,14 @@ const QUERIES = {
   group: [['SELECT customer, ', 0], ['SUM(total)', 1], [', ', 0], ['COUNT(*)', 1], [' FROM orders ', 0], ['GROUP BY customer', 1]],
   order: [['SELECT * FROM orders ', 0], ['ORDER BY total DESC', 1]],
   join: [['SELECT * FROM orders o ', 0], ['JOIN', 1], [' customers c ', 0], ['ON o.customer = c.id', 1]],
+  window: [['SELECT id, customer, total, ', 0], ['SUM(total) OVER (PARTITION BY customer ORDER BY id)', 1], [' AS running FROM orders', 0]],
   fallback: [['SELECT id FROM orders WHERE ', 0], ['STR_TO_MILLIS(ts) > STR_TO_MILLIS("2026-02-15")', 1]],
 };
 const QUERY_NOTES = {
   group: 'over the 20 orders: 4 groups',
   order: 'over the 20 orders',
   join: '20 orders, 4 customers: 20 joined rows',
+  window: 'over the 20 orders: a running total per customer',
   fallback: 'a function n1k1 can\'t yet run natively',
 };
 const QUERY = { x: 30, y: 22, w: 940, h: 62 };
@@ -44,7 +46,9 @@ export function buildQueries(g) {
   return Object.fromEntries(Object.entries(QUERIES).map(([name, runs]) => {
     const qg = el('g', { opacity: 0 }, g);
     el('rect', { x: QUERY.x, y: QUERY.y, width: QUERY.w, height: QUERY.h, rx: 8, class: 'expr' }, qg);
-    const t = el('text', { x: QUERY.x + 16, y: QUERY.y + 27, class: 'query-text' }, qg);
+    // (a long query, in a smaller size, to fit)
+    const long = runs.reduce((n, [t]) => n + t.length, 0) > 80;
+    const t = el('text', { x: QUERY.x + 16, y: QUERY.y + 27, class: `query-text${long ? ' long' : ''}` }, qg);
     for (const [text, marked] of runs) {
       const ts = el('tspan', marked ? { class: 'query-mark' } : {}, t);
       ts.textContent = text;
@@ -239,6 +243,7 @@ export function buildSummary(g) {
     ['the filter', 'orders.total > 200', `${HERO.boxedAllocs} allocations`, bytesOf(HERO), ['0 allocations', ''], 0, 'order-1003'],
     ['GROUP BY', 'SUM(total), COUNT(*)', `~${Math.round(GROUP.cbqPerRow)} allocations`, GROUP.cbqPerRowBytes, ['0 allocations', `after ${GROUP.n1k1Setup} allocations, once, at setup`], 0, 'beyond boxing the row'],
     ['ORDER BY', 'total DESC', `~${Math.round(OS.SortKey.count + OS.SortCompare.count)} allocations`, OS.SortKey.bytes + OS.SortCompare.bytes, [`${Math.round(ORDER.n1k1PerRow)} allocation`, `Go boxing a []byte header; after ${ORDER.n1k1Setup} allocations, once, at setup`], ORDER.n1k1PushBytes, 'the key, and compares'],
+    ['WINDOW', 'SUM(total) OVER (…)', `~${Math.round(WINDOW.cbqStages[0].count)} allocations`, WINDOW.cbqStages[0].bytes, ['0 allocations', 'for the window, beyond its query without it'], 0, 'a running total, per customer'],
     ['hash JOIN', 'o.customer = c.id', `${JS.Joined.count} allocations`, JS.Joined.bytes, ['0 allocations', `after ${JOIN.n1k1Setup} allocations, once, at setup`], 0, 'per joined row'],
   ];
   const max = Math.max(...rows.map((r) => r[3]));
@@ -248,7 +253,7 @@ export function buildSummary(g) {
   txt(root, xc, 108, 'bytes per row, as bars', 'node-sub');
   txt(root, xn, 108, 'bytes per row, as bars', 'node-sub');
   rows.forEach(([name, what, cbq, cb, n1k1, nb, note], k) => {
-    const y = 132 + k * 92;
+    const y = 132 + k * 78;
     const rg = el('g', { opacity: 0 }, root);
     txt(rg, x0, y, name, 'others-name');
     txt(rg, x0, y + 18, what, 'others-sub');
@@ -275,7 +280,7 @@ export function buildSummary(g) {
   ];
   P.notes = notes.map((t, k) => {
     const ng = el('g', { opacity: 0 }, root);
-    txt(ng, x0, 520 + k * 26, t, 'summary-note');
+    txt(ng, x0, 548 + k * 24, t, 'summary-note');
     return ng;
   });
   return P;
@@ -285,5 +290,6 @@ export function drawSummary(P, A, B, q, field, vis, entering) {
   op(P.g, vis);
   // (row by row, then the notes)
   const items = [...P.rows, ...P.notes];
-  items.forEach((r, i) => op(r, entering ? seg(q, 0.55 + i * 0.06, 0.62 + i * 0.06) : vis));
+  const step = 0.4 / items.length;
+  items.forEach((r, i) => op(r, entering ? seg(q, 0.55 + i * step, 0.6 + i * step) : vis));
 }

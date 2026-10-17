@@ -79,3 +79,4 @@
 .diagram .alloc-text { font: 700 11px var(--font-mono); }
 .diagram .alloc-text.cbq { fill: var(--copy); }
 .diagram .alloc-text.n1k1 { fill: var(--slice); }
+.diagram .query-text.long { font-size: 13px; }

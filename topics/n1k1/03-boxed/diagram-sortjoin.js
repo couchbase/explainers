@@ -7,7 +7,7 @@
 import { svgEl as el, svgText as txt, setText } from '../../../engine/js/ui/util/dom.js';
 import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import { PANEL, GROUP as G } from './layout.js';
-import { ROWS, ORDER, JOIN } from '../lib/boxed.js';
+import { ROWS, ORDER, JOIN, WINDOW, WINDOW_ROWS } from '../lib/boxed.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
 const at = (e, x, y) => e.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
@@ -311,5 +311,83 @@ export function drawJoin(P, A, B, q, field, vis) {
   [`per order put in: ${JS.Build.count} allocations, about ${fmt(J_BUILD)} bytes`, `per customer looked up: ${JS.Probe.count}, about ${fmt(J_PROBE)} bytes`, `per joined row: ${JS.Joined.count}, about ${fmt(J_JOINED)} bytes (${joined} so far)`]
     .forEach((t, k) => setText(P.heaps.cbq.notes[k], t));
   [`${fmt(JOIN.n1k1Setup)} allocations, once, at setup;`, `then ${Math.round(JOIN.n1k1PerRow)} per row: orders copied into chunks,`, `and a joined row is slices (${joined} so far)`]
+    .forEach((t, k) => setText(P.heaps.n1k1.notes[k], t));
+}
+
+// ---- a window function: SUM(total) OVER (PARTITION BY customer ORDER BY id) ----
+
+const WS = Object.fromEntries(WINDOW.cbqStages.map((x) => [x.stage, x]));
+const W_ROW = WS.WindowRow.bytes;
+const W_TOTAL = WINDOW_ROWS.length * W_ROW;
+const W = { y: PANEL.y + 56, dy: 14.5 };
+// (a partition's first row: where a gap goes above it)
+const W_NEW = WINDOW_ROWS.map((r, i) => i === 0 || r.customer !== WINDOW_ROWS[i - 1].customer);
+const W_Y = (() => {
+  let gaps = 0;
+  return WINDOW_ROWS.map((r, i) => {
+    if (i > 0 && W_NEW[i]) gaps++;
+    return W.y + i * W.dy + gaps * 6;
+  });
+})();
+// a number's text, aligned on its decimal point at x
+function decimal(g, x, y, t, cls) {
+  const [whole, frac] = String(t).split('.');
+  txt(g, x, y, whole, cls, 'end');
+  if (frac !== undefined) txt(g, x, y, `.${frac}`, cls);
+}
+
+export function buildWindow(g) {
+  const P = { g: el('g', { opacity: 0 }, g), rows: {}, parcels: {} };
+  const root = P.g;
+  P.heaps = frame(root, { cbq: 'cbq: a boxed running sum, per row', n1k1: 'n1k1: an 8-byte running sum, in place' });
+  for (const side of SIDES) {
+    const x0 = G.cols[side] + 14;
+    P.rows[side] = WINDOW_ROWS.map((r, i) => {
+      const y = W_Y[i];
+      const rg = el('g', {}, root);
+      el('rect', { x: x0 - 6, y: y - 11, width: 420, height: 15, rx: 3, class: 'sort-hl', opacity: 0 }, rg);
+      txt(rg, x0, y, r.id, 'sort-row');
+      txt(rg, x0 + 40, y, r.customer, 'sort-row');
+      decimal(rg, x0 + 128, y, r.totalText, 'sort-total');
+      const chip = el('g', { opacity: 0 }, rg);
+      el('rect', { x: x0 + 176, y: y - 10, width: 220, height: 13, rx: 3, class: side === 'cbq' ? 'node node-heap' : 'node node-slice' }, chip);
+      txt(chip, x0 + 182, y, `running: ${r.runningText}${side === 'cbq' ? ', boxed' : ', bytes'}`, `sort-chip ${side === 'cbq' ? 'node-heap' : 'node-slice'}`);
+      return { g: rg, chip };
+    });
+    P.parcels[side] = parcel(root, side);
+  }
+  return P;
+}
+
+// The steps: 1, the rows, in their partitions; 2, row by row, each one's
+// running total.
+export function drawWindow(P, A, B, q, field, vis) {
+  op(P.g, vis);
+  const N = WINDOW_ROWS.length, lvl = (s) => s.window;
+  let done = lvl(B) >= 2 ? N : 0, cur = -1, u = 0;
+  if (field === 'window' && lvl(A) === 1 && lvl(B) === 2) {
+    const x = q * N;
+    cur = Math.min(N - 1, Math.floor(x)); u = x - cur; done = cur;
+  }
+  let cbqBytes = done * W_ROW;
+  for (const side of SIDES) {
+    P.rows[side].forEach((r, i) => {
+      op(r.g.firstChild, i === cur ? Math.sin(Math.PI * u) : 0);
+      op(r.chip, i < done || (i === cur && u >= 0.3) ? 1 : 0);
+    });
+  }
+  op(P.parcels.n1k1.g, 0);
+  if (cur >= 0) {
+    fall(P, 'cbq', seg(u, 0.4, 0.95), G.cols.cbq + 190, W_Y[cur] - 12, cbqBytes, W_TOTAL, 'a running sum', W_ROW);
+    if (u >= 0.95) cbqBytes += W_ROW;
+  } else op(P.parcels.cbq.g, 0);
+  setBar(P.heaps, 'cbq', cbqBytes, W_TOTAL);
+  setBar(P.heaps, 'n1k1', 0, W_TOTAL);
+  const rows = cur >= 0 ? cur + (u >= 0.95 ? 1 : 0) : done;
+  setText(P.heaps.cbq.count, `${rows} rows: ${fmt(cbqBytes)} bytes`);
+  setText(P.heaps.n1k1.count, `${rows} rows: 0 bytes`);
+  ['per row: the row\'s map, the new running sum, its', `copy, its final value: ~${WS.WindowRow.count} allocations, ~${fmt(W_ROW)} bytes`, '']
+    .forEach((t, k) => setText(P.heaps.cbq.notes[k], t));
+  ['each partition\'s rows copied once, as bytes; the sum', `folded in place: ${WINDOW.n1k1WindowPerRow} allocations per row, for the window`, '(its query with the window, less without)']
     .forEach((t, k) => setText(P.heaps.n1k1.notes[k], t));
 }

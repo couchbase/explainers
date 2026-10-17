@@ -33,3 +33,12 @@ export const CUSTOMERS = [...new Set(GROUP.steps.map((s) => s.customer))];
 // and per row
 export const ORDER = GOLDEN.order;
 export const JOIN = GOLDEN.join;
+
+// A window function, SUM(total) OVER (PARTITION BY customer ORDER BY
+// id): cbq's steps per row, measured; n1k1's window's own cost per row
+// (its query with the window, less without); and the running totals,
+// from n1k1, row by row
+export const WINDOW = GOLDEN.window;
+// (each row's total and running total as n1k1 printed them, as text)
+const field = (r, k) => r.match(new RegExp(`"${k}":([^,}]+)`))[1];
+export const WINDOW_ROWS = WINDOW.rows.map((r) => ({ ...JSON.parse(r), totalText: field(r, 'total'), runningText: field(r, 'running') }));

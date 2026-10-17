@@ -18,7 +18,7 @@ import {
 } from './layout.js';
 import { STATE, changed, panelOf } from './states.js';
 import { buildQueries, drawQueries, buildGroup, drawGroup, buildFallback, drawFallback, buildSummary, drawSummary } from './diagram-panels.js';
-import { buildOrder, drawOrder, buildJoin, drawJoin } from './diagram-sortjoin.js';
+import { buildOrder, drawOrder, buildJoin, drawJoin, buildWindow, drawWindow } from './diagram-sortjoin.js';
 import { ROWS, HERO, ALLOCS, STAGES, CHANGED, bytesOf } from '../lib/boxed.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -179,6 +179,7 @@ export class Diagram {
     this.group = buildGroup(g);
     this.order = buildOrder(g);
     this.join = buildJoin(g);
+    this.window = buildWindow(g);
     this.fallback = buildFallback(g);
     this.summary = buildSummary(g);
 
@@ -277,6 +278,7 @@ export class Diagram {
     drawGroup(this.group, A, B, q, field, vis('group'));
     drawOrder(this.order, A, B, q, field, vis('order'));
     drawJoin(this.join, A, B, q, field, vis('join'));
+    drawWindow(this.window, A, B, q, field, vis('window'));
     drawFallback(this.fallback, A, B, q, field, vis('fallback'), entering('fallback'));
     drawSummary(this.summary, A, B, q, field, vis('summary'), entering('summary'));
   }
