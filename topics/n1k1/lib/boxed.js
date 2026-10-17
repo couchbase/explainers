@@ -1,6 +1,6 @@
 // What the 03-boxed explainer shows of n1k1's two expression lanes, from
 // their real run (boxed.json, from tools/boxed-golden): 01-query's
-// filter, `200 < orders.total`, over each order, in the byte lane (n1k1's
+// filter, `orders.total > 200`, over each order, in the byte lane (n1k1's
 // native code) and the boxed lane (cbq's Evaluate); each lane's answer,
 // its allocations per row, and, for the boxed lane, where each one
 // happened; and what each total becomes, boxed and written back.

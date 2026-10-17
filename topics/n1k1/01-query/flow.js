@@ -59,7 +59,7 @@ export function rowAt(s) {
   if (e.stage === 'filter') {
     return {
       op: 'filter', order: o, vals: [doc, { t: `"${o.stem}"`, kind: 'copy' }],
-      test: `200 < ${o.total.bytes} → ${o.pass}`, pass: o.pass, reads: [o.total.start, o.total.end],
+      test: `${o.total.bytes} > 200 → ${o.pass}`, pass: o.pass, reads: [o.total.start, o.total.end],
     };
   }
   const vals = [

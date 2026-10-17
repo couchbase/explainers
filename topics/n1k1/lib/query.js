@@ -28,7 +28,7 @@ export const ORDERS = GOLDEN.files.map((f) => {
   return {
     name: f.name, stem: f.name.replace(/\.json$/, ''), doc: f.doc,
     id, customer, total,
-    // (the filter: 200 < total, as numbers)
+    // (the filter: total > 200, as numbers)
     pass: LIMIT < parseFloat(total.bytes),
   };
 });

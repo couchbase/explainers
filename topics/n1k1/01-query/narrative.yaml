@@ -176,7 +176,7 @@ chapters:
         code: [expr.optimize, cmp.static]
         text: |
           Before any row arrives, each operator [[sets up]] its
-          expressions. The filter's `200 < orders.total` has two
+          expressions. The filter's `orders.total > 200` has two
           things done once, now.
 
           The 200 is parsed into a float64. And `orders.total` becomes
@@ -231,7 +231,7 @@ chapters:
           55 to 61, `129.50`. Nothing is copied.
 
           The filter parses those 6 bytes into a float64, and
-          compares. [[200 < 129.50 is false]], so the filter drops the
+          compares. [[129.50 > 200 is false]], so the filter drops the
           row. Its counters say 1 row in, 0 out.
 
       - id: passes
@@ -243,7 +243,7 @@ chapters:
 
           The scan reuses its record buffer for each file, so
           order-1003.json's bytes now sit where order-1002.json's
-          were. Its total is 210.00, and [[200 < 210.00 is true]], so
+          were. Its total is 210.00, and [[210.00 > 200 is true]], so
           the filter passes the row up.
 
       - id: project

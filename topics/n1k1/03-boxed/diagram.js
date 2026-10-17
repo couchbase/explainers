@@ -75,7 +75,7 @@ export class Diagram {
 
     // the filter, and the row
     el('rect', { x: EXPR.x, y: EXPR.y, width: EXPR.w, height: EXPR.h, rx: 8, class: 'expr' }, g);
-    txt(g, EXPR.x + 14, EXPR.y + 26, '200 < orders.total', 'expr-text');
+    txt(g, EXPR.x + 14, EXPR.y + 26, 'orders.total > 200', 'expr-text');
     txt(g, EXPR.x + 14, EXPR.y + 47, "01-query's filter, on one row", 'expr-sub');
     el('rect', { x: BUF.x, y: BUF.y, width: BUF.w, height: BUF.h, rx: 8, class: 'buf' }, g);
     this.bufHl = el('rect', { x: charX(O.total.start) - 1, y: BUF.y + 9, width: (O.total.end - O.total.start) * 6.6 + 2, height: 17, rx: 3, class: 'buf-hl', opacity: 0 }, g);

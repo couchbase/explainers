@@ -33,7 +33,7 @@ chapters:
         expect: ["fact:hero.total.bytes=210.00"]
         text: |
           In the first explainer, n1k1 tested each order with
-          [[this filter]], `200 < orders.total`. At setup, n1k1 turned
+          [[this filter]], `orders.total > 200`. At setup, n1k1 turned
           the filter into native code that works on JSON bytes.
 
           n1k1 can't do that for every expression, though. For one it
@@ -107,7 +107,7 @@ chapters:
         view: { at: boxed.3, target: boxed.2 }
         expect: ["fact:hero.compare.bytes=16"]
         text: |
-          cbq compares its two boxed numbers, 200 and 210, through
+          cbq compares its two boxed numbers, 210 and 200, through
           their Compare methods, which allocate [[a working value]],
           16 bytes. The answer is a boolValue, true.
 

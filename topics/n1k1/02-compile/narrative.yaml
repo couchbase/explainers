@@ -200,7 +200,7 @@ chapters:
         expect: ["fact:emitted.200=2", "fact:emitted.lifted=13"]
         text: |
           The first hole gets the filter's expression, the comparison
-          `200 < total`.
+          `total > 200` (which cbq turned around, as `200 < total`).
 
           The plan's constant is known now, at compile time, so it's
           baked into the code, in 2 places: [[if 200 < lzF64]], and the

@@ -31,7 +31,7 @@ const seg = (q, a, b) => clamp01((q - a) / (b - a));
 export const GLYPHS = { project: '◇', filter: '▽', expr: 'ƒ', scan: '≡' };
 const PLAN_OPS = [
   { id: 'project', title: 'project', params: 'id, customer, total' },
-  { id: 'filter', title: 'filter', params: '200 < total' },
+  { id: 'filter', title: 'filter', params: 'total > 200' },
   { id: 'scan', title: 'scan', params: 'the 20 orders, inline' },
 ];
 // which operator the compiler's at, as it prints each group
