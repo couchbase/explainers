@@ -263,7 +263,7 @@ func main() {
 		_ = value.MISSING
 		rows = append(rows, r)
 	}
-	json.NewEncoder(os.Stdout).Encode(map[string]interface{}{"expr": "200 < orders.total", "rows": rows, "group": groupBy(files), "order": orderBy(files), "join": joinHash(files)})
+	json.NewEncoder(os.Stdout).Encode(map[string]interface{}{"expr": "200 < orders.total", "rows": rows, "group": groupBy(files), "order": orderBy(files), "join": joinHash(files), "window": window(files)})
 }
 
 func round(x float64) float64 { return math.Round(x) }
@@ -752,6 +752,115 @@ func joinHash(files []string) map[string]interface{} {
 	setup, perRow := n1k1Cost(mk, len(orders))
 	return map[string]interface{}{"cbqStages": out, "cbqMatches": matches, "n1k1Joined": joined, "n1k1Setup": setup, "n1k1PerRow": perRow,
 		"build": len(orders), "probe": len(customers)}
+}
+
+// ---- a window function: SUM(total) OVER (PARTITION BY customer ORDER BY id)
+
+var wctx = glue.NewGlueContext(time.Unix(0, 0))
+var wagg algebra.Aggregate
+
+// cbq's steps for a row of a running total, as its execution/window.go
+// takes them: the row's aggregates map, attached; the running value
+// cumulated (CumulateInitial); kept, copied, for the next row; made
+// final (ComputeFinal); set in the row's map
+//
+//go:noinline
+func cbqWindowRow(item value.AnnotatedValue, val value.Value) value.Value {
+	aggs := map[string]value.Value{}
+	item.SetAttachment(value.ATT_AGGREGATES, aggs)
+	v, _ := wagg.CumulateInitial(item, val, wctx)
+	cum := v.Copy()
+	f, _ := wagg.ComputeFinal(v, wctx)
+	aggs["w"] = f
+	return cum
+}
+
+func window(files []string) map[string]interface{} {
+	e, err := n1ql.ParseExpression("sum(orders.total)")
+	if err != nil {
+		panic(err)
+	}
+	wagg = e.(algebra.Aggregate)
+	rows, _ := docs(files)
+	cv, _ = glue.NewConvertVals(labels)
+	// (in the order the window reads them: by customer, then id)
+	sort.SliceStable(rows, func(i, j int) bool {
+		ci, _ := base.ValPathGet(rows[i][0], []string{"customer"}, nil)
+		cj, _ := base.ValPathGet(rows[j][0], []string{"customer"}, nil)
+		return string(ci) < string(cj)
+	})
+	items := make([]value.AnnotatedValue, len(rows))
+	run := func() {
+		for i, r := range rows {
+			items[i] = boxRow(r)
+		}
+		var val value.Value
+		var last string
+		for i, it := range items {
+			c, _ := base.ValPathGet(rows[i][0], []string{"customer"}, nil)
+			if string(c) != last {
+				val, _ = wagg.Default(nil, wctx)
+				last = string(c)
+			}
+			val = cbqWindowRow(it, val)
+		}
+	}
+	stages := profiled([]string{"main.cbqWindowRow"}, 200, len(rows), run)
+	// n1k1: its real plan for the query, run through its session, on 20
+	// orders and on 1,000; and the same query without the window: the
+	// window's own cost per row is the difference
+	tmp, err := os.MkdirTemp("", "n1k1-boxed-golden-window")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tmp)
+	mkDir := func(times int) string {
+		d := filepath.Join(tmp, fmt.Sprint(times), "default", "orders")
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			panic(err)
+		}
+		for k := 0; k < times; k++ {
+			for _, f := range files {
+				b, _ := os.ReadFile(f)
+				if err := os.WriteFile(filepath.Join(d, fmt.Sprintf("%d-%s", k, filepath.Base(f))), b, 0o644); err != nil {
+					panic(err)
+				}
+			}
+		}
+		return filepath.Join(tmp, fmt.Sprint(times))
+	}
+	withQ := "SELECT id, customer, total, SUM(total) OVER (PARTITION BY customer ORDER BY id) AS running FROM orders"
+	withoutQ := "SELECT id, customer, total FROM orders ORDER BY customer, id"
+	cost := func(dir, q string) float64 {
+		sess, err := glue.OpenSession(dir, "default")
+		if err != nil {
+			panic(err)
+		}
+		if _, err := sess.Run(q); err != nil {
+			panic(err)
+		}
+		return testing.AllocsPerRun(10, func() {
+			if _, err := sess.Run(q); err != nil {
+				panic(err)
+			}
+		})
+	}
+	d1, d50 := mkDir(1), mkDir(50)
+	perRow := func(q string) float64 { return (cost(d50, q) - cost(d1, q)) / float64(49*len(files)) }
+	w, wo := perRow(withQ), perRow(withoutQ)
+	// (and the answers, from n1k1)
+	sess, _ := glue.OpenSession(d1, "default")
+	res, err := sess.Run(withQ + " ORDER BY customer, id")
+	if err != nil {
+		panic(err)
+	}
+	var answers []string
+	for _, r := range res.Rows {
+		answers = append(answers, fmt.Sprintf("%s", r))
+	}
+	return map[string]interface{}{"cbqStages": stages,
+		"n1k1WithPerRow": math.Round(w*10) / 10, "n1k1WithoutPerRow": math.Round(wo*10) / 10,
+		"n1k1WindowPerRow": math.Max(0, math.Round((w-wo)*10)/10), "rows": answers}
 }
 
 // the GROUP BY's allocations, by stage, from the frames on their stacks
