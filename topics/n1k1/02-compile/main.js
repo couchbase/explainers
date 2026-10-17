@@ -49,6 +49,8 @@ runStory({
         const q = scrub ? f : easeQuad(f);
         // the camera: from the last state's view to the next one's
         camera.show(camera.between(cameraOf(STATE[a]), cameraOf(STATE[b]), q));
+        // (the plan and its keys, kept in view as the camera goes down)
+        diagram.setSticky(camera.free.y);
         diagram.draw(a, b, q);
       },
       expose: { scenes, plans },

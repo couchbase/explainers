@@ -43,6 +43,10 @@ const GROUP_ORDER = ['project', 'filter', 'expr', 'fuse', 'scan'];
 export const BAKED = /200|lzVals\[0\]|\[\]string\{"/;
 export const CALLS = /^lzYieldVals\(lzValsScan\)$|^lzYieldValsOrig\(lzValsOut\)$/;
 
+// how far the left column can follow the camera down: to just above
+// the rows panel (its bottom is the held code card's)
+const STICKY_MAX = ROWS.y - 24 - (HELD.y + HELD.h);
+
 // how far a line slides as it goes or comes
 const SLIDE = 40;
 // the ball's x: in the gutter, just left of the code panel
@@ -104,9 +108,12 @@ export class Diagram {
     const g = el('g', {}, svg);
 
     // the plan
-    txt(g, PLAN.x, PLAN.y - 14, 'the plan', 'panel-title');
+    // the left column (the plan, the keys, the held code): it stays in
+    // view as the camera follows the code down (see setSticky)
+    const L = this.left = el('g', {}, g);
+    txt(L, PLAN.x, PLAN.y - 14, 'the plan', 'panel-title');
     this.ops = Object.fromEntries(PLAN_OPS.map((o, k) => {
-      const og = el('g', {}, g);
+      const og = el('g', {}, L);
       const box = el('rect', { x: PLAN.x, y: planY(k), width: PLAN.w, height: PLAN.h, rx: 8, class: 'op' }, og);
       // (a tint of its color, while the compiler's at it; and its
       // stripe, like the stripes on the code it prints)
@@ -115,7 +122,7 @@ export class Diagram {
       txt(og, PLAN.x + 16, planY(k) + 22, GLYPHS[o.id], `glyph big origin-${o.id}`);
       txt(og, PLAN.x + 30, planY(k) + 22, o.title, 'op-title');
       txt(og, PLAN.x + 16, planY(k) + 40, o.params, 'op-params');
-      if (k < 2) el('path', { d: `M${PLAN.x + PLAN.w / 2},${planY(k + 1) - 1} V${planY(k) + PLAN.h + 3}`, class: 'yield', 'marker-end': 'url(#n1k1c-arrow)' }, g);
+      if (k < 2) el('path', { d: `M${PLAN.x + PLAN.w / 2},${planY(k + 1) - 1} V${planY(k) + PLAN.h + 3}`, class: 'yield', 'marker-end': 'url(#n1k1c-arrow)' }, L);
       return [o.id, { g: og, box, tint }];
     }));
     const defs = el('defs', {}, svg);
@@ -124,7 +131,7 @@ export class Diagram {
 
     // the kinds of line, a key
     this.key = KINDS.map((k, i) => {
-      const kg = el('g', { opacity: 0 }, g);
+      const kg = el('g', { opacity: 0 }, L);
       el('rect', { x: KEY.x, y: KEY.y + i * KEY.dy - 11, width: 14, height: 14, rx: 3, class: `kind-swatch kind-${k}` }, kg);
       txt(kg, KEY.x + 22, KEY.y + i * KEY.dy, { early: 'once, as the plan is set up', late: 'per row', hide: "the interpreter's only", captured: 'a seam: code from elsewhere' }[k], 'key-text');
       return kg;
@@ -184,7 +191,7 @@ export class Diagram {
     txt(this.held, 10, 38, 'captured as it was printed,', 'held-text');
     txt(this.held, 10, 54, 'waiting for a place', 'held-text');
     // the origins, a key
-    this.originKey = el('g', { opacity: 0 }, g);
+    this.originKey = el('g', { opacity: 0 }, L);
     ['project', 'filter', 'expr', 'scan'].forEach((o, i) => {
       el('rect', { x: KEY.x, y: KEY.y + i * KEY.dy - 11, width: 6, height: 14, class: `stripe origin-${o}` }, this.originKey);
       txt(this.originKey, KEY.x + 14, KEY.y + i * KEY.dy, GLYPHS[o], `glyph origin-${o}`);
@@ -362,10 +369,11 @@ export class Diagram {
     // for it in the filter's hole, and the lines it holds are printed
     const heldOn = (s) => (s.panel === 'emit' && groupShown(s, 'project') && !groupShown(s, 'fuse') ? 1 : 0);
     const into = emitRowY(slotOf(B, T.entering[0] ?? 0) + 1);
-    let hx = HELD.x, hy = HELD.y, ho = f('emit', heldOn(A), heldOn(B));
+    const dy = this.stickyDy || 0;
+    let hx = HELD.x, hy = HELD.y + dy, ho = f('emit', heldOn(A), heldOn(B));
     if (field === 'emit' && heldOn(A) && !heldOn(B)) {
       const u = easeQuad(seg(q, T.fly[0], T.fly[1]));
-      hx = lerp(HELD.x, CODE.x + 60, u); hy = lerp(HELD.y, into - 12, u);
+      hx = lerp(HELD.x, CODE.x + 60, u); hy = lerp(HELD.y + dy, into - 12, u);
       ho = 1 - seg(q, T.fly[1] - 0.02, T.fly[1] + 0.08);
     } else if (field === 'emit' && !heldOn(A) && heldOn(B)) ho = seg(q, 0.85, 1);
     at(this.held, hx, hy);
@@ -402,6 +410,15 @@ export class Diagram {
     op(this.focus, o);
   }
 
+  // Keeps the left column in view: shifted down to just below the
+  // view's top (top, in canvas units), but never onto the rows panel.
+  setSticky(top) {
+    const dy = Math.max(0, Math.min(STICKY_MAX, top + 14 - (PLAN.y - 34)));
+    if (dy === this.stickyDy) return;
+    this.stickyDy = dy;
+    at(this.left, 0, dy);
+  }
+
   // the place of an emitted row: the first that says re
   emittedAt(re) {
     const k = ITEMS.findIndex((it) => !it.hole && re.test(it.text));
@@ -423,6 +440,9 @@ export class Diagram {
       return p ? { p: [p[0] - 6, p[1] - 4], visible: true } : null;
     }
     const a = ANCHORS[id];
-    return a ? { p: a.p, visible: true } : null;
+    if (!a) return null;
+    // (the left column's: where it is now)
+    const sticky = id === 'plan' || kind === 'op' || id === 'key' || id === 'held';
+    return { p: sticky ? [a.p[0], a.p[1] + (this.stickyDy || 0)] : a.p, visible: true };
   }
 }
