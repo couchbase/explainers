@@ -44,7 +44,12 @@ interpreter's only; violet, a seam (and, in the emitted Go, the hole it
 leaves). An emitted line's stripe is the operator that printed it:
 amber the project, teal the filter, violet the filter's expression,
 slate the scan. In the summary, blue marks what's baked in, amber the
-calls left per row.
+calls left per row. The red ball is the pen: the line intermed_build
+is turning, or the compiler is printing. Changes play one line at a
+time: a line going slides out left as it fades, its replacement slides
+in from the right; when code goes into a hole, the hole goes first, then
+the code below moves down to make room, then the new lines are printed,
+one by one.
 
 ## Motion rules
 

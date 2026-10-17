@@ -117,6 +117,9 @@ chapters:
           call to Emit, which prints the line, as text. The per-row
           code is now something to print.
 
+          The lines turn one at a time, in order. Follow the red ball:
+          it's on the line that's turning.
+
           (Each Emit's string is shown here on one line, without its
           indent.)
 
@@ -169,6 +172,8 @@ chapters:
           intermed's operators.
 
           What they print is captured into [[one Go function]], Run.
+          From here on, the red ball is the compiler's pen. It sits on
+          the line being printed.
 
       - id: project
         view: { at: emit.project, target: emit.lift }

@@ -40,6 +40,47 @@ const GROUP_ORDER = ['project', 'filter', 'expr', 'fuse', 'scan'];
 export const BAKED = /200|lzVals\[0\]|\[\]string\{"/;
 export const CALLS = /^lzYieldVals\(lzValsScan\)$|^lzYieldValsOrig\(lzValsOut\)$/;
 
+// how far a line slides as it goes or comes
+const SLIDE = 40;
+// the ball's x: in the gutter, just left of the code panel
+const BALL_X = CODE.x - 12;
+// a turning line's progress: line j of n, each in its own stretch of q
+// (overlapping a little, so the eye's carried on to the next)
+const turnAt = (q, j, n) => easeQuad(seg(q, j / n - 0.15 / n, (j + 1) / n + 0.15 / n));
+
+// An emit change's stretches of q: the hole going, the room made, the
+// held code flying in, then each new line, printed in turn.
+export function timeline(A, B, field) {
+  const T = { leave: [0, 0], room: [0, 0], fly: [0, 0], entering: [], printAt: () => [0, 1] };
+  if (field !== 'emit') return T;
+  const up = A.emit < B.emit, [S0, S1] = up ? [A, B] : [B, A];
+  T.entering = ITEMS.map((it, k) => k).filter((k) => itemOn(S1, ITEMS[k]) && !itemOn(S0, ITEMS[k]));
+  const holes = ITEMS.some((it) => it.hole && itemOn(S0, it) && !itemOn(S1, it));
+  const fusing = S1.emit >= 4 && S0.emit < 4;
+  let t = 0;
+  T.leave = holes ? [t, (t += 0.1)] : [t, t];
+  T.room = [t, (t += 0.14)];
+  T.fly = fusing ? [t, (t += 0.12)] : [t, t];
+  const p0 = t + 0.04, n = Math.max(1, T.entering.length), w = (1 - p0) / n;
+  T.printAt = (j) => [p0 + j * w, p0 + (j + 1) * w];
+  if (!up) {
+    // (going back: the same, played backwards)
+    const f = (r) => [1 - r[1], 1 - r[0]];
+    const pa = T.printAt;
+    T.leave = f(T.leave); T.room = f(T.room); T.fly = f(T.fly); T.printAt = (j) => f(pa(j));
+  }
+  return T;
+}
+
+// How big a change is, for its share of the scroll: the lines it
+// turns or prints, one at a time.
+export function changeSize(A, B) {
+  const field = changed(A, B)[0];
+  if (field === 'inter') return FILTER.filter((r) => interLevel(r) === Math.max(A.inter, B.inter)).length * 0.4;
+  if (field === 'emit') return 1 + timeline(A, B, field).entering.length * 0.14;
+  return 1;
+}
+
 // A source line's level: when its text turns into intermed's (0: never).
 const interLevel = (r) => {
   const k = INTER.findIndex((ks) => ks.includes(r.kind));
@@ -141,6 +182,11 @@ export class Diagram {
       rows.forEach((r, i) => txt(this.rows, ROWS.x + 12, y + 20 + i * 17, r, 'row-text'));
     });
 
+    // the ball: the pen that's writing, to follow
+    this.ball = el('g', { opacity: 0 }, g);
+    el('circle', { r: 9, class: 'ball-halo' }, this.ball);
+    el('circle', { r: 5, class: 'ball' }, this.ball);
+
     this.focus = el('rect', { rx: 10, class: 'focus', opacity: 0 }, g);
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
     this.cur = null;
@@ -173,20 +219,43 @@ export class Diagram {
     // to bottom); then turned into intermed's
     const n = FILTER.length;
     const interOn = (s) => (s.inter >= 1 ? 1 : 0);
-    op(this.srcHead[0], 1 - f('inter', interOn(A), interOn(B)));
-    op(this.srcHead[1], f('inter', interOn(A), interOn(B)));
+    // (the panel's name: the old slides out left, the new in from the
+    // right, before the first line turns)
+    const hu = field === 'inter' && A.inter === 0 ? easeQuad(seg(q, 0, 0.08)) : interOn(B);
+    const hOut = easeQuad(seg(hu, 0, 0.5)), hIn = easeQuad(seg(hu, 0.5, 1));
+    at(this.srcHead[0], -SLIDE * hOut, 0); op(this.srcHead[0], 1 - hOut);
+    at(this.srcHead[1], SLIDE * (1 - hIn), 0); op(this.srcHead[1], hIn);
+    // (the lines that change in this step, in order: each gets its own
+    // stretch of the scroll)
+    const turning = field === 'inter' ? this.srcRows.filter((R) => R.level === Math.max(A.inter, B.inter)) : [];
     this.srcRows.forEach((R, i) => {
       const own = seg(q, (i / n) * 0.5, (i / n) * 0.5 + 0.5);
       const ma = marked(A, R.r) ? 1 : 0, mb = marked(B, R.r) ? 1 : 0;
       op(R.tint, (field === 'kinds' ? lerp(ma, mb, easeQuad(own)) : mb) * 0.9);
-      const ta = R.level && A.inter >= R.level ? 1 : 0, tb = R.level && B.inter >= R.level ? 1 : 0;
-      const u = field === 'inter' ? lerp(ta, tb, easeQuad(own)) : tb;
-      // (a line that changes dips out, then comes back as its new self)
-      op(R.a, ta === tb ? 1 - tb : clamp01(1 - 2 * u));
-      op(R.b, ta === tb ? tb : clamp01(2 * u - 1));
-      if (R.level === 0) { op(R.a, 1); op(R.b, 0); }
+      const tb = R.level && B.inter >= R.level ? 1 : 0;
+      let u = tb;
+      const j = turning.indexOf(R);
+      if (j >= 0) u = turnAt(A.inter === 0 ? seg(q, 0.08, 1) : q, j, turning.length);
+      // (the old line slides out left as it fades; then the new one
+      // slides in from the right)
+      const out = easeQuad(seg(u, 0, 0.5)), inn = easeQuad(seg(u, 0.5, 1));
+      at(R.a, -SLIDE * out, 0);
+      at(R.b, SLIDE * (1 - inn), 0);
+      op(R.a, R.level === 0 ? 1 : 1 - out);
+      op(R.b, R.level === 0 ? 0 : inn);
       op(R.no, 1 - f('inter', interOn(A), interOn(B)));
     });
+    // the ball: intermed_build's pen, on the line it's turning
+    if (turning.length) {
+      const x = A.inter === 0 ? seg(q, 0.08, 1) : q;
+      const k = Math.min(turning.length - 1, Math.floor(x * turning.length));
+      const k0 = Math.max(0, k - 1), local = easeQuad(seg(x * turning.length - k, 0, 0.3));
+      const y = lerp(srcRowY(this.srcRows.indexOf(turning[k0])), srcRowY(this.srcRows.indexOf(turning[k])), k === 0 ? 1 : local);
+      this._ball(BALL_X, y - 3.5, 1);
+    } else if (this.cur.state.panel === 'src' && this.cur.state.inter > 0 && !field) {
+      const last = this.srcRows.filter((R) => R.level === this.cur.state.inter).at(-1);
+      this._ball(BALL_X, srcRowY(this.srcRows.indexOf(last)) - 3.5, 1);
+    } else this._ball(0, 0, 0);
 
     // the plan: the operator the compiler's at, as it prints
     const atOp = (s) => (s.panel === 'emit' && s.emit >= 1 && s.emit <= 5 && !s.rows ? AT_OP[GROUP_ORDER[s.emit - 1]] : null);
@@ -198,23 +267,33 @@ export class Diagram {
       setCls(o.box, `op${v > 0.5 ? ' at' : ''}`);
     }
 
-    // the emitted Go: items take their slots (those after a new one move
-    // down to make room, then it fades in; a hole fades, then its code
-    // comes)
+    // the emitted Go, a change at a time: the hole (if any) slides out
+    // left; the code below moves down, making room; the project's held
+    // code flies in (when fusing); then the new lines are printed, one
+    // at a time, each sliding in from the right, the ball on it
+    const T = timeline(A, B, field);
     let slotsA = 0, slotsB = 0;
     this.items.forEach((I, k) => {
       const onA = itemOn(A, I.it), onB = itemOn(B, I.it);
       const ya = emitRowY(slotOf(A, k) + 1), yb = emitRowY(slotOf(B, k) + 1);
       if (onA) slotsA++;
       if (onB) slotsB++;
-      let y = yb, o = onB ? 1 : 0;
-      if (field === 'emit' || field === 'panel') {
-        const u = easeQuad(seg(q, 0, 0.5));
-        y = onA && onB ? lerp(ya, yb, u) : onB ? yb : ya;
-        if (onB && !onA) o = field === 'panel' ? seg(q, 0.55, 1) : seg(q, 0.45 + 0.4 * (k / ITEMS.length), 0.6 + 0.4 * (k / ITEMS.length));
-        else if (onA && !onB) o = 1 - seg(q, 0, 0.35);
+      let y = yb, x = 0, o = onB ? 1 : 0;
+      if (field === 'panel') {
+        if (onB && !onA) o = seg(q, 0.55, 1);
+      } else if (field === 'emit') {
+        const room = easeQuad(seg(q, T.room[0], T.room[1]));
+        if (onA && onB) y = lerp(ya, yb, room);
+        else if (onA && !onB) {
+          // (going: out to the left, before anything moves)
+          const u = easeQuad(seg(q, T.leave[0], T.leave[1]));
+          y = ya; x = -SLIDE * u; o = 1 - u;
+        } else if (onB && !onA) {
+          const j = T.entering.indexOf(k), u = easeQuad(seg(q, ...T.printAt(j)));
+          x = SLIDE * (1 - u); o = u;
+        }
       }
-      at(I.g, 0, y);
+      at(I.g, x, y);
       op(I.g, o);
       if (I.m) op(I.m, f('done', +A.done, +B.done));
       if (!I.it.hole) this.rowAt[k] = [CODE.x + 26 + I.it.depth * 2 * CHAR.emit, y];
@@ -222,26 +301,62 @@ export class Diagram {
     });
     // the Run frame, around them
     const headY = emitRowY(0), tailA = emitRowY(slotsA + 1), tailB = emitRowY(slotsB + 1);
-    const tailY = field === 'emit' ? lerp(tailA, tailB, easeQuad(seg(q, 0, 0.5))) : tailB;
+    const tailY = field === 'emit' ? lerp(tailA, tailB, easeQuad(seg(q, T.room[0], T.room[1]))) : tailB;
     this.runHead.setAttribute('y', headY.toFixed(1));
     this.runTail.setAttribute('y', tailY.toFixed(1));
     this.emitBox.setAttribute('height', (tailY - CODE.y + 12).toFixed(1));
 
-    // the project's code, held: it waits, then goes into the filter's
-    // hole
+    // the ball: the compiler's pen, on the line it's printing (and, when
+    // it's done, resting on the last)
+    if (field === 'emit' && T.entering.length && A.emit < B.emit) {
+      const n = T.entering.length, [p0] = T.printAt(0);
+      if (q < p0) {
+        // (it waits where it was, then moves to the first new line)
+        const from = this.ballRest(A), to = emitRowY(slotOf(B, T.entering[0]) + 1);
+        const u = easeQuad(seg(q, T.room[1], p0));
+        this._ball(BALL_X, lerp(from ? from[1] : to, to, u) - 3.5, from ? 1 : u);
+      } else {
+        const x2 = clamp01((q - p0) / (1 - p0)) * n, j = Math.min(n - 1, Math.floor(x2));
+        const yj = (i) => emitRowY(slotOf(B, T.entering[i]) + 1);
+        const y = j === 0 ? yj(0) : lerp(yj(j - 1), yj(j), easeQuad(seg(x2 - j, 0, 0.35)));
+        this._ball(BALL_X, y - 3.5, 1);
+      }
+    } else if (this.cur.state.panel === 'emit' && !field) {
+      const r = this.ballRest(this.cur.state);
+      this._ball(BALL_X, r ? r[1] - 3.5 : 0, r && !this.cur.state.rows ? 1 : 0);
+    } else if (field === 'emit' || field === 'rows') {
+      const r = this.ballRest(B), ra = this.ballRest(A);
+      this._ball(BALL_X, (r || ra || [0, 0])[1] - 3.5, field === 'rows' ? 1 - q : r ? 1 : 0);
+    } else if (this.cur.state.panel === 'emit' || field === 'panel') this._ball(0, 0, 0);
+
+    // the project's code, held: it waits, then flies into the room made
+    // for it in the filter's hole, and the lines it holds are printed
     const heldOn = (s) => (s.panel === 'emit' && groupShown(s, 'project') && !groupShown(s, 'fuse') ? 1 : 0);
-    const hole = this.rowAt['hole.fuse'] || [CODE.x + 70, emitRowY(30)];
+    const into = emitRowY(slotOf(B, T.entering[0] ?? 0) + 1);
     let hx = HELD.x, hy = HELD.y, ho = f('emit', heldOn(A), heldOn(B));
     if (field === 'emit' && heldOn(A) && !heldOn(B)) {
-      const u = easeQuad(seg(q, 0, 0.5));
-      hx = lerp(HELD.x, hole[0], u); hy = lerp(HELD.y, hole[1] - 12, u);
-      ho = 1 - seg(q, 0.4, 0.6);
-    }
+      const u = easeQuad(seg(q, T.fly[0], T.fly[1]));
+      hx = lerp(HELD.x, CODE.x + 60, u); hy = lerp(HELD.y, into - 12, u);
+      ho = 1 - seg(q, T.fly[1] - 0.02, T.fly[1] + 0.08);
+    } else if (field === 'emit' && !heldOn(A) && heldOn(B)) ho = seg(q, 0.85, 1);
     at(this.held, hx, hy);
     op(this.held, ho);
 
     // the rows
     op(this.rows, f('rows', +A.rows, +B.rows));
+  }
+
+  _ball(x, y, o) {
+    at(this.ball, x, y);
+    op(this.ball, o);
+  }
+
+  // where the ball rests in a state: on the last line printed
+  ballRest(s) {
+    if (s.panel !== 'emit' || s.emit < 1) return null;
+    const S0 = { ...s, emit: s.emit - 1 };
+    const ks = ITEMS.map((it, k) => k).filter((k) => itemOn(s, ITEMS[k]) && !itemOn(S0, ITEMS[k]));
+    return ks.length ? [BALL_X, emitRowY(slotOf(s, ks.at(-1)) + 1)] : null;
   }
 
   setTarget(p) {

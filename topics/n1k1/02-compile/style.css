@@ -47,3 +47,5 @@
 .diagram .mark-baked { fill: var(--early-bg); stroke: var(--early); stroke-width: 1; }
 .diagram .mark-call { fill: var(--copy-bg); stroke: var(--copy); stroke-width: 1; }
 .diagram .row-text { font: 500 10px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .ball { fill: var(--drop); }
+.diagram .ball-halo { fill: var(--drop); opacity: 0.18; }
