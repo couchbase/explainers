@@ -259,7 +259,7 @@ chapters:
           the 2 calls (marked in amber).
 
       - id: end
-        view: { at: done }
+        view: { at: clean }
         text: |
           That's the trick. One source, written so that a tool can
           split its lines into now and later. The interpreter runs

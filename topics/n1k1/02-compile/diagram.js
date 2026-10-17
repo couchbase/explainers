@@ -304,7 +304,9 @@ export class Diagram {
       }
       at(I.g, x, y);
       op(I.g, o);
-      if (I.m) op(I.m, f('done', +A.done, +B.done));
+      // (the summary's marks: on for the summary, gone by the end)
+      const markOn = (st) => (st.done && !st.clean ? 1 : 0);
+      if (I.m) op(I.m, field === 'done' || field === 'clean' ? lerp(markOn(A), markOn(B), eq) : markOn(B));
       if (!I.it.hole) this.rowAt[k] = [CODE.x + 26 + I.it.depth * 2 * CHAR.emit, y];
       else this.rowAt[`hole.${I.it.hole}`] = [CODE.x + 70, y];
     });

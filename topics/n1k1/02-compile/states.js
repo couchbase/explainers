@@ -16,8 +16,9 @@
 //           scan
 //   rows    both engines' rows are shown
 //   done    the summary: what's baked into the compiled Go, marked
+//   clean   the end: the summary's marks gone, the code left clean
 
-const START = { panel: 'none', kinds: 0, inter: 0, emit: 0, rows: false, done: false };
+const START = { panel: 'none', kinds: 0, inter: 0, emit: 0, rows: false, done: false, clean: false };
 export const KINDS = ['early', 'late', 'hide', 'captured'];
 // which kind of line each inter level turns, and when it's marked
 export const INTER = [['late'], ['hide', 'comment'], ['captured']];
@@ -31,6 +32,7 @@ const CHANGES = [
   ...['project', 'filter', 'expr', 'fuse', 'scan'].map((g, i) => [`emit.${g}`, { emit: i + 1 }]),
   ['rows', { rows: true }],
   ['done', { done: true }],
+  ['clean', { clean: true }],
 ];
 
 export const STATES = [];

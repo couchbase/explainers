@@ -48,7 +48,7 @@ export function slotOf(s, k) {
 
 // the camera, by state: the code just added, in view
 export function cameraOf(s) {
-  if (s.done) return [0, 0, 1000, 1330];
+  if (s.done || s.clean) return [0, 0, 1000, 1330];
   if (s.rows) return [0, 640, 1000, 1310];
   if (s.panel !== 'emit' || s.emit < 3) return [0, 20, 1000, 690];
   const g = GROUPS[s.emit - 1];
