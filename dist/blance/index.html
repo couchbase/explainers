@@ -81,12 +81,17 @@ code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
   pointer-events: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 /* and in the page's bottom-left corner, wherever the reader is */
-/* (big, so it's unmistakable; a little smaller on a phone) */
-.draft-corner { position: fixed; left: 0; bottom: 0; width: 12rem; height: 12rem; overflow: hidden; pointer-events: none; z-index: 30; }
-.draft-corner .draft-stamp { top: auto; right: auto; bottom: 2.6rem; left: -4.6rem; width: 17rem; transform: rotate(45deg); font-size: 1.3rem; line-height: 2.1; letter-spacing: 0.24em; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3); }
+/* (big, so it's unmistakable, with "work in progress" under the
+   word; a little smaller on a phone) */
+.draft-corner { position: fixed; left: 0; bottom: 0; width: 16rem; height: 16rem; overflow: hidden; pointer-events: none; z-index: 30; }
+.draft-corner .draft-stamp { top: auto; right: auto; bottom: 3.3rem; left: -6.3rem; width: 23rem; padding: 0.35rem 0 0.45rem; transform: rotate(45deg); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32); }
+.draft-corner .draft-word { display: block; font-size: 1.7rem; line-height: 1.25; letter-spacing: 0.26em; }
+.draft-corner .draft-sub { display: block; font-size: 0.72rem; line-height: 1.4; letter-spacing: 0.14em; font-weight: 600; opacity: 0.92; }
 @media (max-width: 600px) {
-  .draft-corner { width: 9rem; height: 9rem; }
-  .draft-corner .draft-stamp { bottom: 1.9rem; left: -3.6rem; width: 13rem; font-size: 1rem; }
+  .draft-corner { width: 11rem; height: 11rem; }
+  .draft-corner .draft-stamp { bottom: 2.3rem; left: -4.4rem; width: 16rem; padding: 0.2rem 0 0.3rem; }
+  .draft-corner .draft-word { font-size: 1.15rem; }
+  .draft-corner .draft-sub { font-size: 0.55rem; }
 }
 /* the end card: after the last step has scrolled off, and, at the
    bottom of the page, stopped in the middle of the screen */
