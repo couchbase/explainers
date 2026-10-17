@@ -210,26 +210,26 @@ chapters:
           alice's 899.3900000000001: both add float64s.
 
   # ------------------------------------------------------------------
-  - id: others
-    title: "ORDER BY and JOIN"
+  - id: order
+    title: "ORDER BY"
     color: push
     steps:
 
-      - id: order-cbq
-        view: { at: others.1, target: others }
+      - id: cbq
+        view: { at: order.1, target: others }
         code: [cbq.order]
         expect: ["fact:order.cbq.SortKey.count=5.8", "fact:order.cbq.SortKey.bytes=570", "fact:order.cbq.SortCompare.count=3.4", "fact:order.cbq.SortCompare.bytes=50"]
         text: |
-          ORDER BY and JOIN follow the same pattern, and we've
-          [[measured them]] the same way. First, `ORDER BY total DESC`,
-          over the 20 orders.
+          ORDER BY follows the same pattern, and we've
+          [[measured it]] the same way: `ORDER BY total DESC`, over the
+          20 orders.
 
           cbq evaluates each row's sort key and keeps it on the row as
           a boxed copy: 5.8 allocations, about 570 bytes a row. Its
           compares, with Collate, add 3.4 more, about 50 bytes.
 
-      - id: order-n1k1
-        view: { at: others.2, target: others }
+      - id: n1k1
+        view: { at: order.2, target: others }
         code: [op.order]
         expect: ["fact:order.n1k1.setup=94", "fact:order.n1k1.perRow=1", "fact:order.n1k1.push.bytes=24"]
         text: |
@@ -241,13 +241,19 @@ chapters:
           which takes an `any`. Even a byte lane boxes, where Go's
           interfaces make it.
 
-      - id: join-cbq
-        view: { at: others.3, target: others }
+  # ------------------------------------------------------------------
+  - id: join
+    title: "JOIN"
+    color: push
+    steps:
+
+      - id: cbq
+        view: { at: join.1, target: others }
         code: [cbq.hashjoin]
         expect: ["fact:join.cbq.Build.bytes=660", "fact:join.cbq.Probe.bytes=740", "fact:join.cbq.Joined.count=13", "fact:join.cbq.Joined.bytes=1140"]
         text: |
-          Now a hash JOIN: orders with their customers, on
-          `o.customer = c.id`.
+          JOINs, too. Here's a hash JOIN: orders with their customers,
+          on `o.customer = c.id`.
 
           cbq puts each order in [[its hash table]], marshaling the
           boxed key to JSON just to hash it: about 660 bytes an order.
@@ -255,8 +261,8 @@ chapters:
           match, it makes a new joined value: 13 allocations, about
           1,140 bytes.
 
-      - id: join-n1k1
-        view: { at: others.4, target: others }
+      - id: n1k1
+        view: { at: join.2, target: others }
         code: [op.hashjoin]
         expect: ["fact:join.n1k1.setup=93", "fact:join.n1k1.perRow=0", "fact:join.rows=20 20"]
         text: |

@@ -9,15 +9,16 @@
 //   twenty  the twenty rows' tallies are shown, under the heaps
 //   group   GROUP BY, in the lanes' place: 0, not shown; 1, both
 //           engines' group tables, empty; 2, after all 20 rows
-//   others  ORDER BY and JOIN, compared, in the lanes' place: how many of
-//           its cards are shown (0..4), cbq's and n1k1's, in turn
+//   order   ORDER BY, compared, in the lanes' place: how many of its
+//           cards are shown (0..2), cbq's and then n1k1's
+//   join    the hash JOIN, compared, the same way
 //   table   the totals table, boxed and written back, in the lanes' place
 //   fallback  which lane a query took, as n1k1's stats say
 //
-// Only one of the lanes, group, others, table and fallback panels shows
+// Only one of the lanes, group, order, join, table and fallback panels shows
 // at a time: the last one turned on.
 
-const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, others: 0, table: false, fallback: false };
+const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, order: 0, join: 0, table: false, fallback: false };
 
 const CHANGES = [
   ['start', {}],
@@ -26,7 +27,8 @@ const CHANGES = [
   ['twenty', { twenty: true }],
   ['group.1', { group: 1 }],
   ['group.2', { group: 2 }],
-  ...[1, 2, 3, 4].map((k) => [`others.${k}`, { others: k }]),
+  ...[1, 2].map((k) => [`order.${k}`, { order: k }]),
+  ...[1, 2].map((k) => [`join.${k}`, { join: k }]),
   ['table', { table: true }],
   ['fallback', { fallback: true }],
 ];
@@ -53,7 +55,8 @@ export function statePath(a, b) {
 export function panelOf(s) {
   if (s.fallback) return 'fallback';
   if (s.table) return 'table';
-  if (s.others) return 'others';
+  if (s.join) return 'join';
+  if (s.order) return 'order';
   if (s.group) return 'group';
   return s.lanes ? 'lanes' : 'none';
 }

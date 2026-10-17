@@ -167,7 +167,8 @@ export class Diagram {
 
     // the later panels, in the lanes' place
     this.group = buildGroup(g);
-    this.others = buildOthers(g);
+    this.order = buildOthers(g, 0);
+    this.join = buildOthers(g, 1);
     this.fallback = buildFallback(g);
 
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
@@ -248,7 +249,8 @@ export class Diagram {
 
     // the later panels
     drawGroup(this.group, A, B, q, field, vis('group'));
-    drawOthers(this.others, A, B, q, field, vis('others'), entering('others'));
+    drawOthers(this.order, A, B, q, field, vis('order'), entering('order'));
+    drawOthers(this.join, A, B, q, field, vis('join'), entering('join'));
     drawFallback(this.fallback, A, B, q, field, vis('fallback'), entering('fallback'));
   }
 
