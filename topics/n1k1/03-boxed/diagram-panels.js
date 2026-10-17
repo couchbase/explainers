@@ -237,8 +237,8 @@ export function buildSummary(g) {
   const JS = Object.fromEntries(JOIN.cbqStages.map((x) => [x.stage, x]));
   const rows = [
     ['the filter', 'orders.total > 200', `${HERO.boxedAllocs} allocations`, bytesOf(HERO), ['0 allocations', ''], 0, 'order-1003'],
-    ['GROUP BY', 'SUM(total), COUNT(*)', `about ${Math.round(GROUP.cbqPerRow)} allocations`, GROUP.cbqPerRowBytes, ['0 allocations', `after ${GROUP.n1k1Setup} allocations, once, at setup`], 0, 'beyond boxing the row'],
-    ['ORDER BY', 'total DESC', `about ${Math.round(OS.SortKey.count + OS.SortCompare.count)} allocations`, OS.SortKey.bytes + OS.SortCompare.bytes, [`${Math.round(ORDER.n1k1PerRow)} allocation`, `Go boxing a []byte header; after ${ORDER.n1k1Setup} allocations, once, at setup`], ORDER.n1k1PushBytes, 'the key, and compares'],
+    ['GROUP BY', 'SUM(total), COUNT(*)', `~${Math.round(GROUP.cbqPerRow)} allocations`, GROUP.cbqPerRowBytes, ['0 allocations', `after ${GROUP.n1k1Setup} allocations, once, at setup`], 0, 'beyond boxing the row'],
+    ['ORDER BY', 'total DESC', `~${Math.round(OS.SortKey.count + OS.SortCompare.count)} allocations`, OS.SortKey.bytes + OS.SortCompare.bytes, [`${Math.round(ORDER.n1k1PerRow)} allocation`, `Go boxing a []byte header; after ${ORDER.n1k1Setup} allocations, once, at setup`], ORDER.n1k1PushBytes, 'the key, and compares'],
     ['hash JOIN', 'o.customer = c.id', `${JS.Joined.count} allocations`, JS.Joined.bytes, ['0 allocations', `after ${JOIN.n1k1Setup} allocations, once, at setup`], 0, 'per joined row'],
   ];
   const max = Math.max(...rows.map((r) => r[3]));
@@ -262,9 +262,9 @@ export function buildSummary(g) {
       else txt(rg, x + w + 6, y + 11, `${fmt(b)} bytes`, 'bar-out');
     };
     bar(xc, cb, false);
-    txt(rg, xc, y + 38, cbq, 'others-cbq');
+    txt(rg, xc, y + 38, cbq, 'alloc-text cbq');
     bar(xn, nb, !nb);
-    txt(rg, xn, y + 38, n1k1[0], 'others-n1k1');
+    txt(rg, xn, y + 38, n1k1[0], 'alloc-text n1k1');
     txt(rg, xn, y + 54, n1k1[1], 'node-sub');
     P.rows.push(rg);
   });

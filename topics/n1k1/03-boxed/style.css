@@ -76,3 +76,6 @@
 .diagram .summary-note { font: 500 13px var(--font-display); fill: var(--ink); }
 .diagram .bar-in { font: 700 11px var(--font-mono); fill: var(--panel); }
 .diagram .bar-out { font: 700 11px var(--font-mono); fill: var(--muted); }
+.diagram .alloc-text { font: 700 11px var(--font-mono); }
+.diagram .alloc-text.cbq { fill: var(--copy); }
+.diagram .alloc-text.n1k1 { fill: var(--slice); }
