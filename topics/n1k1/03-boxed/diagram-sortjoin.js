@@ -95,15 +95,15 @@ export function buildOrder(g) {
       // (its total, aligned on the decimal point: the whole part to its
       // left, the rest from it)
       const [whole, frac] = r.order.total.bytes.split('.');
-      txt(rg, x0 + 132, 0, whole, 'sort-total', 'end');
-      if (frac !== undefined) txt(rg, x0 + 132, 0, `.${frac}`, 'sort-total');
+      txt(rg, x0 + 96, 0, whole, 'sort-total', 'end');
+      if (frac !== undefined) txt(rg, x0 + 96, 0, `.${frac}`, 'sort-total');
       const chip = el('g', { opacity: 0 }, rg);
       if (side === 'cbq') {
-        el('rect', { x: x0 + 170, y: -10, width: 150, height: 13, rx: 3, class: 'node node-heap' }, chip);
-        txt(chip, x0 + 176, 0, `key: ${r.totalBoxed}, a boxed copy`, 'sort-chip node-heap');
+        el('rect', { x: x0 + 136, y: -10, width: 150, height: 13, rx: 3, class: 'node node-heap' }, chip);
+        txt(chip, x0 + 142, 0, `key: ${r.totalBoxed}, a boxed copy`, 'sort-chip node-heap');
       } else {
-        el('rect', { x: x0 + 170, y: -10, width: 150, height: 13, rx: 3, class: 'node node-slice' }, chip);
-        txt(chip, x0 + 176, 0, 'key and row, as bytes', 'sort-chip node-slice');
+        el('rect', { x: x0 + 136, y: -10, width: 150, height: 13, rx: 3, class: 'node node-slice' }, chip);
+        txt(chip, x0 + 142, 0, 'key and row, as bytes', 'sort-chip node-slice');
       }
       return { g: rg, chip };
     });
@@ -162,7 +162,7 @@ export function drawOrder(P, A, B, q, field, vis) {
       const tr = P.trails[side][i];
       if (sortU > 0 && RANK[i] <= k && RANK[i] < N) {
         // (traced from the row's right end, past its chip, in the clear)
-        const from = slotAt(i, RANK[i]), to = RANK[i], x0 = G.cols[side] + 14 + 170 + 154;
+        const from = slotAt(i, RANK[i]), to = RANK[i], x0 = G.cols[side] + 14 + 136 + 154;
         const pts = Array.from({ length: 25 }, (_, j) => arc(i, from, to, j / 24)).map(([px, sl]) => `${(x0 + px).toFixed(1)},${(rowY(sl) - 4).toFixed(1)}`);
         tr.setAttribute('d', `M${pts.join(' L')}`);
         const drawn = i === m ? move : 1;
@@ -175,14 +175,14 @@ export function drawOrder(P, A, B, q, field, vis) {
   // falls
   if (cur >= 0) {
     const y = rowY(cur) - 12;
-    fall(P, 'cbq', seg(u, 0.35, 0.95), G.cols.cbq + 184, y, cbqBytes, O_TOTAL, 'its sort key', O_KEY);
-    fall(P, 'n1k1', seg(u, 0.35, 0.95), G.cols.n1k1 + 184, y, n1k1Bytes, O_TOTAL, 'its []byte header', O_PUSH);
+    fall(P, 'cbq', seg(u, 0.35, 0.95), G.cols.cbq + 150, y, cbqBytes, O_TOTAL, 'its sort key', O_KEY);
+    fall(P, 'n1k1', seg(u, 0.35, 0.95), G.cols.n1k1 + 150, y, n1k1Bytes, O_TOTAL, 'its []byte header', O_PUSH);
     if (u >= 0.95) { cbqBytes += O_KEY; n1k1Bytes += O_PUSH; }
   } else if (sortU > 0 && sortU < 1) {
     // (the sort: cbq's compares leave a little for each place, once its
     // row's in it; n1k1's leave nothing)
     cbqBytes += k * O_CMP;
-    fall(P, 'cbq', seg(v, 0.6, 0.95), G.cols.cbq + 184, rowY(k) - 12, cbqBytes, O_TOTAL, 'compares', O_CMP);
+    fall(P, 'cbq', seg(v, 0.6, 0.95), G.cols.cbq + 150, rowY(k) - 12, cbqBytes, O_TOTAL, 'compares', O_CMP);
     op(P.parcels.n1k1.g, 0);
     if (v >= 0.95) cbqBytes += O_CMP;
   } else {
