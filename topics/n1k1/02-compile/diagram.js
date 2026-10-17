@@ -26,6 +26,9 @@ const at = (e, x, y) => e.setAttribute('transform', `translate(${x.toFixed(1)} $
 const seg = (q, a, b) => clamp01((q - a) / (b - a));
 
 // the plan's operators, top to bottom
+// each operator's glyph, beside its name and at the start of each
+// block of code it printed (the expression's too)
+export const GLYPHS = { project: '◇', filter: '▽', expr: 'ƒ', scan: '≡' };
 const PLAN_OPS = [
   { id: 'project', title: 'project', params: 'id, customer, total' },
   { id: 'filter', title: 'filter', params: '200 < total' },
@@ -105,10 +108,15 @@ export class Diagram {
     this.ops = Object.fromEntries(PLAN_OPS.map((o, k) => {
       const og = el('g', {}, g);
       const box = el('rect', { x: PLAN.x, y: planY(k), width: PLAN.w, height: PLAN.h, rx: 8, class: 'op' }, og);
-      txt(og, PLAN.x + 10, planY(k) + 22, o.title, 'op-title');
-      txt(og, PLAN.x + 10, planY(k) + 40, o.params, 'op-params');
+      // (a tint of its color, while the compiler's at it; and its
+      // stripe, like the stripes on the code it prints)
+      const tint = el('rect', { x: PLAN.x, y: planY(k), width: PLAN.w, height: PLAN.h, rx: 8, class: `op-tint origin-${o.id}`, opacity: 0 }, og);
+      el('rect', { x: PLAN.x + 2, y: planY(k) + 3, width: 6, height: PLAN.h - 6, rx: 2, class: `stripe origin-${o.id}` }, og);
+      txt(og, PLAN.x + 16, planY(k) + 22, GLYPHS[o.id], `glyph big origin-${o.id}`);
+      txt(og, PLAN.x + 30, planY(k) + 22, o.title, 'op-title');
+      txt(og, PLAN.x + 16, planY(k) + 40, o.params, 'op-params');
       if (k < 2) el('path', { d: `M${PLAN.x + PLAN.w / 2},${planY(k + 1) - 1} V${planY(k) + PLAN.h + 3}`, class: 'yield', 'marker-end': 'url(#n1k1c-arrow)' }, g);
-      return [o.id, { g: og, box }];
+      return [o.id, { g: og, box, tint }];
     }));
     const defs = el('defs', {}, svg);
     const mk = el('marker', { id: 'n1k1c-arrow', viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' }, defs);
@@ -164,8 +172,10 @@ export class Diagram {
       const mark = BAKED.test(it.text) ? 'baked' : CALLS.test(it.text) ? 'call' : null;
       const m = mark && el('rect', { x: CODE.x + 20 + it.depth * 2 * CHAR.emit, y: -10.5, width: it.text.length * CHAR.emit + 12, height: CODE.edy, rx: 3, class: `mark mark-${mark}`, opacity: 0 }, ig);
       el('rect', { x: CODE.x + 8, y: -10, width: 4, height: CODE.edy, class: `stripe origin-${it.origin}` }, ig);
+      // (a block's first line gets its operator's glyph: see draw)
+      const glyph = txt(ig, CODE.x + 15, 0, GLYPHS[it.origin], `glyph origin-${it.origin}`);
       const t = txt(ig, CODE.x + 26 + it.depth * 2 * CHAR.emit, 0, it.text, `emit-text${it.fold ? ' fold' : ''}`);
-      return { it, g: ig, t, m };
+      return { it, g: ig, t, m, glyph };
     });
     // the project's per-row code, held till the filter's hole takes it
     this.held = el('g', { opacity: 0 }, g);
@@ -177,7 +187,8 @@ export class Diagram {
     this.originKey = el('g', { opacity: 0 }, g);
     ['project', 'filter', 'expr', 'scan'].forEach((o, i) => {
       el('rect', { x: KEY.x, y: KEY.y + i * KEY.dy - 11, width: 6, height: 14, class: `stripe origin-${o}` }, this.originKey);
-      txt(this.originKey, KEY.x + 16, KEY.y + i * KEY.dy, { project: "the project's", filter: "the filter's", expr: "the filter's expression's", scan: "the scan's" }[o], 'key-text');
+      txt(this.originKey, KEY.x + 14, KEY.y + i * KEY.dy, GLYPHS[o], `glyph origin-${o}`);
+      txt(this.originKey, KEY.x + 28, KEY.y + i * KEY.dy, { project: "the project's", filter: "the filter's", expr: "the filter's expression's", scan: "the scan's" }[o], 'key-text');
     });
     txt(this.originKey, KEY.x, KEY.y - 22, 'printed by:', 'panel-title');
 
@@ -273,7 +284,7 @@ export class Diagram {
       const on = (x) => (x === id ? 1 : 0);
       const v = field === 'emit' || field === 'rows' ? lerp(on(oa), on(ob), eq) : on(ob);
       o.box.style.strokeWidth = (1.5 + 1.5 * v).toFixed(2);
-      setCls(o.box, `op${v > 0.5 ? ' at' : ''}`);
+      op(o.tint, v);
     }
 
     // the emitted Go, a change at a time: the hole (if any) slides out
@@ -282,6 +293,13 @@ export class Diagram {
     // at a time, each sliding in from the right, the ball on it
     const T = timeline(A, B, field);
     let slotsA = 0, slotsB = 0;
+    // (a glyph on each block's first line, among the lines showing)
+    let prevOrigin = null;
+    for (const I of this.items) {
+      if (I.it.hole || !itemOn(B, I.it)) continue;
+      op(I.glyph, I.it.origin !== prevOrigin ? 1 : 0);
+      prevOrigin = I.it.origin;
+    }
     this.items.forEach((I, k) => {
       const onA = itemOn(A, I.it), onB = itemOn(B, I.it);
       const ya = emitRowY(slotOf(A, k) + 1), yb = emitRowY(slotOf(B, k) + 1);

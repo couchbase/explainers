@@ -41,9 +41,13 @@ runs the plan in its own engine, which keeps values as raw JSON bytes.
 In 02-compile, a source line's tint is its kind: blue, early-bound
 (run once, at setup); teal, late-bound (per row); grey, the
 interpreter's only; violet, a seam (and, in the emitted Go, the hole it
-leaves). An emitted line's stripe is the operator that printed it:
-amber the project, teal the filter, violet the filter's expression,
-slate the scan. In the summary, blue marks what's baked in, amber the
+leaves). In the compiling chapters, each operator has a color and a
+glyph: the project amber ◇, the filter magenta ▽, the scan slate ≡,
+and the filter's expression violet ƒ (the seam's color: its code fills
+the seam's hole). A plan box has its operator's stripe down its left
+side, and fills with a tint of its color while the compiler's at it; an
+emitted line's stripe is the operator that printed it, and each block
+of lines starts with its glyph. In the summary, blue marks what's baked in, amber the
 calls left per row. The red ball is the pen: the line intermed_build
 is turning, or the compiler is printing. Changes play one line at a
 time: a line's replacement appears way over on the right, beside it

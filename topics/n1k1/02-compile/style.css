@@ -3,7 +3,6 @@
 .diagram .panel { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
 .diagram .panel-title { font: 600 13px var(--font-display); fill: var(--muted); }
 .diagram .op { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
-.diagram .op.at { fill: var(--panel-2); }
 .diagram .op-title { font: 600 13px var(--font-mono); fill: var(--ink); }
 .diagram .op-params { font: 400 10px var(--font-mono); fill: var(--muted); }
 .diagram .yield { fill: none; stroke: var(--muted); stroke-width: 1.4; }
@@ -35,10 +34,16 @@
 .diagram .emit-text { font: 500 9.5px var(--font-mono); fill: var(--ink); white-space: pre; }
 .diagram .emit-text.frame { fill: var(--muted); }
 .diagram .emit-text.fold { fill: var(--muted); font-style: italic; }
-.diagram .stripe.origin-project { fill: var(--copy); }
-.diagram .stripe.origin-filter { fill: var(--late); }
-.diagram .stripe.origin-expr { fill: var(--seam); }
-.diagram .stripe.origin-scan { fill: var(--muted); }
+/* an operator's color: its plan box's stripe and tint, the stripes on
+   the code it printed, and its glyph */
+.diagram .origin-project { --op: var(--op-project); }
+.diagram .origin-filter { --op: var(--op-filter); }
+.diagram .origin-expr { --op: var(--op-expr); }
+.diagram .origin-scan { --op: var(--op-scan); }
+.diagram .stripe { fill: var(--op); }
+.diagram .op-tint { fill: color-mix(in srgb, var(--op) 16%, var(--panel)); stroke: var(--op); stroke-width: 2.5; }
+.diagram .glyph { font: 700 10px var(--font-mono); fill: var(--op); }
+.diagram .glyph.big { font-size: 13px; }
 .diagram .hole { fill: var(--seam-bg); stroke: var(--seam); stroke-width: 1.2; stroke-dasharray: 4 3; }
 .diagram .hole-text { font: 600 9.5px var(--font-mono); fill: var(--seam); }
 .diagram .held { fill: var(--copy-bg); stroke: var(--copy); stroke-width: 1.5; }
