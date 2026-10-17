@@ -277,7 +277,7 @@ export function buildSummary(g) {
   const head = (x, t, level) => {
     const hg = el('g', {}, root);
     txt(hg, x, 92, t, 'lane-title');
-    txt(hg, x, 108, 'bytes per row, as bars', 'node-sub');
+    txt(hg, x, 108, 'bytes and allocations per row', 'node-sub');
     P.parts.push({ el: hg, level });
   };
   head(xc, 'cbq: boxed values', 1);
