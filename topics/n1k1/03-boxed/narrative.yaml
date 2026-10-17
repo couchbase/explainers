@@ -199,11 +199,11 @@ chapters:
           its group (about 1,160 bytes), and its group's old SUM and
           COUNT, replaced by new boxed ones (with what those steps
           made, about 650 and 330 bytes). The bar grows by each one as
-          it lands: about 27 allocations and 2,140 bytes a row, on top
+          it lands: about 27 allocations and 2,140 bytes per row, on top
           of boxing the row itself.
 
           On the right, n1k1 makes 102 allocations once, at setup, for
-          its map and buffers, and then 0 a row. Each row's update
+          its map and buffers, and then 0 per row. Each row's update
           rewrites its group's bytes in place.
 
           Both end with the same 4 groups and the same sums, down to
@@ -225,7 +225,7 @@ chapters:
           20 orders.
 
           cbq evaluates each row's sort key and keeps it on the row as
-          a boxed copy: 5.8 allocations, about 570 bytes a row. Its
+          a boxed copy: 5.8 allocations, about 570 bytes per row. Its
           compares, with Collate, add 3.4 more, about 50 bytes.
 
       - id: n1k1
@@ -234,7 +234,7 @@ chapters:
         expect: ["fact:order.n1k1.setup=94", "fact:order.n1k1.perRow=1", "fact:order.n1k1.push.bytes=24"]
         text: |
           n1k1 copies each row into [[its sort heap's bytes]], once:
-          94 allocations at setup, then 1 a row.
+          94 allocations at setup, then 1 per row.
 
           And that one is telling. It's 24 bytes, Go itself boxing the
           row's []byte header, to pass it to container/heap's Push,
@@ -268,7 +268,7 @@ chapters:
         text: |
           n1k1 keys [[an rhmap]] with the join key's canonical bytes,
           and a joined row is just the two rows' slices, side by side:
-          93 allocations at setup, then 0 a row.
+          93 allocations at setup, then 0 per row.
 
           Both make the same 20 joined rows.
 

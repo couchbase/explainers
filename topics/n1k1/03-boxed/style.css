@@ -58,3 +58,4 @@
 .diagram .card-n1k1 { fill: var(--slice-bg); stroke: var(--slice); stroke-width: 1; }
 .diagram .query-text { font: 500 15px var(--font-mono); fill: var(--ink); white-space: pre; }
 .diagram .query-mark { font-weight: 700; fill: var(--accent); }
+.diagram .col-divider { stroke: var(--line); stroke-width: 1.3; stroke-dasharray: 5 5; }

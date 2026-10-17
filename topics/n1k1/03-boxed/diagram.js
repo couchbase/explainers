@@ -96,7 +96,7 @@ export class Diagram {
       STAGE_Y.forEach((y, s) => txt(L, x + 12, y + 2, STAGE_NAMES[s], 'stage-name'));
       // the heap
       el('rect', { x, y: HEAP.y, width: LANES.w, height: HEAP.h, rx: 10, class: 'heap' }, L);
-      txt(L, x + 12, HEAP.y + 22, 'the Go heap', 'lane-title');
+      txt(L, x + 12, HEAP.y + 22, `the Go heap for ${lane === 'boxed' ? 'cbq' : 'n1k1'}`, 'lane-title');
       const counter = txt(L, x + LANES.w - 12, HEAP.y + 22, '', 'heap-count', 'end');
       const nodes = NODES[lane].map((nd) => {
         const ng = el('g', { opacity: 0 }, g);

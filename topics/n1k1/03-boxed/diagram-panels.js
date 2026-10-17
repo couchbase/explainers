@@ -63,7 +63,11 @@ export function drawQueries(Q, vis) {
 export function buildGroup(g) {
   const P = { g: el('g', { opacity: 0 }, g) };
   const root = P.g;
-  el('rect', { x: PANEL.x, y: PANEL.y, width: PANEL.w, height: G.heapY - PANEL.y - 16, rx: 10, class: 'lane' }, root);
+  el('rect', { x: PANEL.x, y: PANEL.y, width: PANEL.w, height: PANEL.h, rx: 10, class: 'lane' }, root);
+  // (a dashed line between the two columns, from below the row's ticker
+  // down through their heaps)
+  const midX = (G.cols.cbq + G.w + G.cols.n1k1) / 2;
+  el('line', { x1: midX, x2: midX, y1: PANEL.y + 62, y2: PANEL.y + PANEL.h - 12, class: 'col-divider' }, root);
   P.ticker = txt(root, PANEL.x + 14, PANEL.y + 50, '', 'group-ticker');
   const heads = {
     cbq: ["cbq's groups: a Go map; each aggregate, a boxed value", ['key: a string', 'SUM', 'COUNT']],
@@ -101,8 +105,8 @@ export function buildGroup(g) {
   // the heaps
   for (const side of ['cbq', 'n1k1']) {
     const x = G.cols[side];
-    el('rect', { x, y: G.heapY, width: G.w, height: G.heapH, rx: 10, class: 'heap' }, root);
-    txt(root, x + 12, G.heapY + 22, 'the Go heap', 'lane-title');
+    el('rect', { x: x + 6, y: G.heapY, width: G.w - 12, height: G.heapH - 10, rx: 8, class: 'heap' }, root);
+    txt(root, x + 18, G.heapY + 22, `the Go heap for ${side}`, 'lane-title');
   }
   P.bar = el('rect', { x: G.cols.cbq + 14, y: G.heapY + 40, width: 0, height: 34, rx: 3, class: 'block' }, root);
   P.cbqCount = txt(root, G.cols.cbq + 14, G.heapY + 100, '', 'tally-label');
@@ -189,9 +193,9 @@ export function drawGroup(P, A, B, q, field, vis) {
   P.bar.setAttribute('width', ((MAXW * landed) / (N * ROWB)).toFixed(1));
   const rowsDone = cur >= 0 ? cur + (u >= PARCELS[2].fall[1] ? 1 : 0) : n;
   setText(P.cbqCount, `${rowsDone} rows: ${fmt(landed)} bytes`);
-  setText(P.cbqEach, `about ${Math.round(GROUP.cbqPerRow)} allocations and ${fmt(GROUP.cbqPerRowBytes)} bytes a row`);
+  setText(P.cbqEach, `about ${Math.round(GROUP.cbqPerRow)} allocations and ${fmt(GROUP.cbqPerRowBytes)} bytes per row`);
   setText(P.cbqStages, `the key ${fmt(SB.key)} · SUM ${fmt(SB.sum)} · COUNT ${fmt(SB.count)}`);
-  setText(P.n1k1Count, `${rowsDone} rows: ${GROUP.n1k1PerRow} allocations a row`);
+  setText(P.n1k1Count, `${rowsDone} rows: ${GROUP.n1k1PerRow} allocations per row`);
 }
 
 // ---- ORDER BY and JOIN, compared ----
@@ -202,15 +206,15 @@ const OS = Object.fromEntries(ORDER.cbqStages.map((x) => [x.stage, x]));
 const JS = Object.fromEntries(JOIN.cbqStages.map((x) => [x.stage, x]));
 const ROWS3 = [
   ['ORDER BY total DESC', '20 orders', [
-    'each row\'s sort key, evaluated, and kept', `as a boxed copy: ${cost(OS.SortKey)} a row;`,
-    'compared with Collate, which adds', `${cost(OS.SortCompare)} a row`,
+    'each row\'s sort key, evaluated, and kept', `as a boxed copy: ${cost(OS.SortKey)} per row;`,
+    'compared with Collate, which adds', `${cost(OS.SortCompare)} per row`,
   ], [
-    'each row copied into the heap\'s bytes;', `${fmt(ORDER.n1k1Setup)} allocations at setup, then`, `${Math.round(ORDER.n1k1PerRow)} a row: ${ORDER.n1k1PushBytes} bytes, Go boxing the row\'s`, '[]byte header for container/heap\'s Push',
+    'each row copied into the heap\'s bytes;', `${fmt(ORDER.n1k1Setup)} allocations at setup, then`, `${Math.round(ORDER.n1k1PerRow)} per row: ${ORDER.n1k1PushBytes} bytes, Go boxing the row\'s`, '[]byte header for container/heap\'s Push',
   ]],
   ['hash JOIN on o.customer = c.id', `${JOIN.build} orders, ${JOIN.probe} customers`, [
     `build, per order: ${cost(JS.Build)}`, `probe, per customer: ${cost(JS.Probe)}`, `per joined row: ${cost(JS.Joined)}`,
   ], [
-    'keys as canonical bytes, in an rhmap;', `${fmt(JOIN.n1k1Setup)} allocations at setup, then`, `${Math.round(JOIN.n1k1PerRow)} a row; a joined row is two rows\' slices`,
+    'keys as canonical bytes, in an rhmap;', `${fmt(JOIN.n1k1Setup)} allocations at setup, then`, `${Math.round(JOIN.n1k1PerRow)} per row; a joined row is two rows\' slices`,
   ]],
 ];
 
