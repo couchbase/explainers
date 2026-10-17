@@ -236,10 +236,10 @@ export function buildSummary(g) {
   const OS = Object.fromEntries(ORDER.cbqStages.map((x) => [x.stage, x]));
   const JS = Object.fromEntries(JOIN.cbqStages.map((x) => [x.stage, x]));
   const rows = [
-    ['the filter', 'orders.total > 200', `${HERO.boxedAllocs} allocations, ${fmt(bytesOf(HERO))} bytes`, bytesOf(HERO), ['0 allocations, 0 bytes', ''], 0, 'order-1003'],
-    ['GROUP BY', 'SUM(total), COUNT(*)', `about ${Math.round(GROUP.cbqPerRow)} allocations, ${fmt(GROUP.cbqPerRowBytes)} bytes`, GROUP.cbqPerRowBytes, ['0 allocations, 0 bytes', `after ${GROUP.n1k1Setup} allocations, once, at setup`], 0, 'beyond boxing the row'],
-    ['ORDER BY', 'total DESC', `about ${Math.round(OS.SortKey.count + OS.SortCompare.count)} allocations, ${fmt(OS.SortKey.bytes + OS.SortCompare.bytes)} bytes`, OS.SortKey.bytes + OS.SortCompare.bytes, [`${Math.round(ORDER.n1k1PerRow)} allocation, ${ORDER.n1k1PushBytes} bytes`, `Go boxing a []byte header; after ${ORDER.n1k1Setup} allocations, once, at setup`], ORDER.n1k1PushBytes, 'the key, and compares'],
-    ['hash JOIN', 'o.customer = c.id', `${JS.Joined.count} allocations, ${fmt(JS.Joined.bytes)} bytes`, JS.Joined.bytes, ['0 allocations, 0 bytes', `after ${JOIN.n1k1Setup} allocations, once, at setup`], 0, 'per joined row'],
+    ['the filter', 'orders.total > 200', `${HERO.boxedAllocs} allocations`, bytesOf(HERO), ['0 allocations', ''], 0, 'order-1003'],
+    ['GROUP BY', 'SUM(total), COUNT(*)', `about ${Math.round(GROUP.cbqPerRow)} allocations`, GROUP.cbqPerRowBytes, ['0 allocations', `after ${GROUP.n1k1Setup} allocations, once, at setup`], 0, 'beyond boxing the row'],
+    ['ORDER BY', 'total DESC', `about ${Math.round(OS.SortKey.count + OS.SortCompare.count)} allocations`, OS.SortKey.bytes + OS.SortCompare.bytes, [`${Math.round(ORDER.n1k1PerRow)} allocation`, `Go boxing a []byte header; after ${ORDER.n1k1Setup} allocations, once, at setup`], ORDER.n1k1PushBytes, 'the key, and compares'],
+    ['hash JOIN', 'o.customer = c.id', `${JS.Joined.count} allocations`, JS.Joined.bytes, ['0 allocations', `after ${JOIN.n1k1Setup} allocations, once, at setup`], 0, 'per joined row'],
   ];
   const max = Math.max(...rows.map((r) => r[3]));
   const x0 = PANEL.x + 20, xc = PANEL.x + 230, xn = PANEL.x + 600, bw = 330;
