@@ -96,7 +96,10 @@ import (
 	"github.com/couchbase/n1k1/base"
 	"github.com/couchbase/n1k1/glue"
 	"github.com/couchbase/n1k1/rt"
+	"github.com/couchbase/n1k1/engine"
+	"github.com/couchbase/query/algebra"
 	"github.com/couchbase/query/expression"
+	"github.com/couchbase/query/parser/n1ql"
 	"github.com/couchbase/query/value"
 )
 
@@ -259,10 +262,247 @@ func main() {
 		_ = value.MISSING
 		rows = append(rows, r)
 	}
-	json.NewEncoder(os.Stdout).Encode(map[string]interface{}{"expr": "200 < orders.total", "rows": rows})
+	json.NewEncoder(os.Stdout).Encode(map[string]interface{}{"expr": "200 < orders.total", "rows": rows, "group": groupBy(files)})
 }
 
 func round(x float64) float64 { return math.Round(x) }
+
+// ---- GROUP BY: SELECT customer, SUM(total), COUNT(*) ... GROUP BY customer
+
+// cbq's steps for a row, as its execution/groupby_initial.go and
+// groupby_util.go's groupKey take them: the group key (each key
+// evaluated, boxed into a map, marshaled to a string); then each
+// aggregate's CumulateInitial, whose result replaces the group's last.
+var gctx = glue.NewGlueContext(time.Unix(0, 0))
+var gaggs []algebra.Aggregate
+var gkeys expression.Expressions
+var ggroups map[string]value.AnnotatedValue
+
+//go:noinline
+func cbqKey(item value.AnnotatedValue) string {
+	kvs := map[string]interface{}{}
+	for i, k := range gkeys {
+		v, _ := k.Evaluate(item, gctx)
+		if v.Type() != value.MISSING {
+			kvs[fmt.Sprint(i)] = v
+		}
+	}
+	b, _ := value.NewValue(kvs).MarshalJSON()
+	return string(b)
+}
+
+//go:noinline
+func cbqSum(item value.AnnotatedValue, m map[string]value.Value) {
+	a := gaggs[0]
+	v, _ := a.CumulateInitial(item, m[a.String()], gctx)
+	m[a.String()] = v
+}
+
+//go:noinline
+func cbqCount(item value.AnnotatedValue, m map[string]value.Value) {
+	a := gaggs[1]
+	v, _ := a.CumulateInitial(item, m[a.String()], gctx)
+	m[a.String()] = v
+}
+
+func cbqGroup(item value.AnnotatedValue) {
+	gk := cbqKey(item)
+	gv := ggroups[gk]
+	if gv == nil {
+		gv = item
+		ggroups[gk] = gv
+		m := map[string]value.Value{}
+		for _, a := range gaggs {
+			m[a.String()], _ = a.Default(nil, gctx)
+		}
+		gv.SetAttachment(value.ATT_AGGREGATES, m)
+	}
+	m := gv.GetAttachment(value.ATT_AGGREGATES).(map[string]value.Value)
+	cbqSum(item, m)
+	cbqCount(item, m)
+}
+
+//go:noinline
+func boxRow(r base.Vals) value.AnnotatedValue {
+	v, _ := cv.Convert(r)
+	av, ok := v.(value.AnnotatedValue)
+	if !ok {
+		av = value.NewAnnotatedValue(v)
+	}
+	return av
+}
+
+type gstep struct {
+	Customer string ` + "`json:\"customer\"`" + `
+	Total    string ` + "`json:\"total\"`" + `
+	Sum      string ` + "`json:\"sum\"`" + `
+	Count    string ` + "`json:\"count\"`" + `
+	SumHex   string ` + "`json:\"sumHex\"`" + `
+	CountHex string ` + "`json:\"countHex\"`" + `
+}
+
+func groupBy(files []string) map[string]interface{} {
+	cv, _ = glue.NewConvertVals(labels)
+	gkeys = expression.Expressions{expression.NewField(expression.NewIdentifier("orders"), expression.NewFieldName("customer", false))}
+	gaggs = nil
+	for _, t := range []string{"sum(orders.total)", "count(*)"} {
+		e, err := n1ql.ParseExpression(t)
+		if err != nil {
+			panic(err)
+		}
+		gaggs = append(gaggs, e.(algebra.Aggregate))
+	}
+	var rows []base.Vals
+	var data strings.Builder
+	data.WriteString("\n")
+	for _, f := range files {
+		b, _ := os.ReadFile(f)
+		b = bytes.TrimSpace(b)
+		rows = append(rows, base.Vals{b, []byte(fmt.Sprintf("%q", strings.TrimSuffix(filepath.Base(f), ".json")))})
+		data.Write(b)
+		data.WriteString("\n")
+	}
+	// cbq: per row, once the groups exist (steady state), by stage
+	ggroups = map[string]value.AnnotatedValue{}
+	for _, r := range rows {
+		cbqGroup(boxRow(r))
+	}
+	// (the groups, after one pass)
+	var cbqOut []string
+	for k, g := range ggroups {
+		m := g.GetAttachment(value.ATT_AGGREGATES).(map[string]value.Value)
+		cbqOut = append(cbqOut, fmt.Sprintf("%s sum=%v %T count=%v %T", k, m[gaggs[0].String()], m[gaggs[0].String()], m[gaggs[1].String()], m[gaggs[1].String()]))
+	}
+	sort.Strings(cbqOut)
+	boxed := make([]value.AnnotatedValue, len(rows))
+	stages := map[string][2]float64{}
+	const M = 200
+	runtime.MemProfileRate = 1
+	before := groupProfile()
+	for k := 0; k < M; k++ {
+		for i, r := range rows {
+			boxed[i] = boxRow(r)
+		}
+		for _, b := range boxed {
+			cbqGroup(b)
+		}
+	}
+	runtime.GC()
+	after := groupProfile()
+	runtime.MemProfileRate = 512 * 1024
+	var perRow, perRowBytes float64
+	for k, a := range after {
+		n, by := float64(a[0]-before[k][0])/M/float64(len(rows)), float64(a[1]-before[k][1])/M/float64(len(rows))
+		stages[k] = [2]float64{n, by}
+		if k != "box" {
+			perRow += n
+			perRowBytes += by
+		}
+	}
+	var breakdown []map[string]interface{}
+	for _, k := range []string{"key", "sum", "count", "group"} {
+		breakdown = append(breakdown, map[string]interface{}{"stage": k, "count": math.Round(stages[k][0]*10) / 10, "bytes": math.Round(stages[k][1])})
+	}
+	// n1k1: its group op, over the rows as inline data; allocations per
+	// row, from 20 rows vs 1,000
+	op := func(times int) *base.Op {
+		return &base.Op{Kind: "group", Labels: base.Labels{` + "`" + `.["orders","customer"]` + "`" + `, "^aggregates|sum", "^aggregates|count"},
+			Params: []interface{}{
+				[]interface{}{[]interface{}{"labelPath", ` + "`" + `.["orders"]` + "`" + `, "customer"}},
+				[]interface{}{[]interface{}{"labelPath", ` + "`" + `.["orders"]` + "`" + `, "total"}, []interface{}{"json", "true"}},
+				[]interface{}{[]interface{}{"sum"}, []interface{}{"count"}},
+			},
+			Children: []*base.Op{{Kind: "scan", Labels: base.Labels{` + "`" + `.["orders"]` + "`" + `}, Params: []interface{}{"jsonsData", strings.Repeat(data.String(), times)}}}}
+	}
+	var out []string
+	exec := func(o *base.Op, keep bool) {
+		vars := &base.Vars{Temps: make([]interface{}, 16), Ctx: rt.NewSpillCtx(os.TempDir() + "/n1k1-boxed-golden-group")}
+		engine.ExecOp(o, vars, func(v base.Vals) {
+			if keep {
+				var r []string
+				for _, x := range v {
+					r = append(r, string(x))
+				}
+				out = append(out, strings.Join(r, " "))
+			}
+		}, func(err error) {
+			if err != nil {
+				panic(err)
+			}
+		}, "", "")
+	}
+	exec(op(1), true)
+	sort.Strings(out)
+	o1, o50 := op(1), op(50)
+	a1 := testing.AllocsPerRun(20, func() { exec(o1, false) })
+	a50 := testing.AllocsPerRun(20, func() { exec(o50, false) })
+	// n1k1's state per group, row by row: SUM's 8 bytes (a float64) and
+	// COUNT's 8 (a uint64), as base.AggSum and base.AggCount fold them
+	var steps []gstep
+	state := map[string][2][]byte{}
+	vc := base.NewValComparer()
+	for _, r := range rows {
+		c, _ := base.ValPathGet(r[0], []string{"customer"}, nil)
+		t, _ := base.ValPathGet(r[0], []string{"total"}, nil)
+		st, ok := state[string(c)]
+		if !ok {
+			st = [2][]byte{base.AggSum.Init(nil, nil), base.AggCount.Init(nil, nil)}
+		}
+		s1, _, _ := base.AggSum.Update(nil, t, nil, st[0], vc)
+		c1, _, _ := base.AggCount.Update(nil, base.Val("true"), nil, st[1], vc)
+		state[string(c)] = [2][]byte{s1, c1}
+		sv, _, _ := base.AggSum.Result(nil, s1, nil)
+		cnt, _, _ := base.AggCount.Result(nil, c1, nil)
+		steps = append(steps, gstep{string(c), string(t), string(sv), string(cnt), fmt.Sprintf("% x", s1), fmt.Sprintf("% x", c1)})
+	}
+	return map[string]interface{}{
+		"cbqPerRow": math.Round(perRow*10) / 10, "cbqPerRowBytes": math.Round(perRowBytes), "cbqBoxPerRow": math.Round(stages["box"][0]*10) / 10,
+		"cbqStages": breakdown, "cbqGroups": cbqOut,
+		"n1k1Setup": a1, "n1k1PerRow": math.Max(0, math.Round((a50-a1)/float64(49*len(rows))*100)/100), "n1k1Groups": out,
+		"steps": steps,
+	}
+}
+
+// the GROUP BY's allocations, by stage, from the frames on their stacks
+func groupProfile() map[string][2]int64 {
+	runtime.GC()
+	n, _ := runtime.MemProfile(nil, true)
+	recs := make([]runtime.MemProfileRecord, n+100)
+	n, _ = runtime.MemProfile(recs, true)
+	out := map[string][2]int64{}
+	for _, r := range recs[:n] {
+		fr := runtime.CallersFrames(r.Stack())
+		var fs []string
+		for {
+			f, more := fr.Next()
+			fs = append(fs, f.Function)
+			if !more {
+				break
+			}
+		}
+		all := strings.Join(fs, " ")
+		var k string
+		switch {
+		case strings.Contains(all, "main.boxRow"):
+			k = "box"
+		case strings.Contains(all, "main.cbqKey"):
+			k = "key"
+		case strings.Contains(all, "main.cbqSum"):
+			k = "sum"
+		case strings.Contains(all, "main.cbqCount"):
+			k = "count"
+		case strings.Contains(all, "main.cbqGroup"):
+			k = "group"
+		default:
+			continue
+		}
+		x := out[k]
+		x[0] += r.AllocObjects
+		x[1] += r.AllocBytes
+		out[k] = x
+	}
+	return out
+}
 
 type site struct{ stage, what string }
 

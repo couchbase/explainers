@@ -7,16 +7,27 @@
 //   boxed   how many of the boxed lane's stages have run (0..4)
 //   bytes   how many of the byte lane's stages have run (0..4)
 //   twenty  the twenty rows' tallies are shown, under the heaps
+//   group   GROUP BY, in the lanes' place: 0, not shown; 1, both
+//           engines' group tables, empty; 2, after all 20 rows
+//   others  ORDER BY and JOIN, compared, in the lanes' place
 //   table   the totals table, boxed and written back, in the lanes' place
+//   fallback  which lane a query took, as n1k1's stats say
+//
+// Only one of the lanes, group, others, table and fallback panels shows
+// at a time: the last one turned on.
 
-const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, table: false };
+const START = { lanes: false, boxed: 0, bytes: 0, twenty: false, group: 0, others: false, table: false, fallback: false };
 
 const CHANGES = [
   ['start', {}],
   ['lanes', { lanes: true }],
   ...[1, 2, 3, 4].flatMap((k) => [[`boxed.${k}`, { boxed: k }], [`bytes.${k}`, { bytes: k }]]),
   ['twenty', { twenty: true }],
+  ['group.1', { group: 1 }],
+  ['group.2', { group: 2 }],
+  ['others', { others: true }],
   ['table', { table: true }],
+  ['fallback', { fallback: true }],
 ];
 
 export const STATES = [];
@@ -35,4 +46,13 @@ export function statePath(a, b) {
   const sa = STATE[a], sb = STATE[b];
   if (!sa || !sb || sb.i <= sa.i) return [a, b];
   return STATES.slice(sa.i, sb.i + 1).map((s) => s.key);
+}
+
+// The panel a state shows, in the lanes' place.
+export function panelOf(s) {
+  if (s.fallback) return 'fallback';
+  if (s.table) return 'table';
+  if (s.others) return 'others';
+  if (s.group) return 'group';
+  return s.lanes ? 'lanes' : 'none';
 }

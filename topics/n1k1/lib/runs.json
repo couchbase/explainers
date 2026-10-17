@@ -149,5 +149,24 @@
    "path": "default/customers/dave.json",
    "doc": "{\"type\":\"customer\",\"id\":\"dave\",\"name\":\"Dave Kim\",\"city\":\"Austin\",\"since\":2020}"
   }
+ ],
+ "lanes": [
+  {
+   "query": "SELECT id FROM orders WHERE total > 200",
+   "stats": [
+    "op                        RowsOut  misc",
+    "filter                          3  RowsIn=20",
+    "  datastore-scan-records    20/20"
+   ]
+  },
+  {
+   "query": "SELECT id FROM orders WHERE STR_TO_MILLIS(ts) > STR_TO_MILLIS(\"2026-02-15\")",
+   "stats": [
+    "op                        RowsOut  misc",
+    "filter                          5  RowsIn=20",
+    "  datastore-scan-records    20/20",
+    "expr: 1/2 exprs boxed · 20 boxed evals"
+   ]
+  }
  ]
 }

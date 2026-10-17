@@ -15,6 +15,8 @@ function sizeOf(a, b) {
   const A = STATE[a], B = STATE[b], field = changed(A, B)[0];
   if (field === 'boxed' || field === 'bytes') return 0.6 + 0.5 * NODES[field].filter((n) => n.stage === B[field] - 1).length;
   if (field === 'twenty') return 2.5;
+  // (the sweep through the 20 rows, one at a time)
+  if (field === 'group' && B.group === 2) return 8;
   if (field === 'table') return 2;
   return 1;
 }

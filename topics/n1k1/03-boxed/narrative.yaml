@@ -91,6 +91,11 @@ chapters:
           "total", with a scanner of its own, and parses what it finds
           into [[a boxed number]], another 304 bytes in all.
 
+          To be fair to cbq, it's lazy too. Its parsedValue doesn't
+          parse the whole doc. It scans for "total", much as jsonparser
+          does, and parses only what it finds. Its cost is in the boxes
+          it builds around the bytes, not in parsing them.
+
           Notice what it made: an intValue, 210. The `.00` is gone.
           We'll come back to that.
 
@@ -161,6 +166,74 @@ chapters:
           is small either way. It's the garbage that adds up.
 
   # ------------------------------------------------------------------
+  - id: group
+    title: "GROUP BY"
+    color: plan
+    steps:
+
+      - id: tables
+        view: { at: group.1, target: group.cbq }
+        code: [cbq.group, cbq.sum, op.group, agg.sum]
+        text: |
+          Aggregates go the same way. Take `SELECT customer,
+          SUM(total), COUNT(*) FROM orders GROUP BY customer`, and look
+          at how each engine keeps its groups.
+
+          [[cbq keeps a Go map]]. For each row, it evaluates the
+          group's key, boxes it into a map, and marshals that to a
+          string, to look the group up. Each aggregate's running value
+          is a boxed value, and for each row, the aggregate's
+          CumulateInitial makes a new one, to replace the last.
+
+          n1k1 keeps an rhmap of bytes. A group's key is its key's
+          bytes, and its state is 16 bytes: SUM's running total, a
+          float64, in 8, and COUNT's, in 8 more. A row's update writes
+          new bytes over the old.
+
+      - id: sweep
+        view: { at: group.2, target: group.heap }
+        expect: ["fact:group.cbq.perRow=27", "fact:group.cbq.perRowBytes=2137", "fact:group.cbq.key.bytes=1163", "fact:group.cbq.sum.bytes=648", "fact:group.cbq.count.bytes=326", "fact:group.n1k1.setup=102", "fact:group.n1k1.perRow=0", "fact:group.groups=4", "fact:group.same=true", "fact:group.alice.sum=899.3900000000001"]
+        text: |
+          Here are the 20 rows, one at a time. On the left, each row
+          makes a new boxed SUM and COUNT for its group, and the old
+          ones fall to [[the heap]]. With the key, that's about 27
+          allocations and 2,137 bytes a row (the key 1,163, SUM 648,
+          COUNT 326), on top of boxing the row itself.
+
+          On the right, n1k1 makes 102 allocations once, at setup, for
+          its map and buffers, and then 0 a row. Each row's update
+          rewrites its group's bytes in place.
+
+          Both end with the same 4 groups and the same sums, down to
+          alice's 899.3900000000001: both add float64s.
+
+  # ------------------------------------------------------------------
+  - id: others
+    title: "ORDER BY and JOIN"
+    color: push
+    steps:
+
+      - id: compare
+        view: { at: others, target: others }
+        code: [cbq.order, op.order, cbq.hashjoin, op.hashjoin]
+        text: |
+          ORDER BY and JOIN follow the same pattern. Here they are
+          compared, from reading [[both engines' code]] (we haven't
+          measured them here).
+
+          cbq sorts boxed rows, with their sort keys evaluated and kept
+          as boxed copies, and compares them with Collate. Its hash
+          join marshals boxed keys to JSON just to hash them, keeps an
+          entry object per row, and makes a new joined value for every
+          candidate pair.
+
+          n1k1 copies each row into its sort heap's bytes, once, and
+          compares by reading the JSON bytes. Its hash join keys an
+          rhmap with the key's canonical bytes, and a joined row is just
+          the two rows' slices, side by side. Both its sort heap and
+          its hash table can spill to files.
+
+  # ------------------------------------------------------------------
   - id: fidelity
     title: "What boxing changes"
     color: out
@@ -177,8 +250,26 @@ chapters:
           The byte lane never boxes them, which is why the first
           explainer's output said 210.00.
 
+  # ------------------------------------------------------------------
+  - id: which
+    title: "Which lane?"
+    color: neutral
+    steps:
+
+      - id: stats
+        view: { at: fallback, target: fallback }
+        expect: ["fact:lanes.native.expr=false", "fact:lanes.boxed.expr=expr: 1/2 exprs boxed · 20 boxed evals"]
+        text: |
+          Which lane did your query take? n1k1's stats say.
+
+          Our filter is all native, and [[its stats]] say nothing about
+          expressions. But STR_TO_MILLIS, for one, isn't native yet, so a
+          query that uses it says "1/2 exprs boxed · 20 boxed evals":
+          one of its two expressions ran in the boxed lane, once for
+          each of the 20 rows.
+
       - id: end
-        view: { at: table }
+        view: { at: fallback }
         text: |
           So n1k1 runs each expression in the byte lane when it can,
           deciding once, at setup. For the rest, cbq's boxed lane is

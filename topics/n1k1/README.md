@@ -19,7 +19,9 @@ runs the plan in its own engine, which keeps values as raw JSON bytes.
   lane (Convert, Evaluate, WriteJSON) beside n1k1's byte lane, stage by
   stage, each allocation landing on the Go heap as a block as wide as
   its bytes; then the 20 rows' tallies; then what boxing does to the
-  totals (210.00 comes back as 210). (Draft.)
+  totals (210.00 comes back as 210); GROUP BY in both engines, row by
+  row, measured; ORDER BY and JOIN compared, from their code; and
+  which lane a query took, as n1k1's stats say. (Draft.)
 - `lib/`: the example data, plan, stats and rows, from the real n1k1
   binary (`lib/tools/query-golden`, `npm run golden -- n1k1`, which
   builds n1k1 from the checkout in `sources.yaml` with `-tags n1ql`),
@@ -33,7 +35,11 @@ runs the plan in its own engine, which keeps values as raw JSON bytes.
   (`lib/tools/boxed-golden`): each row's answers, allocations (Go's
   `testing.AllocsPerRun`) and, for the boxed lane, each allocation by
   where it happened (Go's heap profiler, at a rate of 1), in
-  `boxed.json`; `boxed.js` reads it for the page.
+  `boxed.json`, with GROUP BY's too (cbq's steps per row, by stage;
+  n1k1's group op, per row and at setup; and n1k1's 16 bytes per group,
+  row by row); `boxed.js` reads it for the page. `query-golden` also
+  records two queries' stats lines, one all native and one with a
+  boxed expression.
 
 ## Color and icon rules
 

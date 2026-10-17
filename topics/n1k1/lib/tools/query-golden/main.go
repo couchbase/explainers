@@ -37,6 +37,19 @@ type out struct {
 	Stats     []string `json:"stats"`
 	Files     []file   `json:"files"`
 	Customers []file   `json:"customers"`
+	// queries' stats lines (no timings), to show which lane their
+	// expressions took: one n1k1 can make native, one it can't
+	Lanes []lane `json:"lanes"`
+}
+
+type lane struct {
+	Query string   `json:"query"`
+	Stats []string `json:"stats"`
+}
+
+var LANES = []string{
+	"SELECT id FROM orders WHERE total > 200",
+	`SELECT id FROM orders WHERE STR_TO_MILLIS(ts) > STR_TO_MILLIS("2026-02-15")`,
 }
 
 func main() {
@@ -92,6 +105,15 @@ func main() {
 	o.Tables = run("", "-mode", "jsonl", "-c", ".tables", shop)
 	o.Files = files(shop, "default/orders")
 	o.Customers = files(shop, "default/customers")
+	for _, q := range LANES {
+		l := lane{Query: q}
+		for _, x := range run("", "-mode", "jsonl", "-stats", "final", "-c", q, shop) {
+			if !strings.HasPrefix(x, "{") && !timing.MatchString(x) && !strings.HasPrefix(x, "stats:") {
+				l.Stats = append(l.Stats, x)
+			}
+		}
+		o.Lanes = append(o.Lanes, l)
+	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", " ")
 	enc.SetEscapeHTML(false)

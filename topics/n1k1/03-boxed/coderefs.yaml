@@ -67,3 +67,64 @@ bench.arith:
   extent: func
   title: n1k1's benchmark of the boxed lane, a+b — box, Evaluate, unbox
   highlight: ["item := value.NewValue(map[string]interface{}{\"a\": 12345, \"b\": 678}) // box (Convert)", "r, err := expr.Evaluate(item, ctx)", "_ = r.WriteJSON(nil, &buf, \"\", \"\", true) // unbox to bytes"]
+
+cbq.group:
+  repo: n1k1-query
+  path: execution/groupby_initial.go
+  anchor: "func (this *InitialGroup) processItem(item value.AnnotatedValue, context *Context) bool {"
+  extent: 70
+  title: cbq InitialGroup.processItem() — a group key per row; each aggregate cumulated, boxed
+  highlight: ["gk, e = groupKey(item, this.plan.Keys(), &this.operatorCtx)", "v, e := agg.CumulateInitial(item, pv, &this.operatorCtx)"]
+
+cbq.sum:
+  repo: n1k1-query
+  path: algebra/agg_sum.go
+  anchor: "func (this *Sum) CumulateInitial(item, cumulative value.Value, context Context) (value.Value, error) {"
+  extent: func
+  title: cbq Sum.CumulateInitial() — the operand evaluated, boxed; a new running sum returned
+  highlight: ["item, e := this.Operands()[0].Evaluate(item, context)", "return this.cumulatePart(item, cumulative, context)"]
+
+op.group:
+  repo: n1k1
+  path: engine/op_group.go
+  anchor: "func OpGroup(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,"
+  extent: 70
+  title: n1k1 OpGroup() — an rhmap of groups, keyed and valued in bytes
+  highlight: ["lzSet, lzErr := lzVars.Ctx.AllocMap()", "var lzGroupKey, lzGroupVal, lzGroupValNew, lzGroupValReuse, lzGroupValPrev []byte"]
+
+agg.sum:
+  repo: n1k1
+  path: base/agg.go
+  anchor: "var AggSum = &Agg{"
+  extent: 36
+  title: n1k1 AggSum — SUM's state, a float64, in 8 bytes
+  highlight: ["s := math.Float64frombits(binary.LittleEndian.Uint64(agg[:8]))", "return BinaryAppendUint64(aggNew, math.Float64bits(s)), agg[8:], true"]
+
+cbq.order:
+  repo: n1k1-query
+  path: execution/util.go
+  anchor: "func getOriginalCachedValue(item value.AnnotatedValue, expr expression.Expression, s string, context *opContext) ("
+  extent: 25
+  title: cbq getOriginalCachedValue() — a sort key, evaluated, boxed, and kept on the row
+
+op.order:
+  repo: n1k1
+  path: engine/op_order.go
+  anchor: "				if lzErr == nil && lzNeedPush {"
+  extent: 19
+  title: n1k1 OpOrderOffsetLimit() — each row encoded, copied onto the heap
+  highlight: ["lzEncoded, lzErr = base.ValsProjectedEncode(lzVals, lzValsOut,", "heap.Push(lzHeap, lzEncoded)"]
+
+cbq.hashjoin:
+  repo: n1k1-query
+  path: util/hash_table.go
+  anchor: "func (this *HashTable) getHashKey(hashVal interface{}, marshal func(interface{}) ([]byte, error)) (uint64, error) {"
+  extent: 15
+  title: cbq HashTable getHashKey() — a boxed key, marshaled to JSON, to hash it
+
+op.hashjoin:
+  repo: n1k1
+  path: engine/op_join_hash.go
+  anchor: "func OpJoinHash(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,"
+  extent: 60
+  title: n1k1 OpJoinHash() — an rhmap keyed by the join key's canonical bytes

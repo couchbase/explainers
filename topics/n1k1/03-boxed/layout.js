@@ -38,6 +38,11 @@ export const BLOCKS = [];
 // the twenty rows' tallies, under the blocks
 export const TALLY = { y: 580, h: 100, w: 13, gap: 3.5 };
 
+// the panels in the lanes' and heaps' place: GROUP BY, ORDER BY and
+// JOIN, and the stats
+export const PANEL = { x: 30, y: 108, w: 940, h: 598 };
+export const GROUP = { cols: { cbq: 30, n1k1: 515 }, w: 455, rowY: 236, dy: 50, heapY: 486, heapH: 220 };
+
 // the totals table, in the lanes' place
 export const TABLE = { x: 30, y: 108, w: 940, h: 362, dy: 30 };
 
@@ -55,6 +60,11 @@ export const ANCHORS = {
   'heap.bytes': { p: [LANES.x.bytes, HEAP.y + 18], needs: [] },
   tally: { p: [LANES.x.boxed, TALLY.y + 20], needs: [] },
   table: { p: [TABLE.x, TABLE.y + 20], needs: [] },
+  'group.cbq': { p: [GROUP.cols.cbq, PANEL.y + 60], needs: [] },
+  'group.n1k1': { p: [GROUP.cols.n1k1, PANEL.y + 60], needs: [] },
+  'group.heap': { p: [GROUP.cols.cbq, GROUP.heapY + 20], needs: [] },
+  others: { p: [PANEL.x, PANEL.y + 20], needs: [] },
+  fallback: { p: [PANEL.x, PANEL.y + 20], needs: [] },
 };
 
 export const SECTION_COLORS = ['query', 'plan', 'push', 'out', 'neutral'];

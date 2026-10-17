@@ -19,3 +19,11 @@ export const ALLOCS = HERO.allocs;
 export const bytesOf = (r) => r.allocs.reduce((s, a) => s + a.bytes, 0);
 // the totals whose text changes, boxed and written back
 export const CHANGED = ROWS.filter((r) => r.totalBoxed !== r.order.total.bytes);
+
+// GROUP BY: SELECT customer, SUM(total), COUNT(*) ... GROUP BY customer.
+// cbq's steps per row (its group key, and each aggregate's
+// CumulateInitial), measured; n1k1's group op, measured; and n1k1's
+// state for each group, row by row (SUM's 8 bytes, COUNT's 8).
+export const GROUP = GOLDEN.group;
+// the groups, in the order they first appear
+export const CUSTOMERS = [...new Set(GROUP.steps.map((s) => s.customer))];

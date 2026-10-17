@@ -113,5 +113,108 @@
   ],
   "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/test/benchmark/bench_expr_arith_test.go#L80-L97",
   "code": "func evalCBQ(b *testing.B, expr expression.Expression) {\n\tctx := glue.NewExprGlueContext(time.Now())\n\tvar buf bytes.Buffer\n\n\tb.ReportAllocs()\n\tb.ResetTimer()\n\tfor i := 0; i < b.N; i++ {\n\t\titem := value.NewValue(map[string]interface{}{\"a\": 12345, \"b\": 678}) // box (Convert)\n\t\tr, err := expr.Evaluate(item, ctx)                                   // evaluate (boxes result)\n\t\tif err != nil {\n\t\t\tb.Fatal(err)\n\t\t}\n\t\tbuf.Reset()\n\t\t_ = r.WriteJSON(nil, &buf, \"\", \"\", true) // unbox to bytes\n\t}\n\tb.StopTimer()\n\tsink = buf.Bytes()\n}"
+ },
+ "cbq.group": {
+  "id": "cbq.group",
+  "repo": "n1k1-query",
+  "path": "execution/groupby_initial.go",
+  "title": "cbq InitialGroup.processItem() — a group key per row; each aggregate cumulated, boxed",
+  "start": 69,
+  "end": 138,
+  "highlight": [
+   74,
+   131
+  ],
+  "url": "https://github.com/couchbase/n1k1-query/blob/edd1747b2dcecf6c24172d5a72e8df57c7c83adf/execution/groupby_initial.go#L69-L138",
+  "code": "func (this *InitialGroup) processItem(item value.AnnotatedValue, context *Context) bool {\n\t// Generate the group key\n\tvar gk string\n\tif len(this.plan.Keys()) > 0 {\n\t\tvar e error\n\t\tgk, e = groupKey(item, this.plan.Keys(), &this.operatorCtx)\n\t\tif e != nil {\n\t\t\tcontext.Fatal(errors.NewEvaluationError(e, \"GROUP key\"))\n\t\t\titem.Recycle()\n\t\t\treturn false\n\t\t}\n\t}\n\n\trecycle := false\n\treleaseSize := uint64(0)\n\n\t// Get or seed the group value\n\tgv := this.groups[gk]\n\tif gv == nil {\n\t\tgv = item\n\t\tthis.groups[gk] = gv\n\t\taggregates := make(map[string]value.Value, len(this.plan.Aggregates()))\n\t\tgv.SetAttachment(value.ATT_AGGREGATES, aggregates)\n\t\tfor _, agg := range this.plan.Aggregates() {\n\t\t\taggregates[agg.String()], _ = agg.Default(nil, &this.operatorCtx)\n\t\t}\n\t} else {\n\t\tif context.UseRequestQuota() {\n\t\t\treleaseSize = item.Size()\n\t\t}\n\t\trecycle = true\n\t}\n\n\t// Cumulate aggregates\n\taggregates, ok := gv.GetAttachment(value.ATT_AGGREGATES).(map[string]value.Value)\n\tif !ok {\n\t\tcontext.Fatal(errors.NewInvalidValueError(fmt.Sprintf(\"Invalid aggregates %v of type %T\", aggregates, aggregates)))\n\t\titem.Recycle()\n\t\treturn false\n\t}\n\n\tfor i, agg := range this.plan.Aggregates() {\n\t\tvar a string\n\t\tif i < len(this.aggNames) {\n\t\t\ta = this.aggNames[i]\n\t\t}\n\t\tif a == \"\" {\n\t\t\ta = agg.String()\n\t\t\t// do not cache aggregate string if aggregate has subquery references, since\n\t\t\t// the string may change (e.g. COVER transformation), and we don't know when\n\t\t\t// the subquery may be executed for the first time (e.g. under a CASE)\n\t\t\tif !agg.HasFlags(algebra.AGGREGATE_HAS_SUBQ) && i < len(this.aggNames) {\n\t\t\t\tthis.aggNames[i] = a\n\t\t\t}\n\t\t}\n\t\tpv := aggregates[a]\n\t\tif pv == nil {\n\t\t\t// Log an error and explicitly panic\n\t\t\t// If we attempt to recover from this situation here we'll probably be producing inaccurate results - better to halt\n\t\t\tlogging.Severef(\"Aggregate '%s' not found for InitialGroup in aggregates (%v) for group key '%v'\", a, aggregates, gk)\n\t\t\tpanic(\"Aggregate not found\")\n\t\t}\n\t\tv, e := agg.CumulateInitial(item, pv, &this.operatorCtx)\n\t\tif e != nil {\n\t\t\tcontext.Fatal(errors.NewGroupUpdateError(e, \"Error updating initial GROUP value.\"))\n\t\t\titem.Recycle()\n\t\t\treturn false\n\t\t}\n\n\t\t/* MB-65862. In group intermidiate, final uses v.Equals(pv) == value.FALSE_VALUE."
+ },
+ "cbq.sum": {
+  "id": "cbq.sum",
+  "repo": "n1k1-query",
+  "path": "algebra/agg_sum.go",
+  "title": "cbq Sum.CumulateInitial() — the operand evaluated, boxed; a new running sum returned",
+  "start": 102,
+  "end": 122,
+  "highlight": [
+   108,
+   120
+  ],
+  "url": "https://github.com/couchbase/n1k1-query/blob/edd1747b2dcecf6c24172d5a72e8df57c7c83adf/algebra/agg_sum.go#L102-L122",
+  "code": "func (this *Sum) CumulateInitial(item, cumulative value.Value, context Context) (value.Value, error) {\n\t// apply filter if any\n\tif ok, e := this.evaluateFilter(item, context); e != nil || !ok {\n\t\treturn cumulative, e\n\t}\n\n\titem, e := this.Operands()[0].Evaluate(item, context)\n\tif e != nil {\n\t\treturn nil, e\n\t}\n\n\tif item.Type() != value.NUMBER {\n\t\treturn cumulative, nil\n\t}\n\n\tif this.Distinct() {\n\t\treturn setAdd(item, cumulative, true), nil\n\t} else {\n\t\treturn this.cumulatePart(item, cumulative, context)\n\t}\n}"
+ },
+ "op.group": {
+  "id": "op.group",
+  "repo": "n1k1",
+  "path": "engine/op_group.go",
+  "title": "n1k1 OpGroup() — an rhmap of groups, keyed and valued in bytes",
+  "start": 23,
+  "end": 92,
+  "highlight": [
+   63,
+   72
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/engine/op_group.go#L23-L92",
+  "code": "func OpGroup(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,\n\tlzYieldErr base.YieldErr, path, pathNext string) {\n\t// GROUP BY exprs.\n\t// Ex: [\"labelPath\",\".\",\"state\"], [\"labelPath\",\".\",\"city\"].\n\t// The len(groupExprs) >= 1.\n\tgroupExprs := o.Params[0].([]interface{})\n\n\tvar aggExprs, aggCalcs []interface{}\n\n\tif len(o.Params) > 1 {\n\t\t// Aggregation exprs.\n\t\t// Ex: [\"labelPath\",\".\",\"sales\"], [\"labelPath\",\".\"].\n\t\t// The len(aggExprs) >= 0.\n\t\taggExprs = o.Params[1].([]interface{})\n\t\t_ = aggExprs\n\n\t\t// Aggregation calcs.\n\t\t// Ex: [\"sum\",\"min\"], [\"count\"].\n\t\t// The len(aggExprs) == len(aggFuncs).\n\t\taggCalcs = o.Params[2].([]interface{})\n\t\t_ = aggCalcs\n\t}\n\n\tif LzScope {\n\t\tpathNextG := EmitPush(lzVars, pathNext, \"G\") // !lz\n\n\t\tvar groupProjectFunc, aggProjectFunc base.ProjectFunc // !lz\n\n\t\tgroupProjectFunc =\n\t\t\tMakeProjectFunc(lzVars, o.Children[0].Labels, groupExprs, pathNextG, \"GP\") // !lz\n\n\t\tif len(aggExprs) > 0 { // !lz\n\t\t\taggProjectFunc =\n\t\t\t\tMakeProjectFunc(lzVars, o.Children[0].Labels, aggExprs, pathNextG, \"AP\") // !lz\n\t\t}\n\n\t\t_, _ = groupProjectFunc, aggProjectFunc\n\n\t\t// TODO: Configurable initial size for rhstore, and reusable rhstore.\n\t\t// TODO: Reuse backing bytes for lzSet.\n\t\tlzSet, lzErr := lzVars.Ctx.AllocMap()\n\t\tif lzErr != nil {\n\t\t\tlzYieldErr(lzErr)\n\t\t}\n\n\t\tvar lzValOut base.Val\n\n\t\tvar lzValsOut base.Vals\n\n\t\tvar lzGroupKey, lzGroupVal, lzGroupValNew, lzGroupValReuse, lzGroupValPrev []byte\n\n\t\tvar lzGroupKeyFound bool\n\n\t\tvar lzAgg *base.Agg\n\n\t\t_, _, _, _, _ = lzValOut, lzGroupValNew, lzGroupValReuse, lzAgg, lzGroupValPrev\n\n\t\t// Pre-resolve each aggregate to its base.Aggs index once. aggCalcs is\n\t\t// fixed for the query, so the base.AggCatalog[name] map lookup + the\n\t\t// name.(string) type-assert the Init/Update loops below used to do PER\n\t\t// INPUT ROW (here x an N-way cross-join) is pure overhead -- in the\n\t\t// interp lane it ran on every one of the millions of rows. lzAggIdxs\n\t\t// mirrors aggCalcs' [calc][name] shape and is consulted with a plain\n\t\t// slice index instead. (!lz: gen-time in the compiled lane, which bakes\n\t\t// the index in as a constant regardless, so the emitted per-row code is\n\t\t// unchanged -- this only removes the interp lane's per-row map lookup.)\n\t\tvar lzAggIdxs [][]int              // !lz\n\t\tfor _, aggCalc := range aggCalcs { // !lz\n\t\t\tvar lzAggIdxRow []int                             // !lz\n\t\t\tfor _, aggName := range aggCalc.([]interface{}) { // !lz"
+ },
+ "agg.sum": {
+  "id": "agg.sum",
+  "repo": "n1k1",
+  "path": "base/agg.go",
+  "title": "n1k1 AggSum — SUM's state, a float64, in 8 bytes",
+  "start": 276,
+  "end": 311,
+  "highlight": [
+   285,
+   290
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/base/agg.go#L276-L311",
+  "code": "var AggSum = &Agg{\n\tInit: func(vars *Vars, agg []byte) []byte { return BinaryAppendUint64(agg, sumNaNBits) },\n\n\tUpdate: func(vars *Vars, v Val, aggNew, agg []byte, vc *ValComparer) (\n\t\t[]byte, []byte, bool) {\n\t\tparsedVal, parsedType := Parse(v)\n\t\tif ParseTypeToValType[parsedType] == ValTypeNumber {\n\t\t\tf, err := ParseFloat64(parsedVal)\n\t\t\tif err == nil {\n\t\t\t\ts := math.Float64frombits(binary.LittleEndian.Uint64(agg[:8]))\n\t\t\t\tif math.IsNaN(s) {\n\t\t\t\t\ts = 0 // first numeric fold clears the \"no numeric input\" sentinel\n\t\t\t\t}\n\t\t\t\ts += f\n\t\t\t\treturn BinaryAppendUint64(aggNew, math.Float64bits(s)), agg[8:], true\n\t\t\t}\n\t\t}\n\n\t\treturn append(aggNew, agg[:8]...), agg[8:], false\n\t},\n\n\tResult: func(vars *Vars, agg, buf []byte) (v Val, aggRest, bufOut []byte) {\n\t\ts := math.Float64frombits(binary.LittleEndian.Uint64(agg[:8]))\n\n\t\tif math.IsNaN(s) {\n\t\t\treturn ValNull, agg[8:], buf // no numeric input -> SUM is NULL, not 0\n\t\t}\n\n\t\tvBuf := strconv.AppendFloat(buf[:0], s, 'f', -1, 64)\n\n\t\treturn Val(vBuf), agg[8:], BufUnused(buf, len(vBuf))\n\t},\n}\n\n// -----------------------------------------------------\n"
+ },
+ "cbq.order": {
+  "id": "cbq.order",
+  "repo": "n1k1-query",
+  "path": "execution/util.go",
+  "title": "cbq getOriginalCachedValue() — a sort key, evaluated, boxed, and kept on the row",
+  "start": 93,
+  "end": 114,
+  "highlight": [],
+  "url": "https://github.com/couchbase/n1k1-query/blob/edd1747b2dcecf6c24172d5a72e8df57c7c83adf/execution/util.go#L93-L114",
+  "code": "func getOriginalCachedValue(item value.AnnotatedValue, expr expression.Expression, s string, context *opContext) (\n\tvalue.Value, error) {\n\n\tif item == nil {\n\t\treturn nil, errors.NewEvaluationError(nil, \"original cached value\")\n\t}\n\ti := getAttachmentIndexFor(item, s)\n\tsv1 := item.GetAttachment(i)\n\tswitch sv1 := sv1.(type) {\n\tcase value.Value:\n\t\treturn sv1, nil\n\tdefault:\n\t\trv, err := expr.Evaluate(item.Original(), context)\n\t\tif err != nil {\n\t\t\tcontext.Error(errors.NewEvaluationError(err, \"original cached value\"))\n\t\t\treturn nil, err\n\t\t}\n\t\titem.SetAttachment(i, rv.CopyForUpdate())\n\t\treturn rv, nil\n\t}\n}\n"
+ },
+ "op.order": {
+  "id": "op.order",
+  "repo": "n1k1",
+  "path": "engine/op_order.go",
+  "title": "n1k1 OpOrderOffsetLimit() — each row encoded, copied onto the heap",
+  "start": 117,
+  "end": 135,
+  "highlight": [
+   118,
+   123
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/engine/op_order.go#L117-L135",
+  "code": "\t\t\t\tif lzErr == nil && lzNeedPush {\n\t\t\t\t\tlzEncoded, lzErr = base.ValsProjectedEncode(lzVals, lzValsOut,\n\t\t\t\t\t\tlzEncoded[:0], lzVars.Ctx.ValComparer)\n\t\t\t\t\tif lzErr != nil {\n\t\t\t\t\t\tlzYieldErr(lzErr)\n\t\t\t\t\t} else {\n\t\t\t\t\t\theap.Push(lzHeap, lzEncoded)\n\n\t\t\t\t\t\t// If heap is too big, pop max-heap-item.\n\t\t\t\t\t\tif lzHeapLen+1 > offsetPlusLimit {\n\t\t\t\t\t\t\theap.Pop(lzHeap)\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tif lzHeap.Err != nil {\n\t\t\t\t\t\t\tlzYieldErr(lzHeap.Err)\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t} else { // !lz"
+ },
+ "cbq.hashjoin": {
+  "id": "cbq.hashjoin",
+  "repo": "n1k1-query",
+  "path": "util/hash_table.go",
+  "title": "cbq HashTable getHashKey() — a boxed key, marshaled to JSON, to hash it",
+  "start": 260,
+  "end": 274,
+  "highlight": [],
+  "url": "https://github.com/couchbase/n1k1-query/blob/edd1747b2dcecf6c24172d5a72e8df57c7c83adf/util/hash_table.go#L260-L274",
+  "code": "func (this *HashTable) getHashKey(hashVal interface{}, marshal func(interface{}) ([]byte, error)) (uint64, error) {\n\tbytes, err := marshal(hashVal)\n\tif err != nil {\n\t\treturn 0, err\n\t}\n\n\thashKey := SeaHashSum64(bytes)\n\n\treturn hashKey, nil\n}\n\nfunc (this *HashTable) Iterate() interface{} {\n\tif this.mode != HASH_TABLE_ITERATE {\n\t\tthis.mode = HASH_TABLE_ITERATE\n\t\tthis.bucket = 0"
+ },
+ "op.hashjoin": {
+  "id": "op.hashjoin",
+  "repo": "n1k1",
+  "path": "engine/op_join_hash.go",
+  "title": "n1k1 OpJoinHash() — an rhmap keyed by the join key's canonical bytes",
+  "start": 33,
+  "end": 92,
+  "highlight": [],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/engine/op_join_hash.go#L33-L92",
+  "code": "func OpJoinHash(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,\n\tlzYieldErr base.YieldErr, path, pathNext string) {\n\tkindParts := strings.Split(o.Kind, \"-\")\n\n\topIntersect := kindParts[0] == \"intersect\"\n\n\tvar exprLeft, exprRight []interface{}\n\n\t// Analyze the Op's config according to the above table of flags.\n\tvar canonical, joinCount, leftCount, leftVals, yieldsUnjoined bool\n\n\tif kindParts[0] == \"joinHash\" {\n\t\texprLeft = o.Params[0].([]interface{})\n\t\texprRight = o.Params[1].([]interface{})\n\n\t\tcanonical = false\n\n\t\tif kindParts[1] == \"leftOuter\" {\n\t\t\tjoinCount, yieldsUnjoined = true, true\n\t\t}\n\n\t\tleftVals = true\n\t} else {\n\t\t// INTERSECT & EXCEPT canonicalize their incoming vals so\n\t\t// they're usable as map lookup keys.\n\t\texprLeft = []interface{}{\"valsEncodeCanonical\"}\n\t\texprRight = []interface{}{\"valsEncodeCanonical\"}\n\n\t\tcanonical = true\n\n\t\tjoinCount = true\n\n\t\tif kindParts[1] == \"all\" {\n\t\t\tleftCount = true\n\t\t}\n\n\t\tyieldsUnjoined = kindParts[0] == \"except\"\n\t}\n\n\t// ---------------------------------------------------------------\n\n\tif LzScope {\n\t\tvar lzZero16 [16]byte\n\n\t\t// As the left side is visited to fill or build the probe map,\n\t\t// any left vals, if they are needed for a join, are stored as\n\t\t// a chain of entries in the lzChunks.\n\t\t//\n\t\t// TODO: Configurable initial size for chunks, and reusable chunks.\n\t\t// TODO: Reuse backing bytes for chunks.\n\t\tlzChunks, lzErr := lzVars.Ctx.AllocChunks()\n\t\tif lzErr != nil {\n\t\t\tlzYieldErr(lzErr)\n\t\t}\n\n\t\tvar lzMap *store.RHStore // The probe map.\n\n\t\tif lzErr == nil {\n\t\t\t// Every chain of left vals ends at offset 0, size 0.\n\t\t\tlzChunks.BytesAppend(lzZero16[:])"
  }
 }

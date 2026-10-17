@@ -4,7 +4,8 @@
 // (../lib/boxed.json, from tools/boxed-golden).
 
 import { STATES, STATE, statePath } from './states.js';
-import { ROWS, HERO, ALLOCS, CHANGED, bytesOf } from '../lib/boxed.js';
+import { ROWS, HERO, ALLOCS, CHANGED, GROUP, bytesOf } from '../lib/boxed.js';
+import { RUN } from '../lib/query.js';
 
 export const VIEW_KEYS = {
   at: { values: STATES.map((s) => s.key), sticky: true, initial: 'start', counts: () => true },
@@ -36,6 +37,23 @@ function facts() {
     'rows.boxed.min': Math.min(...ROWS.map((r) => r.boxedAllocs)),
     'rows.boxed.max': Math.max(...ROWS.map((r) => r.boxedAllocs)),
     changed: CHANGED.length,
+    // GROUP BY
+    'group.cbq.perRow': Math.round(GROUP.cbqPerRow),
+    'group.cbq.perRowBytes': GROUP.cbqPerRowBytes,
+    'group.cbq.box': Math.round(GROUP.cbqBoxPerRow),
+    ...Object.fromEntries(GROUP.cbqStages.map((x) => [`group.cbq.${x.stage}.bytes`, x.bytes])),
+    'group.n1k1.setup': GROUP.n1k1Setup,
+    'group.n1k1.perRow': GROUP.n1k1PerRow,
+    'group.groups': GROUP.n1k1Groups.length,
+    // (the same sums and counts, in both)
+    'group.same': GROUP.n1k1Groups.every((g) => {
+      const [c, sum, n] = g.split(' ');
+      return GROUP.cbqGroups.some((x) => x.startsWith(`{"0":${c}} sum=${sum} `) && x.includes(` count=${n} `));
+    }),
+    'group.alice.sum': GROUP.n1k1Groups.find((g) => g.startsWith('"alice"')).split(' ')[1],
+    // which lane: n1k1's stats line, for a query it can't make native
+    'lanes.native.expr': RUN.lanes[0].stats.some((x) => x.startsWith('expr:')),
+    'lanes.boxed.expr': RUN.lanes[1].stats.find((x) => x.startsWith('expr:')),
     'changed.list': CHANGED.map((r) => `${r.order.total.bytes}>${r.totalBoxed}`).join(','),
   };
 }

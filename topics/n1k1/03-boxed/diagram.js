@@ -16,7 +16,8 @@ import { lerp, clamp01, easeQuad } from '../../../engine/js/ui/util/anim.js';
 import {
   CANVAS, EXPR, BUF, charX, LANES, STAGE_Y, NODE, nodeXY, HEAP, BLOCKS, TALLY, TABLE, ANCHORS, BYTE_W,
 } from './layout.js';
-import { STATE, changed } from './states.js';
+import { STATE, changed, panelOf } from './states.js';
+import { buildGroup, drawGroup, buildOthers, drawOthers, buildFallback, drawFallback } from './diagram-panels.js';
 import { ROWS, HERO, ALLOCS, STAGES, CHANGED, bytesOf } from '../lib/boxed.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -164,6 +165,11 @@ export class Diagram {
       return tg;
     });
 
+    // the later panels, in the lanes' place
+    this.group = buildGroup(g);
+    this.others = buildOthers(g);
+    this.fallback = buildFallback(g);
+
     this.target = el('circle', { r: 13, class: 'target-ring', cx: -9999, cy: 0 }, g);
     this.cur = null;
   }
@@ -177,8 +183,16 @@ export class Diagram {
     const f = (k, va, vb) => (field === k ? lerp(va, vb, eq) : vb);
 
     // the lanes come; and go, for the table
-    const lanesOn = (s) => (s.lanes && !s.table ? 1 : 0);
-    const lo = field === 'table' ? 1 - easeQuad(seg(q, 0, 0.45)) : f('lanes', lanesOn(A), lanesOn(B));
+    // the panel in the lanes' place: the last one goes, then the next
+    // comes
+    const pa = panelOf(A), pb = panelOf(B);
+    const vis = (name) => {
+      if (!field || pa === pb) return pb === name ? 1 : 0;
+      if (pa === name) return 1 - easeQuad(seg(q, 0, 0.45));
+      return pb === name ? easeQuad(seg(q, 0.55, 1)) : 0;
+    };
+    const entering = (name) => field && pa !== name && pb === name;
+    const lo = vis('lanes');
     for (const lane of ['boxed', 'bytes']) {
       const L = this.lanes[lane];
       op(L.g, lo);
@@ -215,13 +229,13 @@ export class Diagram {
     setText(this.lanes.bytes.counter, this.cur.state.bytes > 0 ? '0 bytes' : '');
     op(this.noBlocks, (this.cur.state.bytes >= 4 ? 1 : 0) * lo);
     // the bytes total's, marked in the row, while the lanes find it
-    const hlOn = (s) => (s.lanes && !s.table && (s.boxed >= 2 || s.bytes >= 2) ? 1 : 0);
+    const hlOn = (s) => (panelOf(s) === 'lanes' && (s.boxed >= 2 || s.bytes >= 2) ? 1 : 0);
     op(this.bufHl, f(field, hlOn(A), hlOn(B)));
 
     // the twenty rows: bar by bar
     for (const lane of ['boxed', 'bytes']) {
-      const T = this.tallies[lane], on = (s) => (s.twenty && !s.table ? 1 : 0);
-      op(T.g, field === 'table' ? lo : field === 'twenty' ? seg(q, 0, 0.1) : on(B));
+      const T = this.tallies[lane], on = (s) => (s.twenty ? 1 : 0);
+      op(T.g, (field === 'twenty' ? seg(q, 0, 0.1) : on(B) || (A.twenty ? 1 : 0)) * lo);
       T.bars.forEach((bar, i) => {
         const v = field === 'twenty' ? seg(q, 0.1 + (i / 20) * 0.85, 0.1 + ((i + 1) / 20) * 0.85) : on(B);
         op(bar, v);
@@ -229,9 +243,13 @@ export class Diagram {
     }
 
     // the totals table: once the lanes have gone, row by row
-    const tOn = (s) => (s.table ? 1 : 0);
-    op(this.table, field === 'table' ? seg(q, 0.5, 0.6) : tOn(B));
-    this.tableRows.forEach((r, i) => op(r, field === 'table' ? seg(q, 0.55 + i * 0.07, 0.62 + i * 0.07) : tOn(B)));
+    op(this.table, vis('table'));
+    this.tableRows.forEach((r, i) => op(r, entering('table') ? seg(q, 0.55 + i * 0.07, 0.62 + i * 0.07) : vis('table')));
+
+    // the later panels
+    drawGroup(this.group, A, B, q, field, vis('group'));
+    drawOthers(this.others, A, B, q, field, vis('others'), entering('others'));
+    drawFallback(this.fallback, A, B, q, field, vis('fallback'), entering('fallback'));
   }
 
   setTarget(p) {

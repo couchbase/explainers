@@ -39,3 +39,18 @@
 .diagram .table-boxed { font: 700 16px var(--font-mono); fill: var(--copy); }
 .diagram .table-type { font: 500 12px var(--font-mono); fill: var(--muted); }
 .diagram rect.diff { fill: var(--copy-bg); }
+.diagram .group-query { font: 600 13px var(--font-mono); fill: var(--ink); }
+.diagram .group-ticker { font: 600 12px var(--font-display); fill: var(--slice); }
+.diagram .group-key { font: 600 11.5px var(--font-mono); fill: var(--ink); }
+.diagram .group-hex { font: 500 10px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .group-hl { fill: var(--slice-bg); }
+.diagram .others-name { font: 700 13px var(--font-display); fill: var(--ink); }
+.diagram .others-cbq { font: 500 12px var(--font-display); fill: var(--copy); }
+.diagram .others-n1k1 { font: 500 12px var(--font-display); fill: var(--slice); }
+.diagram .others-note { font: 500 10.5px var(--font-display); fill: var(--muted); font-style: italic; }
+.diagram .term { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.2; }
+.diagram .term-cmd { font: 600 11px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .term-text { font: 500 11px var(--font-mono); fill: var(--muted); white-space: pre; }
+.diagram .term-text.boxed { fill: var(--copy); font-weight: 700; }
+.diagram .term-hl { fill: var(--copy-bg); }
+.diagram .term-note { font: 500 11px var(--font-display); fill: var(--slice); font-style: italic; }
