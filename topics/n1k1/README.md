@@ -46,8 +46,10 @@ amber the project, teal the filter, violet the filter's expression,
 slate the scan. In the summary, blue marks what's baked in, amber the
 calls left per row. The red ball is the pen: the line intermed_build
 is turning, or the compiler is printing. Changes play one line at a
-time: a line going slides out left as it fades, its replacement slides
-in from the right; when code goes into a hole, the hole goes first, then
+time: a line's replacement appears way over on the right, beside it
+(or, if the two don't fit, on the blank line above), and the two wait
+there side by side, to compare; then the old line slides out left as it
+fades, and the new one moves into its place; when code goes into a hole, the hole goes first, then
 the code below moves down to make room, then the new lines are printed,
 one by one.
 

@@ -46,7 +46,7 @@ const SLIDE = 40;
 const BALL_X = CODE.x - 12;
 // a turning line's progress: line j of n, each in its own stretch of q
 // (overlapping a little, so the eye's carried on to the next)
-const turnAt = (q, j, n) => easeQuad(seg(q, j / n - 0.15 / n, (j + 1) / n + 0.15 / n));
+const turnAt = (q, j, n) => seg(q, j / n, (j + 1) / n);
 
 // An emit change's stretches of q: the hole going, the room made, the
 // held code flying in, then each new line, printed in turn.
@@ -76,7 +76,7 @@ export function timeline(A, B, field) {
 // turns or prints, one at a time.
 export function changeSize(A, B) {
   const field = changed(A, B)[0];
-  if (field === 'inter') return FILTER.filter((r) => interLevel(r) === Math.max(A.inter, B.inter)).length * 0.4;
+  if (field === 'inter') return FILTER.filter((r) => interLevel(r) === Math.max(A.inter, B.inter)).length * 0.8;
   if (field === 'emit') return 1 + timeline(A, B, field).entering.length * 0.14;
   return 1;
 }
@@ -132,8 +132,13 @@ export class Diagram {
       const tint = el('rect', { x: CODE.x + 6, y: y - 10.5, width: CODE.w - 12, height: CODE.dy, rx: 2, class: `tint kind-${r.kind}`, opacity: 0 }, rg);
       // (its line number in op_filter.go: gone once it's intermed's line)
       const no = txt(rg, CODE.x + 30, y, String(r.n), 'line-no', 'end');
+      // (where its new line waits, beside the old: just past its end,
+      // or, if the two don't fit on one line, right-aligned on the
+      // blank line above)
+      const room = CODE.w - 48, gap = 6 * CHAR.src, ow = r.src.trimEnd().length * CHAR.src, nw = r.inter.length * CHAR.src;
+      const wait = ow + gap + nw <= room ? [ow + gap, 0] : [Math.max(0, room - nw), -CODE.dy];
       return {
-        r, tint, no, level: interLevel(r),
+        r, tint, no, wait, level: interLevel(r),
         a: txt(rg, CODE.x + 38, y, r.src, `src-text kind-${r.kind}`),
         b: txt(rg, CODE.x + 38, y, r.inter, `src-text inter kind-${r.kind}`),
       };
@@ -236,13 +241,14 @@ export class Diagram {
       let u = tb;
       const j = turning.indexOf(R);
       if (j >= 0) u = turnAt(A.inter === 0 ? seg(q, 0.08, 1) : q, j, turning.length);
-      // (the old line slides out left as it fades; then the new one
-      // slides in from the right)
-      const out = easeQuad(seg(u, 0, 0.5)), inn = easeQuad(seg(u, 0.5, 1));
+      // (the new line appears way over on the right, beside the old one,
+      // and the two wait there side by side, to compare; then the old
+      // one slides out left as it fades, and the new one moves in)
+      const appear = easeQuad(seg(u, 0, 0.2)), out = easeQuad(seg(u, 0.55, 0.75)), inn = easeQuad(seg(u, 0.75, 1));
       at(R.a, -SLIDE * out, 0);
-      at(R.b, SLIDE * (1 - inn), 0);
+      at(R.b, R.wait[0] * (1 - inn), R.wait[1] * (1 - inn));
       op(R.a, R.level === 0 ? 1 : 1 - out);
-      op(R.b, R.level === 0 ? 0 : inn);
+      op(R.b, R.level === 0 ? 0 : appear);
       op(R.no, 1 - f('inter', interOn(A), interOn(B)));
     });
     // the ball: intermed_build's pen, on the line it's turning
