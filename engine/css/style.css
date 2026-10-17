@@ -206,7 +206,8 @@ a.eyebrow:hover { text-decoration: underline; }
 .card pre code { font-size: inherit; }
 .step.step-scrub > .card { position: sticky; top: 18vh; }
 .step .card { opacity: 0.55; transition: opacity 0.4s ease; }
-.step.active .card { opacity: 1; }
+/* (and a card just passed, while it's still being read: see story.js) */
+.step.active .card, .step.reading .card { opacity: 1; }
 .step p { margin: 0 0 0.9em; }
 .step ul, .step ol { padding-left: 1.3em; margin: 0 0 0.9em; }
 .step li { margin-bottom: 0.3em; }

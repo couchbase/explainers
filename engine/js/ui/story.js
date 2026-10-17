@@ -129,10 +129,28 @@ export function runStory({ simulation = false, setup }) {
     else shownY += d * (1 - Math.exp(-dt / SMOOTH_MS));
   }
 
+  // A card the reader has just scrolled past stays bright while it's
+  // still being read: till its bottom rises above this far down the
+  // window. (Its callout line fades as the next step's comes, as usual.)
+  const READ_LINE = 0.3;
+  const reading = new Set();
+  function markReading(i) {
+    const now = new Set();
+    for (let j = Math.max(0, i - 2); j < i; j++) {
+      const card = stepEls[j].querySelector('.card') || stepEls[j];
+      if (card.getBoundingClientRect().bottom > window.innerHeight * READ_LINE) now.add(j);
+    }
+    for (const j of reading) if (!now.has(j)) stepEls[j].classList.remove('reading');
+    for (const j of now) if (!reading.has(j)) stepEls[j].classList.add('reading');
+    reading.clear();
+    for (const j of now) reading.add(j);
+  }
+
   function render() {
     if (ctl.current < 0) return;
     const { i, p, u } = shown();
     if (i !== ctl.current) enter(i);
+    markReading(i);
     const v = views[i], pv = i > 0 ? views[i - 1] : v;
     const t = ease(p);
     if (hooks.render) hooks.render({ i, p, u, t, v, pv });
