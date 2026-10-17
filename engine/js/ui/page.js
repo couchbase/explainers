@@ -36,7 +36,7 @@ export function buildPage(app, data, codeDrawer, { simulation = false } = {}) {
 
   // ---- story ----
   // (a draft: stamped so, on its title card and in the page's corner)
-  if (narrative.draft) app.append(h('div', { class: 'draft-corner', 'aria-hidden': 'true' }, h('span', { class: 'draft-stamp', text: 'Draft' })));
+  if (narrative.draft) app.append(h('div', { class: 'draft-corner', 'aria-hidden': 'true' }, h('span', { class: 'draft-stamp' }, h('span', { class: 'draft-word', text: 'Draft' }), h('span', { class: 'draft-sub', text: 'work in progress' }))));
   story.append(h('header', { class: `hero card${narrative.draft ? ' is-draft' : ''}` },
     ...(narrative.draft ? [h('span', { class: 'draft-stamp', text: 'Draft' })] : []),
     links
