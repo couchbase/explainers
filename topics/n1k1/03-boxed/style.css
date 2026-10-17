@@ -74,3 +74,5 @@
 .diagram .sort-trail { fill: none; stroke: var(--focus); stroke-width: 1.5; stroke-dasharray: 1 1; }
 .diagram rect.block-zero { fill: var(--slice); }
 .diagram .summary-note { font: 500 13px var(--font-display); fill: var(--ink); }
+.diagram .bar-in { font: 700 11px var(--font-mono); fill: var(--panel); }
+.diagram .bar-out { font: 700 11px var(--font-mono); fill: var(--muted); }

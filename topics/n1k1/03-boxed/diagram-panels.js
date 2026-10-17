@@ -245,15 +245,25 @@ export function buildSummary(g) {
   const x0 = PANEL.x + 20, xc = PANEL.x + 230, xn = PANEL.x + 600, bw = 330;
   txt(root, xc, 92, 'cbq: boxed values', 'lane-title');
   txt(root, xn, 92, 'n1k1: bytes', 'lane-title');
+  txt(root, xc, 108, 'bytes per row, as bars', 'node-sub');
+  txt(root, xn, 108, 'bytes per row, as bars', 'node-sub');
   rows.forEach(([name, what, cbq, cb, n1k1, nb, note], k) => {
     const y = 132 + k * 92;
     const rg = el('g', { opacity: 0 }, root);
     txt(rg, x0, y, name, 'others-name');
     txt(rg, x0, y + 18, what, 'others-sub');
     txt(rg, x0, y + 34, note, 'node-sub');
-    el('rect', { x: xc, y: y - 4, width: Math.max(2, (bw * cb) / max), height: 22, rx: 3, class: 'block' }, rg);
+    // (each bar: its bytes per row, written in it, or beside it if it's
+    // too thin)
+    const bar = (x, b, zero) => {
+      const w = Math.max(2, (bw * b) / max);
+      el('rect', { x, y: y - 4, width: w, height: 22, rx: 3, class: zero ? 'block-zero' : 'block' }, rg);
+      if (w > 70) txt(rg, x + 8, y + 11, `${fmt(b)} bytes`, 'bar-in');
+      else txt(rg, x + w + 6, y + 11, `${fmt(b)} bytes`, 'bar-out');
+    };
+    bar(xc, cb, false);
     txt(rg, xc, y + 38, cbq, 'others-cbq');
-    el('rect', { x: xn, y: y - 4, width: Math.max(2, (bw * nb) / max), height: 22, rx: 3, class: nb ? 'block' : 'block-zero' }, rg);
+    bar(xn, nb, !nb);
     txt(rg, xn, y + 38, n1k1[0], 'others-n1k1');
     txt(rg, xn, y + 54, n1k1[1], 'node-sub');
     P.rows.push(rg);
