@@ -64,6 +64,10 @@ async function launchOnce() {
     ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: 'chrome' }),
     handleSIGTERM: false,
     timeout: 30000,
+    // (with many test files' Chromes at once, nothing paused or slowed
+    // for being in the background, and no GPU process to wedge: a page
+    // whose frames stop leaves everything waiting on them waiting)
+    args: ['--disable-gpu', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding'],
   });
   let browser;
   try {
@@ -160,7 +164,8 @@ export async function scrollToStep(page, step, p = 1.2, settleMs = 150) {
     window.scrollTo(0, window.explainer.scrollYFor(i, p));
     // (no smoothing in tests: the page shows this scroll position now)
     if (window.explainer.snap) window.explainer.snap();
-    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    // (two frames; or, if frames don't come, a second)
+    return new Promise((resolve) => { requestAnimationFrame(() => requestAnimationFrame(resolve)); setTimeout(resolve, 1000); });
   }, [step, p]);
   if (settleMs) await page.waitForTimeout(settleMs);
 }
