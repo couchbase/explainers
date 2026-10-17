@@ -442,6 +442,9 @@ a.eyebrow:hover { text-decoration: underline; }
 </div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">02</span>
 <div><a class="title" href="n1k1/02-compile.html">One source, two engines: how n1k1 compiles a query</a><p>n1k1&#39;s query compiler isn&#39;t written separately from its interpreter. It&#39;s generated from the interpreter&#39;s own source, by marking which lines run once and which run per row. Here&#39;s the filter, turning into a code printer, and the Go it prints, fused.</p>
+</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<span class="num">03</span>
+<div><a class="title" href="n1k1/03-boxed.html">Boxed or bytes: where the garbage goes</a><p>One filter, run two ways on the same row. cbq&#39;s evaluator boxes the row into Go values, and leaves them on the heap; n1k1&#39;s byte lane points into the row&#39;s own bytes, and leaves nothing. Here&#39;s each allocation, measured, and what boxing does to a number on the way.</p>
 </div></li></ol>
 <h2><a href="rebalance/index.html">Inside rebalance: placing and moving vbuckets</a></h2>
 <div class="subtitle"><p>How Couchbase decides which servers hold each vbucket&#39;s copies, so a failure never overloads one server or loses data, and how a rebalance moves the copies when servers come and go.</p>
