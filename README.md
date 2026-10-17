@@ -382,6 +382,7 @@ topics/
     lib/                 the real n1k1's run of the story's query (tools/query-golden), and
                          the query worked in JS (query.js), checked against it
     01-query/            the life of a query: plan, rows pushed up, where bytes are copied
+    02-compile/          the compiler made from the interpreter's source (tools/compile-golden)
 dist/                    the built pages (committed; published by GitHub Pages)
 .github/workflows/       CI, and GitHub Pages publishing
 ```

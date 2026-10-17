@@ -26,6 +26,14 @@
   --cbq: #6d28d9;
   --cbq-bg: #f1ebfc;
   --drop: #dc2626;
+  /* 02-compile: a line that's early-bound (run once, at setup), late-
+     bound (per row), and a seam */
+  --early: #1d4ed8;
+  --early-bg: #dbe6fb;
+  --late: #0f766e;
+  --late-bg: #d5efe9;
+  --seam: #6d28d9;
+  --seam-bg: #ece3fb;
 
   --sec-query: #1a1d1c;
   --sec-plan: #6d28d9;
@@ -41,6 +49,7 @@
     --bg: #121514; --panel: #1a1e1c; --panel-2: #161917; --ink: #e8ece9; --muted: #9aa39e; --line: #343b37; --faint: #222825;
     --accent: #2dd4bf; --focus: #7ea6ff;
     --slice: #2dd4bf; --slice-bg: #133a35; --copy: #f59e0b; --copy-bg: #3d2a10; --cbq: #a78bfa; --cbq-bg: #2a2140; --drop: #f87171;
+    --early: #7ea6ff; --early-bg: #1b2a4a; --late: #2dd4bf; --late-bg: #133a35; --seam: #a78bfa; --seam-bg: #2a2140;
     --sec-query: #e8ece9; --sec-plan: #a78bfa; --sec-push: #2dd4bf; --sec-out: #f59e0b; --sec-neutral: #9aa39e;
     --code-bg: #161917; --code-hl: #133a35;
   }
@@ -49,6 +58,7 @@
   --bg: #121514; --panel: #1a1e1c; --panel-2: #161917; --ink: #e8ece9; --muted: #9aa39e; --line: #343b37; --faint: #222825;
   --accent: #2dd4bf; --focus: #7ea6ff;
   --slice: #2dd4bf; --slice-bg: #133a35; --copy: #f59e0b; --copy-bg: #3d2a10; --cbq: #a78bfa; --cbq-bg: #2a2140; --drop: #f87171;
+    --early: #7ea6ff; --early-bg: #1b2a4a; --late: #2dd4bf; --late-bg: #133a35; --seam: #a78bfa; --seam-bg: #2a2140;
   --sec-query: #e8ece9; --sec-plan: #a78bfa; --sec-push: #2dd4bf; --sec-out: #f59e0b; --sec-neutral: #9aa39e;
   --code-bg: #161917; --code-hl: #133a35;
 }

@@ -1,0 +1,114 @@
+{
+ "design.compiler": {
+  "id": "design.compiler",
+  "repo": "n1k1",
+  "path": "docs/design/DESIGN.md",
+  "title": "n1k1 DESIGN.md — the way the n1k1 compiler works",
+  "start": 40,
+  "end": 79,
+  "highlight": [
+   51,
+   72
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/docs/design/DESIGN.md#L40-L79",
+  "code": "## The way the n1k1 compiler works...\n\nOr, how intermed_build generates a N1QL compiler...\n\n- 1: First, take a look at the engine/*.go files. You'll see a simple,\ninterpreter for a \"N1QL\" query-plan. In ExecOp(), it recursively walks\nthrough a query-plan tree, and processes the query-plan by pushing (or\nyield()'ing) data records from child nodes (e.g., a scan) up to parent\nnodes (e.g., filters) from the query-plan tree.\n\n- 1.1: As part of that, you'll also see some variables and functions\nthat follow a naming convention with \"lz\" (e.g., \"lazy\") in their\nnames. The \"lz\" naming convention is a marker that tells us whether\nsome variables are lazy or late-bound (they need actual data records),\nversus other variables that are early-bound (they use information\nthat's already available at query-plan compilation time).\n\n- 1.2: Of note, the engine/*.go files are written in a careful subset of\ngolang. It's all legal golang code, but it follows additional rules\nand conventions (like the \"lz\" conventions and directives in code\ncomments) to make parsing by n1k1's intermed_build tool easy.\n\n- 2: The intermed_build tool parses the \"lz\" conventions and other\nmarkers (e.g., code comment directives) from the engine/*.go source\nfiles to translate that interpreter code into an intermediary, helper\npackage, called intermed/.\n\n- 2.1: The intermed/ package will be used later by the final n1k1\nquery compiler.\n\n- 2.2: The way the intermed_build tool works is that it processes the\nengine/*.go source files line-by-line, and translates any \"lz\" lines\ninto printf's. Non-lazy expressions are turned into printf'ed\nplaceholder vars. Non-lazy lines are emitted entirely as-is, as they\nare early-bound.\n\n- 3: Finally, the n1k1 compiler, which imports and uses the generated\nintermed/ package, will take the user's input of a N1QL query-plan\nand will emit *.go code (or possibly other languages) that can\nefficiently execute that query-plan."
+ },
+ "op.filter": {
+  "id": "op.filter",
+  "repo": "n1k1",
+  "path": "engine/op_filter.go",
+  "title": "n1k1 OpFilter() — the filter, as the interpreter runs it",
+  "start": 18,
+  "end": 55,
+  "highlight": [
+   21,
+   42
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/engine/op_filter.go#L18-L55",
+  "code": "func OpFilter(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,\n\tlzYieldErr base.YieldErr, path, pathNext string) {\n\tif LzScope {\n\t\tpathNextF := EmitPush(lzVars, pathNext, \"F\") // !lz\n\n\t\texprFunc :=\n\t\t\tMakeExprFunc(lzVars, o.Children[0].Labels, o.Params, pathNextF, \"FF\") // !lz\n\n\t\t// Stats counters update live (per row) into the shared array so the CLI\n\t\t// display animates; they are genCompiler:hide'd -> interpreter-only for now\n\t\t// (the compiled path collects no stats -- see DESIGN-stats.md's KNOWN\n\t\t// LIMITATION). statZero resets at setup so a re-run filter restarts.\n\t\tlzStats := StatsFromVars(lzVars)                         // <== genCompiler:hide\n\t\tlzStatsBase := o.StatsBase                               // <== genCompiler:hide\n\t\tStatsCounterZero(lzStats, lzStatsBase+StatFilterRowsIn)  // <== genCompiler:hide\n\t\tStatsCounterZero(lzStats, lzStatsBase+StatFilterRowsOut) // <== genCompiler:hide\n\n\t\tlzYieldValsOrig := lzYieldVals\n\n\t\tlzYieldVals = func(lzVals base.Vals) {\n\t\t\tStatsCounterBump(lzStats, lzStatsBase+StatFilterRowsIn) // stats: live // <== genCompiler:hide\n\n\t\t\tvar lzVal base.Val\n\n\t\t\tlzVal = exprFunc(lzVals, lzYieldErr) // <== emitCaptured: pathNextF \"FF\"\n\n\t\t\tif base.ValTruthy(lzVal) {\n\t\t\t\tStatsCounterBump(lzStats, lzStatsBase+StatFilterRowsOut) // stats: live // <== genCompiler:hide\n\n\t\t\t\tlzYieldValsOrig(lzVals) // <== emitCaptured: path \"\"\n\t\t\t}\n\t\t}\n\n\t\tEmitPop(pathNext, \"F\") // !lz\n\n\t\tExecOp(o.Children[0], lzVars, lzYieldVals, lzYieldErr, pathNextF, \"\") // !lz\n\t}\n}"
+ },
+ "op.project": {
+  "id": "op.project",
+  "repo": "n1k1",
+  "path": "engine/op_project.go",
+  "title": "n1k1 OpProject() — the project, with a var to lift",
+  "start": 21,
+  "end": 47,
+  "highlight": [
+   26,
+   36
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/engine/op_project.go#L21-L47",
+  "code": "func OpProject(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,\n\tlzYieldErr base.YieldErr, path, pathNext string) {\n\tif LzScope {\n\t\tpathNextP := EmitPush(lzVars, pathNext, \"P\") // !lz\n\n\t\tvar lzValsReuse base.Vals // <== varLift: lzValsReuse by path\n\n\t\tprojectFunc :=\n\t\t\tMakeProjectFunc(lzVars, o.Children[0].Labels, o.Params, pathNextP, \"PF\") // !lz\n\n\t\tlzYieldValsOrig := lzYieldVals\n\n\t\tlzYieldVals = func(lzVals base.Vals) {\n\t\t\tlzValsOut := lzValsReuse[:0]\n\n\t\t\tlzValsOut = projectFunc(lzVals, lzValsOut, lzYieldErr) // <== emitCaptured: pathNextP \"PF\"\n\n\t\t\tlzValsReuse = lzValsOut\n\n\t\t\tlzYieldValsOrig(lzValsOut)\n\t\t}\n\n\t\tEmitPop(pathNext, \"P\") // !lz\n\n\t\tExecOp(o.Children[0], lzVars, lzYieldVals, lzYieldErr, pathNextP, \"\") // !lz\n\t}\n}"
+ },
+ "build.hide": {
+  "id": "build.hide",
+  "repo": "n1k1",
+  "path": "cmd/intermed_build/build.go",
+  "title": "n1k1 intermed_build — a genCompiler:hide line, commented out",
+  "start": 155,
+  "end": 157,
+  "highlight": [],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/cmd/intermed_build/build.go#L155-L157",
+  "code": "\t\t\tif strings.Index(line, \"// <== genCompiler:hide\") > 0 {\n\t\t\t\tline = \"// \" + line\n\t\t\t}"
+ },
+ "build.emit": {
+  "id": "build.emit",
+  "repo": "n1k1",
+  "path": "cmd/intermed_build/build.go",
+  "title": "n1k1 intermed_build EmitBlock() — each line, kept, or turned into an Emit",
+  "start": 283,
+  "end": 362,
+  "highlight": [
+   312,
+   330,
+   358
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/cmd/intermed_build/build.go#L283-L362",
+  "code": "func EmitBlock(state *State, he *HandlerEntry, isLzBlock bool,\n\tout []string, line string) ([]string, string) {\n\tif !isLzBlock && strings.Index(line, \"return \") > 0 {\n\t\t// Emit non-lz (e.g., top-level) return line as-is.\n\t\treturn out, line\n\t}\n\n\tvar emit = \"Emit\"\n\n\tvar liveExprs []string\n\n\tliveExprsIgnore := map[string]bool{}\n\n\t// Positional arg tokens: the varLift and SimpleExprRE passes each plant a\n\t// \\x00<n>\\x00 token where a live fmt arg belongs, recording the Go expression\n\t// for that arg. A final scan (below) walks the line left-to-right, turning\n\t// each token into \"%s\" and appending its arg -- so a varLift (buffer) arg and\n\t// a SimpleExprRE (live-expr / func) arg on the SAME line interleave in the\n\t// right order. Appending per-pass instead mis-ordered them (all varLift args\n\t// ahead of all SimpleExprRE args regardless of on-line position).\n\tvar tokenArgs []string\n\tmkToken := func(arg string) string {\n\t\ttok := \"\\x00\" + strconv.Itoa(len(tokenArgs)) + \"\\x00\"\n\t\ttokenArgs = append(tokenArgs, arg)\n\t\treturn tok\n\t}\n\n\tlineLeftRight := strings.Split(line, \"// \")\n\tif len(lineLeftRight) > 1 {\n\t\tif lineLeftRight[1] == \"!lz\" {\n\t\t\t// Explicit build-time line: track its brace(s) so a later close brace\n\t\t\t// (explicit OR auto-detected) stays balanced with the stack.\n\t\t\tstate.LzBraceTrack(line, lineLeftRight[0])\n\n\t\t\treturn out, line\n\t\t}\n\n\t\t// Marker that allows expansion from a previously captured\n\t\t// output from EmitPop().\n\t\t//\n\t\t// Ex: lzFoo(lzVals) // <== emitCaptured: path pathItem\n\t\tif strings.HasPrefix(lineLeftRight[1], \"<== emitCaptured: \") {\n\t\t\trightParts := strings.Split(lineLeftRight[1], \" \")\n\n\t\t\tpathVar := rightParts[2]\n\t\t\tpathItem := rightParts[3]\n\n\t\t\tline = `EmitCaptured(` +\n\t\t\t\t`fmt.Sprintf(\"%s\", ` + pathVar + `), ` +\n\t\t\t\tpathItem + `, ` +\n\t\t\t\tfmt.Sprintf(\"%q\", lineLeftRight[0]) + `)`\n\n\t\t\treturn out, line\n\t\t}\n\n\t\t// Marker that allows variables to be lifted or hoisted\n\t\t// to the top of an EmitPush() stack.\n\t\t//\n\t\t// Ex: var lzFoo MyType // <== varLift: lzFoo by path\n\t\t// Ex: lzFoo = something // <== varLift: lzFoo by path\n\t\t// Ex: lzBar = lzFoo // <== varLift: lzFoo by path\n\t\tif strings.HasPrefix(lineLeftRight[1], \"<== varLift: \") {\n\t\t\trightParts := strings.Split(lineLeftRight[1], \" \")\n\n\t\t\tvarName := rightParts[2]\n\t\t\tsuffix := rightParts[4]\n\n\t\t\tif he.Replacements == nil {\n\t\t\t\the.Replacements = map[string]string{}\n\t\t\t}\n\n\t\t\the.Replacements[varName] = suffix\n\n\t\t\tif strings.Index(lineLeftRight[0], \"var \") > 0 {\n\t\t\t\t// Hoist the var declaration via EmitLift().\n\t\t\t\temit = \"EmitLift\"\n\t\t\t}\n\n\t\t\t// Fall-through for usual processing of lz vars.\n\t\t}"
+ },
+ "emit.oplines": {
+  "id": "emit.oplines",
+  "repo": "n1k1",
+  "path": "glue/emit/emit.go",
+  "title": "n1k1 emit.OpToLines() — the compiler, intermed.ExecOp with its Emits captured",
+  "start": 63,
+  "end": 274,
+  "highlight": [
+   82,
+   92,
+   126,
+   263
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/glue/emit/emit.go#L63-L274",
+  "code": "func OpToLines(o *base.Op) []string {\n\toutStack := [][]string{nil}\n\n\tappendOut := func(at int, s string) int {\n\t\tout := outStack[at]\n\t\tpos := len(out)\n\t\tout = append(out, s)\n\t\toutStack[at] = out\n\t\treturn pos\n\t}\n\n\tappendOuts := func(at int, ss []string) int {\n\t\tout := outStack[at]\n\t\tpos := len(out)\n\t\tout = append(out, ss...)\n\t\toutStack[at] = out\n\t\treturn pos\n\t}\n\n\tintermed.Emit = func(format string, a ...interface{}) (\n\t\tn int, err error) {\n\t\ts := fmt.Sprintf(format, a...)\n\t\ts = strings.Replace(s, \"LzScope\", \"true\", -1)\n\n\t\tappendOut(len(outStack)-1, s)\n\n\t\treturn len(s), nil\n\t}\n\n\tintermed.EmitLift = func(format string, a ...interface{}) (\n\t\tn int, err error) {\n\t\ts := fmt.Sprintf(format, a...)\n\t\ts = strings.Replace(s, \"LzScope\", \"true\", -1)\n\n\t\tappendOut(0, s)\n\n\t\treturn len(s), nil\n\t}\n\n\tintermed.EmitPush = func(lzVars *base.Vars, path, pathItem string) string {\n\t\toutStack = append(outStack, nil)\n\n\t\treturn path + \"_\" + pathItem\n\t}\n\n\temitPopsCaptured := map[string]captured{}\n\n\tintermed.EmitPop = func(path, pathItem string) {\n\t\tout := outStack[len(outStack)-1]\n\n\t\toutStack[len(outStack)-1] = nil\n\t\toutStack = outStack[0 : len(outStack)-1]\n\n\t\tat := len(outStack) - 1\n\t\tpos := appendOuts(at, out)\n\n\t\temitPopsCaptured[path+\"_\"+pathItem] = captured{\n\t\t\tAt:  at,\n\t\t\tPos: pos,\n\t\t\tOut: out,\n\t\t}\n\t}\n\n\tintermed.EmitCaptured = func(path, pathItem, orig string) {\n\t\tkey := path\n\t\tif pathItem != \"\" {\n\t\t\tkey = key + \"_\" + pathItem\n\t\t}\n\n\t\tcaptured, ok := emitPopsCaptured[key]\n\t\tif !ok {\n\t\t\tif false {\n\t\t\t\tfmt.Printf(\"====================================================\\n\")\n\t\t\t\tfmt.Printf(\"UNKNOWN CAPTURED - key: %s, ok: %t\\n\", key, ok)\n\t\t\t\tfmt.Printf(\"  emitPopsCaptured: %+v\\n\", emitPopsCaptured)\n\t\t\t}\n\n\t\t\tintermed.Emit(orig)\n\n\t\t\treturn\n\t\t}\n\n\t\tcapturedOut := captured.Out\n\n\t\t// Scan backwards until a func/closure.\n\t\tstart := len(capturedOut) - 1\n\t\tfor start >= 0 {\n\t\t\tif strings.Index(capturedOut[start], \" func(\") > 0 {\n\t\t\t\tbreak\n\t\t\t}\n\n\t\t\tstart = start - 1\n\t\t}\n\n\t\t// Emit the body of the last func/closure.\n\t\tvar out []string\n\n\t\tscopes := 0 // Count scope / braces of IF statements.\n\n\t\tfor i := start + 1; i < len(capturedOut); i++ {\n\t\t\ttrimmed := strings.TrimSpace(capturedOut[i])\n\t\t\tif len(trimmed) <= 0 {\n\t\t\t\tcontinue\n\t\t\t}\n\n\t\t\tif strings.HasPrefix(trimmed, \"return \") { // Filter away return lines.\n\t\t\t\tcontinue\n\t\t\t}\n\n\t\t\tif strings.HasPrefix(trimmed, \"if \") ||\n\t\t\t\tstrings.HasPrefix(trimmed, \"for \") {\n\t\t\t\tscopes += 1\n\t\t\t}\n\n\t\t\tif strings.HasSuffix(trimmed, \"}\") { // Ignore IF close braces.\n\t\t\t\tif scopes > 0 {\n\t\t\t\t\tscopes -= 1\n\t\t\t\t} else {\n\t\t\t\t\tcontinue\n\t\t\t\t}\n\t\t\t}\n\n\t\t\tout = append(out, capturedOut[i])\n\t\t}\n\n\t\t// Collapse sibling lines that look like...\n\t\t//    a = foo\n\t\t//    bar := a\n\t\t// Into...\n\t\t//    bar := foo\n\t\tfor i := 1; i < len(out); i++ {\n\t\t\tif len(out[i-1]) > 0 {\n\t\t\t\tprev := strings.Split(strings.TrimSpace(out[i-1]), \" = \")\n\t\t\t\tif len(prev) == 2 {\n\t\t\t\t\tcurr := strings.Split(strings.TrimSpace(out[i]), \" := \")\n\t\t\t\t\tif len(curr) == 2 &&\n\t\t\t\t\t\tprev[0] == curr[1] {\n\t\t\t\t\t\t// Keep a trailing newline: lines are later joined with \"\" (each\n\t\t\t\t\t\t// must self-terminate), and a following statement (e.g. a\n\t\t\t\t\t\t// captured child's first line, in a comprehension loop body)\n\t\t\t\t\t\t// would otherwise fuse onto this one.\n\t\t\t\t\t\tout[i-1] = curr[0] + \" := \" + prev[1] + \"\\n\"\n\t\t\t\t\t\tout[i] = \"\"\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t}\n\t\t}\n\n\t\tappendOuts(len(outStack)-1, out)\n\n\t\tif captured.At >= 0 {\n\t\t\tclearFuncLines(outStack[captured.At][captured.Pos : captured.Pos+len(captured.Out)])\n\n\t\t\tcaptured.At = -1\n\t\t}\n\t}\n\n\tintermed.ExprCatalog[\"exprStr\"] = func(\n\t\tlzVars *base.Vars, labels base.Labels,\n\t\tparams []interface{}, path string) (lzExprFunc base.ExprFunc) {\n\t\tintermed.EmitLift(\n\t\t\t\"var lzExprStrFunc%s = glue.ExprStr(lzVars, %#v, %#v, %#v)\\n\",\n\t\t\tpath, labels, params, path)\n\n\t\tintermed.Emit(\"lzVal = lzExprStrFunc%s(lzVals, lzYieldErr)\\n\", path)\n\n\t\treturn lzExprFunc\n\t}\n\n\t// TODO: Need to handle exprTree when in compiled mode?\n\n\t// Datastore ops hit ExecOp's default branch (ExecOpEx). We emit them one of two\n\t// ways:\n\t//\n\t//   - Default (\"island\") mode: glue.DatastoreOp(<baked op>, ...). The op bakes\n\t//     as a Go literal whose Params are int Temps indices; the live query-plan\n\t//     objects are supplied at the generated program's runtime via lzVars.Temps\n\t//     (see SetupCompiledSuite). Compiled operators above, interpreted scan/fetch\n\t//     below, runtime data through lzVars -- but it links glue/cbq.\n\t//   - PipeMode: lzVars.Ctx.Pipe.Op(<minimal op>, ...). The leaf is served by the\n\t//     request's base.DatastorePipe (e.g. engine.MemPipe over inline data), which\n\t//     reads only the op's Kind + Labels -- so the minimal literal is cbq-free and\n\t//     the generated program links engine+base only. This is the standalone path\n\t//     (DESIGN-prepare.md phase 2).\n\tintermed.ExecOpEx = func(o *base.Op, lzVars *base.Vars,\n\t\tlzYieldVals base.YieldVals, lzYieldErr base.YieldErr, path, pathItem string) {\n\t\tif PipeMode {\n\t\t\tintermed.Emit(\"lzVars.Ctx.Pipe.Op(%s, lzVars, lzYieldVals, lzYieldErr, %q, %q)\\n\",\n\t\t\t\tbakeOpForPipe(o), path, pathItem)\n\t\t\treturn\n\t\t}\n\t\tlit, ok := BakeOp(o)\n\t\tif !ok {\n\t\t\tintermed.Emit(\"UNBAKEABLE_DATASTORE_OP_%s // forces a compile error\\n\", o.Kind)\n\t\t\treturn\n\t\t}\n\t\tintermed.Emit(\"glue.DatastoreOp(%s, lzVars, lzYieldVals, lzYieldErr, %q, %q)\\n\",\n\t\t\tlit, path, pathItem)\n\t}\n\n\tintermed.ExecOp(o,\n\t\t&base.Vars{Ctx: &base.Ctx{ExprCatalog: intermed.ExprCatalog}},\n\t\tnil, nil, \"Top\", \"EO\")\n\n\tif len(outStack) != 1 {\n\t\tpanic(fmt.Sprintf(\"len(outStack) should be height 1, got: %d,\\n\"+\n\t\t\t\" op: %+v\\n outStack: %+v\",\n\t\t\tlen(outStack), o, outStack))\n\t}\n\n\treturn outStack[len(outStack)-1]\n}"
+ },
+ "cmp.static": {
+  "id": "cmp.static",
+  "repo": "n1k1",
+  "path": "engine/expr_cmp.go",
+  "title": "n1k1 ExprCmpStatic() — the comparison, with its constant known at setup",
+  "start": 78,
+  "end": 141,
+  "highlight": [
+   113,
+   128,
+   139
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/engine/expr_cmp.go#L78-L141",
+  "code": "func ExprCmpStatic(lzVars *base.Vars, labels base.Labels,\n\tparams []interface{}, path string, cmps []base.Val,\n\tcmpEQ base.Val, cmpEQOnly bool, parami int) (lzExprFunc base.ExprFunc) {\n\tjson := params[parami].([]interface{})[1].(string)\n\n\tstaticVal, staticType := base.Parse([]byte(json))\n\n\tstaticTypeHasValue := base.ParseTypeHasValue(staticType)\n\n\tvar staticF64 float64 // Optimize further when static is number.\n\tvar staticF64Ok bool\n\n\tif base.ParseTypeToValType[staticType] == base.ValTypeNumber {\n\t\tvar err error\n\n\t\tstaticF64, err = base.ParseFloat64(staticVal)\n\t\tif err == nil {\n\t\t\tstaticF64Ok = true\n\t\t}\n\t}\n\n\texprX := params[(parami+1)%2].([]interface{})\n\n\tcmpLT, cmpGT := cmps[0], cmps[1] // Ex: static < expr.\n\tif parami == 1 {\n\t\tcmpLT, cmpGT = cmps[1], cmps[0] // Ex: expr < static.\n\t}\n\n\tif LzScope {\n\t\tvar lzCmpLT base.Val = cmpLT // <== varLift: lzCmpLT by path\n\t\tvar lzCmpEQ base.Val = cmpEQ // <== varLift: lzCmpEQ by path\n\t\tvar lzCmpGT base.Val = cmpGT // <== varLift: lzCmpGT by path\n\n\t\tlzX := MakeExprFunc(lzVars, labels, exprX, path, \"X\") // !lzRHS, via: lzExprFunc\n\n\t\tvar lzValStatic base.Val = base.Val(staticVal) // <== varLift: lzValStatic by path\n\n\t\tlzExprFunc = func(lzVals base.Vals, lzYieldErr base.YieldErr) (lzVal base.Val) {\n\t\t\t_, _, _ = lzCmpLT, lzCmpEQ, lzCmpGT\n\n\t\t\tif LzScope {\n\t\t\t\tif !staticTypeHasValue { // !lz\n\t\t\t\t\tlzVal = lzValStatic\n\t\t\t\t} else { // !lz\n\t\t\t\t\tlzVal = lzX(lzVals, lzYieldErr) // <== emitCaptured: path \"X\"\n\n\t\t\t\t\tlzValX, lzTypeX := base.Parse(lzVal)\n\t\t\t\t\tif base.ParseTypeHasValue(lzTypeX) {\n\t\t\t\t\t\tlzCmpNeeded := true\n\n\t\t\t\t\t\tif staticF64Ok { // !lz\n\t\t\t\t\t\t\tif base.ParseTypeToValType[lzTypeX] == base.ValTypeNumber {\n\t\t\t\t\t\t\t\tlzF64, lzErr := base.ParseFloat64(lzValX)\n\t\t\t\t\t\t\t\tif lzErr == nil {\n\t\t\t\t\t\t\t\t\tlzCmpNeeded = false\n\n\t\t\t\t\t\t\t\t\tif staticF64 == lzF64 {\n\t\t\t\t\t\t\t\t\t\tlzVal = lzCmpEQ\n\t\t\t\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\t\t\t\tlzVal = lzCmpGT\n\t\t\t\t\t\t\t\t\t\tif !cmpEQOnly { // !lz\n\t\t\t\t\t\t\t\t\t\t\tif staticF64 < lzF64 {\n\t\t\t\t\t\t\t\t\t\t\t\tlzVal = lzCmpLT\n\t\t\t\t\t\t\t\t\t\t\t}"
+ },
+ "prepare.levels": {
+  "id": "prepare.levels",
+  "repo": "n1k1",
+  "path": "docs/design/DESIGN-prepare.md",
+  "title": "n1k1 DESIGN-prepare.md — what a compiled query can and can't do alone",
+  "start": 41,
+  "end": 56,
+  "highlight": [
+   47
+  ],
+  "url": "https://github.com/couchbase/n1k1/blob/d101acbfb319a9d6b53cc3a3df4580d7e0203229/docs/design/DESIGN-prepare.md#L41-L56",
+  "code": "## Background: the compiler, and the one boundary\n\nThree facts shape everything:\n\n1. **The emitted code's deps are tiny and public.** `engine/` + `base/` are cbq-free and\n   CGO-free, so generated Go imports only them — no fork, no bleve/bbolt/cloud SDKs.\n2. **The datastore *leaves* are the one unbaked boundary.** At runtime they dispatch through\n   the overridable **`engine.ExecOpEx` hook** (`engine/op.go`), which the CLI wires to\n   `glue.DatastoreOp`. Op kinds: `datastore-scan-{records,primary,index,index-cover,fts,keys}`,\n   `datastore-fetch`, `expr-scan`, `js-stream`, `with-recursive`, `agg-metadata`,\n   `agg-columnar`. So the generated Go is \"the whole query minus its data-access leaves.\"\n3. **Parse + plan already happened in the parent** (needs cbq's parser/planner). By codegen\n   time the plan is baked in; the child needs only *runtime data*, never the planner.\n\nSo the compiled query is small + public + CGO-free, and the only thing it can't do alone is\nreach a datastore."
+ }
+}

@@ -1,0 +1,265 @@
+# The second n1k1 explainer: how n1k1 makes a compiler out of its
+# interpreter's own source. The filter's source, line by line: which
+# lines run at setup and which per row; what intermed_build makes of
+# each; and the Go the compiler prints for a plan, the operators fused.
+# No simulation: each step moves `at`, one of the diagram's states
+# (states.js). The code is real: n1k1's source, intermed_build's output,
+# and the compiler's, all from ../lib/tools/compile-golden, which also
+# runs both engines on the plan. Every number in the text is checked by
+# `expect`.
+
+sources: [n1k1]
+draft: true
+title: "One source, two engines: how n1k1 compiles a query"
+subtitle: >-
+  n1k1's query compiler isn't written separately from its
+  interpreter. It's generated from the interpreter's own source, by
+  marking which lines run once and which run per row. Here's the filter,
+  turning into a code printer, and the Go it prints, fused.
+audience: People who build or study database internals
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: source
+    title: "One source file"
+    color: src
+    steps:
+
+      - id: plan
+        view: { at: start, target: plan }
+        code: [design.compiler, prepare.levels]
+        text: |
+          In the last explainer, n1k1 interpreted its plan. Its
+          operators were closures, set up once, which pushed each row
+          up to the next.
+
+          n1k1 can also compile a plan into Go, and run that instead.
+          What's unusual is how. Its compiler isn't written separately.
+          It's made from the interpreter's own source code.
+
+          We'll compile the top of [[the last explainer's plan]]: its
+          project and its filter, over the same 20 orders. One thing
+          differs. The orders are written into the plan, as inline
+          data, because the compiler doesn't compile a directory scan.
+          (A compiled query reads its datastores through the
+          interpreter.)
+
+      - id: filter
+        view: { at: src, target: code }
+        code: [op.filter]
+        expect: ["fact:filter.lines=38"]
+        text: |
+          Here's [[the filter]], OpFilter in engine/op_filter.go, all
+          38 lines of it, as the interpreter runs it.
+
+          It's ordinary Go. But it's written in a careful style, with
+          naming rules and markers in its comments, so that a tool can
+          read it line by line, and know what each line is for.
+
+      - id: early
+        view: { at: kind.early, target: src.early }
+        expect: ["fact:filter.early=5"]
+        text: |
+          Some lines end with `// !lz`. These are
+          [[early-bound]]. They run once, as the plan is set up, before
+          any row arrives.
+
+          Here, they set up the filter's expression (MakeExprFunc), and
+          then run its child (ExecOp). That's 5 lines.
+
+      - id: late
+        view: { at: kind.late, target: src.late }
+        expect: ["fact:filter.late=8"]
+        text: |
+          Then there are the lines whose names start with lz, for
+          lazy. These are [[late-bound]]. They work on rows, so they
+          run per row, or build the closure that will.
+
+          At this point in our example, that's 8 lines: keep the
+          parent's yield, wrap it in a closure, and in that closure,
+          test each row.
+
+      - id: hide
+        view: { at: kind.hide, target: src.hide }
+        expect: ["fact:filter.hide=6"]
+        text: |
+          The 6 lines marked `genCompiler:hide` count the filter's
+          rows, for n1k1's stats. They're [[the interpreter's only]]. A
+          compiled query skips them.
+
+      - id: seams
+        view: { at: kind.captured, target: src.captured }
+        expect: ["fact:filter.captured=2"]
+        text: |
+          And 2 lines are marked `emitCaptured`. Each is a call to code
+          from elsewhere. One calls the filter's expression, exprFunc.
+          The other calls its parent's yield, lzYieldValsOrig.
+
+          These are [[the seams]] between the filter and the code
+          around it.
+
+  # ------------------------------------------------------------------
+  - id: build
+    title: "The source, as a code printer"
+    color: build
+    steps:
+
+      - id: emit
+        view: { at: inter.late, target: src.late }
+        code: [build.emit]
+        text: |
+          n1k1's build runs a tool, intermed_build, over the engine's
+          source. It reads each file line by line, and writes a new
+          package, intermed, with the same functions.
+
+          In intermed's OpFilter, each [[late-bound line]] becomes a
+          call to Emit, which prints the line, as text. The per-row
+          code is now something to print.
+
+          (Each Emit's string is shown here on one line, without its
+          indent.)
+
+      - id: blank
+        view: { at: inter.hide, target: src.hide }
+        code: [build.hide]
+        text: |
+          The interpreter-only lines, and the comments, become
+          [[empty Emits]], which print blank lines.
+
+          The early-bound lines stay just as they are. In intermed,
+          they still run, once, at setup, as they do in the
+          interpreter.
+
+      - id: holes
+        view: { at: inter.captured, target: src.captured }
+        text: |
+          Each seam becomes [[an EmitCaptured]]. It prints whatever code
+          was printed for the other side of the seam: the expression's
+          code, or the parent's.
+
+          And `exprFunc :=` goes. The expression won't be a function to
+          call anymore. Its code will be printed right here.
+
+      - id: printer
+        view: { at: inter.captured, target: code }
+        text: |
+          So intermed's OpFilter doesn't filter anything. Given a plan,
+          it runs its early-bound lines, as the interpreter would, and
+          prints its late-bound ones. For [[this function]], running it
+          is compiling.
+
+          This is the first of Futamura's projections: specialize an
+          interpreter to one program, and you have that program,
+          compiled. n1k1 gets there by marking, by hand, which lines
+          run now and which run later.
+
+  # ------------------------------------------------------------------
+  - id: compile
+    title: "Compiling the plan"
+    color: compile
+    steps:
+
+      - id: run
+        view: { at: swap, target: code }
+        code: [emit.oplines]
+        text: |
+          The compiler is intermed's ExecOp. It walks the plan from
+          the top, the same walk that the interpreter makes, but with
+          intermed's operators.
+
+          What they print is captured into [[one Go function]], Run.
+
+      - id: project
+        view: { at: emit.project, target: emit.lift }
+        code: [op.project]
+        text: |
+          The project comes first. Its variables are marked
+          `varLift`, so they're [[lifted to the top]] of Run: the
+          registers it reuses for its output, and the paths of id,
+          customer and total.
+
+          The project's per-row code is printed, but captured, and
+          held. It doesn't have its place yet.
+
+      - id: frame
+        view: { at: emit.filter, target: emit.hole }
+        text: |
+          Then the filter. It prints its frame: keep the parent's
+          yield, wrap it in a closure, and declare the row's value.
+          Where its seams were, there are [[two holes]].
+
+      - id: expr
+        view: { at: emit.expr, target: emit.200 }
+        code: [cmp.static]
+        expect: ["fact:emitted.200=2", "fact:emitted.lifted=13"]
+        text: |
+          The first hole gets the filter's expression, the comparison
+          `200 < total`.
+
+          The plan's constant is known now, at compile time, so it's
+          baked into the code, in 2 places: [[if 200 < lzF64]], and the
+          same for 200 ==. So is the register. `lzVal = lzVals[0]` reads
+          the doc straight from its slot. The comparison's own values
+          (its true and false, and 200's bytes) are lifted to the top,
+          too, for 13 lifted variables in all.
+
+      - id: fuse
+        view: { at: emit.fuse, target: emit.fuse }
+        expect: ["fact:emitted.register0=4"]
+        text: |
+          The second hole gets [[the project's per-row code]], held
+          until now.
+
+          That's operator fusion. In the compiled query, the filter
+          doesn't call the project. The project's code runs right
+          inside the filter's `if`. Each of its three values reads the
+          doc from `lzVals[0]`, for 4 such reads in all.
+
+      - id: scan
+        view: { at: emit.scan, target: emit.yield }
+        expect: ["fact:emitted.calls=2", "fact:emitted.lines=119"]
+        text: |
+          Last, the scan, at the bottom of the plan. It prints its loop
+          over the inline data, which calls [[the filter's closure]]
+          for each row.
+
+          In all of Run's 119 lines, that's one of only 2 per-row calls
+          left. One goes from the scan into the fused filter and
+          project. The other goes from the project out, to Run's
+          caller.
+
+  # ------------------------------------------------------------------
+  - id: same
+    title: "The same rows"
+    color: out
+    steps:
+
+      - id: rows
+        view: { at: rows, target: rows }
+        expect: ["fact:rows=3", "fact:rows.same=true", "fact:row1=\"1003\" \"alice\" 210.00"]
+        text: |
+          Built with `go build` and run, the compiled query gives
+          [[the same 3 rows]] as the interpreter, byte for byte.
+
+      - id: summary
+        view: { at: done, target: code }
+        text: |
+          To sum up, here's [[what compiling did]] to the query.
+
+          It baked in what the plan knew: the constant 200, the doc's
+          register, and the fields' paths (marked in blue). It fused
+          the filter and the project, and dropped the expression's
+          function call and the filter's stats. What's left per row is
+          the 2 calls (marked in amber).
+
+      - id: end
+        view: { at: done }
+        text: |
+          That's the trick. One source, written so that a tool can
+          split its lines into now and later. The interpreter runs
+          both. The compiler runs now, and prints later.
+
+          And since they're the same code, the interpreter and the
+          compiler can't drift apart. Change an operator, rebuild
+          intermed, and both engines change together.

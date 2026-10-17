@@ -1,0 +1,68 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields: repo, path, anchor (a unique line),
+# extent (lines, or func: up to the next "}" at column 0), title,
+# highlight (lines to mark, by a substring).
+
+design.compiler:
+  repo: n1k1
+  path: docs/design/DESIGN.md
+  anchor: "## The way the n1k1 compiler works..."
+  extent: 40
+  title: n1k1 DESIGN.md — the way the n1k1 compiler works
+  highlight: ["naming convention with \"lz\"", "into printf's. Non-lazy expressions are turned into printf'ed"]
+
+op.filter:
+  repo: n1k1
+  path: engine/op_filter.go
+  anchor: "func OpFilter(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,"
+  extent: func
+  title: n1k1 OpFilter() — the filter, as the interpreter runs it
+  highlight: ["// !lz", "<== emitCaptured"]
+
+op.project:
+  repo: n1k1
+  path: engine/op_project.go
+  anchor: "func OpProject(o *base.Op, lzVars *base.Vars, lzYieldVals base.YieldVals,"
+  extent: func
+  title: n1k1 OpProject() — the project, with a var to lift
+  highlight: ["var lzValsReuse base.Vals // <== varLift: lzValsReuse by path", "<== emitCaptured"]
+
+build.hide:
+  repo: n1k1
+  path: cmd/intermed_build/build.go
+  anchor: "			if strings.Index(line, \"// <== genCompiler:hide\") > 0 {"
+  extent: 3
+  title: n1k1 intermed_build — a genCompiler:hide line, commented out
+
+build.emit:
+  repo: n1k1
+  path: cmd/intermed_build/build.go
+  anchor: "func EmitBlock(state *State, he *HandlerEntry, isLzBlock bool,"
+  extent: 80
+  title: n1k1 intermed_build EmitBlock() — each line, kept, or turned into an Emit
+  highlight: ["if lineLeftRight[1] == \"!lz\" {", "line = `EmitCaptured(` +", "emit = \"EmitLift\""]
+
+emit.oplines:
+  repo: n1k1
+  path: glue/emit/emit.go
+  anchor: "func OpToLines(o *base.Op) []string {"
+  extent: func
+  title: n1k1 emit.OpToLines() — the compiler, intermed.ExecOp with its Emits captured
+  highlight: ["intermed.Emit = func(format string, a ...interface{}) (", "intermed.EmitLift = func(format string, a ...interface{}) (", "intermed.EmitCaptured = func(path, pathItem, orig string) {", "intermed.ExecOp(o,"]
+
+cmp.static:
+  repo: n1k1
+  path: engine/expr_cmp.go
+  anchor: "func ExprCmpStatic(lzVars *base.Vars, labels base.Labels,"
+  extent: 64
+  title: n1k1 ExprCmpStatic() — the comparison, with its constant known at setup
+  highlight: ["var lzValStatic base.Val = base.Val(staticVal) // <== varLift: lzValStatic by path", "if staticF64Ok { // !lz", "if staticF64 < lzF64 {"]
+
+prepare.levels:
+  repo: n1k1
+  path: docs/design/DESIGN-prepare.md
+  anchor: "## Background: the compiler, and the one boundary"
+  extent: 16
+  title: n1k1 DESIGN-prepare.md — what a compiled query can and can't do alone
+  highlight: ["The datastore *leaves* are the one unbaked boundary."]

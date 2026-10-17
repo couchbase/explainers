@@ -1,0 +1,49 @@
+/* The 02-compile explainer's diagram. Colors are the topic's (see
+   ../style.css and ../README.md for the rules). */
+.diagram .panel { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.diagram .panel-title { font: 600 13px var(--font-display); fill: var(--muted); }
+.diagram .op { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.diagram .op.at { fill: var(--panel-2); }
+.diagram .op-title { font: 600 13px var(--font-mono); fill: var(--ink); }
+.diagram .op-params { font: 400 10px var(--font-mono); fill: var(--muted); }
+.diagram .yield { fill: none; stroke: var(--muted); stroke-width: 1.4; }
+.diagram .arrow-head { fill: var(--muted); }
+.diagram .key-text { font: 500 11.5px var(--font-display); fill: var(--ink); }
+.diagram .focus { fill: none; stroke: var(--focus); stroke-width: 2.2; }
+
+/* the code panel */
+.diagram .code { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.diagram .code-head { font: 600 12.5px var(--font-display); fill: var(--muted); }
+.diagram .code-head.inter { fill: var(--early); }
+.diagram .line-no { font: 400 9px var(--font-mono); fill: var(--muted); opacity: 0.7; }
+.diagram .src-text { font: 500 10px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .src-text.kind-comment { fill: var(--muted); }
+.diagram .src-text.kind-hide { fill: var(--muted); }
+.diagram .src-text.inter.kind-late { fill: var(--late); }
+.diagram .src-text.inter.kind-captured { fill: var(--seam); }
+/* a line's kind: its tint */
+.diagram .tint.kind-early, .diagram .kind-swatch.kind-early { fill: var(--early-bg); }
+.diagram .tint.kind-late, .diagram .kind-swatch.kind-late { fill: var(--late-bg); }
+.diagram .tint.kind-hide, .diagram .kind-swatch.kind-hide { fill: var(--faint); }
+.diagram .tint.kind-captured, .diagram .kind-swatch.kind-captured { fill: var(--seam-bg); }
+.diagram .kind-swatch.kind-early { stroke: var(--early); }
+.diagram .kind-swatch.kind-late { stroke: var(--late); }
+.diagram .kind-swatch.kind-hide { stroke: var(--muted); }
+.diagram .kind-swatch.kind-captured { stroke: var(--seam); }
+
+/* the emitted Go */
+.diagram .emit-text { font: 500 9.5px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .emit-text.frame { fill: var(--muted); }
+.diagram .emit-text.fold { fill: var(--muted); font-style: italic; }
+.diagram .stripe.origin-project { fill: var(--copy); }
+.diagram .stripe.origin-filter { fill: var(--late); }
+.diagram .stripe.origin-expr { fill: var(--seam); }
+.diagram .stripe.origin-scan { fill: var(--muted); }
+.diagram .hole { fill: var(--seam-bg); stroke: var(--seam); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.diagram .hole-text { font: 600 9.5px var(--font-mono); fill: var(--seam); }
+.diagram .held { fill: var(--copy-bg); stroke: var(--copy); stroke-width: 1.5; }
+.diagram .held-title { font: 600 11.5px var(--font-display); fill: var(--copy); }
+.diagram .held-text { font: 500 11px var(--font-display); fill: var(--ink); }
+.diagram .mark-baked { fill: var(--early-bg); stroke: var(--early); stroke-width: 1; }
+.diagram .mark-call { fill: var(--copy-bg); stroke: var(--copy); stroke-width: 1; }
+.diagram .row-text { font: 500 10px var(--font-mono); fill: var(--ink); white-space: pre; }

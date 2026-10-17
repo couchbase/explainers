@@ -10,11 +10,20 @@ runs the plan in its own engine, which keeps values as raw JSON bytes.
   `examples/shop` data: the files as keyspaces, cbq's plan and n1k1's
   rewiring of it, rows pushed up through the operators, and where the
   bytes are copied. (Draft.)
+- `02-compile/`: how n1k1 compiles a plan into Go with a compiler
+  generated from its interpreter's own source: the filter's lines,
+  early-bound (`// !lz`) and late-bound (`lz…`); intermed_build turning
+  the late-bound ones into Emit calls; and the Go the compiler prints
+  for 01-query's filter and project, fused. (Draft.)
 - `lib/`: the example data, plan, stats and rows, from the real n1k1
   binary (`lib/tools/query-golden`, `npm run golden -- n1k1`, which
   builds n1k1 from the checkout in `sources.yaml` with `-tags n1ql`),
   and `query.js`, the query worked through in JS on the same files,
-  which the tests check against n1k1's rows and stats.
+  which the tests check against n1k1's rows and stats. And for
+  02-compile, n1k1's compiler run for real (`lib/tools/compile-golden`):
+  the interpreter's source, intermed_build's version of it (run afresh),
+  the Go the compiler emits, and the rows from both engines, in
+  `compile.json`; `compile.js` pairs and tags its lines for the page.
 
 ## Color and icon rules
 
@@ -28,6 +37,14 @@ runs the plan in its own engine, which keeps values as raw JSON bytes.
 | a grey chip in a box | a register: one of an operator's labels |
 | black pill | `yieldErr(nil)`, the end of input, going up |
 | numbered amber circle | the summary's copies, in order |
+
+In 02-compile, a source line's tint is its kind: blue, early-bound
+(run once, at setup); teal, late-bound (per row); grey, the
+interpreter's only; violet, a seam (and, in the emitted Go, the hole it
+leaves). An emitted line's stripe is the operator that printed it:
+amber the project, teal the filter, violet the filter's expression,
+slate the scan. In the summary, blue marks what's baked in, amber the
+calls left per row.
 
 ## Motion rules
 
