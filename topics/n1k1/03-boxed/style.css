@@ -39,7 +39,6 @@
 .diagram .table-boxed { font: 700 16px var(--font-mono); fill: var(--copy); }
 .diagram .table-type { font: 500 12px var(--font-mono); fill: var(--muted); }
 .diagram rect.diff { fill: var(--copy-bg); }
-.diagram .group-query { font: 600 13px var(--font-mono); fill: var(--ink); }
 .diagram .group-ticker { font: 600 12px var(--font-display); fill: var(--slice); }
 .diagram .group-key { font: 600 11.5px var(--font-mono); fill: var(--ink); }
 .diagram .group-hex { font: 500 10px var(--font-mono); fill: var(--ink); white-space: pre; }
@@ -57,3 +56,5 @@
 .diagram .others-sub { font: 500 10.5px var(--font-mono); fill: var(--muted); }
 .diagram .card-cbq { fill: var(--copy-bg); stroke: var(--copy); stroke-width: 1; }
 .diagram .card-n1k1 { fill: var(--slice-bg); stroke: var(--slice); stroke-width: 1; }
+.diagram .query-text { font: 500 15px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .query-mark { font-weight: 700; fill: var(--accent); }

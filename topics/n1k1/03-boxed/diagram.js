@@ -17,7 +17,7 @@ import {
   CANVAS, EXPR, BUF, charX, LANES, STAGE_Y, NODE, nodeXY, HEAP, BLOCKS, TALLY, TABLE, ANCHORS, BYTE_W,
 } from './layout.js';
 import { STATE, changed, panelOf } from './states.js';
-import { buildGroup, drawGroup, buildOthers, drawOthers, buildFallback, drawFallback } from './diagram-panels.js';
+import { buildQueries, drawQueries, buildGroup, drawGroup, buildOthers, drawOthers, buildFallback, drawFallback } from './diagram-panels.js';
 import { ROWS, HERO, ALLOCS, STAGES, CHANGED, bytesOf } from '../lib/boxed.js';
 
 const op = (e, o) => e.setAttribute('opacity', clamp01(o).toFixed(3));
@@ -74,15 +74,17 @@ export class Diagram {
     svg.setAttribute('viewBox', `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
     const g = el('g', {}, svg);
 
-    // the filter, and the row
-    el('rect', { x: EXPR.x, y: EXPR.y, width: EXPR.w, height: EXPR.h, rx: 8, class: 'expr' }, g);
-    txt(g, EXPR.x + 14, EXPR.y + 26, 'orders.total > 200', 'expr-text');
-    txt(g, EXPR.x + 14, EXPR.y + 47, "01-query's filter, on one row", 'expr-sub');
-    el('rect', { x: BUF.x, y: BUF.y, width: BUF.w, height: BUF.h, rx: 8, class: 'buf' }, g);
-    this.bufHl = el('rect', { x: charX(O.total.start) - 1, y: BUF.y + 9, width: (O.total.end - O.total.start) * 6.6 + 2, height: 17, rx: 3, class: 'buf-hl', opacity: 0 }, g);
-    txt(g, charX(0), BUF.y + 22, O.doc.slice(0, BREAK), 'buf-text');
-    txt(g, charX(0), BUF.y + 22 + BUF.line, O.doc.slice(BREAK), 'buf-text');
-    txt(g, BUF.x + BUF.w - 10, BUF.y + 22 + BUF.line, `${O.name}, in the record buffer`, 'buf-label', 'end');
+    // the filter, and the row (for the filter's sections; the later ones
+    // show their own query here: see buildQueries)
+    const top = this.top = el('g', {}, g);
+    el('rect', { x: EXPR.x, y: EXPR.y, width: EXPR.w, height: EXPR.h, rx: 8, class: 'expr' }, top);
+    txt(top, EXPR.x + 14, EXPR.y + 26, 'orders.total > 200', 'expr-text');
+    txt(top, EXPR.x + 14, EXPR.y + 47, "01-query's filter, on one row", 'expr-sub');
+    el('rect', { x: BUF.x, y: BUF.y, width: BUF.w, height: BUF.h, rx: 8, class: 'buf' }, top);
+    this.bufHl = el('rect', { x: charX(O.total.start) - 1, y: BUF.y + 9, width: (O.total.end - O.total.start) * 6.6 + 2, height: 17, rx: 3, class: 'buf-hl', opacity: 0 }, top);
+    txt(top, charX(0), BUF.y + 22, O.doc.slice(0, BREAK), 'buf-text');
+    txt(top, charX(0), BUF.y + 22 + BUF.line, O.doc.slice(BREAK), 'buf-text');
+    txt(top, BUF.x + BUF.w - 10, BUF.y + 22 + BUF.line, `${O.name}, in the record buffer`, 'buf-label', 'end');
 
     // the lanes, and their heaps
     this.lanes = {};
@@ -165,6 +167,9 @@ export class Diagram {
       return tg;
     });
 
+    // the later sections' queries, in the filter's place
+    this.queries = buildQueries(g);
+
     // the later panels, in the lanes' place
     this.group = buildGroup(g);
     this.order = buildOthers(g, 0);
@@ -246,6 +251,12 @@ export class Diagram {
     // the totals table: once the lanes have gone, row by row
     op(this.table, vis('table'));
     this.tableRows.forEach((r, i) => op(r, entering('table') ? seg(q, 0.55 + i * 0.07, 0.62 + i * 0.07) : vis('table')));
+
+    // the top: the filter and its row, or the section's query
+    const filterOn = (p) => (['none', 'lanes', 'table'].includes(p) ? 1 : 0);
+    const fa = filterOn(pa), fb = filterOn(pb);
+    op(this.top, !field || fa === fb ? fb : fa ? 1 - easeQuad(seg(q, 0, 0.45)) : easeQuad(seg(q, 0.55, 1)));
+    drawQueries(this.queries, vis);
 
     // the later panels
     drawGroup(this.group, A, B, q, field, vis('group'));

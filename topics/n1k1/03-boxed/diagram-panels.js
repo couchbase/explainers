@@ -23,13 +23,47 @@ const lastStep = (n, c) => {
   return k;
 };
 
+// ---- each later section's query, at the top, its key terms marked ----
+
+// a query, as runs of text: [text, marked?]
+const QUERIES = {
+  group: [['SELECT customer, ', 0], ['SUM(total)', 1], [', ', 0], ['COUNT(*)', 1], [' FROM orders ', 0], ['GROUP BY customer', 1]],
+  order: [['SELECT * FROM orders ', 0], ['ORDER BY total DESC', 1]],
+  join: [['SELECT * FROM orders o ', 0], ['JOIN', 1], [' customers c ', 0], ['ON o.customer = c.id', 1]],
+  fallback: [['SELECT id FROM orders WHERE ', 0], ['STR_TO_MILLIS(ts) > STR_TO_MILLIS("2026-02-15")', 1]],
+};
+const QUERY_NOTES = {
+  group: 'over the 20 orders: 4 groups',
+  order: 'over the 20 orders',
+  join: '20 orders, 4 customers: 20 joined rows',
+  fallback: 'a function n1k1 can\'t yet run natively',
+};
+const QUERY = { x: 30, y: 22, w: 940, h: 62 };
+
+export function buildQueries(g) {
+  return Object.fromEntries(Object.entries(QUERIES).map(([name, runs]) => {
+    const qg = el('g', { opacity: 0 }, g);
+    el('rect', { x: QUERY.x, y: QUERY.y, width: QUERY.w, height: QUERY.h, rx: 8, class: 'expr' }, qg);
+    const t = el('text', { x: QUERY.x + 16, y: QUERY.y + 27, class: 'query-text' }, qg);
+    for (const [text, marked] of runs) {
+      const ts = el('tspan', marked ? { class: 'query-mark' } : {}, t);
+      ts.textContent = text;
+    }
+    txt(qg, QUERY.x + 16, QUERY.y + 48, QUERY_NOTES[name], 'expr-sub');
+    return [name, qg];
+  }));
+}
+
+export function drawQueries(Q, vis) {
+  for (const [name, qg] of Object.entries(Q)) op(qg, vis(name));
+}
+
 // ---- GROUP BY ----
 
 export function buildGroup(g) {
   const P = { g: el('g', { opacity: 0 }, g) };
   const root = P.g;
   el('rect', { x: PANEL.x, y: PANEL.y, width: PANEL.w, height: G.heapY - PANEL.y - 16, rx: 10, class: 'lane' }, root);
-  txt(root, PANEL.x + 14, PANEL.y + 24, 'SELECT customer, SUM(total), COUNT(*) FROM orders GROUP BY customer', 'group-query');
   P.ticker = txt(root, PANEL.x + 14, PANEL.y + 50, '', 'group-ticker');
   const heads = {
     cbq: ["cbq's groups: a Go map; each aggregate, a boxed value", ['key: a string', 'SUM', 'COUNT']],
