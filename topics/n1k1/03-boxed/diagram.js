@@ -169,7 +169,7 @@ export class Diagram {
     head(`the ${CHANGED.length} totals that change, boxed and written back:`, 2);
     const cols = [TABLE.x + 40, TABLE.x + 230, TABLE.x + 340, TABLE.x + 390, TABLE.x + 500];
     const heads = el('g', {}, this.table);
-    ['order', 'as written', '', 'boxed', 'as a'].forEach((h, k) => txt(heads, cols[k], TABLE.y + 66, h, 'table-head'));
+    ['order', 'input', '', 'boxed', 'as a'].forEach((h, k) => txt(heads, cols[k], TABLE.y + 66, h, 'table-head'));
     this.tableParts.push({ el: heads, level: 1 });
     CHANGED.forEach((r, i) => {
       const y = TABLE.y + 104 + i * 40, n = CHANGED.length;
