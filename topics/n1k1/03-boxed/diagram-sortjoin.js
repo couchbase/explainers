@@ -85,8 +85,12 @@ export function buildOrder(g) {
   P.heaps = frame(root, { cbq: "cbq: rows boxed; each one's sort key, a boxed copy", n1k1: "n1k1: each row copied into its sort heap's bytes" });
   for (const side of SIDES) {
     const x0 = G.cols[side] + 14;
+    // (each row's path in the sort, drawn as it travels, and left, faint)
+    P.trails = P.trails || {};
+    P.trails[side] = ROWS.map(() => el('path', { class: 'sort-trail', opacity: 0, pathLength: 1 }, root));
     P.rows[side] = ROWS.map((r) => {
       const rg = el('g', {}, root);
+      el('rect', { x: x0 - 6, y: -11, width: 340, height: 15, rx: 3, class: 'sort-hl', opacity: 0 }, rg);
       txt(rg, x0, 0, r.file.replace('.json', ''), 'sort-row');
       txt(rg, x0 + 108, 0, r.order.total.bytes, 'sort-total');
       const chip = el('g', { opacity: 0 }, rg);
@@ -131,13 +135,12 @@ export function drawOrder(P, A, B, q, field, vis) {
     return placed + ROWS.filter((_, j) => RANK[j] >= placed && j < i).length;
   };
   const m = k < N ? RANK.indexOf(k) : -1;
+  // (a row's arc into place k: its x and slot at progress t)
+  const arc = (i, from, to, t) => [Math.min(110, 0.5 * Math.abs(from - to) * O_ROW.dy) * Math.sin(Math.PI * t), lerp(from, to, t)];
   const place = (i) => {
     if (sortU <= 0) return [0, i];
     if (k >= N || RANK[i] < k) return [0, RANK[i]];
-    if (i === m) {
-      const from = slotAt(i, k), d = Math.abs(from - k) * O_ROW.dy;
-      return [Math.min(110, 0.5 * d) * Math.sin(Math.PI * move), lerp(from, k, move)];
-    }
+    if (i === m) return arc(i, slotAt(i, k), k, move);
     // (a row the moving one passes: down one, making room)
     const from = slotAt(i, k), to = from < slotAt(m, k) ? from + 1 : from;
     return [0, lerp(from, to, room)];
@@ -149,6 +152,19 @@ export function drawOrder(P, A, B, q, field, vis) {
       const [x, slot] = place(i);
       at(r.g, x, rowY(slot));
       op(r.chip, i < taken || (i === cur && u >= 0.25) ? 1 : 0);
+      // (the moving row, lit; and its path: drawn behind it as it goes,
+      // then left, faint, once it's in place)
+      op(r.g.firstChild, i === m && sortU > 0 && sortU < 1 ? Math.sin(Math.PI * move) : 0);
+      const tr = P.trails[side][i];
+      if (sortU > 0 && RANK[i] <= k && RANK[i] < N) {
+        // (traced from the row's right end, past its chip, in the clear)
+        const from = slotAt(i, RANK[i]), to = RANK[i], x0 = G.cols[side] + 14 + 170 + 154;
+        const pts = Array.from({ length: 25 }, (_, j) => arc(i, from, to, j / 24)).map(([px, sl]) => `${(x0 + px).toFixed(1)},${(rowY(sl) - 4).toFixed(1)}`);
+        tr.setAttribute('d', `M${pts.join(' L')}`);
+        const drawn = i === m ? move : 1;
+        tr.style.strokeDashoffset = (1 - drawn).toFixed(3);
+        op(tr, from === to ? 0 : i === m ? 0.9 : 0.3);
+      } else op(tr, 0);
     });
   }
   // the row being taken in: its key (or copy) made, then its parcel
