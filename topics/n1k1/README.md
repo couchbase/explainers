@@ -42,7 +42,7 @@ In 02-compile, a source line's tint is its kind: blue, early-bound
 (run once, at setup); teal, late-bound (per row); grey, the
 interpreter's only; violet, a seam (and, in the emitted Go, the hole it
 leaves). In the compiling chapters, each operator has a color and a
-glyph: the project amber ◇, the filter magenta ▽, the scan slate ≡,
+glyph: the project amber ◇, the filter green ▽, the scan slate ≡,
 and the filter's expression violet ƒ (the seam's color: its code fills
 the seam's hole). A plan box has its operator's stripe down its left
 side, and fills with a tint of its color while the compiler's at it; an
