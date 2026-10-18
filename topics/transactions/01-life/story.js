@@ -20,7 +20,6 @@ function facts() {
     vbuckets: TXN.vbuckets,
     'atr.ids': TXN.atrIds,
     'atr.key': TXN.atr,
-    'atr.used': TXN.atrUsed,
     'alice.before': body(seed, 'alice'),
     'bob.before': body(seed, 'bob'),
     'alice.staged': docView(serverAt(2), 'alice').txn.stgd,

@@ -8,7 +8,6 @@ import { TXN, WRITES, KEYS, snap, serverAt, docView, atrView, changedDocs } from
 
 test('the run: completed, with the ATR for alice\'s vbucket', () => {
   assert.equal(TXN.state, 'completed');
-  assert.equal(TXN.atrUsed, true);
   assert.match(TXN.atr, new RegExp(`^_txn:atr-${TXN.vb.alice}-`));
 });
 

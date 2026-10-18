@@ -1,9 +1,1563 @@
 {
   "atr": "_txn:atr-910-#891",
   "atrIds": 1024,
-  "atrUsed": true,
+  "conflict": {
+    "atrs": [
+      "_txn:atr-910-#891",
+      "_txn:atr-459-#bb6"
+    ],
+    "events": [
+      {
+        "at": "t1 paused",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 100
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-1",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0x5cc63830",
+                  "stgd": {
+                    "balance": 70
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-1",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-1"
+            },
+            "bob": {
+              "body": {
+                "balance": 50
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-2",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0xe8ec15a6",
+                  "stgd": {
+                    "balance": 80
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-2",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-2"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-1",
+                "tst": "cas-3"
+              }
+            }
+          }
+        }
+      },
+      {
+        "at": "t2 attempt 1 read",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 100
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-1",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0x5cc63830",
+                  "stgd": {
+                    "balance": 70
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-1",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-1"
+            },
+            "bob": {
+              "body": {
+                "balance": 50
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-2",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0xe8ec15a6",
+                  "stgd": {
+                    "balance": 80
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-2",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-2"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-1",
+                "tst": "cas-3"
+              }
+            }
+          }
+        },
+        "seen": {
+          "alice": 100,
+          "bob": 50,
+          "cas": {
+            "alice": "cas-1",
+            "bob": "cas-2"
+          }
+        }
+      },
+      {
+        "at": "t2 poll 1",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 100
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-1",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0x5cc63830",
+                  "stgd": {
+                    "balance": 70
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-1",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-1"
+            },
+            "bob": {
+              "body": {
+                "balance": 50
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-2",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0xe8ec15a6",
+                  "stgd": {
+                    "balance": 80
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-2",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-2"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-1",
+                "tst": "cas-3"
+              }
+            }
+          }
+        }
+      },
+      {
+        "at": "t1 AfterATRCommit",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 100
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-1",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0x5cc63830",
+                  "stgd": {
+                    "balance": 70
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-1",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-1"
+            },
+            "bob": {
+              "body": {
+                "balance": 50
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-2",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0xe8ec15a6",
+                  "stgd": {
+                    "balance": 80
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-2",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-2"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "p": 0,
+                "rem": [],
+                "rep": [
+                  {
+                    "bkt": "default",
+                    "id": "alice"
+                  },
+                  {
+                    "bkt": "default",
+                    "id": "bob"
+                  }
+                ],
+                "st": "COMMITTED",
+                "tid": "txn-1",
+                "tsc": "cas-4",
+                "tst": "cas-3"
+              }
+            }
+          }
+        }
+      },
+      {
+        "at": "t1 AfterDocCommitted alice",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 50
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-2",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0xe8ec15a6",
+                  "stgd": {
+                    "balance": 80
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-2",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-2"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "p": 0,
+                "rem": [],
+                "rep": [
+                  {
+                    "bkt": "default",
+                    "id": "alice"
+                  },
+                  {
+                    "bkt": "default",
+                    "id": "bob"
+                  }
+                ],
+                "st": "COMMITTED",
+                "tid": "txn-1",
+                "tsc": "cas-4",
+                "tst": "cas-3"
+              }
+            }
+          }
+        }
+      },
+      {
+        "at": "t1 AfterDocCommitted bob",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "p": 0,
+                "rem": [],
+                "rep": [
+                  {
+                    "bkt": "default",
+                    "id": "alice"
+                  },
+                  {
+                    "bkt": "default",
+                    "id": "bob"
+                  }
+                ],
+                "st": "COMMITTED",
+                "tid": "txn-1",
+                "tsc": "cas-4",
+                "tst": "cas-3"
+              }
+            }
+          }
+        }
+      },
+      {
+        "at": "t1 AfterATRComplete",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t1 done",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {}
+          }
+        },
+        "seen": {
+          "attempts": [
+            {
+              "retry": false,
+              "rollback": false
+            }
+          ]
+        }
+      },
+      {
+        "at": "t2 poll 2",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 AfterATRPending",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-2": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-2",
+                "tst": "cas-5"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 attempt 1 failed",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-2": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-2",
+                "tst": "cas-5"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        },
+        "seen": {
+          "error": "cas mismatch"
+        }
+      },
+      {
+        "at": "t2 AfterATRAborted",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-2": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "rem": [],
+                "rep": [],
+                "st": "ABORTED",
+                "tid": "txn-2",
+                "tsrs": "cas-6",
+                "tst": "cas-5"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 AfterATRRolledBack",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {},
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 attempt 2 read",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {},
+            "_txn:atr-910-#891": {}
+          }
+        },
+        "seen": {
+          "alice": 70,
+          "bob": 80,
+          "cas": {
+            "alice": "cas-3",
+            "bob": "cas-4"
+          }
+        }
+      },
+      {
+        "at": "t2 AfterATRPending",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": null,
+              "cas": "cas-4"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-3": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-2",
+                "tst": "cas-7"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 AfterStagedReplaceComplete bob",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-459-#bb6",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-3",
+                  "op": "op-3",
+                  "txn": "txn-2"
+                },
+                "op": {
+                  "crc32": "0xeb221d07",
+                  "stgd": {
+                    "balance": 75
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-8",
+                  "exptime": 0,
+                  "revid": "3"
+                }
+              },
+              "cas": "cas-5"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-3": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-2",
+                "tst": "cas-7"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 AfterStagedReplaceComplete alice",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-459-#bb6",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-3",
+                  "op": "op-4",
+                  "txn": "txn-2"
+                },
+                "op": {
+                  "crc32": "0xa78347ab",
+                  "stgd": {
+                    "balance": 75
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-9",
+                  "exptime": 0,
+                  "revid": "3"
+                }
+              },
+              "cas": "cas-6"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-459-#bb6",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-3",
+                  "op": "op-3",
+                  "txn": "txn-2"
+                },
+                "op": {
+                  "crc32": "0xeb221d07",
+                  "stgd": {
+                    "balance": 75
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-8",
+                  "exptime": 0,
+                  "revid": "3"
+                }
+              },
+              "cas": "cas-5"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-3": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-2",
+                "tst": "cas-7"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 AfterATRCommit",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-459-#bb6",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-3",
+                  "op": "op-4",
+                  "txn": "txn-2"
+                },
+                "op": {
+                  "crc32": "0xa78347ab",
+                  "stgd": {
+                    "balance": 75
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-9",
+                  "exptime": 0,
+                  "revid": "3"
+                }
+              },
+              "cas": "cas-6"
+            },
+            "bob": {
+              "body": {
+                "balance": 80
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-459-#bb6",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-3",
+                  "op": "op-3",
+                  "txn": "txn-2"
+                },
+                "op": {
+                  "crc32": "0xeb221d07",
+                  "stgd": {
+                    "balance": 75
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-8",
+                  "exptime": 0,
+                  "revid": "3"
+                }
+              },
+              "cas": "cas-5"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-3": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "p": 0,
+                "rem": [],
+                "rep": [
+                  {
+                    "bkt": "default",
+                    "id": "bob"
+                  },
+                  {
+                    "bkt": "default",
+                    "id": "alice"
+                  }
+                ],
+                "st": "COMMITTED",
+                "tid": "txn-2",
+                "tsc": "cas-10",
+                "tst": "cas-7"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 AfterDocCommitted bob",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-459-#bb6",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-3",
+                  "op": "op-4",
+                  "txn": "txn-2"
+                },
+                "op": {
+                  "crc32": "0xa78347ab",
+                  "stgd": {
+                    "balance": 75
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-9",
+                  "exptime": 0,
+                  "revid": "3"
+                }
+              },
+              "cas": "cas-6"
+            },
+            "bob": {
+              "body": {
+                "balance": 75
+              },
+              "txn": null,
+              "cas": "cas-7"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-3": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "p": 0,
+                "rem": [],
+                "rep": [
+                  {
+                    "bkt": "default",
+                    "id": "bob"
+                  },
+                  {
+                    "bkt": "default",
+                    "id": "alice"
+                  }
+                ],
+                "st": "COMMITTED",
+                "tid": "txn-2",
+                "tsc": "cas-10",
+                "tst": "cas-7"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 AfterDocCommitted alice",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 75
+              },
+              "txn": null,
+              "cas": "cas-8"
+            },
+            "bob": {
+              "body": {
+                "balance": 75
+              },
+              "txn": null,
+              "cas": "cas-7"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {
+              "attempt-3": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "p": 0,
+                "rem": [],
+                "rep": [
+                  {
+                    "bkt": "default",
+                    "id": "bob"
+                  },
+                  {
+                    "bkt": "default",
+                    "id": "alice"
+                  }
+                ],
+                "st": "COMMITTED",
+                "tid": "txn-2",
+                "tsc": "cas-10",
+                "tst": "cas-7"
+              }
+            },
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 AfterATRComplete",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 75
+              },
+              "txn": null,
+              "cas": "cas-8"
+            },
+            "bob": {
+              "body": {
+                "balance": 75
+              },
+              "txn": null,
+              "cas": "cas-7"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {},
+            "_txn:atr-910-#891": {}
+          }
+        }
+      },
+      {
+        "at": "t2 done",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 75
+              },
+              "txn": null,
+              "cas": "cas-8"
+            },
+            "bob": {
+              "body": {
+                "balance": 75
+              },
+              "txn": null,
+              "cas": "cas-7"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": {},
+            "_txn:atr-910-#891": {}
+          }
+        },
+        "seen": {
+          "attempts": [
+            {
+              "error": "cas mismatch",
+              "retry": true,
+              "rollback": true
+            },
+            {
+              "retry": false,
+              "rollback": false
+            }
+          ]
+        }
+      }
+    ],
+    "polls": 2,
+    "t1": [
+      {
+        "retry": false,
+        "rollback": false
+      }
+    ],
+    "t2": [
+      {
+        "error": "cas mismatch",
+        "retry": true,
+        "rollback": true
+      },
+      {
+        "retry": false,
+        "rollback": false
+      }
+    ],
+    "vb": {
+      "alice": 910,
+      "bob": 459
+    }
+  },
   "gocbcore": "v10.9.3",
   "mock": "gocaves v0.0.1-79",
+  "reads": {
+    "atrs": [
+      "_txn:atr-910-#891",
+      "_txn:atr-459-#bb6"
+    ],
+    "attempts": [
+      {
+        "retry": false,
+        "rollback": false
+      }
+    ],
+    "events": [
+      {
+        "at": "staged",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 100
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-1",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0x5cc63830",
+                  "stgd": {
+                    "balance": 70
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-1",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-1"
+            },
+            "bob": {
+              "body": {
+                "balance": 50
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-2",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0xe8ec15a6",
+                  "stgd": {
+                    "balance": 80
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-2",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-2"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "st": "PENDING",
+                "tid": "txn-1",
+                "tst": "cas-3"
+              }
+            }
+          }
+        },
+        "seen": {
+          "atrChecks": [
+            "_txn:atr-910-#891",
+            "_txn:atr-910-#891"
+          ],
+          "attempts": [
+            {
+              "retry": false,
+              "rollback": false
+            }
+          ],
+          "plain": {
+            "alice": {
+              "balance": 100
+            },
+            "bob": {
+              "balance": 50
+            }
+          },
+          "txn": {
+            "alice": {
+              "balance": 100
+            },
+            "bob": {
+              "balance": 50
+            }
+          },
+          "wrote": false
+        }
+      },
+      {
+        "at": "committed",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 100
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-1",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0x5cc63830",
+                  "stgd": {
+                    "balance": 70
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-1",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-1"
+            },
+            "bob": {
+              "body": {
+                "balance": 50
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-2",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0xe8ec15a6",
+                  "stgd": {
+                    "balance": 80
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-2",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-2"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "p": 0,
+                "rem": [],
+                "rep": [
+                  {
+                    "bkt": "default",
+                    "id": "alice"
+                  },
+                  {
+                    "bkt": "default",
+                    "id": "bob"
+                  }
+                ],
+                "st": "COMMITTED",
+                "tid": "txn-1",
+                "tsc": "cas-4",
+                "tst": "cas-3"
+              }
+            }
+          }
+        },
+        "seen": {
+          "atrChecks": [
+            "_txn:atr-910-#891",
+            "_txn:atr-910-#891"
+          ],
+          "attempts": [
+            {
+              "retry": false,
+              "rollback": false
+            }
+          ],
+          "plain": {
+            "alice": {
+              "balance": 100
+            },
+            "bob": {
+              "balance": 50
+            }
+          },
+          "txn": {
+            "alice": {
+              "balance": 70
+            },
+            "bob": {
+              "balance": 80
+            }
+          },
+          "wrote": false
+        }
+      },
+      {
+        "at": "half-unstaged",
+        "server": {
+          "docs": {
+            "alice": {
+              "body": {
+                "balance": 70
+              },
+              "txn": null,
+              "cas": "cas-3"
+            },
+            "bob": {
+              "body": {
+                "balance": 50
+              },
+              "txn": {
+                "atr": {
+                  "bkt": "default",
+                  "coll": "_default",
+                  "id": "_txn:atr-910-#891",
+                  "scp": "_default"
+                },
+                "aux": {},
+                "id": {
+                  "atmpt": "attempt-1",
+                  "op": "op-2",
+                  "txn": "txn-1"
+                },
+                "op": {
+                  "crc32": "0xe8ec15a6",
+                  "stgd": {
+                    "balance": 80
+                  },
+                  "type": "replace"
+                },
+                "restore": {
+                  "CAS": "cas-2",
+                  "exptime": 0,
+                  "revid": "1"
+                }
+              },
+              "cas": "cas-2"
+            }
+          },
+          "atrs": {
+            "_txn:atr-459-#bb6": null,
+            "_txn:atr-910-#891": {
+              "attempt-1": {
+                "d": "n",
+                "exp": 60000,
+                "ins": [],
+                "p": 0,
+                "rem": [],
+                "rep": [
+                  {
+                    "bkt": "default",
+                    "id": "alice"
+                  },
+                  {
+                    "bkt": "default",
+                    "id": "bob"
+                  }
+                ],
+                "st": "COMMITTED",
+                "tid": "txn-1",
+                "tsc": "cas-4",
+                "tst": "cas-3"
+              }
+            }
+          }
+        },
+        "seen": {
+          "atrChecks": [
+            "_txn:atr-910-#891"
+          ],
+          "attempts": [
+            {
+              "retry": false,
+              "rollback": false
+            }
+          ],
+          "plain": {
+            "alice": {
+              "balance": 70
+            },
+            "bob": {
+              "balance": 50
+            }
+          },
+          "txn": {
+            "alice": {
+              "balance": 70
+            },
+            "bob": {
+              "balance": 80
+            }
+          },
+          "wrote": false
+        }
+      }
+    ]
+  },
   "seed": {
     "alice": "{\"balance\":100}",
     "bob": "{\"balance\":50}"
@@ -16,13 +1570,15 @@
           "body": {
             "balance": 100
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-1"
         },
         "bob": {
           "body": {
             "balance": 50
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-2"
         }
       },
       "atr": null
@@ -34,13 +1590,15 @@
           "body": {
             "balance": 100
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-1"
         },
         "bob": {
           "body": {
             "balance": 50
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-2"
         }
       },
       "atr": null
@@ -52,13 +1610,15 @@
           "body": {
             "balance": 100
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-1"
         },
         "bob": {
           "body": {
             "balance": 50
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-2"
         }
       },
       "atr": null
@@ -70,13 +1630,15 @@
           "body": {
             "balance": 100
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-1"
         },
         "bob": {
           "body": {
             "balance": 50
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-2"
         }
       },
       "atr": null
@@ -88,13 +1650,15 @@
           "body": {
             "balance": 100
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-1"
         },
         "bob": {
           "body": {
             "balance": 50
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-2"
         }
       },
       "atr": {
@@ -114,13 +1678,15 @@
           "body": {
             "balance": 100
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-1"
         },
         "bob": {
           "body": {
             "balance": 50
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-2"
         }
       },
       "atr": {
@@ -165,13 +1731,15 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-3"
         },
         "bob": {
           "body": {
             "balance": 50
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-2"
         }
       },
       "atr": {
@@ -216,13 +1784,15 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-3"
         },
         "bob": {
           "body": {
             "balance": 50
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-2"
         }
       },
       "atr": {
@@ -267,7 +1837,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-3"
         },
         "bob": {
           "body": {
@@ -298,7 +1869,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-4"
         }
       },
       "atr": {
@@ -343,7 +1915,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-3"
         },
         "bob": {
           "body": {
@@ -374,7 +1947,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-4"
         }
       },
       "atr": {
@@ -419,7 +1993,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-3"
         },
         "bob": {
           "body": {
@@ -450,7 +2025,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-4"
         }
       },
       "atr": {
@@ -509,7 +2085,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-3"
         },
         "bob": {
           "body": {
@@ -540,7 +2117,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-4"
         }
       },
       "atr": {
@@ -574,7 +2152,8 @@
           "body": {
             "balance": 70
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-5"
         },
         "bob": {
           "body": {
@@ -605,7 +2184,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-4"
         }
       },
       "atr": {
@@ -639,7 +2219,8 @@
           "body": {
             "balance": 70
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-5"
         },
         "bob": {
           "body": {
@@ -670,7 +2251,8 @@
               "exptime": 0,
               "revid": "1"
             }
-          }
+          },
+          "cas": "cas-4"
         }
       },
       "atr": {
@@ -704,13 +2286,15 @@
           "body": {
             "balance": 70
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-5"
         },
         "bob": {
           "body": {
             "balance": 80
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-6"
         }
       },
       "atr": {
@@ -744,13 +2328,15 @@
           "body": {
             "balance": 70
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-5"
         },
         "bob": {
           "body": {
             "balance": 80
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-6"
         }
       },
       "atr": {
@@ -784,13 +2370,15 @@
           "body": {
             "balance": 70
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-5"
         },
         "bob": {
           "body": {
             "balance": 80
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-6"
         }
       },
       "atr": {}
@@ -802,13 +2390,15 @@
           "body": {
             "balance": 70
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-5"
         },
         "bob": {
           "body": {
             "balance": 80
           },
-          "txn": null
+          "txn": null,
+          "cas": "cas-6"
         }
       },
       "atr": {}
