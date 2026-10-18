@@ -408,6 +408,11 @@ a.eyebrow:hover { text-decoration: underline; }
   --ball-bg: #fde2e2;
   --atr: #1e4e8c;
   --atr-bg: #e2ebf7;
+  /* 02-during: the other client's requests, and an attempt aborted */
+  --ball2: #7c3aed;
+  --ball2-bg: #ede4fd;
+  --abort: #be123c;
+  --abort-bg: #fde4ea;
 
   --sec-app: #1b2433;
   --sec-stage: #b45309;
@@ -422,7 +427,7 @@ a.eyebrow:hover { text-decoration: underline; }
   :root:not([data-theme="light"]) {
     --bg: #12161d; --panel: #1a1f28; --panel-2: #151a22; --ink: #e6e9ef; --muted: #9aa2b1; --line: #313949; --faint: #222935;
     --accent: #8db4ef; --focus: #8db4ef;
-    --staged: #f59e0b; --staged-bg: #3d2a10; --done: #4ade80; --done-bg: #143222; --ball: #f87171; --ball-bg: #3f1a1a; --atr: #8db4ef; --atr-bg: #1c2a42;
+    --staged: #f59e0b; --staged-bg: #3d2a10; --done: #4ade80; --done-bg: #143222; --ball: #f87171; --ball-bg: #3f1a1a; --atr: #8db4ef; --atr-bg: #1c2a42; --ball2: #a78bfa; --ball2-bg: #2a2140; --abort: #fb7185; --abort-bg: #3f1824;
     --sec-app: #e6e9ef; --sec-stage: #f59e0b; --sec-commit: #8db4ef; --sec-done: #4ade80; --sec-neutral: #9aa2b1;
     --code-bg: #151a22; --code-hl: #3d2a10;
   }
@@ -430,7 +435,7 @@ a.eyebrow:hover { text-decoration: underline; }
 :root[data-theme="dark"] {
   --bg: #12161d; --panel: #1a1f28; --panel-2: #151a22; --ink: #e6e9ef; --muted: #9aa2b1; --line: #313949; --faint: #222935;
   --accent: #8db4ef; --focus: #8db4ef;
-  --staged: #f59e0b; --staged-bg: #3d2a10; --done: #4ade80; --done-bg: #143222; --ball: #f87171; --ball-bg: #3f1a1a; --atr: #8db4ef; --atr-bg: #1c2a42;
+  --staged: #f59e0b; --staged-bg: #3d2a10; --done: #4ade80; --done-bg: #143222; --ball: #f87171; --ball-bg: #3f1a1a; --atr: #8db4ef; --atr-bg: #1c2a42; --ball2: #a78bfa; --ball2-bg: #2a2140; --abort: #fb7185; --abort-bg: #3f1824;
   --sec-app: #e6e9ef; --sec-stage: #f59e0b; --sec-commit: #8db4ef; --sec-done: #4ade80; --sec-neutral: #9aa2b1;
   --code-bg: #151a22; --code-hl: #3d2a10;
 }
@@ -478,6 +483,9 @@ a.eyebrow:hover { text-decoration: underline; }
 <ol class="entries"><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">01</span>
 <div><a class="title" href="01-life.html">The life of a transaction</a><p>Alice pays Bob 30: two docs, two writes, and a server that can only change one doc at a time. Follow each request from the app to the server, and watch the one write that makes the whole transfer happen.</p>
+</div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<span class="num">02</span>
+<div><a class="title" href="02-during.html">While a transaction is in flight</a><p>Pause alice&#39;s transfer to bob halfway, and look around. What does someone reading alice and bob see? And what happens to a second transaction that wants to change bob at the same time?</p>
 </div></li></ol></main>
 </body>
 </html>
