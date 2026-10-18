@@ -1,0 +1,69 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields: repo, path, anchor (a unique line),
+# extent (lines, or func: up to the next "}" at column 0), title,
+# highlight (lines to mark, by a substring).
+
+txn.get:
+  repo: gocbcore
+  path: transactionattempt_get.go
+  anchor: "ops := []SubDocOp{"
+  extent: 17
+  title: gocbcore fetchDocWithMeta() — a transaction's read, its doc's body and its "txn" xattr together
+  highlight: ['Path:  "txn",', "Op:    memd.SubDocOpGetDoc,"]
+
+atr.confirm:
+  repo: gocbcore
+  path: transactionattempt_helpers.go
+  anchor: "func (t *transactionAttempt) confirmATRPending("
+  extent: 38
+  title: gocbcore confirmATRPending() — before the first write, choose the ATR, and mark the attempt PENDING
+  highlight: ["if t.state != TransactionAttemptStateNothingWritten {", "t.selectAtrLocked(", "t.setATRPendingLocked("]
+
+atr.select:
+  repo: gocbcore
+  path: transactionattempt_atrs.go
+  anchor: "atrID := int(cbcVbMap(firstKey, 1024))"
+  extent: 2
+  title: gocbcore selectAtrLocked() — the ATR for the vbucket of the first doc changed
+  highlight: ["cbcVbMap(firstKey, 1024)", "transactionAtrIDList[atrID]"]
+
+atr.pending:
+  repo: gocbcore
+  path: transactionattempt_atrs.go
+  anchor: 'atrFieldOp("tst", "${Mutation.CAS}", memd.SubdocFlagXattrPath|memd.SubdocFlagExpandMacros),'
+  extent: 10
+  title: gocbcore setATRPendingLocked() — the attempt's entry, in the ATR's "attempts" xattr
+  highlight: ['atrFieldOp("st", jsonAtrStatePending', "Value: []byte{0},"]
+
+stage.replace:
+  repo: gocbcore
+  path: transactionattempt_replace.go
+  anchor: "txnMeta.ATR.DocID = string(t.atrKey)"
+  extent: 32
+  title: gocbcore stageReplace() — the new value, staged in the doc's "txn" xattr; its body untouched
+  highlight: ["txnMeta.ATR.DocID = string(t.atrKey)", "txnMeta.Operation.Staged = stagedInfo.Staged", 'Path:  "txn",']
+
+atr.commit:
+  repo: gocbcore
+  path: transactionattempt_atrs.go
+  anchor: 'atrFieldOp("st", jsonAtrStateCommitted, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),'
+  extent: 6
+  title: gocbcore setATRCommittedLocked() — one write to one doc, COMMITTED and the docs it covers
+  highlight: ["jsonAtrStateCommitted", 'atrFieldOp("rep", repMutations']
+
+unstage:
+  repo: gocbcore
+  path: transactionattempt_commit.go
+  anchor: "var specs []SubDocOp"
+  extent: 13
+  title: gocbcore commitStagedReplace() — the staged value becomes the body, and the "txn" xattr goes
+  highlight: ["memd.SubDocOpReplaceBodyWithXattr", "Op:    memd.SubDocOpDelete,"]
+
+atr.complete:
+  repo: gocbcore
+  path: transactionattempt_atrs.go
+  anchor: "t.hooks.BeforeATRComplete(func(err error) {"
+  extent: 14
+  title: gocbcore setATRCompletedLocked() — the attempt's entry, deleted from the ATR
+  highlight: ["Op:    memd.SubDocOpDelete,", 'Path:  "attempts." + t.id,']

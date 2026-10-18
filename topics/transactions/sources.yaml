@@ -1,0 +1,13 @@
+# Source repos the transactions explainers link into. `local` lists
+# candidate checkouts used by `npm run snippets` and the golden tools;
+# the first that exists wins ($HOME and env vars are expanded).
+# EXPLAINERS_SRC_<NAME> overrides them.
+#
+# gocbcore: the Go SDK's core, which runs the transaction protocol on
+# the client
+gocbcore:
+  github: https://github.com/couchbase/gocbcore
+  commit: v10.9.3
+  version: v10.9.3
+  local:
+    - $HOME/go/pkg/mod/github.com/couchbase/gocbcore/v10@v10.9.3

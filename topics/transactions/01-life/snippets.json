@@ -1,0 +1,116 @@
+{
+ "txn.get": {
+  "id": "txn.get",
+  "repo": "gocbcore",
+  "path": "transactionattempt_get.go",
+  "title": "gocbcore fetchDocWithMeta() — a transaction's read, its doc's body and its \"txn\" xattr together",
+  "start": 494,
+  "end": 510,
+  "highlight": [
+   502,
+   506
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_get.go#L494-L510",
+  "code": "\t\t\tops := []SubDocOp{\n\t\t\t\t{\n\t\t\t\t\tOp:    memd.SubDocOpGet,\n\t\t\t\t\tPath:  \"$document\",\n\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\tOp:    memd.SubDocOpGet,\n\t\t\t\t\tPath:  \"txn\",\n\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\tOp:    memd.SubDocOpGetDoc,\n\t\t\t\t\tPath:  \"\",\n\t\t\t\t\tFlags: 0,\n\t\t\t\t},\n\t\t\t}"
+ },
+ "atr.confirm": {
+  "id": "atr.confirm",
+  "repo": "gocbcore",
+  "path": "transactionattempt_helpers.go",
+  "title": "gocbcore confirmATRPending() — before the first write, choose the ATR, and mark the attempt PENDING",
+  "start": 238,
+  "end": 275,
+  "highlight": [
+   252,
+   257,
+   269
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_helpers.go#L238-L275",
+  "code": "func (t *transactionAttempt) confirmATRPending(\n\tfirstAgent *Agent,\n\tfirstOboUser string,\n\tfirstScopeName string,\n\tfirstCollectionName string,\n\tfirstKey []byte,\n\tcb func(*TransactionOperationFailedError),\n) {\n\tt.lock.Lock(func(unlock func()) {\n\t\tunlockAndCb := func(err *TransactionOperationFailedError) {\n\t\t\tunlock()\n\t\t\tcb(err)\n\t\t}\n\n\t\tif t.state != TransactionAttemptStateNothingWritten {\n\t\t\tunlockAndCb(nil)\n\t\t\treturn\n\t\t}\n\n\t\tt.selectAtrLocked(\n\t\t\tfirstAgent,\n\t\t\tfirstOboUser,\n\t\t\tfirstScopeName,\n\t\t\tfirstCollectionName,\n\t\t\tfirstKey,\n\t\t\tfunc(err *TransactionOperationFailedError) {\n\t\t\t\tif err != nil {\n\t\t\t\t\tunlockAndCb(err)\n\t\t\t\t\treturn\n\t\t\t\t}\n\n\t\t\t\tt.setATRPendingLocked(func(err *TransactionOperationFailedError) {\n\t\t\t\t\tif err != nil {\n\t\t\t\t\t\tunlockAndCb(err)\n\t\t\t\t\t\treturn\n\t\t\t\t\t}\n\n\t\t\t\t\tt.state = TransactionAttemptStatePending"
+ },
+ "atr.select": {
+  "id": "atr.select",
+  "repo": "gocbcore",
+  "path": "transactionattempt_atrs.go",
+  "title": "gocbcore selectAtrLocked() — the ATR for the vbucket of the first doc changed",
+  "start": 34,
+  "end": 35,
+  "highlight": [
+   34,
+   35
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L34-L35",
+  "code": "\tatrID := int(cbcVbMap(firstKey, 1024))\n\tatrKey := []byte(transactionAtrIDList[atrID])"
+ },
+ "atr.pending": {
+  "id": "atr.pending",
+  "repo": "gocbcore",
+  "path": "transactionattempt_atrs.go",
+  "title": "gocbcore setATRPendingLocked() — the attempt's entry, in the ATR's \"attempts\" xattr",
+  "start": 170,
+  "end": 179,
+  "highlight": [
+   172,
+   178
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L170-L179",
+  "code": "\t\t\t\tatrFieldOp(\"tst\", \"${Mutation.CAS}\", memd.SubdocFlagXattrPath|memd.SubdocFlagExpandMacros),\n\t\t\t\tatrFieldOp(\"tid\", t.transactionID, memd.SubdocFlagXattrPath),\n\t\t\t\tatrFieldOp(\"st\", jsonAtrStatePending, memd.SubdocFlagXattrPath),\n\t\t\t\tatrFieldOp(\"exp\", time.Until(t.expiryTime)/time.Millisecond, memd.SubdocFlagXattrPath),\n\t\t\t\t{\n\t\t\t\t\tOp:    memd.SubDocOpSetDoc,\n\t\t\t\t\tFlags: memd.SubdocFlagNone,\n\t\t\t\t\tPath:  \"\",\n\t\t\t\t\tValue: []byte{0},\n\t\t\t\t},"
+ },
+ "stage.replace": {
+  "id": "stage.replace",
+  "repo": "gocbcore",
+  "path": "transactionattempt_replace.go",
+  "title": "gocbcore stageReplace() — the new value, staged in the doc's \"txn\" xattr; its body untouched",
+  "start": 274,
+  "end": 305,
+  "highlight": [
+   274,
+   276,
+   300
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_replace.go#L274-L305",
+  "code": "\t\t\t\ttxnMeta.ATR.DocID = string(t.atrKey)\n\t\t\t\ttxnMeta.Operation.Type = jsonMutationReplace\n\t\t\t\ttxnMeta.Operation.Staged = stagedInfo.Staged\n\t\t\t\ttxnMeta.Restore = &jsonTxnXattrRestore{\n\t\t\t\t\tOriginalCAS: \"\",\n\t\t\t\t\tExpiryTime:  0,\n\t\t\t\t\tRevID:       \"\",\n\t\t\t\t}\n\t\t\t\ttxnMeta.Aux.UserFlags = stagedInfo.StagedUserFlags\n\n\t\t\t\tif isBinarySupported && isBinaryFlags {\n\t\t\t\t\ttxnMeta.Operation.Staged = nil\n\t\t\t\t\tt.addBinarySupportForwardCompat(&txnMeta)\n\t\t\t\t}\n\n\t\t\t\ttxnMetaBytes, err := json.Marshal(txnMeta)\n\t\t\t\tif err != nil {\n\t\t\t\t\tecCb(nil, classifyError(err))\n\t\t\t\t\treturn\n\t\t\t\t}\n\n\t\t\t\tdeadline, duraTimeout := transactionsMutationTimeouts(t.keyValueTimeout, t.durabilityLevel)\n\n\t\t\t\tops := []SubDocOp{\n\t\t\t\t\t{\n\t\t\t\t\t\tOp:    memd.SubDocOpDictSet,\n\t\t\t\t\t\tPath:  \"txn\",\n\t\t\t\t\t\tFlags: memd.SubdocFlagMkDirP | memd.SubdocFlagXattrPath,\n\t\t\t\t\t\tValue: txnMetaBytes,\n\t\t\t\t\t},\n\t\t\t\t\t{\n\t\t\t\t\t\tOp:    memd.SubDocOpDictSet,"
+ },
+ "atr.commit": {
+  "id": "atr.commit",
+  "repo": "gocbcore",
+  "path": "transactionattempt_atrs.go",
+  "title": "gocbcore setATRCommittedLocked() — one write to one doc, COMMITTED and the docs it covers",
+  "start": 553,
+  "end": 558,
+  "highlight": [
+   553,
+   557
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L553-L558",
+  "code": "\t\t\t\tatrFieldOp(\"st\", jsonAtrStateCommitted, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),\n\t\t\t\tatrFieldOp(\"tsc\", \"${Mutation.CAS}\", memd.SubdocFlagXattrPath|memd.SubdocFlagExpandMacros, memd.SubDocOpDictSet),\n\t\t\t\tatrFieldOp(\"p\", 0, memd.SubdocFlagXattrPath, memd.SubDocOpDictAdd),\n\t\t\t\tatrFieldOp(\"ins\", insMutations, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),\n\t\t\t\tatrFieldOp(\"rep\", repMutations, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),\n\t\t\t\tatrFieldOp(\"rem\", remMutations, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),"
+ },
+ "unstage": {
+  "id": "unstage",
+  "repo": "gocbcore",
+  "path": "transactionattempt_commit.go",
+  "title": "gocbcore commitStagedReplace() — the staged value becomes the body, and the \"txn\" xattr goes",
+  "start": 461,
+  "end": 473,
+  "highlight": [
+   465,
+   470
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_commit.go#L461-L473",
+  "code": "\t\t\t\tvar specs []SubDocOp\n\t\t\t\tif supportsReplaceBody {\n\t\t\t\t\tspecs = make([]SubDocOp, 2)\n\t\t\t\t\tspecs[0] = SubDocOp{\n\t\t\t\t\t\tOp:    memd.SubDocOpReplaceBodyWithXattr,\n\t\t\t\t\t\tFlags: bodyOpFlags,\n\t\t\t\t\t\tPath:  bodyPath,\n\t\t\t\t\t}\n\t\t\t\t\tspecs[1] = SubDocOp{\n\t\t\t\t\t\tOp:    memd.SubDocOpDelete,\n\t\t\t\t\t\tPath:  \"txn\",\n\t\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,\n\t\t\t\t\t}"
+ },
+ "atr.complete": {
+  "id": "atr.complete",
+  "repo": "gocbcore",
+  "path": "transactionattempt_atrs.go",
+  "title": "gocbcore setATRCompletedLocked() — the attempt's entry, deleted from the ATR",
+  "start": 661,
+  "end": 674,
+  "highlight": [
+   669,
+   671
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L661-L674",
+  "code": "\t\tt.hooks.BeforeATRComplete(func(err error) {\n\t\t\tif err != nil {\n\t\t\t\tecCb(classifyHookError(err))\n\t\t\t\treturn\n\t\t\t}\n\n\t\t\tatrOps := []SubDocOp{\n\t\t\t\t{\n\t\t\t\t\tOp:    memd.SubDocOpDelete,\n\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,\n\t\t\t\t\tPath:  \"attempts.\" + t.id,\n\t\t\t\t},\n\t\t\t}\n"
+ }
+}

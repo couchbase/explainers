@@ -1,0 +1,16 @@
+# Multi-document transactions on a key-value store, run by the client.
+title: "Inside client-side transactions"
+# the short name in each explainer's header, linking up to the topic's index
+label: "transactions"
+# for the topic's index page
+subtitle: >-
+  How a key-value store with single-document writes gets ACID
+  transactions across many documents, with no transaction manager on
+  the server: the client stages each change beside the document it
+  changes, and one small record, written once, decides whether all of
+  them happened.
+# its fonts (Google Fonts families), set as the engine's --font-* in style.css
+fonts:
+  - "IBM Plex Sans:wght@500;600;700"
+  - "IBM Plex Serif:ital,wght@0,400;0,600;1,400"
+  - "IBM Plex Mono:wght@400;500;600"

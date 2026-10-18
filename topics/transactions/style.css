@@ -1,0 +1,62 @@
+/* The transactions topic's look, shared by its explainers: ledger
+   paper and navy ink. Its colors say where a value is in a
+   transaction's life: amber, staged (written beside the doc, in its
+   "txn" xattr, where only the transaction looks); green, committed (in
+   the doc's body, for everyone); red, the request in flight, the ball
+   to follow. After the engine's styles, before each explainer's. */
+:root {
+  --font-body: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --font-display: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --bg: #f6f3ec;
+  --panel: #fffdf8;
+  --panel-2: #f0ece2;
+  --ink: #1b2433;
+  --muted: #646b78;
+  --line: #d8d2c4;
+  --faint: #ebe6da;
+  --accent: #1e4e8c;
+  --focus: #1e4e8c;
+
+  --staged: #b45309;
+  --staged-bg: #fdebd3;
+  --done: #15803d;
+  --done-bg: #dcf2e3;
+  --ball: #dc2626;
+  --ball-bg: #fde2e2;
+  --atr: #1e4e8c;
+  --atr-bg: #e2ebf7;
+
+  --sec-app: #1b2433;
+  --sec-stage: #b45309;
+  --sec-commit: #1e4e8c;
+  --sec-done: #15803d;
+  --sec-neutral: #646b78;
+
+  --code-bg: #f0ece2;
+  --code-hl: #fdebd3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --panel: #1a1f28; --panel-2: #151a22; --ink: #e6e9ef; --muted: #9aa2b1; --line: #313949; --faint: #222935;
+    --accent: #8db4ef; --focus: #8db4ef;
+    --staged: #f59e0b; --staged-bg: #3d2a10; --done: #4ade80; --done-bg: #143222; --ball: #f87171; --ball-bg: #3f1a1a; --atr: #8db4ef; --atr-bg: #1c2a42;
+    --sec-app: #e6e9ef; --sec-stage: #f59e0b; --sec-commit: #8db4ef; --sec-done: #4ade80; --sec-neutral: #9aa2b1;
+    --code-bg: #151a22; --code-hl: #3d2a10;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a1f28; --panel-2: #151a22; --ink: #e6e9ef; --muted: #9aa2b1; --line: #313949; --faint: #222935;
+  --accent: #8db4ef; --focus: #8db4ef;
+  --staged: #f59e0b; --staged-bg: #3d2a10; --done: #4ade80; --done-bg: #143222; --ball: #f87171; --ball-bg: #3f1a1a; --atr: #8db4ef; --atr-bg: #1c2a42;
+  --sec-app: #e6e9ef; --sec-stage: #f59e0b; --sec-commit: #8db4ef; --sec-done: #4ade80; --sec-neutral: #9aa2b1;
+  --code-bg: #151a22; --code-hl: #3d2a10;
+}
+
+/* its chapters' colors */
+.sec-app { --sec: var(--sec-app); }
+.sec-stage { --sec: var(--sec-stage); }
+.sec-commit { --sec: var(--sec-commit); }
+.sec-done { --sec: var(--sec-done); }
+.sec-neutral { --sec: var(--sec-neutral); }

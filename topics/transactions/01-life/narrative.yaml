@@ -1,0 +1,230 @@
+# The first transactions explainer: one transaction, alice pays bob 30,
+# from the app's first read to the ATR's last write. Each request
+# travels from a line of the app's code to the one doc it reads or
+# writes. No simulation: each step moves `at`, one of the diagram's
+# states (states.js). What each doc holds after each write is the real
+# run's, by ../lib/tools/txn-golden, which runs the transaction with
+# gocbcore against CAVES, the mock server, and snapshots the server at
+# each of gocbcore's test hooks. Every number in the text is checked by
+# `expect`.
+
+sources: [gocbcore]
+draft: true
+title: "The life of a transaction"
+subtitle: >-
+  Alice pays Bob 30: two docs, two writes, and a server that can only
+  change one doc at a time. Follow each request from the app to the
+  server, and watch the one write that makes the whole transfer
+  happen.
+audience: People who build or study databases and their clients
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: setup
+    title: "Two docs, one transfer"
+    color: app
+    steps:
+
+      - id: transfer
+        view: { at: start, target: alice }
+        expect: ['fact:alice.before={"balance":100}', 'fact:bob.before={"balance":50}', "fact:vb.alice=910", "fact:vb.bob=459", "fact:vbuckets=1024"]
+        text: |
+          Alice pays Bob 30. Her balance goes from 100 to 70, and his
+          goes from 50 to 80. Both changes must happen, or neither.
+
+          In a key-value store, alice and bob are [[two separate docs]].
+          The bucket spreads its docs over 1,024 vbuckets: alice is in
+          vbucket 910, and bob is in vbucket 459, which may be on a
+          different server. The server can change one doc atomically,
+          but it has no way to change two docs together.
+
+      - id: app
+        view: { at: start, target: app }
+        expect: ["fact:gocbcore=v10.9.3"]
+        text: |
+          So the transaction runs in [[the app]]. gocbcore, the core
+          of Couchbase's Go SDK, runs the whole protocol from the
+          client, using ordinary single-doc reads and writes. The
+          server has no transaction manager.
+
+          Here's the transaction as the app writes it: read both docs,
+          replace both, and commit.
+
+          Everything on this page is what gocbcore v10.9.3 really did.
+          We ran the transaction against CAVES, Couchbase's mock server,
+          and took a snapshot of the server at each of gocbcore's test
+          hooks.
+
+      - id: get-alice
+        view: { at: get.alice, target: read }
+        code: [txn.get]
+        text: |
+          Follow the red ball: it's a request. The first Get reads
+          alice's doc, both her body and her "txn" xattr, in one
+          lookup. An xattr is an extended attribute: a named piece of
+          JSON stored with the doc, beside its body. Alice has no
+          "txn" xattr yet, so no other transaction is changing her.
+
+          [[A copy of her body]] comes back to the app.
+
+      - id: get-bob
+        view: { at: get.bob, target: line.1 }
+        expect: ["fact:reads.write=false"]
+        text: |
+          Then [[the second Get]] reads bob, the same way.
+
+          Reads don't write anything. After both, the server is just as
+          it was before the transaction began.
+
+  # ------------------------------------------------------------------
+  - id: staging
+    title: "Staging"
+    color: stage
+    steps:
+
+      - id: track
+        view: { at: track, target: track }
+        expect: ["fact:writes=7", "fact:writes.oneDoc=true"]
+        text: |
+          Before the ball moves again, here are
+          [[the transaction's 7 writes]], in the order they'll happen.
+          Each one is an ordinary write to one doc.
+
+          First comes a write to a doc we haven't met yet, the ATR.
+          Then alice and bob are each staged. Then one more write to the
+          ATR commits the transaction. Then alice and bob are each
+          unstaged. And last, the ATR is tidied up.
+
+      - id: atr-pending
+        view: { at: atr.pending, target: atr }
+        code: [atr.confirm, atr.select, atr.pending]
+        expect: ["fact:atr.beforeReplace=null", "fact:atr.key=_txn:atr-910-#891", "fact:atr.ids=1024", "fact:pending.st=PENDING", "fact:pending.exp=60"]
+        text: |
+          The first Replace doesn't stage alice right away. Until now,
+          nothing was written, not even the ATR.
+
+          First, gocbcore picks the transaction's active transaction
+          record, its ATR. It's [[the ATR for alice's vbucket]],
+          because alice is the first doc the transaction changes.
+          There are 1,024 fixed ATR ids, one per vbucket, and alice's
+          is `_txn:atr-910-#891`.
+
+          Into the ATR's "attempts" xattr goes an entry for this
+          attempt: PENDING, with the transaction's id and its expiry,
+          60 seconds from its start. The ATR's body is a single zero
+          byte; everything it records is in xattrs.
+
+      - id: stage-alice
+        view: { at: stage.alice, target: alice.txn }
+        code: [stage.replace]
+        expect: ['fact:alice.staged={"balance":70}']
+        text: |
+          Now alice's new value, `{"balance":70}`, travels to her doc.
+          It doesn't go into her body. It's staged in
+          [[her "txn" xattr]], with a pointer to the ATR, the attempt's
+          id, and the kind of change: a replace.
+
+          Her body still says 100, so anyone who reads alice now,
+          outside the transaction, still sees 100.
+
+      - id: stage-bob
+        view: { at: stage.bob, target: bob.txn }
+        expect: ['fact:bob.staged={"balance":80}', 'fact:staged.bodies={"balance":100} {"balance":50}']
+        text: |
+          Then bob's new value, `{"balance":80}`, is staged the same
+          way, in [[his "txn" xattr]].
+
+          Both docs now point at the ATR, and both bodies are just as
+          they were. If the app stopped here, nobody outside the
+          transaction would have seen anything change.
+
+  # ------------------------------------------------------------------
+  - id: commit
+    title: "The commit point"
+    color: commit
+    steps:
+
+      - id: commit
+        view: { at: commit, target: atr.entry }
+        code: [atr.commit]
+        expect: ["fact:commit.st=COMMITTED", "fact:commit.rep=alice,bob"]
+        text: |
+          Now Commit. It's one write, to one doc: in
+          [[the ATR's entry]], PENDING becomes COMMITTED, and the same
+          write lists the docs the transaction changed, alice and bob.
+
+          A write to one doc is atomic. So this write has either
+          happened or it hasn't, and nothing in between.
+
+      - id: point
+        view: { at: halves, target: halves }
+        expect: ['fact:committed.bodies={"balance":100} {"balance":50}']
+        text: |
+          That write is the transaction's commit point, and it splits
+          [[the track in two]].
+
+          If the app crashes before it, the ATR still says PENDING,
+          and the transaction is rolled back: its staged values are
+          removed by whoever finds them later. If the app crashes
+          after it, the ATR says COMMITTED, and the transaction is
+          rolled forward: someone else finishes unstaging. Either way,
+          alice and bob end up both changed or both unchanged.
+
+          Notice that the bodies still say 100 and 50, even now. The
+          transfer has happened, but the docs' bodies don't show it
+          yet.
+
+  # ------------------------------------------------------------------
+  - id: unstage
+    title: "Unstaging"
+    color: done
+    steps:
+
+      - id: unstage-alice
+        view: { at: unstage.alice, target: alice.body }
+        code: [unstage]
+        expect: ['fact:alice.after={"balance":70}']
+        text: |
+          So gocbcore unstages. In one write to alice's doc,
+          [[her staged value]] becomes her body, and her "txn" xattr
+          is deleted.
+
+          From now on, anyone who reads alice sees 70.
+
+      - id: unstage-bob
+        view: { at: unstage.bob, target: bob.body }
+        expect: ['fact:bob.midway={"balance":50}']
+        text: |
+          Then bob is unstaged the same way, and [[his body]] becomes
+          80.
+
+          Just before this write, a plain read would have seen alice
+          at 70 and bob still at 50. A transaction's read doesn't
+          make that mistake. It finds bob's "txn" xattr, looks up the
+          ATR it points to, sees COMMITTED, and returns the staged 80.
+          The next explainer is about those reads.
+
+      - id: complete
+        view: { at: atr.done, target: atr.entry }
+        code: [atr.complete]
+        expect: ['fact:done.atr={"entry":null}', "fact:done.state=completed"]
+        text: |
+          Last, [[the attempt's entry]] is deleted from the ATR. The
+          ATR doc itself stays, ready for the next transaction whose
+          first doc is in vbucket 910.
+
+      - id: end
+        view: { at: clean, target: station.3 }
+        expect: ["fact:writes=7"]
+        text: |
+          That's the whole transaction: 7 ordinary writes, each to one
+          doc, and [[one of them]], the ATR's flip to COMMITTED, decides
+          whether the transfer happened.
+
+          Everything else is arranged around that one write. Before it,
+          each change waits, staged in an xattr beside the doc it
+          changes. After it, the staged values are moved into place.
+          And because each staged value points back to the ATR, anyone
+          who finds one can tell which side of the commit point it's
+          on.

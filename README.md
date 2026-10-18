@@ -384,6 +384,10 @@ topics/
     01-query/            the life of a query: plan, rows pushed up, where bytes are copied
     02-compile/          the compiler made from the interpreter's source (tools/compile-golden)
     03-boxed/            one filter, two lanes: cbq's boxed values vs n1k1's bytes (tools/boxed-golden)
+  transactions/          multi-doc transactions, run by the client (see its README.md)
+    lib/                 one real transaction, gocbcore against the CAVES mock, snapshotted
+                         at each test hook (tools/txn-golden; the mock is downloaded to tmp/)
+    01-life/             the life of a transaction: staging, the ATR's commit point, unstaging
 dist/                    the built pages (committed; published by GitHub Pages)
 .github/workflows/       CI, and GitHub Pages publishing
 ```
