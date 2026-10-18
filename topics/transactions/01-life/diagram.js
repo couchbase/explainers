@@ -208,6 +208,7 @@ export class Diagram {
   buildAtr(g) {
     const x = CARD.x.atr, y = CARD.y, P = ATR_V.commit.entry;
     const c = el('g', { opacity: 0 }, g);
+    txt(c, x + 4, y - 7, 'the ATR: active transaction record', 'atr-title');
     el('rect', { x, y, width: CARD.w, height: CARD.h, rx: 10, class: 'card card-atr' }, c);
     txt(c, x + 14, y + 24, TXN.atr, 'card-key atr-key');
     txt(c, x + CARD.w - 14, y + 24, `vbucket ${TXN.vb.alice}`, 'card-vb', 'end');

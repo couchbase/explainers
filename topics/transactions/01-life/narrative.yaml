@@ -91,7 +91,12 @@ chapters:
           [[the transaction's 7 writes]], in the order they'll happen.
           Each one is an ordinary write to one doc.
 
-          First comes a write to a doc we haven't met yet, the ATR.
+          First comes a write to a doc we haven't met yet: an ATR, or
+          active transaction record. An ATR is an ordinary doc where
+          transactions record how far each attempt has got: PENDING,
+          then COMMITTED, and so on. It's the one place that says
+          whether a transaction has happened.
+
           Then alice and bob are each staged. Then one more write to the
           ATR commits the transaction. Then alice and bob are each
           unstaged. And last, the ATR is tidied up.
@@ -104,9 +109,9 @@ chapters:
           The first Replace doesn't stage alice right away. Until now,
           nothing was written, not even the ATR.
 
-          First, gocbcore picks the transaction's active transaction
-          record, its ATR. It's [[the ATR for alice's vbucket]],
-          because alice is the first doc the transaction changes.
+          First, gocbcore picks which ATR this transaction will use.
+          It's [[the ATR for alice's vbucket]], because alice is the
+          first doc the transaction changes.
           There are 1,024 fixed ATR ids, one per vbucket, and alice's
           is `_txn:atr-910-#891`.
 
