@@ -1,0 +1,53 @@
+# Code shown by this explainer: anchors into the topic's pinned
+# sources (../sources.yaml), resolved into snippets.json by
+# `npm run snippets`. Fields: repo, path, anchor (a unique line),
+# extent (lines, or func: up to the next "}" at column 0), title,
+# highlight (lines to mark, by a substring).
+
+read.atr:
+  repo: gocbcore
+  path: transactionattempt_get.go
+  anchor: "state := jsonAtrState(attempt.State)"
+  extent: 14
+  title: gocbcore performMavLogic() — a doc staged by another transaction, read through its ATR
+  highlight: ["if state == jsonAtrStateCommitted || state == jsonAtrStateCompleted {", "value, flags := t.jsonTxnXattrValue(doc.TxnMeta)"]
+
+wwc.poll:
+  repo: gocbcore
+  path: transactionattempt_helpers.go
+  anchor: "deadline := time.Now().Add(1 * time.Second)"
+  extent: 3
+  title: gocbcore writeWriteConflictPoll() — waiting on another transaction, for up to a second
+  highlight: ["deadline := time.Now().Add(1 * time.Second)"]
+
+wwc.resolved:
+  repo: gocbcore
+  path: transactionattempt_helpers.go
+  anchor: 'if attempt == nil {'
+  extent: 16
+  title: gocbcore writeWriteConflictPoll() — go on once the other's entry is gone, completed, or rolled back; else ask again in 200 ms
+  highlight: ["if attempt == nil {", "if state == jsonAtrStateCompleted || state == jsonAtrStateRolledBack {", "time.AfterFunc(200*time.Millisecond, onePoll)"]
+
+stage.cas:
+  repo: gocbcore
+  path: transactionattempt_replace.go
+  anchor: "cas := opts.Document.Cas"
+  extent: 1
+  title: gocbcore replace() — the write carries the CAS the doc had when it was read
+  highlight: ["cas := opts.Document.Cas"]
+
+atr.aborted:
+  repo: gocbcore
+  path: transactionattempt_atrs.go
+  anchor: 'atrFieldOp("st", jsonAtrStateAborted, memd.SubdocFlagXattrPath),'
+  extent: 5
+  title: gocbcore setATRAbortedLocked() — the attempt's entry, ABORTED
+  highlight: ["jsonAtrStateAborted"]
+
+atr.rolledback:
+  repo: gocbcore
+  path: transactionattempt_atrs.go
+  anchor: "t.hooks.BeforeATRRolledBack(func(err error) {"
+  extent: 14
+  title: gocbcore setATRRolledBackLocked() — rolled back, the attempt's entry is deleted
+  highlight: ["Op:    memd.SubDocOpDelete,"]

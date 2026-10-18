@@ -388,6 +388,7 @@ topics/
     lib/                 one real transaction, gocbcore against the CAVES mock, snapshotted
                          at each test hook (tools/txn-golden; the mock is downloaded to tmp/)
     01-life/             the life of a transaction: staging, the ATR's commit point, unstaging
+    02-during/           reads mid-transaction (plain vs transactional), and a write-write conflict
 dist/                    the built pages (committed; published by GitHub Pages)
 .github/workflows/       CI, and GitHub Pages publishing
 ```

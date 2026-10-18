@@ -1,0 +1,83 @@
+{
+ "read.atr": {
+  "id": "read.atr",
+  "repo": "gocbcore",
+  "path": "transactionattempt_get.go",
+  "title": "gocbcore performMavLogic() — a doc staged by another transaction, read through its ATR",
+  "start": 306,
+  "end": 319,
+  "highlight": [
+   307,
+   310
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_get.go#L306-L319",
+  "code": "\t\t\t\t\t\t\tstate := jsonAtrState(attempt.State)\n\t\t\t\t\t\t\tif state == jsonAtrStateCommitted || state == jsonAtrStateCompleted {\n\t\t\t\t\t\t\t\tswitch doc.TxnMeta.Operation.Type {\n\t\t\t\t\t\t\t\tcase jsonMutationInsert:\n\t\t\t\t\t\t\t\t\tvalue, flags := t.jsonTxnXattrValue(doc.TxnMeta)\n\t\t\t\t\t\t\t\t\tt.logger.logInfof(t.id, \"Doc already in txn as insert, using staged value\")\n\t\t\t\t\t\t\t\t\tcb(&transactionGetDoc{\n\t\t\t\t\t\t\t\t\t\tBody:    value,\n\t\t\t\t\t\t\t\t\t\tCas:     doc.Cas,\n\t\t\t\t\t\t\t\t\t\tTxnMeta: doc.TxnMeta,\n\t\t\t\t\t\t\t\t\t\tFlags:   flags,\n\t\t\t\t\t\t\t\t\t}, nil)\n\t\t\t\t\t\t\t\tcase jsonMutationReplace:\n\t\t\t\t\t\t\t\t\tvalue, flags := t.jsonTxnXattrValue(doc.TxnMeta)"
+ },
+ "wwc.poll": {
+  "id": "wwc.poll",
+  "repo": "gocbcore",
+  "path": "transactionattempt_helpers.go",
+  "title": "gocbcore writeWriteConflictPoll() — waiting on another transaction, for up to a second",
+  "start": 589,
+  "end": 591,
+  "highlight": [
+   589
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_helpers.go#L589-L591",
+  "code": "\tdeadline := time.Now().Add(1 * time.Second)\n\n\tvar onePoll func()"
+ },
+ "wwc.resolved": {
+  "id": "wwc.resolved",
+  "repo": "gocbcore",
+  "path": "transactionattempt_helpers.go",
+  "title": "gocbcore writeWriteConflictPoll() — go on once the other's entry is gone, completed, or rolled back; else ask again in 200 ms",
+  "start": 659,
+  "end": 674,
+  "highlight": [
+   659,
+   667,
+   674
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_helpers.go#L659-L674",
+  "code": "\t\t\t\t\t\t\tif attempt == nil {\n\t\t\t\t\t\t\t\tt.logger.logInfof(t.id, \"ATR entry missing, completing write-write conflict poll\")\n\t\t\t\t\t\t\t\t// The ATR entry is missing, which counts as it being completed.\n\t\t\t\t\t\t\t\tcb(nil)\n\t\t\t\t\t\t\t\treturn\n\t\t\t\t\t\t\t}\n\n\t\t\t\t\t\t\tstate := jsonAtrState(attempt.State)\n\t\t\t\t\t\t\tif state == jsonAtrStateCompleted || state == jsonAtrStateRolledBack {\n\t\t\t\t\t\t\t\tt.logger.logInfof(t.id, \"Attempt state %s, completing write-write conflict poll\", state)\n\t\t\t\t\t\t\t\t// If we have progressed enough to continue, let's do that.\n\t\t\t\t\t\t\t\tcb(nil)\n\t\t\t\t\t\t\t\treturn\n\t\t\t\t\t\t\t}\n\n\t\t\t\t\t\t\ttime.AfterFunc(200*time.Millisecond, onePoll)"
+ },
+ "stage.cas": {
+  "id": "stage.cas",
+  "repo": "gocbcore",
+  "path": "transactionattempt_replace.go",
+  "title": "gocbcore replace() — the write carries the CAS the doc had when it was read",
+  "start": 72,
+  "end": 72,
+  "highlight": [
+   72
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_replace.go#L72-L72",
+  "code": "\t\tcas := opts.Document.Cas"
+ },
+ "atr.aborted": {
+  "id": "atr.aborted",
+  "repo": "gocbcore",
+  "path": "transactionattempt_atrs.go",
+  "title": "gocbcore setATRAbortedLocked() — the attempt's entry, ABORTED",
+  "start": 817,
+  "end": 821,
+  "highlight": [
+   817
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L817-L821",
+  "code": "\t\t\t\tatrFieldOp(\"st\", jsonAtrStateAborted, memd.SubdocFlagXattrPath),\n\t\t\t\tatrFieldOp(\"tsrs\", \"${Mutation.CAS}\", memd.SubdocFlagXattrPath|memd.SubdocFlagExpandMacros),\n\t\t\t\tatrFieldOp(\"ins\", insMutations, memd.SubdocFlagXattrPath),\n\t\t\t\tatrFieldOp(\"rep\", repMutations, memd.SubdocFlagXattrPath),\n\t\t\t\tatrFieldOp(\"rem\", remMutations, memd.SubdocFlagXattrPath),"
+ },
+ "atr.rolledback": {
+  "id": "atr.rolledback",
+  "repo": "gocbcore",
+  "path": "transactionattempt_atrs.go",
+  "title": "gocbcore setATRRolledBackLocked() — rolled back, the attempt's entry is deleted",
+  "start": 913,
+  "end": 926,
+  "highlight": [
+   921
+  ],
+  "url": "https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L913-L926",
+  "code": "\t\tt.hooks.BeforeATRRolledBack(func(err error) {\n\t\t\tif err != nil {\n\t\t\t\tecCb(classifyHookError(err))\n\t\t\t\treturn\n\t\t\t}\n\n\t\t\tatrOps := []SubDocOp{\n\t\t\t\t{\n\t\t\t\t\tOp:    memd.SubDocOpDelete,\n\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,\n\t\t\t\t\tPath:  \"attempts.\" + t.id,\n\t\t\t\t},\n\t\t\t}\n"
+ }
+}

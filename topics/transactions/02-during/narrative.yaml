@@ -1,0 +1,239 @@
+# The second transactions explainer: what others see, and do, while a
+# transaction is in flight. 01's transfer is paused by a test hook; an
+# auditor reads alice and bob at three moments, plainly and in a
+# transaction; then, in a fresh run, a second transaction tries to
+# change bob while the transfer has him staged. No simulation: each
+# step moves `at`, one of the diagram's states (states.js). What the
+# server holds, and what each read saw, is the real runs', by
+# ../lib/tools/txn-golden (gocbcore against the CAVES mock). Every
+# number in the text is checked by `expect`.
+
+sources: [gocbcore]
+draft: true
+title: "While a transaction is in flight"
+subtitle: >-
+  Pause alice's transfer to bob halfway, and look around. What does
+  someone reading alice and bob see? And what happens to a second
+  transaction that wants to change bob at the same time?
+audience: People who build or study databases and their clients
+
+chapters:
+
+  # ------------------------------------------------------------------
+  - id: reads
+    title: "Reading in the middle"
+    color: app
+    steps:
+
+      - id: paused
+        view: { at: start, target: t1.paused }
+        expect: ["fact:m1.atr=PENDING"]
+        text: |
+          Here's the transfer from the first explainer, alice pays bob
+          30, which we'll call T1. This time a test hook pauses it
+          [[right after it stages bob]]. Both new values are staged in
+          xattrs, and T1's ATR entry says PENDING.
+
+      - id: auditor
+        view: { at: start, target: right }
+        expect: ["fact:m1.wrote=false", "fact:m2.wrote=false", "fact:m3.wrote=false"]
+        text: |
+          Meanwhile, [[an auditor]] checks the books: alice and bob
+          should always add up to 150.
+
+          It reads them in two ways. First with plain reads, the
+          ordinary single-doc gets that any app might use. Then inside
+          a transaction of its own, which only reads, and writes
+          nothing.
+
+      - id: plain-1
+        view: { at: audit.1, target: col.plain }
+        expect: ["fact:m1.plain=100 50 150"]
+        text: |
+          [[Plain reads]] see each doc's body: alice 100 and bob 50,
+          150 in all. The staged values sit in xattrs, where plain
+          reads don't look.
+
+      - id: txn-1
+        view: { at: audit.2, target: atr.t1.entry }
+        code: [read.atr]
+        expect: ["fact:m1.txn=100 50 150", "fact:m1.checks=2"]
+        text: |
+          The transaction's reads look further. Each finds the doc's
+          "txn" xattr, staged by T1, and follows its pointer to
+          [[T1's ATR entry]], to read T1's state.
+
+          It says PENDING: T1 might still roll back. So each read
+          returns the body, not the staged value: 100 and 50.
+
+      - id: commit
+        view: { at: t1.commit, target: atr.t1.entry }
+        expect: ["fact:m2.atr=COMMITTED"]
+        text: |
+          Now T1 goes on, and commits: [[its ATR entry]] says
+          COMMITTED. Neither body has changed yet.
+
+      - id: plain-2
+        view: { at: audit.3, target: col.plain }
+        expect: ["fact:m2.plain=100 50 150"]
+        text: |
+          [[Plain reads]] still see 100 and 50. They're out of date,
+          since the transfer has happened, but at least they add up.
+
+      - id: txn-2
+        view: { at: audit.4, target: atr.t1.entry }
+        expect: ["fact:m2.txn=70 80 150"]
+        text: |
+          The transaction's reads follow the pointers again, and this
+          time [[the ATR entry]] says COMMITTED. So each read returns
+          the staged value: 70 and 80. The transfer has happened, and
+          these reads see all of it.
+
+      - id: unstage
+        view: { at: t1.alice, target: alice }
+        text: |
+          T1 unstages [[alice]]: her body is now 70. Bob's body still
+          says 50, with his 80 staged.
+
+      - id: plain-3
+        view: { at: audit.5, target: row.2 }
+        expect: ["fact:m3.plain=70 50 120"]
+        text: |
+          Plain reads now see alice at 70 and bob at 50, which comes
+          to a total of 120. Thirty has vanished. [[These reads]] landed between T1's
+          two unstaging writes, and saw half of the transfer.
+
+      - id: txn-3
+        view: { at: audit.6, target: atr.t1.entry }
+        expect: ["fact:m3.txn=70 80 150", "fact:m3.checks=1"]
+        text: |
+          Alice has no xattr any more, so the transaction reads her
+          body, 70, with no ATR to check. Bob's xattr still points to
+          [[the ATR entry]], which says COMMITTED, so the read returns
+          his staged 80. The total is 150.
+
+      - id: verdict
+        view: { at: verdict, target: col.txn }
+        text: |
+          Side by side: plain reads saw the transfer half done. In
+          this run, [[a transaction's reads]] always added up.
+
+          Their rule is simple. A staged value counts only once the ATR
+          it points to says COMMITTED. Until then, the body does. And
+          the reads wrote nothing, so they didn't slow T1 down.
+
+  # ------------------------------------------------------------------
+  - id: conflict
+    title: "Two writers"
+    color: stage
+    steps:
+
+      - id: rewind
+        view: { at: rewind, target: right }
+        text: |
+          Now a second writer. Here's a fresh run of T1, paused at the
+          same place, with both docs staged and its ATR entry PENDING.
+          And here's another app, at the same time, running T2:
+          [[bob pays alice 5]].
+
+      - id: t2-read
+        view: { at: t2.read, target: bob.cas }
+        expect: ["fact:t2.read1=50 100", "fact:t2.read1.cas=cas-2"]
+        text: |
+          T2 reads bob, then alice. Both are staged by T1, and T1's ATR
+          entry says PENDING, so T2 gets their bodies: 50 and 100.
+
+          Each read also notes [[the doc's CAS]]: a version number that
+          the server changes with every write to the doc. When T2 read
+          bob, his CAS was cas‑2.
+
+      - id: t2-poll
+        view: { at: t2.poll, target: atr.t1.entry }
+        code: [wwc.poll, wwc.resolved]
+        expect: ["fact:t2.atr.during.poll=null"]
+        text: |
+          Now T2 wants to replace bob. But bob's xattr says T1 has a
+          change staged for him, and only one transaction can stage a
+          change to a doc at a time. That's a write-write conflict.
+
+          So T2 waits. It goes to [[T1's ATR entry]], and asks: is T1
+          done? It asks again every 200 ms, for up to a second. T2
+          hasn't written anything yet, not even an ATR entry of its
+          own.
+
+      - id: t1-resumes
+        view: { at: t1.7, target: atr.t1 }
+        expect: ["fact:t1.attempts=1"]
+        text: |
+          While T2 waits, T1 is let go. It commits, unstages alice and
+          bob, and deletes its entry from [[its ATR]], the same writes
+          as in the first explainer.
+
+      - id: resolved
+        view: { at: t2.resolved, target: t2.line.2 }
+        expect: ["fact:t2.polls=2"]
+        text: |
+          T2 asks again, and T1's entry is gone. That counts as done,
+          so [[T2 goes on]] with its Replace.
+
+      - id: t2-pending
+        view: { at: t2.pending, target: atr.t2 }
+        expect: ["fact:atr.t2=_txn:atr-459-#bb6", "fact:vb.bob=459"]
+        text: |
+          T2's first write is its own ATR entry, PENDING. It goes in
+          [[the ATR for bob's vbucket]], 459, because bob is the first
+          doc T2 changes.
+
+      - id: t2-cas
+        view: { at: t2.cas, target: bob.cas }
+        code: [stage.cas]
+        expect: ["fact:bob.cas.then=cas-4", "fact:t2.error=cas mismatch"]
+        text: |
+          Then T2 tries to stage bob's new value, 45, which it worked
+          out from the 50 it read. The write carries the CAS T2 read,
+          cas‑2, and the server only applies it if the doc still has
+          that CAS.
+
+          But T1 has changed bob since: [[his CAS]] is now cas‑4. So
+          the server refuses the write, and gocbcore reports a CAS
+          mismatch. That's just as well: bob has 80 now, so 45 would
+          have been wrong.
+
+      - id: t2-rollback
+        view: { at: t2.rolledback, target: atr.t2.entry }
+        code: [atr.aborted, atr.rolledback]
+        expect: ["fact:t2.retry=true true", "fact:t2.aborted=ABORTED", "fact:t2.rolledback=[]"]
+        text: |
+          gocbcore's error says what to do: roll this attempt back,
+          and try again. T2 had staged nothing, so rolling back takes
+          two writes to its ATR: the entry goes to ABORTED, and then
+          [[the entry]] is deleted.
+
+      - id: t2-retry
+        view: { at: t2.read2, target: t2.line.0 }
+        expect: ["fact:t2.read2=80 70"]
+        text: |
+          The second attempt starts over, and [[reads again]]: bob 80
+          and alice 70. Neither doc has an xattr now, so there's no ATR
+          to check.
+
+      - id: t2-commit
+        view: { at: t2.complete, target: atr.t2 }
+        text: |
+          From here, the second attempt runs just like the transfer in
+          the first explainer. It writes an ATR entry, stages bob's 75
+          and alice's 75, commits, unstages both, and deletes the entry
+          from [[its ATR]].
+
+      - id: end
+        view: { at: clean, target: cluster }
+        expect: ["fact:end.balances=75 75", "fact:t2.attempts=2"]
+        text: |
+          Alice and bob end at 75 each, 150 in all, as they should.
+
+          Let's recap. Readers never wait: a staged value counts once
+          its ATR says COMMITTED. Two writers can't both stage a change
+          to the same doc, so the second waits on the first's ATR
+          entry. And because every write carries the CAS that was read,
+          [[the cluster]] refuses a write based on a stale read. T2's
+          first attempt was wasted, but it was never wrong.
