@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The life of a transaction</title>
+<meta name="description" content="Alice pays Bob 30: two docs, two writes, and a server that can only change one doc at a time. Follow each request from the app to the server, and watch the one write that makes the whole transfer happen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: story on the left, one large diagram in the middle
+   that the story zooms around and opens up section by section, and
+   charts on the right with leader lines into the diagram. Each section
+   has its own color, used for its frame, lid, story headings and the
+   "where am I" breadcrumb.
+
+   These are the engine's neutral tokens and its default fonts. A
+   topic's look (its palette, section colors, fonts) is in
+   topics/<topic>/style.css, after these; an explainer's own styles,
+   in topics/<topic>/<name>/style.css, come last. */
+:root {
+  --bg: #f2f4f6;
+  --panel: #ffffff;
+  --panel-2: #f7f9fa;
+  --ink: #16202a;
+  --muted: #5a6977;
+  --line: #d3dae0;
+  --faint: #e7ecf0;
+  --accent: #c2410c;
+  --flow: #7b8a97;
+
+  --sec-neutral: #5a6977;
+
+  --code-bg: #f6f8fa;
+  --code-hl: #fff4d6;
+  --code-kw: #a3266b;
+  --code-str: #1d6a3a;
+  --code-com: #6b7785;
+  --code-fn: #1d5fb0;
+  --code-num: #9a5b00;
+
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "IBM Plex Sans Condensed", "IBM Plex Sans", "Arial Narrow", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 6px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
+    --accent: #fb7a3c; --flow: #7f8f9c; --sec-neutral: #93a2ae;
+    --code-bg: #11171c; --code-hl: #3a3218; --code-kw: #f07ab8; --code-str: #7fd29a; --code-com: #7c8a96; --code-fn: #8cb8ff; --code-num: #f0b35a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1317; --panel: #151c22; --panel-2: #11171c; --ink: #e2e8ed; --muted: #93a2ae; --line: #2c3740; --faint: #1f272e;
+  --accent: #fb7a3c; --flow: #7f8f9c; --sec-neutral: #93a2ae;
+  --code-bg: #11171c; --code-hl: #3a3218; --code-kw: #f07ab8; --code-str: #7fd29a; --code-com: #7c8a96; --code-fn: #8cb8ff; --code-num: #f0b35a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 1rem/1.6 var(--font-body); }
+a { color: var(--accent); }
+code, kbd { font-family: var(--font-mono); font-size: 0.88em; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.sec-neutral { --sec: var(--sec-neutral); }
+
+/* a draft: a red band across its card's top-right corner */
+.is-draft { position: relative; overflow: hidden; }
+.draft-stamp {
+  position: absolute; top: 1.1rem; right: -2.6rem; width: 9rem; transform: rotate(45deg);
+  background: #c62828; color: #fff; text-align: center;
+  font: 700 0.8rem/1.7 var(--font-body); letter-spacing: 0.18em; text-transform: uppercase;
+  pointer-events: none; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+/* and in the page's bottom-left corner, wherever the reader is */
+/* (big, so it's unmistakable, with "work in progress" under the
+   word; a little smaller on a phone) */
+.draft-corner { position: fixed; left: 0; bottom: 0; width: 16rem; height: 16rem; overflow: hidden; pointer-events: none; z-index: 30; }
+.draft-corner .draft-stamp { top: auto; right: auto; bottom: 3.3rem; left: -6.3rem; width: 23rem; padding: 0.35rem 0 0.45rem; transform: rotate(45deg); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.32); }
+.draft-corner .draft-word { display: block; font-size: 1.7rem; line-height: 1.25; letter-spacing: 0.26em; }
+.draft-corner .draft-sub { display: block; font-size: 0.72rem; line-height: 1.4; letter-spacing: 0.14em; font-weight: 600; opacity: 0.92; }
+@media (max-width: 600px) {
+  .draft-corner { width: 11rem; height: 11rem; }
+  .draft-corner .draft-stamp { bottom: 2.3rem; left: -4.4rem; width: 16rem; padding: 0.2rem 0 0.3rem; }
+  .draft-corner .draft-word { font-size: 1.15rem; }
+  .draft-corner .draft-sub { font-size: 0.55rem; }
+}
+/* the end card: after the last step has scrolled off, and, at the
+   bottom of the page, stopped in the middle of the screen */
+.next-card { margin: 85vh 0 calc(50vh - 4.5rem); }
+.story:has(> .next-card) { padding-bottom: 0; }
+.next-link { font: 600 1.15rem var(--font-display); color: var(--accent); text-decoration: none; }
+.next-link:hover { text-decoration: underline; }
+.next-link + .up-link, .end-note + .up-link { margin-top: 1rem; }
+.up-link + .top-link { margin-top: 0.35rem; }
+.next-link + .top-link, .end-note + .top-link { margin-top: 1rem; }
+.end-note { font: 600 1.15rem var(--font-display); color: var(--ink); }
+.up-link, .top-link { display: block; font: 500 0.95rem var(--font-body); color: var(--muted); text-decoration: none; }
+.up-link:hover, .top-link:hover { color: var(--accent); text-decoration: underline; }
+
+/* ---------- layout ----------
+   Wide screens: the diagram fills the window behind a transparent story
+   column whose text sits on opaque cards; the camera frames its region
+   to the right of the story. The charts column opens on the right when
+   --chrome (0..1, set from the scroll position) says so. */
+
+.layout {
+  --chrome: 0;
+  --gutter: max(16px, 2vw);
+  --story-w: min(27rem, 38vw);
+  --charts-w: calc(var(--chrome) * 18rem);
+  position: relative;
+}
+.story {
+  position: relative;
+  z-index: 2;
+  width: var(--story-w);
+  margin-left: var(--gutter);
+  padding-block: 4.5rem 45vh;
+  pointer-events: none; /* let drags reach the diagram between cards */
+}
+.story .card { pointer-events: auto; }
+.stage {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+}
+.toolbar {
+  position: absolute;
+  z-index: 3;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  left: calc(var(--gutter) + var(--story-w) + 1.5rem);
+  right: calc(var(--charts-w) + 1rem);
+}
+.viewport {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  overflow: hidden;
+}
+.charts {
+  /* transparent, like the story column: each chart is its own card */
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: var(--charts-w);
+  z-index: 1;
+  padding: 4rem calc(var(--chrome) * 1rem) 1rem 0;
+  pointer-events: none;
+}
+.charts .chart { pointer-events: auto; }
+.diagram { display: block; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.viewport.dragging .diagram { cursor: grabbing; }
+.zoom { position: absolute; right: calc(var(--charts-w) + 0.6rem); bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.zbtn {
+  width: 2rem; height: 2rem;
+  font: 500 1rem/1 var(--font-body);
+  color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  cursor: pointer;
+}
+.zbtn:hover { border-color: var(--accent); }
+.zoom-hint { font: 400 0.6875rem/1 var(--font-mono); color: var(--muted); }
+@media (max-width: 1100px) { .zoom-hint { display: none; } }
+.charts { display: flex; flex-direction: column; gap: 1.6rem; overflow: hidden; }
+.chart { min-width: 15rem; padding: 0.7rem 0.85rem 0.8rem; }
+.overlay { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 4; overflow: visible; }
+
+/* ---------- story ---------- */
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--faint);
+  border-radius: 10px;
+  box-shadow: 0 4px 18px rgba(20, 30, 40, 0.08);
+  padding: 1.1rem 1.35rem;
+}
+.hero { margin-bottom: 4rem; padding-block: 1.6rem; }
+.eyebrow { font: 600 0.75rem/1.2 var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+a.eyebrow { text-decoration: none; }
+a.eyebrow:hover { text-decoration: underline; }
+.hero h1 { font: 600 2.4rem/1.08 var(--font-display); margin: 0.5rem 0 1rem; text-wrap: balance; }
+.hero .subtitle { color: var(--muted); font-size: 1.15rem; line-height: 1.45; }
+.hero .subtitle p { margin: 0; }
+.hero .meta { margin-top: 1.25rem; font: 400 0.75rem/1.5 var(--font-mono); color: var(--muted); }
+.hero .meta a { color: inherit; }
+.scroll-hint { margin-top: 2.5rem; font: 500 0.875rem var(--font-body); color: var(--muted); }
+
+.chapter-title {
+  font: 600 1.5rem/1.15 var(--font-display);
+  margin: 5rem 0 0;
+  color: var(--ink);
+  text-wrap: balance;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  width: fit-content;
+  max-width: 100%;
+  padding-block: 0.7rem;
+}
+.chapter-dot { flex: none; width: 0.75rem; height: 0.75rem; border-radius: 3px; background: var(--sec); }
+.step {
+  min-height: 70vh;
+  padding-block: 2rem;
+  max-width: 62ch;
+}
+.step.step-long { min-height: 170vh; }
+/* a scrubbing step's text stays in view while it plays */
+.card pre { font: 400 0.8rem/1.55 var(--font-mono); background: var(--code-bg); border-radius: 6px; padding: 0.7rem 0.9rem; margin: 0.9rem 0; overflow-x: auto; }
+.card pre code { font-size: inherit; }
+.step.step-scrub > .card { position: sticky; top: 18vh; }
+.step .card { opacity: 0.55; transition: opacity 0.4s ease; }
+/* (and a card just passed, while it's still being read: see story.js) */
+.step.active .card, .step.reading .card { opacity: 1; }
+.step p { margin: 0 0 0.9em; }
+.step ul, .step ol { padding-left: 1.3em; margin: 0 0 0.9em; }
+.step li { margin-bottom: 0.3em; }
+.step strong { font-weight: 600; }
+.hl { font-weight: 600; }
+.step.active .hl { color: var(--accent); }
+
+.code-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
+.code-chip {
+  font: 400 0.75rem/1.3 var(--font-mono);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  text-align: left;
+  cursor: pointer;
+}
+.code-chip.stacked { border-radius: 10px; }
+.code-chip.stacked > .repo, .code-chip.stacked > .name { display: block; }
+.code-chip.stacked > .sep { display: none; }
+.code-chip .sep { color: var(--muted); }
+.code-chip:hover { border-color: var(--accent); color: var(--accent); }
+.code-chip .repo { color: var(--muted); }
+
+/* ---------- toolbar ---------- */
+
+.toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: nowrap; min-width: 0; font: 400 0.75rem/1 var(--font-mono); color: var(--muted); }
+.toolbar .spacer { flex: 1; }
+.tools { display: grid; justify-items: end; align-items: center; }
+.tools > * { grid-area: 1 / 1; }
+.controls { display: inline-flex; align-items: center; gap: 0.5rem; }
+.clock { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 9ch; }
+.crumb { display: inline-flex; align-items: center; gap: 0.45rem; font: 600 0.8125rem/1 var(--font-display); letter-spacing: 0.03em; color: var(--ink); }
+.crumb-dot { width: 0.7rem; height: 0.7rem; border-radius: 3px; background: var(--sec); }
+.btn {
+  font: 500 0.75rem/1 var(--font-body);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.65rem;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------- overlay lines ---------- */
+
+.callout { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.callout-end { fill: var(--accent); }
+.leader { fill: none; stroke: var(--muted); stroke-opacity: 0.45; stroke-width: 1; }
+.leader-end { fill: var(--muted); fill-opacity: 0.7; }
+
+/* ---------- diagram ----------
+   Shared basics; each explainer's own diagram styles are in
+   topics/<topic>/<name>/style.css, appended after these. */
+
+.diagram text { font-family: var(--font-mono); }
+.arrowhead { fill: var(--flow); }
+.target-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-opacity: 0.5; }
+/* ---------- contents ---------- */
+
+.toc {
+  position: fixed;
+  z-index: 12;
+  top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+  left: var(--gutter, 16px);
+}
+.toc-btn {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  font: 600 0.8125rem/1 var(--font-display); letter-spacing: 0.03em;
+  color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 0.5rem 0.75rem; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.toc-btn:hover, .toc-btn[aria-expanded="true"] { border-color: var(--muted); }
+.toc-icon { font-size: 0.95rem; color: var(--muted); }
+.toc-panel {
+  position: absolute; top: calc(100% + 0.4rem); left: 0;
+  width: min(22rem, calc(100vw - 32px));
+  max-height: calc(100vh - 5rem); overflow-y: auto;
+  padding: 0.5rem;
+  display: flex; flex-direction: column; gap: 1px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+}
+.toc-head { font: 600 0.6875rem/1 var(--font-display); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 0.5rem 0.6rem 0.6rem; }
+.toc-item {
+  display: flex; align-items: baseline; gap: 0.6rem;
+  padding: 0.5rem 0.6rem; border-radius: var(--radius);
+  font: 500 0.9375rem/1.25 var(--font-display); color: var(--ink); text-decoration: none;
+}
+.toc-item .chapter-dot { width: 0.6rem; height: 0.6rem; }
+.toc-item:hover, .toc-item:focus-visible { background: var(--faint); outline: none; }
+.toc-item.current { background: color-mix(in srgb, var(--sec) 12%, var(--panel)); font-weight: 600; }
+
+/* ---------- drawers ---------- */
+
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: min(52rem, 100vw);
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.18);
+  z-index: 20;
+  display: flex; flex-direction: column;
+  transform: translateX(105%);
+  transition: transform 0.25s ease;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.drawer.open { transform: none; }
+/* the code drawer: resizable, wider or narrower, by dragging its
+   bottom-left corner (rtl puts CSS's resize handle on the left, and
+   makes the drag grow it leftwards; its content goes back to ltr) */
+.drawer:not(.knobs) { resize: horizontal; overflow: hidden; direction: rtl; min-width: min(20rem, 100vw); max-width: 100vw; }
+.drawer:not(.knobs) > * { direction: ltr; }
+.drawer header { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--line); }
+.drawer header h2 { font: 600 1rem/1.3 var(--font-display); margin: 0; flex: 1; min-width: 0; }
+.drawer .tabs { display: flex; gap: 0.3rem; flex-wrap: wrap; padding: 0.5rem 1rem; border-bottom: 1px solid var(--line); }
+.drawer .tabs .btn[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+.drawer .body { flex: 1; overflow: auto; min-height: 0; }
+.drawer .where { padding: 0.5rem 1rem; font: 400 0.75rem/1.4 var(--font-mono); color: var(--muted); display: flex; gap: 1rem; flex-wrap: wrap; justify-content: space-between; }
+.code { font: 400 0.78rem/1.55 var(--font-mono); background: var(--code-bg); margin: 0; padding: 0.5rem 0; overflow-x: auto; tab-size: 4; }
+.code .ln { display: flex; white-space: pre; padding-right: 1rem; }
+.code .ln.hl { background: var(--code-hl); font-weight: 400; }
+.code .n { flex: none; width: 4.5ch; text-align: right; padding-right: 1.2ch; color: var(--muted); user-select: none; }
+.hljs-keyword, .hljs-built_in, .hljs-type { color: var(--code-kw); }
+.hljs-string { color: var(--code-str); }
+.hljs-comment { color: var(--code-com); font-style: italic; }
+.hljs-title, .hljs-title.function_ { color: var(--code-fn); }
+.hljs-number, .hljs-literal { color: var(--code-num); }
+
+/* ---------- narrower screens ---------- */
+
+@media (max-width: 1250px) {
+  .layout { --charts-w: 0px; --story-w: min(24rem, 40vw); }
+  .charts { display: none; }
+}
+/* Phones: the diagram is a sticky panel on top; the story scrolls below. */
+@media (max-width: 900px) {
+  .layout { display: flex; flex-direction: column; padding-inline: 16px; --story-w: 100%; --gutter: 0px; }
+  .stage { position: sticky; inset: auto; top: 0; order: -1; height: 56vh; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.4rem; padding-block: 0.5rem; }
+  .toolbar { position: static; flex-wrap: wrap; padding-left: 7.5rem; min-height: 2.1rem; }
+  .toc { top: calc(env(safe-area-inset-top, 0px) + 0.5rem); left: 16px; }
+  .viewport { position: relative; inset: auto; flex: 1; min-height: 0; }
+  .tools, .controls { display: flex; flex-wrap: wrap; gap: 0.4rem; min-width: 0; }
+  .story { width: auto; margin-left: 0; padding-block: 1rem 60vh; pointer-events: auto; }
+  .step { min-height: 50vh; scroll-margin-top: 58vh; }
+  .step.step-scrub > .card { top: 60vh; }
+  /* (the next card stops under the diagram, not behind it) */
+  .story:has(> .next-card) { padding-bottom: 6vh; }
+  .next-card { margin-bottom: 0; }
+  .hero h1 { font-size: 1.8rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* The transactions topic's look, shared by its explainers: ledger
+   paper and navy ink. Its colors say where a value is in a
+   transaction's life: amber, staged (written beside the doc, in its
+   "txn" xattr, where only the transaction looks); green, committed (in
+   the doc's body, for everyone); red, the request in flight, the ball
+   to follow. After the engine's styles, before each explainer's. */
+:root {
+  --font-body: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --font-display: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --bg: #f6f3ec;
+  --panel: #fffdf8;
+  --panel-2: #f0ece2;
+  --ink: #1b2433;
+  --muted: #646b78;
+  --line: #d8d2c4;
+  --faint: #ebe6da;
+  --accent: #1e4e8c;
+  --focus: #1e4e8c;
+
+  --staged: #b45309;
+  --staged-bg: #fdebd3;
+  --done: #15803d;
+  --done-bg: #dcf2e3;
+  --ball: #dc2626;
+  --ball-bg: #fde2e2;
+  --atr: #1e4e8c;
+  --atr-bg: #e2ebf7;
+
+  --sec-app: #1b2433;
+  --sec-stage: #b45309;
+  --sec-commit: #1e4e8c;
+  --sec-done: #15803d;
+  --sec-neutral: #646b78;
+
+  --code-bg: #f0ece2;
+  --code-hl: #fdebd3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12161d; --panel: #1a1f28; --panel-2: #151a22; --ink: #e6e9ef; --muted: #9aa2b1; --line: #313949; --faint: #222935;
+    --accent: #8db4ef; --focus: #8db4ef;
+    --staged: #f59e0b; --staged-bg: #3d2a10; --done: #4ade80; --done-bg: #143222; --ball: #f87171; --ball-bg: #3f1a1a; --atr: #8db4ef; --atr-bg: #1c2a42;
+    --sec-app: #e6e9ef; --sec-stage: #f59e0b; --sec-commit: #8db4ef; --sec-done: #4ade80; --sec-neutral: #9aa2b1;
+    --code-bg: #151a22; --code-hl: #3d2a10;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a1f28; --panel-2: #151a22; --ink: #e6e9ef; --muted: #9aa2b1; --line: #313949; --faint: #222935;
+  --accent: #8db4ef; --focus: #8db4ef;
+  --staged: #f59e0b; --staged-bg: #3d2a10; --done: #4ade80; --done-bg: #143222; --ball: #f87171; --ball-bg: #3f1a1a; --atr: #8db4ef; --atr-bg: #1c2a42;
+  --sec-app: #e6e9ef; --sec-stage: #f59e0b; --sec-commit: #8db4ef; --sec-done: #4ade80; --sec-neutral: #9aa2b1;
+  --code-bg: #151a22; --code-hl: #3d2a10;
+}
+
+/* its chapters' colors */
+.sec-app { --sec: var(--sec-app); }
+.sec-stage { --sec: var(--sec-stage); }
+.sec-commit { --sec: var(--sec-commit); }
+.sec-done { --sec: var(--sec-done); }
+.sec-neutral { --sec: var(--sec-neutral); }
+
+/* The 01-life explainer's diagram. Colors are the topic's (see
+   ../style.css and ../README.md): amber, staged; blue, the ATR; green,
+   unstaged, done; red, the request in flight. */
+.diagram .cluster { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.5; }
+.diagram .app { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.diagram .panel-title { font: 700 14px var(--font-display); fill: var(--ink); }
+.diagram .panel-sub { font: 500 11.5px var(--font-display); fill: var(--muted); }
+.diagram .line-no { font: 500 11px var(--font-mono); fill: var(--muted); }
+.diagram .code { font: 500 13px var(--font-mono); fill: var(--ink); white-space: pre; }
+.diagram .code .code-staged { fill: var(--staged); font-weight: 600; }
+.diagram .line-hl { fill: var(--ball-bg); stroke: var(--ball); stroke-width: 1; stroke-opacity: 0.5; }
+.diagram .card { fill: var(--panel); stroke: var(--ink); stroke-width: 1.4; }
+.diagram .card-atr { stroke: var(--atr); }
+.diagram .card-key { font: 700 14px var(--font-mono); fill: var(--ink); }
+.diagram .atr-key { fill: var(--atr); font-size: 13px; }
+.diagram .card-vb { font: 500 11px var(--font-display); fill: var(--muted); }
+.diagram .body-box { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.2; }
+.diagram .field-label { font: 600 10.5px var(--font-display); fill: var(--muted); }
+.diagram .body-text { font: 600 14px var(--font-mono); fill: var(--ink); }
+.diagram .ghost-text { font: 500 11px var(--font-mono); fill: var(--muted); text-decoration: line-through; }
+.diagram .xattr-box { fill: var(--staged-bg); fill-opacity: 0.35; stroke: var(--staged); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.diagram .xattr-atr { fill: var(--atr-bg); stroke: var(--atr); }
+.diagram .xattr-key { font: 500 11.5px var(--font-mono); fill: var(--muted); }
+.diagram .xattr-val { font: 600 11.5px var(--font-mono); fill: var(--ink); }
+.diagram .none-text { font: italic 500 11.5px var(--font-display); fill: var(--muted); }
+.diagram .chip-box { stroke-width: 1.3; }
+.diagram .chip-text { font: 700 12px var(--font-mono); white-space: pre; }
+.diagram rect.chip-read { fill: var(--panel); stroke: var(--ink); }
+.diagram .chip-text.chip-read { fill: var(--ink); }
+.diagram rect.chip-staged { fill: var(--staged-bg); stroke: var(--staged); }
+.diagram .chip-text.chip-staged { fill: var(--staged); }
+.diagram rect.chip-pending { fill: var(--staged-bg); stroke: var(--staged); }
+.diagram .chip-text.chip-pending { fill: var(--staged); }
+.diagram rect.chip-committed { fill: var(--done-bg); stroke: var(--done); }
+.diagram .chip-text.chip-committed { fill: var(--done); }
+.diagram .ball { fill: var(--ball); stroke: var(--panel); stroke-width: 2; }
+.diagram .pointer { fill: none; stroke: var(--staged); stroke-width: 1.4; stroke-dasharray: 4 3; }
+.diagram .pointer-head { fill: none; stroke: var(--staged); stroke-width: 1.4; }
+.diagram .pointer-label { font: 500 10.5px var(--font-mono); fill: var(--staged); }
+.diagram .gone-box { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.diagram .gone-text { font: italic 600 11px var(--font-display); fill: var(--muted); }
+.diagram .rail { stroke: var(--line); stroke-width: 3; stroke-linecap: round; }
+.diagram .rail-done { stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.diagram .station { fill: var(--panel); stroke: var(--muted); stroke-width: 1.5; }
+.diagram .station-fill.st-atr { fill: var(--atr); }
+.diagram .station-fill.st-staged { fill: var(--staged); }
+.diagram .station-fill.st-done { fill: var(--done); }
+.diagram .station-label { font: 600 10.5px var(--font-display); fill: var(--ink); }
+.diagram .commit-label { font: 700 11px var(--font-display); fill: var(--atr); }
+.diagram .half-back { fill: var(--staged-bg); }
+.diagram .half-forward { fill: var(--done-bg); }
+.diagram .half-text { font: 500 10.5px var(--font-display); fill: var(--muted); }
+.diagram .half-back-text { font-weight: 700; fill: var(--staged); }
+.diagram .half-forward-text { font-weight: 700; fill: var(--done); }
+
+</style>
+</head>
+<body>
+<noscript>This explainer needs JavaScript to run its simulation.</noscript>
+<div id="app"></div>
+<script type="application/json" id="bx-data">{"narrative":{"sources":["gocbcore"],"draft":true,"title":"The life of a transaction","subtitle":"Alice pays Bob 30: two docs, two writes, and a server that can only change one doc at a time. Follow each request from the app to the server, and watch the one write that makes the whole transfer happen.","audience":"People who build or study databases and their clients","chapters":[{"id":"setup","title":"Two docs, one transfer","color":"app","steps":[{"id":"transfer","view":{"at":"start","target":"alice"},"expect":["fact:alice.before={\"balance\":100}","fact:bob.before={\"balance\":50}","fact:vb.alice=910","fact:vb.bob=459","fact:vbuckets=1024"],"html":"\u003cp>Alice pays Bob 30. Her balance goes from 100 to 70, and his\ngoes from 50 to 80. Both changes must happen, or neither.\u003c/p>\n\u003cp>In a key-value store, alice and bob are \u003cspan class=\"hl\">two separate docs\u003c/span>.\nThe bucket spreads its docs over 1,024 vbuckets: alice is in\nvbucket 910, and bob is in vbucket 459, which may be on a\ndifferent server. The server can change one doc atomically,\nbut it has no way to change two docs together.\u003c/p>\n"},{"id":"app","view":{"at":"start","target":"app"},"expect":["fact:gocbcore=v10.9.3"],"html":"\u003cp>So the transaction runs in \u003cspan class=\"hl\">the app\u003c/span>. gocbcore, the core\nof Couchbase&#39;s Go SDK, runs the whole protocol from the\nclient, using ordinary single-doc reads and writes. The\nserver has no transaction manager.\u003c/p>\n\u003cp>Here&#39;s the transaction as the app writes it: read both docs,\nreplace both, and commit.\u003c/p>\n\u003cp>Everything on this page is what gocbcore v10.9.3 really did.\nWe ran the transaction against CAVES, Couchbase&#39;s mock server,\nand took a snapshot of the server at each of gocbcore&#39;s test\nhooks.\u003c/p>\n"},{"id":"get-alice","view":{"at":"get.alice","target":"read"},"code":["txn.get"],"html":"\u003cp>Follow the red ball: it&#39;s a request. The first Get reads\nalice&#39;s doc, both her body and her &quot;txn&quot; xattr, in one\nlookup. An xattr is an extended attribute: a named piece of\nJSON stored with the doc, beside its body. Alice has no\n&quot;txn&quot; xattr yet, so no other transaction is changing her.\u003c/p>\n\u003cp>\u003cspan class=\"hl\">A copy of her body\u003c/span> comes back to the app.\u003c/p>\n"},{"id":"get-bob","view":{"at":"get.bob","target":"line.1"},"expect":["fact:reads.write=false"],"html":"\u003cp>Then \u003cspan class=\"hl\">the second Get\u003c/span> reads bob, the same way.\u003c/p>\n\u003cp>Reads don&#39;t write anything. After both, the server is just as\nit was before the transaction began.\u003c/p>\n"}]},{"id":"staging","title":"Staging","color":"stage","steps":[{"id":"track","view":{"at":"track","target":"track"},"expect":["fact:writes=7","fact:writes.oneDoc=true"],"html":"\u003cp>Before the ball moves again, here are\n\u003cspan class=\"hl\">the transaction&#39;s 7 writes\u003c/span>, in the order they&#39;ll happen.\nEach one is an ordinary write to one doc.\u003c/p>\n\u003cp>First comes a write to a doc we haven&#39;t met yet, the ATR.\nThen alice and bob are each staged. Then one more write to the\nATR commits the transaction. Then alice and bob are each\nunstaged. And last, the ATR is tidied up.\u003c/p>\n"},{"id":"atr-pending","view":{"at":"atr.pending","target":"atr"},"code":["atr.confirm","atr.select","atr.pending"],"expect":["fact:atr.beforeReplace=null","fact:atr.key=_txn:atr-910-#891","fact:atr.ids=1024","fact:pending.st=PENDING","fact:pending.exp=60"],"html":"\u003cp>The first Replace doesn&#39;t stage alice right away. Until now,\nnothing was written, not even the ATR.\u003c/p>\n\u003cp>First, gocbcore picks the transaction&#39;s active transaction\nrecord, its ATR. It&#39;s \u003cspan class=\"hl\">the ATR for alice&#39;s vbucket\u003c/span>,\nbecause alice is the first doc the transaction changes.\nThere are 1,024 fixed ATR ids, one per vbucket, and alice&#39;s\nis \u003ccode>_txn:atr-910-#891\u003c/code>.\u003c/p>\n\u003cp>Into the ATR&#39;s &quot;attempts&quot; xattr goes an entry for this\nattempt: PENDING, with the transaction&#39;s id and its expiry,\n60 seconds from its start. The ATR&#39;s body is a single zero\nbyte; everything it records is in xattrs.\u003c/p>\n"},{"id":"stage-alice","view":{"at":"stage.alice","target":"alice.txn"},"code":["stage.replace"],"expect":["fact:alice.staged={\"balance\":70}"],"html":"\u003cp>Now alice&#39;s new value, \u003ccode>{&quot;balance&quot;:70}\u003c/code>, travels to her doc.\nIt doesn&#39;t go into her body. It&#39;s staged in\n\u003cspan class=\"hl\">her &quot;txn&quot; xattr\u003c/span>, with a pointer to the ATR, the attempt&#39;s\nid, and the kind of change: a replace.\u003c/p>\n\u003cp>Her body still says 100, so anyone who reads alice now,\noutside the transaction, still sees 100.\u003c/p>\n"},{"id":"stage-bob","view":{"at":"stage.bob","target":"bob.txn"},"expect":["fact:bob.staged={\"balance\":80}","fact:staged.bodies={\"balance\":100} {\"balance\":50}"],"html":"\u003cp>Then bob&#39;s new value, \u003ccode>{&quot;balance&quot;:80}\u003c/code>, is staged the same\nway, in \u003cspan class=\"hl\">his &quot;txn&quot; xattr\u003c/span>.\u003c/p>\n\u003cp>Both docs now point at the ATR, and both bodies are just as\nthey were. If the app stopped here, nobody outside the\ntransaction would have seen anything change.\u003c/p>\n"}]},{"id":"commit","title":"The commit point","color":"commit","steps":[{"id":"commit","view":{"at":"commit","target":"atr.entry"},"code":["atr.commit"],"expect":["fact:commit.st=COMMITTED","fact:commit.rep=alice,bob"],"html":"\u003cp>Now Commit. It&#39;s one write, to one doc: in\n\u003cspan class=\"hl\">the ATR&#39;s entry\u003c/span>, PENDING becomes COMMITTED, and the same\nwrite lists the docs the transaction changed, alice and bob.\u003c/p>\n\u003cp>A write to one doc is atomic. So this write has either\nhappened or it hasn&#39;t, and nothing in between.\u003c/p>\n"},{"id":"point","view":{"at":"halves","target":"halves"},"expect":["fact:committed.bodies={\"balance\":100} {\"balance\":50}"],"html":"\u003cp>That write is the transaction&#39;s commit point, and it splits\n\u003cspan class=\"hl\">the track in two\u003c/span>.\u003c/p>\n\u003cp>If the app crashes before it, the ATR still says PENDING,\nand the transaction is rolled back: its staged values are\nremoved by whoever finds them later. If the app crashes\nafter it, the ATR says COMMITTED, and the transaction is\nrolled forward: someone else finishes unstaging. Either way,\nalice and bob end up both changed or both unchanged.\u003c/p>\n\u003cp>Notice that the bodies still say 100 and 50, even now. The\ntransfer has happened, but the docs&#39; bodies don&#39;t show it\nyet.\u003c/p>\n"}]},{"id":"unstage","title":"Unstaging","color":"done","steps":[{"id":"unstage-alice","view":{"at":"unstage.alice","target":"alice.body"},"code":["unstage"],"expect":["fact:alice.after={\"balance\":70}"],"html":"\u003cp>So gocbcore unstages. In one write to alice&#39;s doc,\n\u003cspan class=\"hl\">her staged value\u003c/span> becomes her body, and her &quot;txn&quot; xattr\nis deleted.\u003c/p>\n\u003cp>From now on, anyone who reads alice sees 70.\u003c/p>\n"},{"id":"unstage-bob","view":{"at":"unstage.bob","target":"bob.body"},"expect":["fact:bob.midway={\"balance\":50}"],"html":"\u003cp>Then bob is unstaged the same way, and \u003cspan class=\"hl\">his body\u003c/span> becomes\n80.\u003c/p>\n\u003cp>Just before this write, a plain read would have seen alice\nat 70 and bob still at 50. A transaction&#39;s read doesn&#39;t\nmake that mistake. It finds bob&#39;s &quot;txn&quot; xattr, looks up the\nATR it points to, sees COMMITTED, and returns the staged 80.\nThe next explainer is about those reads.\u003c/p>\n"},{"id":"complete","view":{"at":"atr.done","target":"atr.entry"},"code":["atr.complete"],"expect":["fact:done.atr={\"entry\":null}","fact:done.state=completed"],"html":"\u003cp>Last, \u003cspan class=\"hl\">the attempt&#39;s entry\u003c/span> is deleted from the ATR. The\nATR doc itself stays, ready for the next transaction whose\nfirst doc is in vbucket 910.\u003c/p>\n"},{"id":"end","view":{"at":"clean","target":"station.3"},"expect":["fact:writes=7"],"html":"\u003cp>That&#39;s the whole transaction: 7 ordinary writes, each to one\ndoc, and \u003cspan class=\"hl\">one of them\u003c/span>, the ATR&#39;s flip to COMMITTED, decides\nwhether the transfer happened.\u003c/p>\n\u003cp>Everything else is arranged around that one write. Before it,\neach change waits, staged in an xattr beside the doc it\nchanges. After it, the staged values are moved into place.\nAnd because each staged value points back to the ATR, anyone\nwho finds one can tell which side of the commit point it&#39;s\non.\u003c/p>\n"}]}],"id":"transactions/01-life","subtitleHtml":"\u003cp>Alice pays Bob 30: two docs, two writes, and a server that can only change one doc at a time. Follow each request from the app to the server, and watch the one write that makes the whole transfer happen.\u003c/p>\n"},"snippets":{"txn.get":{"id":"txn.get","repo":"gocbcore","path":"transactionattempt_get.go","title":"gocbcore fetchDocWithMeta() — a transaction's read, its doc's body and its \"txn\" xattr together","start":494,"end":510,"highlight":[502,506],"url":"https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_get.go#L494-L510","lines":["\t\t\tops := []SubDocOp{","\t\t\t\t{","\t\t\t\t\tOp:    memd.SubDocOpGet,","\t\t\t\t\tPath:  \u003cspan class=\"hljs-string\">&quot;$document&quot;\u003c/span>,","\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,","\t\t\t\t},","\t\t\t\t{","\t\t\t\t\tOp:    memd.SubDocOpGet,","\t\t\t\t\tPath:  \u003cspan class=\"hljs-string\">&quot;txn&quot;\u003c/span>,","\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,","\t\t\t\t},","\t\t\t\t{","\t\t\t\t\tOp:    memd.SubDocOpGetDoc,","\t\t\t\t\tPath:  \u003cspan class=\"hljs-string\">&quot;&quot;\u003c/span>,","\t\t\t\t\tFlags: \u003cspan class=\"hljs-number\">0\u003c/span>,","\t\t\t\t},","\t\t\t}"]},"atr.confirm":{"id":"atr.confirm","repo":"gocbcore","path":"transactionattempt_helpers.go","title":"gocbcore confirmATRPending() — before the first write, choose the ATR, and mark the attempt PENDING","start":238,"end":275,"highlight":[252,257,269],"url":"https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_helpers.go#L238-L275","lines":["\u003cspan class=\"hljs-function\">\u003cspan class=\"hljs-keyword\">func\u003c/span> \u003cspan class=\"hljs-params\">(t *transactionAttempt)\u003c/span>\u003c/span> confirmATRPending(","\tfirstAgent *Agent,","\tfirstOboUser \u003cspan class=\"hljs-type\">string\u003c/span>,","\tfirstScopeName \u003cspan class=\"hljs-type\">string\u003c/span>,","\tfirstCollectionName \u003cspan class=\"hljs-type\">string\u003c/span>,","\tfirstKey []\u003cspan class=\"hljs-type\">byte\u003c/span>,","\tcb \u003cspan class=\"hljs-function\">\u003cspan class=\"hljs-keyword\">func\u003c/span>\u003cspan class=\"hljs-params\">(*TransactionOperationFailedError)\u003c/span>\u003c/span>,",") {","\tt.lock.Lock(\u003cspan class=\"hljs-function\">\u003cspan class=\"hljs-keyword\">func\u003c/span>\u003cspan class=\"hljs-params\">(unlock \u003cspan class=\"hljs-keyword\">func\u003c/span>()\u003c/span>\u003c/span>) {","\t\tunlockAndCb := \u003cspan class=\"hljs-function\">\u003cspan class=\"hljs-keyword\">func\u003c/span>\u003cspan class=\"hljs-params\">(err *TransactionOperationFailedError)\u003c/span>\u003c/span> {","\t\t\tunlock()","\t\t\tcb(err)","\t\t}","","\t\t\u003cspan class=\"hljs-keyword\">if\u003c/span> t.state != TransactionAttemptStateNothingWritten {","\t\t\tunlockAndCb(\u003cspan class=\"hljs-literal\">nil\u003c/span>)","\t\t\t\u003cspan class=\"hljs-keyword\">return\u003c/span>","\t\t}","","\t\tt.selectAtrLocked(","\t\t\tfirstAgent,","\t\t\tfirstOboUser,","\t\t\tfirstScopeName,","\t\t\tfirstCollectionName,","\t\t\tfirstKey,","\t\t\t\u003cspan class=\"hljs-function\">\u003cspan class=\"hljs-keyword\">func\u003c/span>\u003cspan class=\"hljs-params\">(err *TransactionOperationFailedError)\u003c/span>\u003c/span> {","\t\t\t\t\u003cspan class=\"hljs-keyword\">if\u003c/span> err != \u003cspan class=\"hljs-literal\">nil\u003c/span> {","\t\t\t\t\tunlockAndCb(err)","\t\t\t\t\t\u003cspan class=\"hljs-keyword\">return\u003c/span>","\t\t\t\t}","","\t\t\t\tt.setATRPendingLocked(\u003cspan class=\"hljs-function\">\u003cspan class=\"hljs-keyword\">func\u003c/span>\u003cspan class=\"hljs-params\">(err *TransactionOperationFailedError)\u003c/span>\u003c/span> {","\t\t\t\t\t\u003cspan class=\"hljs-keyword\">if\u003c/span> err != \u003cspan class=\"hljs-literal\">nil\u003c/span> {","\t\t\t\t\t\tunlockAndCb(err)","\t\t\t\t\t\t\u003cspan class=\"hljs-keyword\">return\u003c/span>","\t\t\t\t\t}","","\t\t\t\t\tt.state = TransactionAttemptStatePending"]},"atr.select":{"id":"atr.select","repo":"gocbcore","path":"transactionattempt_atrs.go","title":"gocbcore selectAtrLocked() — the ATR for the vbucket of the first doc changed","start":34,"end":35,"highlight":[34,35],"url":"https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L34-L35","lines":["\tatrID := \u003cspan class=\"hljs-type\">int\u003c/span>(cbcVbMap(firstKey, \u003cspan class=\"hljs-number\">1024\u003c/span>))","\tatrKey := []\u003cspan class=\"hljs-type\">byte\u003c/span>(transactionAtrIDList[atrID])"]},"atr.pending":{"id":"atr.pending","repo":"gocbcore","path":"transactionattempt_atrs.go","title":"gocbcore setATRPendingLocked() — the attempt's entry, in the ATR's \"attempts\" xattr","start":170,"end":179,"highlight":[172,178],"url":"https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L170-L179","lines":["\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;tst&quot;\u003c/span>, \u003cspan class=\"hljs-string\">&quot;${Mutation.CAS}&quot;\u003c/span>, memd.SubdocFlagXattrPath|memd.SubdocFlagExpandMacros),","\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;tid&quot;\u003c/span>, t.transactionID, memd.SubdocFlagXattrPath),","\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;st&quot;\u003c/span>, jsonAtrStatePending, memd.SubdocFlagXattrPath),","\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;exp&quot;\u003c/span>, time.Until(t.expiryTime)/time.Millisecond, memd.SubdocFlagXattrPath),","\t\t\t\t{","\t\t\t\t\tOp:    memd.SubDocOpSetDoc,","\t\t\t\t\tFlags: memd.SubdocFlagNone,","\t\t\t\t\tPath:  \u003cspan class=\"hljs-string\">&quot;&quot;\u003c/span>,","\t\t\t\t\tValue: []\u003cspan class=\"hljs-type\">byte\u003c/span>{\u003cspan class=\"hljs-number\">0\u003c/span>},","\t\t\t\t},"]},"stage.replace":{"id":"stage.replace","repo":"gocbcore","path":"transactionattempt_replace.go","title":"gocbcore stageReplace() — the new value, staged in the doc's \"txn\" xattr; its body untouched","start":274,"end":305,"highlight":[274,276,300],"url":"https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_replace.go#L274-L305","lines":["\t\t\t\ttxnMeta.ATR.DocID = \u003cspan class=\"hljs-type\">string\u003c/span>(t.atrKey)","\t\t\t\ttxnMeta.Operation.Type = jsonMutationReplace","\t\t\t\ttxnMeta.Operation.Staged = stagedInfo.Staged","\t\t\t\ttxnMeta.Restore = &amp;jsonTxnXattrRestore{","\t\t\t\t\tOriginalCAS: \u003cspan class=\"hljs-string\">&quot;&quot;\u003c/span>,","\t\t\t\t\tExpiryTime:  \u003cspan class=\"hljs-number\">0\u003c/span>,","\t\t\t\t\tRevID:       \u003cspan class=\"hljs-string\">&quot;&quot;\u003c/span>,","\t\t\t\t}","\t\t\t\ttxnMeta.Aux.UserFlags = stagedInfo.StagedUserFlags","","\t\t\t\t\u003cspan class=\"hljs-keyword\">if\u003c/span> isBinarySupported &amp;&amp; isBinaryFlags {","\t\t\t\t\ttxnMeta.Operation.Staged = \u003cspan class=\"hljs-literal\">nil\u003c/span>","\t\t\t\t\tt.addBinarySupportForwardCompat(&amp;txnMeta)","\t\t\t\t}","","\t\t\t\ttxnMetaBytes, err := json.Marshal(txnMeta)","\t\t\t\t\u003cspan class=\"hljs-keyword\">if\u003c/span> err != \u003cspan class=\"hljs-literal\">nil\u003c/span> {","\t\t\t\t\tecCb(\u003cspan class=\"hljs-literal\">nil\u003c/span>, classifyError(err))","\t\t\t\t\t\u003cspan class=\"hljs-keyword\">return\u003c/span>","\t\t\t\t}","","\t\t\t\tdeadline, duraTimeout := transactionsMutationTimeouts(t.keyValueTimeout, t.durabilityLevel)","","\t\t\t\tops := []SubDocOp{","\t\t\t\t\t{","\t\t\t\t\t\tOp:    memd.SubDocOpDictSet,","\t\t\t\t\t\tPath:  \u003cspan class=\"hljs-string\">&quot;txn&quot;\u003c/span>,","\t\t\t\t\t\tFlags: memd.SubdocFlagMkDirP | memd.SubdocFlagXattrPath,","\t\t\t\t\t\tValue: txnMetaBytes,","\t\t\t\t\t},","\t\t\t\t\t{","\t\t\t\t\t\tOp:    memd.SubDocOpDictSet,"]},"atr.commit":{"id":"atr.commit","repo":"gocbcore","path":"transactionattempt_atrs.go","title":"gocbcore setATRCommittedLocked() — one write to one doc, COMMITTED and the docs it covers","start":553,"end":558,"highlight":[553,557],"url":"https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L553-L558","lines":["\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;st&quot;\u003c/span>, jsonAtrStateCommitted, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),","\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;tsc&quot;\u003c/span>, \u003cspan class=\"hljs-string\">&quot;${Mutation.CAS}&quot;\u003c/span>, memd.SubdocFlagXattrPath|memd.SubdocFlagExpandMacros, memd.SubDocOpDictSet),","\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;p&quot;\u003c/span>, \u003cspan class=\"hljs-number\">0\u003c/span>, memd.SubdocFlagXattrPath, memd.SubDocOpDictAdd),","\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;ins&quot;\u003c/span>, insMutations, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),","\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;rep&quot;\u003c/span>, repMutations, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),","\t\t\t\tatrFieldOp(\u003cspan class=\"hljs-string\">&quot;rem&quot;\u003c/span>, remMutations, memd.SubdocFlagXattrPath, memd.SubDocOpDictSet),"]},"unstage":{"id":"unstage","repo":"gocbcore","path":"transactionattempt_commit.go","title":"gocbcore commitStagedReplace() — the staged value becomes the body, and the \"txn\" xattr goes","start":461,"end":473,"highlight":[465,470],"url":"https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_commit.go#L461-L473","lines":["\t\t\t\t\u003cspan class=\"hljs-keyword\">var\u003c/span> specs []SubDocOp","\t\t\t\t\u003cspan class=\"hljs-keyword\">if\u003c/span> supportsReplaceBody {","\t\t\t\t\tspecs = \u003cspan class=\"hljs-built_in\">make\u003c/span>([]SubDocOp, \u003cspan class=\"hljs-number\">2\u003c/span>)","\t\t\t\t\tspecs[\u003cspan class=\"hljs-number\">0\u003c/span>] = SubDocOp{","\t\t\t\t\t\tOp:    memd.SubDocOpReplaceBodyWithXattr,","\t\t\t\t\t\tFlags: bodyOpFlags,","\t\t\t\t\t\tPath:  bodyPath,","\t\t\t\t\t}","\t\t\t\t\tspecs[\u003cspan class=\"hljs-number\">1\u003c/span>] = SubDocOp{","\t\t\t\t\t\tOp:    memd.SubDocOpDelete,","\t\t\t\t\t\tPath:  \u003cspan class=\"hljs-string\">&quot;txn&quot;\u003c/span>,","\t\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,","\t\t\t\t\t}"]},"atr.complete":{"id":"atr.complete","repo":"gocbcore","path":"transactionattempt_atrs.go","title":"gocbcore setATRCompletedLocked() — the attempt's entry, deleted from the ATR","start":661,"end":674,"highlight":[669,671],"url":"https://github.com/couchbase/gocbcore/blob/v10.9.3/transactionattempt_atrs.go#L661-L674","lines":["\t\tt.hooks.BeforeATRComplete(\u003cspan class=\"hljs-function\">\u003cspan class=\"hljs-keyword\">func\u003c/span>\u003cspan class=\"hljs-params\">(err \u003cspan class=\"hljs-type\">error\u003c/span>)\u003c/span>\u003c/span> {","\t\t\t\u003cspan class=\"hljs-keyword\">if\u003c/span> err != \u003cspan class=\"hljs-literal\">nil\u003c/span> {","\t\t\t\tecCb(classifyHookError(err))","\t\t\t\t\u003cspan class=\"hljs-keyword\">return\u003c/span>","\t\t\t}","","\t\t\tatrOps := []SubDocOp{","\t\t\t\t{","\t\t\t\t\tOp:    memd.SubDocOpDelete,","\t\t\t\t\tFlags: memd.SubdocFlagXattrPath,","\t\t\t\t\tPath:  \u003cspan class=\"hljs-string\">&quot;attempts.&quot;\u003c/span> + t.id,","\t\t\t\t},","\t\t\t}",""]}},"sources":{"gocbcore":{"github":"https://github.com/couchbase/gocbcore","commit":"v10.9.3","version":"v10.9.3"}},"builtAt":"2026-10-18","version":"v0.2.0-257-g1628e2c","next":null,"topic":{"href":"index.html","title":"Inside client-side transactions","label":"transactions"}}</script>
+<script>
+(()=>{var Te=Object.defineProperty;var Me=(e,t)=>{for(var n in t)Te(e,n,{get:t[n],enumerable:!0})};var ht=null,Re={SIM:null,EXPECTATIONS:{},EXPECTATION_PARAMS:{},VIEW_KEYS:{},DYNAMIC_ANCHORS:[]};function le(e){ht={...Re,...e}}var ee={};Me(ee,{ANCHORS:()=>Jt,APP:()=>X,BODY:()=>K,BUBBLES:()=>Oe,CAMERAS:()=>Ie,CANVAS:()=>Gt,CARD:()=>h,CHAR_W:()=>de,CLUSTER:()=>et,CODE:()=>ft,EXPECTATION_PARAMS:()=>Pe,FACTS:()=>Zt,LIDS:()=>$e,LINES:()=>At,POINTER_Y:()=>Ct,READ_X:()=>$t,SECTION_COLORS:()=>Ne,TRACK:()=>M,VIEW_KEYS:()=>De,XATTR:()=>L,charX:()=>Et,factModel:()=>Ye,lineY:()=>tt,sceneAt:()=>te,statePath:()=>_t,stationX:()=>nt,xattrRowY:()=>bt});var Gt=[0,0,1e3,640],X={x:30,y:20,w:420,h:200},ft={x:X.x+36,y:X.y+62,dy:28,font:13},de=ft.font*.6,tt=e=>ft.y+e*ft.dy,Et=e=>ft.x+e*de,At=['a := txn.Get("alice")','b := txn.Get("bob")','txn.Replace(a, {"balance":70})','txn.Replace(b, {"balance":80})',"txn.Commit()"],$t=Et(22)+12,M={x:470,y:20,w:500,h:200,x0:500,dx:70,sy:96},nt=e=>M.x0+e*M.dx,et={x:30,y:244,w:940,h:384},h={y:290,w:290,h:256,x:{alice:50,bob:355,atr:660}},K={dy:44,h:40},L={dy:112,h:132,row0:26,rowDy:25},bt=e=>h.y+L.dy+L.row0+e*L.rowDy,Ct={alice:592,bob:572},$e={},Oe={},Ie={overview:{rect:[0,0,1e3,640],label:"",section:null}},Kt=e=>({p:[h.x[e]+4,h.y+18],needs:[]}),Jt={app:{p:[X.x+4,X.y+24],needs:[]},...Object.fromEntries(At.map((e,t)=>[`line.${t}`,{p:[ft.x-6,tt(t)-4],needs:[]}])),read:{p:[$t,tt(0)-4],needs:[]},track:{p:[M.x+4,M.y+24],needs:[]},...Object.fromEntries([0,1,2,3,4,5,6].map(e=>[`station.${e}`,{p:[nt(e),M.sy],needs:[]}])),halves:{p:[M.x+4,M.y+172],needs:[]},cluster:{p:[et.x+4,et.y+22],needs:[]},alice:Kt("alice"),bob:Kt("bob"),atr:Kt("atr"),"alice.body":{p:[h.x.alice+4,h.y+K.dy+20],needs:[]},"bob.body":{p:[h.x.bob+4,h.y+K.dy+20],needs:[]},"alice.txn":{p:[h.x.alice+4,h.y+L.dy+10],needs:[]},"bob.txn":{p:[h.x.bob+4,h.y+L.dy+10],needs:[]},"atr.entry":{p:[h.x.atr+4,h.y+L.dy+10],needs:[]}},Ne=["app","stage","commit","done","neutral"];var Ut={atr:"_txn:atr-910-#891",atrIds:1024,atrUsed:!0,gocbcore:"v10.9.3",mock:"gocaves v0.0.1-79",seed:{alice:'{"balance":100}',bob:'{"balance":50}'},snaps:[{at:"begun",docs:{alice:{body:{balance:100},txn:null},bob:{body:{balance:50},txn:null}},atr:null},{at:"Got alice",docs:{alice:{body:{balance:100},txn:null},bob:{body:{balance:50},txn:null}},atr:null},{at:"Got bob",docs:{alice:{body:{balance:100},txn:null},bob:{body:{balance:50},txn:null}},atr:null},{at:"BeforeATRPending",docs:{alice:{body:{balance:100},txn:null},bob:{body:{balance:50},txn:null}},atr:null},{at:"AfterATRPending",docs:{alice:{body:{balance:100},txn:null},bob:{body:{balance:50},txn:null}},atr:{"attempt-1":{d:"n",exp:6e4,st:"PENDING",tid:"txn-1",tst:"cas-1"}}},{at:"BeforeStagedReplace alice",docs:{alice:{body:{balance:100},txn:null},bob:{body:{balance:50},txn:null}},atr:{"attempt-1":{d:"n",exp:6e4,st:"PENDING",tid:"txn-1",tst:"cas-1"}}},{at:"AfterStagedReplaceComplete alice",docs:{alice:{body:{balance:100},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-1",txn:"txn-1"},op:{crc32:"0x5cc63830",stgd:{balance:70},type:"replace"},restore:{CAS:"cas-2",exptime:0,revid:"1"}}},bob:{body:{balance:50},txn:null}},atr:{"attempt-1":{d:"n",exp:6e4,st:"PENDING",tid:"txn-1",tst:"cas-1"}}},{at:"BeforeStagedReplace bob",docs:{alice:{body:{balance:100},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-1",txn:"txn-1"},op:{crc32:"0x5cc63830",stgd:{balance:70},type:"replace"},restore:{CAS:"cas-2",exptime:0,revid:"1"}}},bob:{body:{balance:50},txn:null}},atr:{"attempt-1":{d:"n",exp:6e4,st:"PENDING",tid:"txn-1",tst:"cas-1"}}},{at:"AfterStagedReplaceComplete bob",docs:{alice:{body:{balance:100},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-1",txn:"txn-1"},op:{crc32:"0x5cc63830",stgd:{balance:70},type:"replace"},restore:{CAS:"cas-2",exptime:0,revid:"1"}}},bob:{body:{balance:50},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-2",txn:"txn-1"},op:{crc32:"0xe8ec15a6",stgd:{balance:80},type:"replace"},restore:{CAS:"cas-3",exptime:0,revid:"1"}}}},atr:{"attempt-1":{d:"n",exp:6e4,st:"PENDING",tid:"txn-1",tst:"cas-1"}}},{at:"BeforeATRCommit",docs:{alice:{body:{balance:100},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-1",txn:"txn-1"},op:{crc32:"0x5cc63830",stgd:{balance:70},type:"replace"},restore:{CAS:"cas-2",exptime:0,revid:"1"}}},bob:{body:{balance:50},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-2",txn:"txn-1"},op:{crc32:"0xe8ec15a6",stgd:{balance:80},type:"replace"},restore:{CAS:"cas-3",exptime:0,revid:"1"}}}},atr:{"attempt-1":{d:"n",exp:6e4,st:"PENDING",tid:"txn-1",tst:"cas-1"}}},{at:"AfterATRCommit",docs:{alice:{body:{balance:100},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-1",txn:"txn-1"},op:{crc32:"0x5cc63830",stgd:{balance:70},type:"replace"},restore:{CAS:"cas-2",exptime:0,revid:"1"}}},bob:{body:{balance:50},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-2",txn:"txn-1"},op:{crc32:"0xe8ec15a6",stgd:{balance:80},type:"replace"},restore:{CAS:"cas-3",exptime:0,revid:"1"}}}},atr:{"attempt-1":{d:"n",exp:6e4,ins:[],p:0,rem:[],rep:[{bkt:"default",id:"alice"},{bkt:"default",id:"bob"}],st:"COMMITTED",tid:"txn-1",tsc:"cas-4",tst:"cas-1"}}},{at:"BeforeDocCommitted alice",docs:{alice:{body:{balance:100},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-1",txn:"txn-1"},op:{crc32:"0x5cc63830",stgd:{balance:70},type:"replace"},restore:{CAS:"cas-2",exptime:0,revid:"1"}}},bob:{body:{balance:50},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-2",txn:"txn-1"},op:{crc32:"0xe8ec15a6",stgd:{balance:80},type:"replace"},restore:{CAS:"cas-3",exptime:0,revid:"1"}}}},atr:{"attempt-1":{d:"n",exp:6e4,ins:[],p:0,rem:[],rep:[{bkt:"default",id:"alice"},{bkt:"default",id:"bob"}],st:"COMMITTED",tid:"txn-1",tsc:"cas-4",tst:"cas-1"}}},{at:"AfterDocCommitted alice",docs:{alice:{body:{balance:70},txn:null},bob:{body:{balance:50},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-2",txn:"txn-1"},op:{crc32:"0xe8ec15a6",stgd:{balance:80},type:"replace"},restore:{CAS:"cas-3",exptime:0,revid:"1"}}}},atr:{"attempt-1":{d:"n",exp:6e4,ins:[],p:0,rem:[],rep:[{bkt:"default",id:"alice"},{bkt:"default",id:"bob"}],st:"COMMITTED",tid:"txn-1",tsc:"cas-4",tst:"cas-1"}}},{at:"BeforeDocCommitted bob",docs:{alice:{body:{balance:70},txn:null},bob:{body:{balance:50},txn:{atr:{bkt:"default",coll:"_default",id:"_txn:atr-910-#891",scp:"_default"},aux:{},id:{atmpt:"attempt-1",op:"op-2",txn:"txn-1"},op:{crc32:"0xe8ec15a6",stgd:{balance:80},type:"replace"},restore:{CAS:"cas-3",exptime:0,revid:"1"}}}},atr:{"attempt-1":{d:"n",exp:6e4,ins:[],p:0,rem:[],rep:[{bkt:"default",id:"alice"},{bkt:"default",id:"bob"}],st:"COMMITTED",tid:"txn-1",tsc:"cas-4",tst:"cas-1"}}},{at:"AfterDocCommitted bob",docs:{alice:{body:{balance:70},txn:null},bob:{body:{balance:80},txn:null}},atr:{"attempt-1":{d:"n",exp:6e4,ins:[],p:0,rem:[],rep:[{bkt:"default",id:"alice"},{bkt:"default",id:"bob"}],st:"COMMITTED",tid:"txn-1",tsc:"cas-4",tst:"cas-1"}}},{at:"BeforeATRComplete",docs:{alice:{body:{balance:70},txn:null},bob:{body:{balance:80},txn:null}},atr:{"attempt-1":{d:"n",exp:6e4,ins:[],p:0,rem:[],rep:[{bkt:"default",id:"alice"},{bkt:"default",id:"bob"}],st:"COMMITTED",tid:"txn-1",tsc:"cas-4",tst:"cas-1"}}},{at:"AfterATRComplete",docs:{alice:{body:{balance:70},txn:null},bob:{body:{balance:80},txn:null}},atr:{}},{at:"Committed",docs:{alice:{body:{balance:70},txn:null},bob:{body:{balance:80},txn:null}},atr:{}}],state:"completed",values:{alice:'{"balance":70}',bob:'{"balance":80}'},vb:{alice:910,bob:459},vbuckets:1024};var G=Ut,Ot=["alice","bob"],qt=Ut.snaps,mt=e=>{let t=qt.find(n=>n.at===e);if(!t)throw new Error(`no snapshot ${e}`);return t},W=[{key:"atr.pending",at:"AfterATRPending",doc:"atr",label:["ATR","PENDING"]},{key:"stage.alice",at:"AfterStagedReplaceComplete alice",doc:"alice",label:["stage","alice"]},{key:"stage.bob",at:"AfterStagedReplaceComplete bob",doc:"bob",label:["stage","bob"]},{key:"commit",at:"AfterATRCommit",doc:"atr",label:["ATR","COMMITTED"]},{key:"unstage.alice",at:"AfterDocCommitted alice",doc:"alice",label:["unstage","alice"]},{key:"unstage.bob",at:"AfterDocCommitted bob",doc:"bob",label:["unstage","bob"]},{key:"atr.done",at:"AfterATRComplete",doc:"atr",label:["ATR","entry gone"]}],It=W.findIndex(e=>e.key==="commit");function z(e){return mt(e===0?"Got bob":W[e-1].at)}function xt(e,t){let n=e.docs[t],o=n.txn;return{body:JSON.stringify(n.body),txn:o&&{atr:o.atr.id,atmpt:o.id.atmpt,type:o.op.type,stgd:JSON.stringify(o.op.stgd)}}}function ut(e){if(e.atr==null)return null;let t=Object.keys(e.atr);if(!t.length)return{entry:null};let n=e.atr[t[0]];return{entry:{id:t[0],st:n.st,tid:n.tid,exp:n.exp,rep:n.rep?n.rep.map(o=>o.id):null}}}function Qt(e,t){let n=Ot.filter(o=>JSON.stringify(e.docs[o])!==JSON.stringify(t.docs[o]));return JSON.stringify(e.atr)!==JSON.stringify(t.atr)&&n.push("atr"),n}var pe={reads:0,track:!1,writes:0,halves:!1,clean:!1},Le=[["start",{}],["get.alice",{reads:1}],["get.bob",{reads:2}],["track",{track:!0}],...W.slice(0,4).map((e,t)=>[e.key,{writes:t+1}]),["halves",{halves:!0}],...W.slice(4).map((e,t)=>[e.key,{writes:t+5}]),["clean",{clean:!0}]],Tt=[];{let e=pe;Le.forEach(([t,n],o)=>{e={...e,...n},Tt.push({key:t,i:o,...e})})}var pt=Object.fromEntries(Tt.map(e=>[e.key,e])),Nt=(e,t)=>Object.keys(pe).filter(n=>JSON.stringify(e[n])!==JSON.stringify(t[n]));function _t(e,t){let n=pt[e],o=pt[t];return!n||!o||o.i<=n.i?[e,t]:Tt.slice(n.i,o.i+1).map(a=>a.key)}var De={at:{values:Tt.map(e=>e.key),sticky:!0,initial:"start",counts:()=>!0}};function Be(){let e=mt("begun"),t=(o,a)=>xt(o,a).body,n=ut(mt("AfterATRCommit")).entry;return{"vb.alice":G.vb.alice,"vb.bob":G.vb.bob,vbuckets:G.vbuckets,"atr.ids":G.atrIds,"atr.key":G.atr,"atr.used":G.atrUsed,"alice.before":t(e,"alice"),"bob.before":t(e,"bob"),"alice.staged":xt(z(2),"alice").txn.stgd,"bob.staged":xt(z(3),"bob").txn.stgd,"reads.write":["Got alice","Got bob"].some(o=>Qt(e,mt(o)).length>0),"atr.beforeReplace":JSON.stringify(mt("BeforeATRPending").atr),writes:W.length,"writes.oneDoc":W.every((o,a)=>{let s=Qt(z(a),z(a+1));return s.length===1&&s[0]===o.doc}),"pending.st":ut(z(1)).entry.st,"pending.fields":Object.keys(qt.find(o=>o.at==="AfterATRPending").atr["attempt-1"]).join(","),"pending.exp":ut(z(1)).entry.exp/1e3,"commit.st":n.st,"commit.rep":n.rep.join(","),"staged.bodies":Ot.map(o=>t(z(3),o)).join(" "),"committed.bodies":Ot.map(o=>t(z(4),o)).join(" "),"alice.after":t(z(5),"alice"),"bob.midway":t(z(5),"bob"),"done.atr":JSON.stringify(ut(z(7))),"done.state":G.state,gocbcore:G.gocbcore}}var Zt=Be(),Pe={fact:{valid:e=>/^[\w.-]+=.+$/.test(e)&&e.split("=")[0]in Zt,check:(e,t)=>{let[n,o]=[t.slice(0,t.indexOf("=")),t.slice(t.indexOf("=")+1)];return String(Zt[n])===o}}},Ye=()=>({});function te(e,t){return{at:e[t].at,state:pt[e[t].at]}}le(ee);var Fe="http://www.w3.org/2000/svg";function p(e,t={},...n){let o=document.createElement(e);for(let[a,s]of Object.entries(t))a==="class"?o.className=s:a==="text"?o.textContent=s:a==="html"?o.innerHTML=s:a.startsWith("on")?o.addEventListener(a.slice(2),s):o.setAttribute(a,s);for(let a of n)a&&o.append(a);return o}function v(e,t={},n=null){let o=document.createElementNS(Fe,e);for(let[a,s]of Object.entries(t))o.setAttribute(a,s);return n&&n.append(o),o}function S(e,t,n,o,a,s){let i=v("text",{x:t,y:n,class:a||""},e);return s&&i.setAttribute("text-anchor",s),i.textContent=o,i}var ze=e=>(e||"").slice(0,12),je=e=>e.length<2?e.join(""):`${e.slice(0,-1).join(", ")} and ${e[e.length-1]}`,He=e=>`<a href="${e.github}/tree/${e.commit}" target="_blank" rel="noopener">${ze(e.commit)}</a>`;function Xe(e,t){if(e.protocol!=="file:")return!0;let n=decodeURIComponent(e.pathname);return n.endsWith(`/${t}.html`)||n.endsWith(`/${t}-drafts.html`)}function he(e,t,n,{simulation:o=!1}={}){let{narrative:a,snippets:s,sources:i}=t,c=Xe(window.location,a.id),r=c&&t.next,l=p("div",{class:"layout"}),d=p("main",{class:"story"}),b=p("section",{class:"stage","aria-label":"Diagram"}),y=p("aside",{class:"charts","aria-label":"Charts"}),$=v("svg",{class:"overlay","aria-hidden":"true"});l.append(d,b,y),e.append(l,$),a.draft&&e.append(p("div",{class:"draft-corner","aria-hidden":"true"},p("span",{class:"draft-stamp"},p("span",{class:"draft-word",text:"Draft"}),p("span",{class:"draft-sub",text:"work in progress"})))),d.append(p("header",{class:`hero card${a.draft?" is-draft":""}`},...a.draft?[p("span",{class:"draft-stamp",text:"Draft"})]:[],c?p("a",{class:"eyebrow",href:t.topic.href,title:`All the explainers in \u201C${t.topic.title}\u201D`,text:t.topic.label}):p("div",{class:"eyebrow",text:t.topic.label}),p("h1",{text:a.title}),p("div",{class:"subtitle",html:a.subtitleHtml}),p("div",{class:"meta",html:`Modeled on ${je(Object.entries(i).map(([f,A])=>`${f} ${He(A)}`))} \xB7 built ${t.builtAt}${t.version?` \xB7 version ${t.version}`:""}`}),p("p",{class:"scroll-hint",text:"Scroll to begin \u2193"})));let k=[];for(let f of a.chapters){d.append(p("h2",{class:`chapter-title card sec-${f.color||"neutral"}`,id:f.id},p("span",{class:"chapter-dot"}),p("span",{text:f.title})));for(let A of f.steps){let P=p("div",{class:"card"},p("div",{class:"step-body",html:A.html}));A.code&&A.code.length&&P.append(p("div",{class:"code-chips"},...A.code.map(H=>{let Q=s[H];return p("button",{class:"code-chip",type:"button",title:Q.title,onclick:()=>n.toggle(A.code,H)},p("span",{class:"repo",text:`${Q.repo}/${Q.path.split("/").pop()}`}),p("span",{class:"sep",text:" \xB7 "}),p("span",{class:"name",text:Q.title.split(" \u2014 ")[0]}))})));let j=p("section",{class:"step",id:`${f.id}--${A.id}`,"data-index":String(k.length)},P);d.append(j),k.push(j)}}let x=()=>{for(let f of d.querySelectorAll(".code-chip")){f.classList.remove("stacked");let A=f.querySelector(".repo");f.querySelector(".name").getBoundingClientRect().bottom>A.getBoundingClientRect().bottom+2&&f.classList.add("stacked")}},w=0;window.addEventListener("resize",()=>{cancelAnimationFrame(w),w=requestAnimationFrame(x)}),requestAnimationFrame(x),document.fonts&&document.fonts.ready.then(x);let m=p("div",{class:"card next-card"});r?m.append(p("div",{class:"eyebrow",text:"Next"}),p("a",{class:"next-link",href:r.href,text:`${r.title} \u2192`})):m.append(p("div",{class:"eyebrow",text:"The end"}),p("div",{class:"end-note",text:"Thanks for reading!"})),c&&m.append(p("a",{class:"up-link",href:t.topic.href,text:`All the explainers in \u201C${t.topic.title}\u201D \u2191`}));let Y=p("a",{class:"top-link",href:"#",text:"Back to the top \u2191"});if(Y.addEventListener("click",f=>{f.preventDefault(),window.scrollTo({top:0,behavior:"instant"})}),m.append(Y),d.append(m),!c)for(let f of d.querySelectorAll("a[href]"))/^[^:/?#]+\.html(#.*)?$/.test(f.getAttribute("href"))&&f.replaceWith(...f.childNodes);let _=(f,A)=>p("button",{class:"btn",type:"button",text:f,...A?{title:A}:{}}),C={crumbDot:p("span",{class:"crumb-dot"}),crumbText:p("span",{class:"crumb-text"}),codeBtn:_("Code"),zoomHint:p("span",{class:"zoom-hint",text:"drag to pan \xB7 \u2318/\u2325 + scroll or pinch to zoom \xB7 double-click to zoom in"})};o&&Object.assign(C,{clock:p("span",{class:"clock"}),playBtn:_("Play","Pause or resume the simulation (space)"),speedSel:p("select",{class:"btn",id:"speed","aria-label":"Simulation speed"},...[["auto","speed: auto"],["0.1","0.1\xD7"],["0.25","0.25\xD7"],["0.5","0.5\xD7"],["1","1\xD7"],["2","2\xD7"],["4","4\xD7"]].map(([f,A])=>p("option",{value:f,text:A}))),replayBtn:_("Replay","Rebuild this step\u2019s simulation from scratch"),knobsBtn:_("Knobs")}),C.crumb=p("span",{class:"crumb",title:"Where you are in the diagram"},C.crumbDot,C.crumbText);let g=p("span",{class:"tools"},C.zoomHint);o&&g.append(C.controls=p("span",{class:"controls"},C.clock,C.playBtn,C.speedSel,C.replayBtn,C.knobsBtn));let O=p("div",{class:"toolbar"},C.crumb,p("span",{class:"spacer"}),g,C.codeBtn),I=v("svg",{class:"diagram",preserveAspectRatio:"xMidYMid meet",role:"img","aria-label":`Diagram: ${a.title}`}),D=(f,A)=>p("button",{class:"zbtn",type:"button",text:f,"aria-label":A,title:A});C.zoomIn=D("+","Zoom in"),C.zoomOut=D("\u2212","Zoom out"),C.recenter=D("\u27F2","Recenter on the story");let E=p("div",{class:"viewport"},I,p("div",{class:"zoom"},C.zoomIn,C.zoomOut,C.recenter));return b.append(O,E),{layout:l,story:d,stepEls:k,stage:b,toolbar:O,viewport:E,svg:I,chartsCol:y,overlay:$,ui:C}}var Lt=class{constructor(t,n){this.snippets=n,this.ids=[],this.title=p("h2"),this.tabs=p("div",{class:"tabs",role:"tablist"}),this.where=p("div",{class:"where"}),this.pre=p("pre",{class:"code"}),this.body=p("div",{class:"body"},this.where,this.pre),this.el=p("div",{class:"drawer",role:"dialog","aria-label":"Source code","aria-hidden":"true"},p("header",{},this.title,p("button",{class:"btn",type:"button",text:"Close",onclick:()=>this.close()})),this.tabs,this.body),t.append(this.el)}setDefault(t){this.defaultIds=t}open(t,n){this.ids=t||this.defaultIds||[],this.ids.length!==0&&(this.tabs.replaceChildren(...this.ids.map(o=>p("button",{class:"btn",type:"button",role:"tab","data-id":o,text:this.snippets[o].title.split(" \u2014 ")[0],onclick:()=>this.show(o)}))),this.show(n||this.ids[0]),this.el.classList.add("open"),this.el.setAttribute("aria-hidden","false"),this.tabs.querySelector('[aria-selected="true"]')?.focus())}close(){this.el.classList.remove("open"),this.el.setAttribute("aria-hidden","true")}get isOpen(){return this.el.classList.contains("open")}toggle(t,n){let o=n||(t||this.defaultIds||[])[0];if(this.isOpen&&this.current===o)return this.close();this.open(t,n)}show(t){let n=this.snippets[t];this.current=t;for(let c of this.tabs.children)c.setAttribute("aria-selected",String(c.dataset.id===t));this.title.textContent=n.title;let o=p("a",{href:n.url,target:"_blank",rel:"noopener",text:"View on GitHub \u2197"});this.where.replaceChildren(p("span",{text:`${n.repo}/${n.path}:${n.start}\u2013${n.end}`}),o);let a=new Set(n.highlight),s=document.createDocumentFragment();n.lines.forEach((c,r)=>{let l=n.start+r,d=document.createElement("div");d.className=a.has(l)?"ln hl":"ln",d.innerHTML=`<span class="n">${l}</span><span>${c||" "}</span>`,s.append(d)}),this.pre.replaceChildren(s);let i=this.pre.querySelector(".hl");this.body.scrollTop=0,i&&(this.body.scrollTop=Math.max(0,i.offsetTop-80))}};var Dt=class{constructor(t,n,o){this.btn=p("button",{class:"toc-btn",type:"button","aria-expanded":"false","aria-controls":"toc-panel",title:"Contents"},p("span",{class:"toc-icon","aria-hidden":"true",text:"\u2630"}),p("span",{class:"toc-label",text:"Contents"})),this.items=n.map((a,s)=>{let i=p("a",{class:`toc-item sec-${a.color||"neutral"}`,href:a.href},p("span",{class:"chapter-dot"}),p("span",{text:a.title}));return i.addEventListener("click",c=>{c.metaKey||c.ctrlKey||c.shiftKey||c.button!==0||(c.preventDefault(),this.close(),o(s))}),i}),this.panel=p("nav",{class:"toc-panel card",id:"toc-panel","aria-label":"Contents",hidden:""},p("div",{class:"toc-head",text:"Contents"}),...this.items),this.el=p("div",{class:"toc"},this.btn,this.panel),t.append(this.el),this.btn.addEventListener("click",()=>this.isOpen?this.close():this.open()),document.addEventListener("pointerdown",a=>{this.isOpen&&!this.el.contains(a.target)&&this.close()}),document.addEventListener("keydown",a=>{a.key==="Escape"&&this.isOpen&&(this.close(),this.btn.focus())})}get isOpen(){return!this.panel.hidden}open(){this.panel.hidden=!1,this.btn.setAttribute("aria-expanded","true"),(this.items.find(t=>t.classList.contains("current"))||this.items[0])?.focus()}close(){this.panel.hidden=!0,this.btn.setAttribute("aria-expanded","false")}setCurrent(t){this.items.forEach((n,o)=>{n.classList.toggle("current",o===t),o===t?n.setAttribute("aria-current","location"):n.removeAttribute("aria-current")})}};var yt=e=>Math.max(0,Math.min(1,e)),q=(e,t,n)=>e+(t-e)*n,Bt=e=>e<.5?4*e*e*e:1-Math.pow(-2*e+2,3)/2,Pt=e=>e<.5?2*e*e:1-Math.pow(-2*e+2,2)/2,ue=(e,t,n)=>({x:q(e.x,t.x,n),y:q(e.y,t.y,n),w:q(e.w,t.w,n),h:q(e.h,t.h,n)});function ne(e,t,n,o,a,s){let i=o>=n?1:-1,c=r=>r.toFixed(1);return`M${c(e)},${c(t)} H${c(n)} L${c(o-i*s)},${c(a)} H${c(o)}`}var Yt=class{constructor({viewport:t,svg:n,story:o,chartsCol:a,toolbar:s,reduceMotion:i}){Object.assign(this,{viewport:t,svg:n,story:o,chartsCol:a,toolbar:s,reduceMotion:i}),this.user={dx:0,dy:0,z:1},this.relaxing=!1,this.free=null,this.view=null}freeArea(){let t=this.viewport.getBoundingClientRect();if(window.innerWidth<=900)return{left:t.left,top:t.top,width:t.width,height:t.height};let n=Math.min(t.width*.7,Math.max(0,this.story.getBoundingClientRect().right+24-t.left)),o=this.chartsCol.getBoundingClientRect().width,a=o>1?Math.min(t.width*.3,o+16):0,s=Math.max(0,this.toolbar.getBoundingClientRect().bottom+8-t.top);return{left:t.left+n,top:t.top+s,width:Math.max(100,t.width-n-a),height:t.height-s}}fit(t){let[n,o,a,s]=typeof t=="string"?ht.CAMERAS[t].rect:t,i=this.freeArea(),c=i.width/Math.max(1,i.height),r=Math.max(a-n,i.width<600?360:560),l=s-o,d=(n+a)/2,b=(o+s)/2;r/l>c?l=r/c:r=l*c;let[y,$,k,x]=ht.CANVAS,w=(m,Y,_,C)=>Y>=C-_?_+(C-_-Y)/2:Math.min(Math.max(m,_),C-Y);return{x:w(d-r/2,r,y,k),y:w(b-l/2,l,$,x),w:r,h:l}}between(t,n,o){let a=this.fit(n);return o>=1||!t?a:ue(this.fit(t),a,Bt(o))}follow(t,n){if(!n)return t;let[o,a]=n,s=Math.min(80,t.w*.12),i=Math.min(70,t.h*.1),c=0,r=0;return o<t.x+s?c=o-(t.x+s):o>t.x+t.w-s&&(c=o-(t.x+t.w-s)),a<t.y+i?r=a-(t.y+i):a>t.y+t.h-i&&(r=a-(t.y+t.h-i)),{...t,x:t.x+c,y:t.y+r}}show(t){let n=this.user,o=t.w/n.z,a=t.h/n.z,s={x:t.x+(t.w-o)/2+n.dx,y:t.y+(t.h-a)/2+n.dy,w:o,h:a};this.free=s;let i=this.viewport.getBoundingClientRect(),c=this.freeArea(),r=c.width/s.w,l={x:s.x-(c.left-i.left)/r,y:s.y-(c.top-i.top)/r,w:i.width/r,h:i.height/r};this.view=l,this.svg.setAttribute("viewBox",`${l.x.toFixed(2)} ${l.y.toFixed(2)} ${l.w.toFixed(2)} ${l.h.toFixed(2)}`)}toScreen([t,n]){let o=this.viewport.getBoundingClientRect(),a=this.view,s=Math.min(o.width/a.w,o.height/a.h);return[o.left+(o.width-a.w*s)/2+(t-a.x)*s,o.top+(o.height-a.h*s)/2+(n-a.y)*s]}inViewport([t,n]){let o=this.viewport.getBoundingClientRect();return t>=o.left-1&&t<=o.right+1&&n>=o.top-1&&n<=o.bottom+1}zoomAt(t,n,o){let a=this.user,s=this.freeArea(),i=this.free,c=s.width/i.w,r=n??s.left+s.width/2,l=o??s.top+s.height/2,d=i.x+(r-s.left)/c,b=i.y+(l-s.top)/c,y=(d-i.x)/i.w,$=(b-i.y)/i.h,k=i.w*a.z,x=i.h*a.z,w=i.x-(k-i.w)/2-a.dx,m=i.y-(x-i.h)/2-a.dy,Y=Math.max(.5,Math.min(8,a.z*t)),_=k/Y,C=x/Y;a.dx=d-y*_-w-(k-_)/2,a.dy=b-$*C-m-(x-C)/2,a.z=Y,this.relaxing=!1}panBy(t,n){let o=this.freeArea().width/this.free.w;this.user.dx-=t/o,this.user.dy-=n/o,this.relaxing=!1}recenter(){this.relaxing=!0}tick(){if(!this.relaxing)return;let t=this.user,n=this.reduceMotion?0:.85;t.dx*=n,t.dy*=n,t.z=1+(t.z-1)*n,Math.abs(t.dx)<.5&&Math.abs(t.dy)<.5&&Math.abs(t.z-1)<.002&&(this.user={dx:0,dy:0,z:1},this.relaxing=!1)}};var oe=e=>Math.max(.7,Math.min(1.45,e));function fe(e,t){e.addEventListener("wheel",r=>{if(!(r.ctrlKey||r.metaKey||r.altKey))return;r.preventDefault();let l=r.deltaMode===1?r.deltaY*16:r.deltaY,d=Math.abs(l)<20?.012:.0025;t.zoomAt(oe(Math.exp(-l*d)),r.clientX,r.clientY)},{passive:!1});let n=1;e.addEventListener("gesturestart",r=>{r.preventDefault(),n=1}),e.addEventListener("gesturechange",r=>{r.preventDefault(),t.zoomAt(oe(r.scale/n),r.clientX,r.clientY),n=r.scale}),e.addEventListener("gestureend",r=>r.preventDefault()),e.addEventListener("dblclick",r=>{r.target.closest("button")||(r.preventDefault(),t.zoomAt(r.altKey||r.shiftKey?1/1.6:1.6,r.clientX,r.clientY))});let o=new Map,a=null,s=null,i=()=>{let[r,l]=[...o.values()];return{d:Math.hypot(r.x-l.x,r.y-l.y),x:(r.x+l.x)/2,y:(r.y+l.y)/2}};e.addEventListener("pointerdown",r=>{if(!r.target.closest("button")&&!(r.pointerType!=="touch"&&r.button!==0)){if(o.set(r.pointerId,{x:r.clientX,y:r.clientY}),r.pointerType==="touch"){o.size===2&&(s=i(),e.setPointerCapture(r.pointerId));return}a={x:r.clientX,y:r.clientY},e.setPointerCapture(r.pointerId),e.classList.add("dragging")}}),e.addEventListener("pointermove",r=>{if(o.has(r.pointerId)){if(o.set(r.pointerId,{x:r.clientX,y:r.clientY}),s&&o.size===2){let l=i();s.d>0&&t.zoomAt(oe(l.d/s.d),l.x,l.y),t.panBy(l.x-s.x,l.y-s.y),s=l;return}a&&(t.panBy(r.clientX-a.x,r.clientY-a.y),a={x:r.clientX,y:r.clientY})}});let c=r=>{o.delete(r.pointerId),o.size<2&&(s=null),o.size===0&&(a=null,e.classList.remove("dragging"))};e.addEventListener("pointerup",c),e.addEventListener("pointercancel",c)}var Ft=class{constructor(t){this.svg=t,this.out=""}begin(){this.out=""}end(){this.svg.innerHTML=this.out}_line(t,n,o,a,s){s<=.01||(this.out+=`<g style="opacity:${s.toFixed(3)}"><path class="${t}" d="${n}"/><circle class="${t}-end" cx="${o[0].toFixed(1)}" cy="${o[1].toFixed(1)}" r="${a}"/></g>`)}callout(t,n,o,a){let[s,i]=o,c=[s-4,i];this._line("callout",ne(t.left,t.bottom+2,n,c[0],i,22),c,3.5,a)}leader(t,n,o,a){let s=[o[0]+5,o[1]];this._line("leader",ne(t,n,t-12,s[0],s[1],12),s,2.5,a)}};var be={wide:{enter:.82,settle:.42},narrow:{enter:.92,settle:.66}},xe=()=>{let e=window.innerWidth<=900?be.narrow:be.wide;return{enterY:window.innerHeight*e.enter,settleY:window.innerHeight*e.settle}},zt=.9,me=e=>e.classList.contains("step-scrub");function Ve(e){let t=e.nextElementSibling;for(;t&&!t.classList.contains("step");)t=t.nextElementSibling;return t?t.getBoundingClientRect().top-e.getBoundingClientRect().top:e.getBoundingClientRect().height}function se(e,t,n=0){let{enterY:o,settleY:a}=xe(),s=0;for(let b=0;b<e.length&&e[b].getBoundingClientRect().top+n<=o;b++)s=b;let i=e[s].getBoundingClientRect().top+n,c=e[s+1],r=c?c.getBoundingClientRect().top+n-i:e[s].getBoundingClientRect().height,l=Math.max(0,Math.min(1,(o-i)/Math.max(1,r))),d=me(e[s])?Math.min(1,l/zt):Math.max(0,Math.min(1,(o-i)/(o-a)));return{i:s,p:t?1:d,u:t?1:l}}function jt(e,t){let{enterY:n,settleY:o}=xe(),a=e.getBoundingClientRect().top+window.scrollY;if(me(e)){let s=t<=1?zt*t:zt+Math.min(1,t-1)*(1-zt)*.9;return a-n+s*Ve(e)}return a-(n-t*(n-o))}var We=e=>!!e&&typeof e=="object"&&"stop"in e;function ye(e){let t=[];return e.chapters.forEach((n,o)=>{We(n)||n.steps.forEach((a,s)=>t.push({...a,chapterId:n.id,chapterIndex:o,indexInChapter:s,color:n.color}))}),t}function ge(e){let t="overview",n=new Set,o=new Set,a="minimal",s={};for(let[i,c]of Object.entries(ht.VIEW_KEYS))c.sticky&&(s[i]=c.initial??null);return e.map(i=>{let c=i.view||{};if(c.camera!==void 0&&(t=c.camera),c.open||c.close){n=new Set(n);for(let l of c.open||[])n.add(l);for(let l of c.close||[])n.delete(l)}if(c.bubble||c.unbubble){o=new Set(o);for(let l of c.bubble||[])o.add(l);for(let l of c.unbubble||[])o.delete(l)}c.ui!==void 0&&(a=c.ui);let r={};for(let[l,d]of Object.entries(ht.VIEW_KEYS))d.sticky?(c[l]!==void 0&&(s[l]=c[l]),r[l]=s[l]):r[l]=c[l]??null;return{camera:t,open:n,bubbles:o,ui:a,...r,target:c.target||null}})}function we({simulation:e=!1,setup:t}){let n=JSON.parse(document.getElementById("bx-data").textContent),{narrative:o}=n,a=ye(o),s=ge(a),i=window.matchMedia("(prefers-reduced-motion: reduce)").matches,c=new Lt(document.body,n.snippets),r=he(document.getElementById("app"),n,c,{simulation:e}),{ui:l,stepEls:d}=r,b=new Ft(r.overlay),y=new Yt({...r,reduceMotion:i});fe(r.viewport,y);let $=o.chapters.map(u=>a.findIndex(T=>T.chapterId===u.id)),k=new Dt(document.body,o.chapters.map((u,T)=>({...u,href:`#${u.id}--${u.steps[0].id}`,first:$[T]})),u=>ot($[u])),x={current:-1,scrolled:!1,jumping:!1},w={data:n,narrative:o,steps:a,views:s,page:r,ui:l,stepEls:d,codeDrawer:c,camera:y,overlay:b,toc:k,reduceMotion:i,ctl:x,enter:_,jumpTo:ot},m=t(w),{diagram:Y}=m;w.diagram=Y;function _(u,T={}){if(u===x.current&&!T.rebuild)return;let R=a[u],V=s[u];m.enter&&m.enter(u,T),x.current=u,y.recenter(),d.forEach((ct,lt)=>ct.classList.toggle("active",lt===u)),k.setCurrent(R.chapterIndex);let st=typeof V.camera=="string"?ht.CAMERAS[V.camera]:{label:"detail",section:null};l.crumbDot.className=`crumb-dot sec-${st.section||"neutral"}`,l.crumbText.textContent=st.label||"",l.crumb.hidden=!st.label,l.codeBtn.disabled=!(R.code&&R.code.length),c.setDefault(R.code||[]),x.scrolled&&C(u)}function C(u){let T=window.scrollY<=0?"":`#${d[u].id}`;if(location.hash!==T)try{history.replaceState(null,"",`${location.pathname}${location.search}${T}`)}catch{}}window.addEventListener("scroll",()=>{x.scrolled&&x.current>=0&&C(x.current)},{passive:!0});let g=m.anchor||(u=>Y.anchor(u));function O(u,T,R){if(!T.target||window.innerWidth<=900)return!1;let V=g(T.target,T),st=d[u].querySelector(".hl");if(!V||!V.visible||!st)return!1;let ct=st.getClientRects(),lt=ct[ct.length-1];if(!lt||lt.bottom<0||lt.top>window.innerHeight)return!1;let dt=y.toScreen(V.p);return y.inViewport(dt)?(b.callout(lt,r.story.getBoundingClientRect().right+10,dt,R),!0):!1}let I=140,D=window.scrollY,E=null,f=()=>se(d,i,window.scrollY-D);function A(){D=window.scrollY}function P(u){let T=E===null?16:Math.min(100,u-E);E=u;let R=window.scrollY-D;i||Math.abs(R)<.5||Math.abs(R)>4*window.innerHeight?D=window.scrollY:D+=R*(1-Math.exp(-T/I))}let j=.3,H=new Set;function Q(u){let T=new Set;for(let R=Math.max(0,u-2);R<u;R++)(d[R].querySelector(".card")||d[R]).getBoundingClientRect().bottom>window.innerHeight*j&&T.add(R);for(let R of H)T.has(R)||d[R].classList.remove("reading");for(let R of T)H.has(R)||d[R].classList.add("reading");H.clear();for(let R of T)H.add(R)}function Z(){if(x.current<0)return;let{i:u,p:T,u:R}=f();u!==x.current&&_(u),Q(u);let V=s[u],st=u>0?s[u-1]:V,ct=Bt(T);m.render&&m.render({i:u,p:T,u:R,t:ct,v:V,pv:st}),b.begin(),u>0&&T<1&&O(u-1,st,1-ct);let lt=O(u,V,ct);m.overlay&&m.overlay(b),b.end();let dt=V.target?Y.anchor(V.target):null,wt=T>(d[u].classList.contains("step-scrub")?.95:.6);Y.setTarget(dt&&dt.visible&&wt&&(lt||window.innerWidth<=900)?dt.p:null)}function rt(u){P(u),m.beforeFrame&&m.beforeFrame(u),y.tick(),Z(),requestAnimationFrame(rt)}l.zoomIn.addEventListener("click",()=>y.zoomAt(1.3)),l.zoomOut.addEventListener("click",()=>y.zoomAt(1/1.3)),l.recenter.addEventListener("click",()=>y.recenter()),l.codeBtn.addEventListener("click",()=>c.isOpen?c.close():c.open()),document.addEventListener("keydown",u=>{u.target.closest("input, select, textarea")||(m.onKey&&m.onKey(u),u.key==="Escape"&&(c.close(),m.onEscape&&m.onEscape()))}),window.addEventListener("scroll",()=>{x.scrolled=!0},{passive:!0});let it=null;function ot(u){let T=jt(d[u],1)+2,R=window.scrollY;x.scrolled=!0,it&&it.stop();let V=()=>{it=null,x.jumping=!1,A(),_(f().i)};if(i||Math.abs(T-R)<2)return window.scrollTo({top:T,behavior:"instant"}),V();let st=Math.min(650,250+Math.abs(T-R)/window.innerHeight*25),ct=performance.now(),lt=at=>at<.5?4*at*at*at:1-(-2*at+2)**3/2,dt=0,wt=()=>{cancelAnimationFrame(dt);for(let at of Wt)window.removeEventListener(at,wt);it=null,x.jumping=!1},Wt=["wheel","touchstart","keydown","mousedown"];for(let at of Wt)window.addEventListener(at,wt,{passive:!0});it={stop:wt},x.jumping=!0;let ie=at=>{let ce=Math.min(1,(at-ct)/st);if(window.scrollTo({top:R+(T-R)*lt(ce),behavior:"instant"}),ce<1){dt=requestAnimationFrame(ie);return}for(let Ce of Wt)window.removeEventListener(Ce,wt);V()};dt=requestAnimationFrame(ie)}let F=document.getElementById(decodeURIComponent(location.hash.slice(1))),re=!1;for(let u of["wheel","touchstart","keydown","mousedown"])window.addEventListener(u,()=>{re=!0},{passive:!0,once:!0});function Vt(){!F||!F.classList.contains("step")||re||(window.scrollTo(0,jt(F,F.classList.contains("step-scrub")?1.5:1)+2),A(),_(f().i))}try{history.scrollRestoration="manual"}catch{}return Vt(),window.addEventListener("load",()=>setTimeout(Vt,0)),F&&window.ResizeObserver&&new ResizeObserver(()=>Vt()).observe(r.story),A(),_(f().i),requestAnimationFrame(rt),window.explainer={ctl:x,steps:a,views:s,enter:_,jumpTo:ot,diagram:Y,camera:y,toc:k,scrollState:()=>se(d,i),scrollYFor:(u,T)=>jt(d[u],T),snap:()=>{A(),_(f().i)},...m.expose||{}},w}var N=(e,t)=>e.setAttribute("opacity",yt(t).toFixed(3)),kt=(e,t,n,o=1)=>e.setAttribute("transform",`translate(${t.toFixed(1)} ${n.toFixed(1)})${o!==1?` scale(${o.toFixed(3)})`:""}`),B=(e,t,n)=>yt((e-t)/(n-t)),J=Pt,Ke={hl:[0,.12],fly:[.12,.5],land:[.5,.86],dot:[.86,1]},Ge={hl:[0,.12],out:[.12,.42],back:[.52,.88],settle:[.88,1]},Se=[2,2,3,4,4,4,4];function Ae(e){return e.clean?null:e.writes>0?Se[e.writes-1]:e.reads>0?e.reads-1:null}var Mt=e=>[Et(At[e].length)+10,tt(e)-4];function gt(e,t,n){let o=t[1]>e[1],a=o?[e[0]+50,e[1]+60]:[e[0],e[1]-80],s=o?[t[0],t[1]-110]:[t[0]+50,t[1]+50],i=1-n;return[0,1].map(c=>i*i*i*e[c]+3*i*i*n*a[c]+3*i*n*n*s[c]+n*n*n*t[c])}function Je(e,t){let n=e.slice(1).map((s,i)=>Math.hypot(s[0]-e[i][0],s[1]-e[i][1])),o=t*n.reduce((s,i)=>s+i,0),a=[e[0]];for(let s=1;s<e.length&&o>0;s++){let i=Math.min(1,o/n[s-1]);a.push([q(e[s-1][0],e[s][0],i),q(e[s-1][1],e[s][1],i)]),o-=n[s-1]}return a.map((s,i)=>`${i?"L":"M"}${s[0].toFixed(1)},${s[1].toFixed(1)}`).join(" ")}var Ue=12,qe=20,Qe=e=>e.length*Ue*.6+12;function Ht(e,t,n){let o=v("g",{opacity:0},e);return v("rect",{x:0,y:0,width:Qe(t),height:qe,rx:4,class:`chip-box ${n}`},o),S(o,6,14.5,t,`chip-text ${n}`),o}var Rt=e=>W.findIndex(t=>t.key===e)+1,vt=["alice","bob"].map(e=>{let t=Rt(`stage.${e}`),n=Rt(`unstage.${e}`);return{k:e,stageN:t,unstageN:n,before:xt(z(t-1),e),staged:xt(z(t),e),after:xt(z(n),e)}}),ke=(e,t)=>t.writes>=e.unstageN?2:t.writes>=e.stageN?1:0,St={pending:Rt("atr.pending"),commit:Rt("commit"),done:Rt("atr.done")},ve=e=>e.writes>=St.done?3:e.writes>=St.commit?2:e.writes>=St.pending?1:0,ae={pending:ut(z(St.pending)),commit:ut(z(St.commit)),done:ut(z(St.done))},U={stgd:e=>[h.x[e]+72,bt(3)-14.5],body:e=>[h.x[e]+62,h.y+K.dy+10],st:()=>[h.x.atr+72,bt(0)-14.5],read:e=>[$t,tt(e)-14.5],literal:e=>[Et(At[e].indexOf("{"))-6,tt(e)-14.5]},Ze=e=>e.doc==="atr"?"atr":e.key.startsWith("stage")?"staged":"done",Xt=class{constructor(t){this.svg=t;let[n,o,a,s]=Gt;t.setAttribute("viewBox",`${n} ${o} ${a-n} ${s-o}`);let i=v("g",{},t);v("rect",{x:et.x,y:et.y,width:et.w,height:et.h,rx:12,class:"cluster"},i),S(i,et.x+16,et.y+24,"the cluster","panel-title"),S(i,et.x+100,et.y+24,`bucket "default": its docs, spread over ${G.vbuckets.toLocaleString("en-US")} vbuckets`,"panel-sub"),this.pointers={};for(let c of vt){let r=h.x[c.k]+h.w/2,l=c.k==="alice"?h.x.atr+210:h.x.atr+100,d=[[r,h.y+h.h],[r,Ct[c.k]],[l,Ct[c.k]],[l,h.y+h.h+6]],b=v("path",{d:"",class:"pointer"},i),y=v("path",{d:`M${l-5},${h.y+h.h+13} L${l},${h.y+h.h+5} L${l+5},${h.y+h.h+13}`,class:"pointer-head",opacity:0},i),$=S(i,(r+l)/2,Ct[c.k]-5,`${c.k}'s txn.atr`,"pointer-label","middle");this.pointers[c.k]={pts:d,path:b,head:y,label:$}}this.cards={};for(let c of vt)this.cards[c.k]=this.buildDoc(i,c);this.atr=this.buildAtr(i),v("rect",{x:X.x,y:X.y,width:X.w,height:X.h,rx:12,class:"app"},i),S(i,X.x+16,X.y+24,"the app","panel-title"),S(i,X.x+76,X.y+24,`gocbcore ${G.gocbcore}, running the transaction`,"panel-sub"),this.lineHl=v("rect",{x:X.x+12,y:0,width:X.w-24,height:24,rx:5,class:"line-hl",opacity:0},i),At.forEach((c,r)=>{S(i,X.x+18,tt(r),String(r+1),"line-no");let l=S(i,ft.x,tt(r),"","code"),d=c.indexOf("{");if(d<0)l.textContent=c;else{let b=c.indexOf("}")+1;for(let[y,$]of[[c.slice(0,d),""],[c.slice(d,b),"code-staged"],[c.slice(b),""]])v("tspan",{class:$},l).textContent=y}}),this.track=v("g",{opacity:0},i),v("rect",{x:M.x,y:M.y,width:M.w,height:M.h,rx:12,class:"app"},this.track),S(this.track,M.x+16,M.y+24,`the transaction's ${W.length} writes, in order`,"panel-title"),S(this.track,M.x+16,M.y+42,"each one a write to one doc","panel-sub"),this.halves=["back","forward"].map((c,r)=>{let l=v("g",{opacity:0},this.track),d=r?nt(It)+14:M.x+12,b=r?M.x+M.w-12:nt(It)-14;return v("rect",{x:d,y:M.y+150,width:b-d,height:40,rx:6,class:`half half-${c}`},l),S(l,(d+b)/2,M.y+167,r?"a crash after it:":"a crash before it:","half-text","middle"),S(l,(d+b)/2,M.y+182,r?"rolled forward":"rolled back",`half-text half-${c}-text`,"middle"),l}),v("line",{x1:nt(0),x2:nt(W.length-1),y1:M.sy,y2:M.sy,class:"rail"},this.track),this.progress=v("line",{x1:nt(0),x2:nt(0),y1:M.sy,y2:M.sy,class:"rail-done"},this.track),this.stations=W.map((c,r)=>{let l=v("g",{opacity:0},this.track),d=nt(r),b=r===It,y=v("circle",{cx:d,cy:M.sy,r:b?11:8,class:"station"},l),$=v("circle",{cx:d,cy:M.sy,r:b?11:8,class:`station-fill st-${Ze(c)}`,opacity:0},l);return S(l,d,M.sy+30,c.label[0],"station-label","middle"),S(l,d,M.sy+44,c.label[1],"station-label","middle"),b&&S(l,d,M.sy-22,"\u2605 the commit point","commit-label","middle"),{g:l,ring:y,fill:$}}),this.reads=vt.map(c=>Ht(i,c.before.body,"chip-read")),this.stgd={};for(let c of vt)this.stgd[c.k]=Ht(i,c.staged.txn.stgd,"chip-staged");this.st={pending:Ht(i,ae.pending.entry.st,"chip-pending"),committed:Ht(i,ae.commit.entry.st,"chip-committed")},this.ball=v("circle",{r:6.5,class:"ball",opacity:0,cx:0,cy:0},i),this.target=v("circle",{r:13,class:"target-ring",cx:-9999,cy:0},i),this.cur=null}buildDoc(t,n){let o=h.x[n.k],a=h.y,s=v("g",{},t);v("rect",{x:o,y:a,width:h.w,height:h.h,rx:10,class:"card"},s),S(s,o+14,a+24,n.k,"card-key"),S(s,o+h.w-14,a+24,`vbucket ${G.vb[n.k]}`,"card-vb","end"),v("rect",{x:o+10,y:a+K.dy,width:h.w-20,height:K.h,rx:6,class:"body-box"},s),S(s,o+20,a+K.dy+25,"body","field-label");let i=S(s,o+68,a+K.dy+25,n.before.body,"body-text"),c=S(s,o+68,a+K.dy+25,n.after.body,"body-text"),r=S(s,o+h.w-20,a+K.dy+25,`was ${JSON.parse(n.before.body).balance}`,"ghost-text","end");v("rect",{x:o+10,y:a+L.dy,width:h.w-20,height:L.h,rx:6,class:"xattr-box"},s),S(s,o+20,a+L.dy-6,'xattr "txn": only transactions look here',"field-label");let l=S(s,o+h.w/2,a+L.dy+L.h/2+4,"(none)","none-text","middle"),d=n.staged.txn,b=[["atr",d.atr],["atmpt",d.atmpt],["type",d.type],["stgd",""]].map(([y,$],k)=>{let x=v("g",{opacity:0},s);return S(x,o+22,bt(k),y,"xattr-key"),$&&S(x,o+78,bt(k),$,"xattr-val"),x});return{body:i,newBody:c,ghost:r,none:l,rows:b}}buildAtr(t){let n=h.x.atr,o=h.y,a=ae.commit.entry,s=v("g",{opacity:0},t);v("rect",{x:n,y:o,width:h.w,height:h.h,rx:10,class:"card card-atr"},s),S(s,n+14,o+24,G.atr,"card-key atr-key"),S(s,n+h.w-14,o+24,`vbucket ${G.vb.alice}`,"card-vb","end"),v("rect",{x:n+10,y:o+K.dy,width:h.w-20,height:K.h,rx:6,class:"body-box"},s),S(s,n+20,o+K.dy+25,"body","field-label"),S(s,n+68,o+K.dy+25,"one zero byte: unused","none-text"),v("rect",{x:n+10,y:o+L.dy,width:h.w-20,height:L.h,rx:6,class:"xattr-box xattr-atr"},s),S(s,n+20,o+L.dy-6,`xattr "attempts", by attempt: ${a.id}`,"field-label");let i=v("g",{},s),c=[["st",""],["tid",a.tid],["exp",`${a.exp/1e3} s from its start`],["rep",a.rep.join(", ")]].map(([d,b],y)=>{let $=v("g",{},i);return S($,n+22,bt(y),d,"xattr-key"),b&&S($,n+78,bt(y),b,"xattr-val"),$}),r=v("rect",{x:n+14,y:o+L.dy+6,width:h.w-28,height:L.h-12,rx:5,class:"gone-box",opacity:0},s),l=S(s,n+h.w-22,o+L.dy+L.h-12,`${a.id}: deleted`,"gone-text","end");return{g:s,entry:i,rows:c,gone:r,goneText:l}}draw(t,n,o){let a=pt[t],s=pt[n]||a;this.cur={key:o<.5?t:n,state:o<.5?a:s};let i=t===n?null:Nt(a,s)[0],c=g=>i?B(o,...Ke[g]):1,r=g=>i?B(o,...Ge[g]):1,l=Ae(a),d=Ae(s),b=i==="reads"||i==="writes"?J(i==="reads"?r("hl"):c("hl")):i==="clean"?J(o):1,y=l==null?d==null?0:tt(d):tt(l),$=d==null?y:tt(d);this.lineHl.setAttribute("y",(q(y,$,b)-17).toFixed(1)),N(this.lineHl,q(l==null?0:1,d==null?0:1,b));let k=null;vt.forEach((g,O)=>{let I=this.reads[O],D=U.body(g.k),E=U.read(O);if(i==="reads"&&s.reads===O+1){let f=J(r("out")),A=J(r("back"));if(f>0&&f<1?k=gt(Mt(O),[D[0]-8,D[1]+10],f):f>=1&&A<=0&&(k=[D[0]-8,D[1]+10]),A>0){let P=gt(D,E,A);kt(I,P[0],P[1]),N(I,1),A<1&&(k=[P[0]-8,P[1]+10])}else N(I,0)}else kt(I,E[0],E[1]),N(I,s.reads>O?1:0)});let x=i==="writes"?W[s.writes-1]:null,w=J(c("fly")),m=c("land");for(let g of vt){let O=this.cards[g.k],I=this.stgd[g.k],D=ke(g,a),E=ke(g,s),f=i==="writes"&&D!==E,A=this.pointers[g.k],P=E>=1&&E<2?1:0,j=P,H=E<2?1:0,Q=E>=2?1:0,Z=E===1?U.stgd(g.k):null,rt=E===1?1:0,it=E>=2?1:0;if(f&&E===1){let ot=Se[s.writes-1],F=gt(U.literal(ot),U.stgd(g.k),w);Z=F,rt=w>0?1:0,w>0&&w<1&&(k=[F[0]-8,F[1]+10]),P=J(B(m,0,.55)),j=B(m,.55,1)}else if(f&&E===2){let ot=[h.x[g.k]+h.w/2,h.y+L.dy+L.h/2];w>0&&w<1&&(k=gt(Mt(4),ot,w));let F=J(B(m,0,.45));Z=[q(U.stgd(g.k)[0],U.body(g.k)[0],F),q(U.stgd(g.k)[1],U.body(g.k)[1],F)],H=1-B(m,.36,.52),rt=1-B(m,.5,.62),it=B(m,.48,.6),Q=B(m,.5,.68),P=1-B(m,.6,.85),j=1-B(m,.6,.85)}O.rows.forEach((ot,F)=>N(ot,yt(P*4-F))),N(O.none,E===0&&!f?1:f&&E===1?1-B(m,0,.3):f&&E===2?B(m,.82,1):E===2?1:0),N(O.body,H),kt(O.body,-14*(1-H),0),N(O.newBody,it),N(O.ghost,Q),Z&&kt(I,Z[0],Z[1]),N(I,rt),A.path.setAttribute("d",Je(A.pts,f&&E===1?j:1)),N(A.path,f&&E===1?j>0?1:0:j),N(A.head,f&&E===1?B(j,.9,1):j),N(A.label,f&&E===1?B(j,.6,1):j)}{let g=this.atr,O=ve(a),I=ve(s),D=i==="writes"&&O!==I,E=I>=1?1:0,f=1,A=I===1?1:0,P=U.st(),j=I>=2?1:0,H=U.st(),Q=I>=2?1:0,Z=I===3?.35:1,rt=I===3?1:0;if(D&&I===1)P=gt(Mt(2),U.st(),w),A=w>0?1:0,w>0&&w<1&&(k=[P[0]-8,P[1]+10]),E=J(B(m,0,.6)),f=q(.92,1,E);else if(D&&I===2){H=gt(Mt(4),U.st(),w),j=w>0?1:0,w>0&&w<1&&(k=[H[0]-8,H[1]+10]);let F=J(B(w,.75,1));A=1-F,P=[U.st()[0]+70*F,U.st()[1]],Q=B(m,.1,.6)}else if(D&&I===3){let F=[h.x.atr+h.w/2,h.y+L.dy+L.h/2];w>0&&w<1&&(k=gt(Mt(4),F,w)),Z=1-.65*J(B(m,0,.5)),rt=B(m,.4,.9)}N(g.g,E);let it=h.x.atr+h.w/2,ot=h.y+h.h/2;g.g.setAttribute("transform",`translate(${(it*(1-f)).toFixed(1)} ${(ot*(1-f)).toFixed(1)}) scale(${f.toFixed(3)})`),N(g.entry,Z),N(g.rows[3],Q),N(g.gone,rt),N(g.goneText,rt),kt(this.st.pending,P[0],P[1]),N(this.st.pending,A*(I===3?Z:1)),kt(this.st.committed,H[0],H[1]),N(this.st.committed,j*Z)}k&&(this.ball.setAttribute("cx",k[0].toFixed(1)),this.ball.setAttribute("cy",k[1].toFixed(1))),N(this.ball,k?1:0);let Y=g=>g.track?1:0;N(this.track,i==="track"?J(B(o,0,.3)):Y(s)),this.stations.forEach((g,O)=>{N(g.g,i==="track"?J(B(o,.3+O/W.length*.7,.3+(O+1)/W.length*.7)):Y(s));let I=D=>D.writes>O?1:0;N(g.fill,i==="writes"&&s.writes===O+1?J(c("dot")):I(s))});let _=g=>g.writes>0?nt(g.writes-1):nt(0),C=i==="writes"?q(_(a),_(s),J(c("dot"))):_(s);this.progress.setAttribute("x2",C.toFixed(1)),this.halves.forEach((g,O)=>N(g,i==="halves"?J(B(o,O*.5,O*.5+.5)):s.halves?1:0))}setTarget(t){if(!t){this.target.setAttribute("cx",-9999);return}this.target.setAttribute("cx",t[0]),this.target.setAttribute("cy",t[1])}anchor(t){let n=Jt[t];return n?{p:n.p,visible:!0}:null}};function tn(e,t){let n=Nt(pt[e],pt[t])[0];return{reads:2.2,writes:2.8,track:2.4,halves:1.4}[n]||1}var Ee=30,en=40;we({setup({page:e,views:t,stepEls:n,camera:o}){let a=new Xt(e.svg),s=t.map((c,r)=>te(t,r)),i=s.map((c,r)=>{let l=s[r>0?r-1:r],d=_t(l.at,c.at),b=d.slice(1).map((x,w)=>tn(d[w],x)),y=b.reduce((x,w)=>x+w,0),$=y*Ee>en;$&&(n[r].classList.add("step-scrub"),n[r].style.minHeight=`${Math.min(600,y*Ee).toFixed(0)}vh`);let k=[0];for(let x of b)k.push(k[k.length-1]+x/Math.max(y,1e-9));return{path:d,cum:k,scrub:$}});return{diagram:a,render({i:c,p:r,v:l,pv:d}){o.show(o.between(c>0?d.camera:null,l.camera,r));let{path:b,cum:y,scrub:$}=i[c],k=yt(r),x=0;for(;x<b.length-2&&k>y[x+1];)x++;let w=yt((k-y[x])/Math.max(1e-9,y[x+1]-y[x]));a.draw(b[x],b[Math.min(x+1,b.length-1)],$?w:Pt(w))},expose:{scenes:s,plans:i}}}});})();
+
+</script>
+</body>
+</html>

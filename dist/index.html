@@ -455,6 +455,13 @@ a.eyebrow:hover { text-decoration: underline; }
 <div class="showcase"><a class="shot" href="rebalance/01-vbmap.html#better--redeal" title="vbmap's deal: every replica moves to the other rack"><div class="sprite playing" role="img" aria-label="vbmap's deal: every replica moves to the other rack" style="--light: url('rebalance/showcase/01-vbmap-1-light.jpg'); --dark: url('rebalance/showcase/01-vbmap-1-dark.jpg'); --frames: 20; --seconds: 3.3s; --steps: steps(20, jump-none); aspect-ratio: 420 / 351"></div></a></div></div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">02</span>
 <div><a class="title" href="rebalance/02-maxflow.html">Inside rebalance: vbmap's max-flow engine</a><p>Couchbase splits a bucket into vbuckets, and keeps each one&#39;s copies on different servers. Where exactly? A simple answer fails badly; vbmap&#39;s answer survives a failed server, or a whole rack, without overloading anyone.</p>
+</div></li></ol>
+<h2><a href="transactions/index.html">Inside client-side transactions</a></h2>
+<div class="subtitle"><p>How a key-value store with single-document writes gets ACID transactions across many documents, with no transaction manager on the server: the client stages each change beside the document it changes, and one small record, written once, decides whether all of them happened.</p>
+</div>
+<ol class="entries"><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<span class="num">01</span>
+<div><a class="title" href="transactions/01-life.html">The life of a transaction</a><p>Alice pays Bob 30: two docs, two writes, and a server that can only change one doc at a time. Follow each request from the app to the server, and watch the one write that makes the whole transfer happen.</p>
 </div></li></ol></main>
 </body>
 </html>
