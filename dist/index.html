@@ -404,28 +404,32 @@ a.eyebrow:hover { text-decoration: underline; }
 @media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
 @media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
-/* the key to the draft stamp */
+/* the key to the draft stamp: an aside, in its own column beside the
+   page's, where there's room; else under the heading */
 .draft-key { display: flex; gap: 0.8rem; align-items: baseline; margin: 1.6rem 0 0; padding: 0.8rem 1rem; border: 1px solid var(--line); border-left: 4px solid #c62828; border-radius: 8px; color: var(--muted); font-size: 0.95rem; line-height: 1.45; }
 .draft-key .draft-badge { flex: none; background: #c62828; color: #fff; font: 700 0.7rem/1.6 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; padding: 0 0.5rem; border-radius: 3px; }
 .draft-key p { margin: 0; }
+.draft-key-row { list-style: none; }
+.draft-key { margin: 0; }
+@media (min-width: 1180px) {
+  /* (a row with no height: the aside hangs off it, level with the next
+     card; the negative margin takes back the list's gap) */
+  .draft-key-row { position: relative; height: 0; margin-bottom: -1rem; }
+  .draft-key { position: absolute; top: 1rem; left: calc(100% + 2rem); width: 15rem; flex-direction: column; gap: 0.5rem; font-size: 0.88rem; }
+}
 
 </style>
 </head>
 <body>
 <main class="index"><div class="eyebrow">Explainers</div>
 <h1>How things work inside</h1>
-<div class="draft-key"><span class="draft-badge">Draft</span><p>A work in progress. A draft hasn't been fully reviewed by a person
-yet, and its writing and diagrams may be largely AI-generated, so it may
-have mistakes, or explain things less clearly than it should. Its numbers
-come from running the real code, and tests check the text against them,
-but the explanations around them haven't all been checked.</p></div>
 <h2><a href="blance/index.html">Inside blance: planning and moving partitions</a></h2>
 <div class="subtitle"><p>How blance, a small, reusable library for partitioned systems, decides which node holds each partition&#39;s primary and replicas, and how a rebalance then moves them there.</p>
 </div>
 <ol class="entries"><li class="entry card">
 <span class="num">01</span>
 <div><a class="title" href="blance/01-planning.html">Inside blance: how partitions are assigned to nodes</a><p>blance is a library that assigns partitions to nodes. How does it work and what happens when nodes join and leave a cluster?</p>
-<div class="showcase"><a class="shot" href="blance/01-planning.html#join--balanced" title="The partition map after node d joins: 2 primaries and 2 replicas each"><div class="sprite" role="img" aria-label="The partition map after node d joins: 2 primaries and 2 replicas each" style="--light: url('blance/showcase/01-planning-1-light.jpg'); --dark: url('blance/showcase/01-planning-1-dark.jpg'); --frames: 1; --seconds: 0.2s; --steps: steps(1, jump-none); aspect-ratio: 420 / 405"></div></a></div></div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
+<div class="showcase"><a class="shot" href="blance/01-planning.html#join--balanced" title="The partition map after node d joins: 2 primaries and 2 replicas each"><div class="sprite" role="img" aria-label="The partition map after node d joins: 2 primaries and 2 replicas each" style="--light: url('blance/showcase/01-planning-1-light.jpg'); --dark: url('blance/showcase/01-planning-1-dark.jpg'); --frames: 1; --seconds: 0.2s; --steps: steps(1, jump-none); aspect-ratio: 420 / 405"></div></a></div></div></li><li class="draft-key-row"><aside class="draft-key"><span class="draft-badge">Draft</span><p>A work in progress or not yet fully reviewed and edited. Might have AI-generated mistakes, and/or suboptimal visualizations or narrative.</p></aside></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">02</span>
 <div><a class="title" href="blance/02-moving.html">Inside blance: how a rebalance moves partitions</a><p>From one partition map to the next, while the partitions stay in use: each partition&#39;s moves, a mover per node, and a controller that keeps every node busy, one round at a time.</p>
 </div></li><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
