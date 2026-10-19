@@ -36,7 +36,18 @@ const INDEX_CSS = `
 @media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
 @media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
+/* the key to the draft stamp */
+.draft-key { display: flex; gap: 0.8rem; align-items: baseline; margin: 1.6rem 0 0; padding: 0.8rem 1rem; border: 1px solid var(--line); border-left: 4px solid #c62828; border-radius: 8px; color: var(--muted); font-size: 0.95rem; line-height: 1.45; }
+.draft-key .draft-badge { flex: none; background: #c62828; color: #fff; font: 700 0.7rem/1.6 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; padding: 0 0.5rem; border-radius: 3px; }
+.draft-key p { margin: 0; }
 `;
+
+// The key to the draft stamp, for a page that lists any drafts.
+const draftKey = (ws) => (ws.some((w) => w.draft) ? `<div class="draft-key"><span class="draft-badge">Draft</span><p>A work in progress. A draft hasn't been fully reviewed by a person
+yet, and its writing and diagrams may be largely AI-generated, so it may
+have mistakes, or explain things less clearly than it should. Its numbers
+come from running the real code, and tests check the text against them,
+but the explanations around them haven't all been checked.</p></div>` : '');
 
 // `topic`: the topic whose look it takes, or null for the engine's.
 const css = (topic) => (topic ? topicCss(topic.topic) : readFileSync(join(ROOT, 'engine/css/style.css'), 'utf8')) + INDEX_CSS;
@@ -76,12 +87,14 @@ export const topicIndex = (topic, ws) => page(topic.title, topic.subtitle || '',
   `<a class="eyebrow" href="../index.html">← All explainers</a>
 <h1>${esc(topic.title)}</h1>
 <div class="subtitle">${topic.subtitleHtml}</div>
+${draftKey(ws)}
 ${entries(ws, '')}`, topic);
 
 // `topics`: [{topic, ws}], as for topicIndex.
 export const rootIndex = (topics) => page('Explainers', 'Scrollytelling explainers of how things work inside.',
   `<div class="eyebrow">Explainers</div>
 <h1>How things work inside</h1>
+${draftKey(topics.flatMap(({ ws }) => ws))}
 ${topics.map(({ topic, ws }) => `<h2><a href="${topic.topic}/index.html">${esc(topic.title)}</a></h2>
 <div class="subtitle">${topic.subtitleHtml}</div>
 ${entries(ws, `${topic.topic}/`)}`).join('\n')}`);
