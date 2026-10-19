@@ -207,8 +207,31 @@ function showcaseOf(e, outDir) {
   return out;
 }
 
+// Where the built pages can be seen: dist/ on disk, and the GitHub
+// Pages site that publishes it (pages.yml), worked out from git: the
+// current branch's upstream remote (else origin), if it's on GitHub.
+// Pages publishes only from main or master.
+export function pageUrls() {
+  const git = (args) => {
+    try { return execSync(`git ${args}`, { cwd: ROOT, stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(); } catch { return ''; }
+  };
+  const out = [`local:  ${pathToFileURL(join(ROOT, 'dist', 'index.html')).href}`];
+  const branch = git('rev-parse --abbrev-ref HEAD');
+  const upstream = git('rev-parse --abbrev-ref --symbolic-full-name @{u}');
+  const remote = upstream.includes('/') ? upstream.split('/')[0] : 'origin';
+  const m = git(`remote get-url ${remote}`).match(/github\.com[:/]([^/]+)\/([^/]+?)(\.git)?$/);
+  if (m) {
+    const site = `https://${m[1].toLowerCase()}.github.io/${m[2]}/`;
+    const published = ['main', 'master'].includes(branch);
+    out.push(`github: ${site}${published ? '' : `  (published from main or master; this is ${branch || 'no branch'})`}`);
+    out.push(`        (updated after a push to ${remote}, by its Pages workflow)`);
+  }
+  return out;
+}
+
 async function main() {
   const t0 = Date.now();
+  if (!process.env.EXPLAINERS_REBUILD) for (const l of pageUrls()) console.log(l);
   const written = await build();
   for (const w of written) console.log(`wrote ${w.file} (${(w.bytes / 1024).toFixed(0)}KB)`);
   console.log(`built in ${Date.now() - t0}ms`);
@@ -221,8 +244,10 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     let timer = null;
     const rebuild = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { stdio: 'inherit' }), 100);
+      timer = setTimeout(() => spawnSync(process.execPath, [fileURLToPath(import.meta.url)], { stdio: 'inherit', env: { ...process.env, EXPLAINERS_REBUILD: '1' } }), 100);
     };
+    // (the URLs once, not on every rebuild)
+    for (const l of pageUrls()) console.log(l);
     rebuild();
     for (const d of ['engine', 'topics']) watch(join(ROOT, d), { recursive: true }, rebuild);
     console.log('watching engine/ and topics/ ...');

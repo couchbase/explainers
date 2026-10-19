@@ -119,7 +119,10 @@ or `master`, or when run by hand from the github's Actions tab. To enable,
 in the GitHub repo: **Settings → Pages → Build and deployment →
 Source: GitHub Actions**. The pages are then at
 `https://<owner>.github.io/<repo>/`, e.g.
-`https://<owner>.github.io/<repo>/cbft/01-indexing.html`.
+`https://<owner>.github.io/<repo>/cbft/01-indexing.html`. `npm run build`
+and `npm run dev` print both URLs as they start: the local
+`dist/index.html`, and the Pages site, from the GitHub remote the
+current branch tracks (else `origin`).
 
 ## Engine and explainers
 
