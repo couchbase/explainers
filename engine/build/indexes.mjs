@@ -36,18 +36,24 @@ const INDEX_CSS = `
 @media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
 @media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
-/* the key to the draft stamp */
+/* the key to the draft stamp: an aside, in its own column beside the
+   page's, where there's room; else under the heading */
 .draft-key { display: flex; gap: 0.8rem; align-items: baseline; margin: 1.6rem 0 0; padding: 0.8rem 1rem; border: 1px solid var(--line); border-left: 4px solid #c62828; border-radius: 8px; color: var(--muted); font-size: 0.95rem; line-height: 1.45; }
 .draft-key .draft-badge { flex: none; background: #c62828; color: #fff; font: 700 0.7rem/1.6 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; padding: 0 0.5rem; border-radius: 3px; }
 .draft-key p { margin: 0; }
+.draft-key-row { list-style: none; }
+.draft-key { margin: 0; }
+@media (min-width: 1180px) {
+  /* (a row with no height: the aside hangs off it, level with the next
+     card; the negative margin takes back the list's gap) */
+  .draft-key-row { position: relative; height: 0; margin-bottom: -1rem; }
+  .draft-key { position: absolute; top: 1rem; left: calc(100% + 2rem); width: 15rem; flex-direction: column; gap: 0.5rem; font-size: 0.88rem; }
+}
 `;
 
-// The key to the draft stamp, for a page that lists any drafts.
-const draftKey = (ws) => (ws.some((w) => w.draft) ? `<div class="draft-key"><span class="draft-badge">Draft</span><p>A work in progress. A draft hasn't been fully reviewed by a person
-yet, and its writing and diagrams may be largely AI-generated, so it may
-have mistakes, or explain things less clearly than it should. Its numbers
-come from running the real code, and tests check the text against them,
-but the explanations around them haven't all been checked.</p></div>` : '');
+// The key to the draft stamp: in the list, just before the page's first
+// draft, so it sits level with that draft's card.
+const draftKey = () => `<li class="draft-key-row"><aside class="draft-key"><span class="draft-badge">Draft</span><p>A work in progress or not yet fully reviewed and edited. Might have AI-generated mistakes, and/or suboptimal visualizations or narrative.</p></aside></li>`;
 
 // `topic`: the topic whose look it takes, or null for the engine's.
 const css = (topic) => (topic ? topicCss(topic.topic) : readFileSync(join(ROOT, 'engine/css/style.css'), 'utf8')) + INDEX_CSS;
@@ -78,7 +84,8 @@ const showcase = (w, prefix) => (w.showcase && w.showcase.length ? `<div class="
   const vars = `--light: url('${prefix}${s.light}'); --dark: url('${prefix}${s.dark}'); --frames: ${s.frames}; --seconds: ${(s.frames / 6).toFixed(1)}s; --steps: steps(${s.frames}, jump-none); aspect-ratio: ${s.width} / ${s.height}`;
   return `<a class="shot" href="${prefix}${w.name}.html#${esc(s.step)}" title="${esc(s.caption || w.title)}"><div class="sprite${s.frames > 1 ? ' playing' : ''}" role="img" aria-label="${esc(s.caption || w.title)}" style="${vars}"></div></a>`;
 }).join('')}</div>` : '');
-const entries = (ws, prefix) => `<ol class="entries">${ws.map((w) => `<li class="entry card${w.draft ? ' is-draft' : ''}">${w.draft ? '<span class="draft-stamp">Draft</span>' : ''}
+// (`key`: the key goes before this list's first draft)
+const entries = (ws, prefix, key = false) => `<ol class="entries">${ws.map((w, i) => `${key && w.draft && ws.findIndex((x) => x.draft) === i ? draftKey() : ''}<li class="entry card${w.draft ? ' is-draft' : ''}">${w.draft ? '<span class="draft-stamp">Draft</span>' : ''}
 <span class="num">${esc(w.name.match(/^\d+/)?.[0] || '·')}</span>
 <div><a class="title" href="${prefix}${w.name}.html">${esc(w.title)}</a>${w.subtitleHtml}${showcase(w, prefix)}</div></li>`).join('')}</ol>`;
 
@@ -87,14 +94,12 @@ export const topicIndex = (topic, ws) => page(topic.title, topic.subtitle || '',
   `<a class="eyebrow" href="../index.html">← All explainers</a>
 <h1>${esc(topic.title)}</h1>
 <div class="subtitle">${topic.subtitleHtml}</div>
-${draftKey(ws)}
-${entries(ws, '')}`, topic);
+${entries(ws, '', true)}`, topic);
 
 // `topics`: [{topic, ws}], as for topicIndex.
 export const rootIndex = (topics) => page('Explainers', 'Scrollytelling explainers of how things work inside.',
   `<div class="eyebrow">Explainers</div>
 <h1>How things work inside</h1>
-${draftKey(topics.flatMap(({ ws }) => ws))}
-${topics.map(({ topic, ws }) => `<h2><a href="${topic.topic}/index.html">${esc(topic.title)}</a></h2>
+${topics.map(({ topic, ws }, i) => `<h2><a href="${topic.topic}/index.html">${esc(topic.title)}</a></h2>
 <div class="subtitle">${topic.subtitleHtml}</div>
-${entries(ws, `${topic.topic}/`)}`).join('\n')}`);
+${entries(ws, `${topic.topic}/`, topics.findIndex((t) => t.ws.some((w) => w.draft)) === i)}`).join('\n')}`);
