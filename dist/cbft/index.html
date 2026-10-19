@@ -453,6 +453,10 @@ a.eyebrow:hover { text-decoration: underline; }
 @media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
 @media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
+/* the key to the draft stamp */
+.draft-key { display: flex; gap: 0.8rem; align-items: baseline; margin: 1.6rem 0 0; padding: 0.8rem 1rem; border: 1px solid var(--line); border-left: 4px solid #c62828; border-radius: 8px; color: var(--muted); font-size: 0.95rem; line-height: 1.45; }
+.draft-key .draft-badge { flex: none; background: #c62828; color: #fff; font: 700 0.7rem/1.6 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; padding: 0 0.5rem; border-radius: 3px; }
+.draft-key p { margin: 0; }
 
 </style>
 </head>
@@ -461,6 +465,7 @@ a.eyebrow:hover { text-decoration: underline; }
 <h1>Inside Couchbase full-text search (cbft, bleve, scorch)</h1>
 <div class="subtitle"><p>How Couchbase&#39;s Full Text Search service, cbft, and the bleve library and scorch index it&#39;s built on, work under the hood: from a stream of mutations to segment files on disk, and what a query reads from them.</p>
 </div>
+
 <ol class="entries"><li class="entry card">
 <span class="num">01</span>
 <div><a class="title" href="01-indexing.html">Inside bleve / scorch: introducer, persister, merger</a><p>How a Couchbase FTS index turns a stream of DCP mutations into searchable, durable segments.</p>

@@ -482,6 +482,10 @@ a.eyebrow:hover { text-decoration: underline; }
 @media (prefers-color-scheme: dark) { .shot .sprite { background-image: var(--dark); } }
 @media (prefers-reduced-motion: reduce) { .shot .playing { animation: none; background-position: 0 100%; } }
 @media (max-width: 900px) { .index h1 { font-size: 1.8rem; } }
+/* the key to the draft stamp */
+.draft-key { display: flex; gap: 0.8rem; align-items: baseline; margin: 1.6rem 0 0; padding: 0.8rem 1rem; border: 1px solid var(--line); border-left: 4px solid #c62828; border-radius: 8px; color: var(--muted); font-size: 0.95rem; line-height: 1.45; }
+.draft-key .draft-badge { flex: none; background: #c62828; color: #fff; font: 700 0.7rem/1.6 var(--font-body); letter-spacing: 0.16em; text-transform: uppercase; padding: 0 0.5rem; border-radius: 3px; }
+.draft-key p { margin: 0; }
 
 </style>
 </head>
@@ -490,6 +494,11 @@ a.eyebrow:hover { text-decoration: underline; }
 <h1>Inside n1k1: a SQL++ engine for local files</h1>
 <div class="subtitle"><p>How n1k1 runs SQL++ over a directory of JSON files: files become keyspaces, cbq&#39;s planner makes the plan, and n1k1&#39;s engine pushes rows up through it as raw JSON bytes, copying them only where it must.</p>
 </div>
+<div class="draft-key"><span class="draft-badge">Draft</span><p>A work in progress. A draft hasn't been fully reviewed by a person
+yet, and its writing and diagrams may be largely AI-generated, so it may
+have mistakes, or explain things less clearly than it should. Its numbers
+come from running the real code, and tests check the text against them,
+but the explanations around them haven't all been checked.</p></div>
 <ol class="entries"><li class="entry card is-draft"><span class="draft-stamp">Draft</span>
 <span class="num">01</span>
 <div><a class="title" href="01-query.html">The life of a query in n1k1</a><p>One SQL++ query over a directory of JSON files, from its text to the rows n1k1 prints: cbq&#39;s planner makes the plan, n1k1 rewires it, and its engine pushes rows up through it as raw JSON bytes, copying them only where it must.</p>
