@@ -60,11 +60,12 @@ chapters:
 
           These states are defined by the app:
           blance knows nothing about what primaries or replicas really mean,
-          just that states have a priority and that the app specifies
+          just that these states have a priority and that the app specifies
           how many nodes each state should have.
 
-          On the right, we see that
-          [[each partition]] is assigned to a primary node and to a replica node.
+          In this case, we specify that [[each partition]]
+          ought to have 1 primary node and ideally 1 replica node,
+          and we see that in the diagram on the right.
 
       - id: primary
         view: { target: chip.P }
@@ -98,12 +99,13 @@ chapters:
           as two bars and their counts.
 
           Node a holds 3 primaries and 3
-          replicas, node b 3 and 2, and node c 2 and 3, which is about as even as eight
+          replicas, node b 3 and 2, and node c 2 and 3.
+          That's about as even or balanced as eight
           partitions on three nodes can be.
 
           Keeping these tallies even or balanced, so
           that no node holds many more paritions than the other nodes, is what
-          blance's planner aims to achieve.
+          blance's planner tries to achieve.
 
       - id: call
         view: { at: fresh.prev, target: node.a, focus: board }
@@ -114,7 +116,7 @@ chapters:
 
           Its `PlanNextMapEx()` API takes the current partition map,
           all the nodes, the nodes joining and the nodes leaving, the
-          model and some options, and computes the next partition map.
+          model and some options, and deterministically computes the next partition map.
 
           Let's start from nothing: the current partition map has no
           partitions assigned yet, and [[nodes a, b and c]] are all
@@ -125,7 +127,8 @@ chapters:
         text: |
           Briefly, here's what `PlanNextMapEx()` does: for each state (i.e., primaries, then replicas), the
           planner does two things. First, it sorts the partitions.
-          Then, it runs through the sorted partitions in a single pass, assigning
+
+          Then, it runs through those sorted partitions in a single pass, assigning
           each partition to a node with the lowest score
           at that point, and it continually updates the score tallies along the way.
 
@@ -176,7 +179,7 @@ chapters:
         view: { at: fresh.primaries~clear, target: row.0 }
         expect: ["fact:fresh.primaries.order=0,1,2,3,4,5,6,7"]
         text: |
-          With every partition getting the same number, the sort leaves
+          With every partition getting the same number, the sorting will leave
           the partitions in name order: so [[partition 0]] is sorted first.
 
       - id: states
@@ -186,8 +189,8 @@ chapters:
         # (the scores come with the first decision)
         multi: true
         text: |
-          With the partitions sorted, the planner next loops through
-          those partitions. For each partition,
+          The planner next loops through
+          those sorted partitions. For each sorted partition,
           the planner will compute a score for every node, and the lowest scoring node
           wins or will be assigned the partition in the current state
           (primary).
@@ -205,15 +208,17 @@ chapters:
           yet, so every node scores 0.
 
           A tie goes to the node that comes
-          first in the node list: node [[a]] wins and
-          is assigned partition 0's primary, so a P chip appears in node
-          a's column, above.
+          first in the node list: so node [[a]] wins and
+          is assigned to be partition 0's primary.
+
+          So a P chip appears in node
+          a's column.
 
       - id: next
         view: { at: fresh.2~row, target: scores, focus: strip }
         expect: ["fact:fresh.2.partition=1"]
         text: |
-          Next we move onwards to assigning partition 1's primary, so
+          Next, we move onwards to assigning partition 1's primary, so
           [[the scores]] at the bottom are reset to 0.
 
       - id: count
@@ -223,13 +228,13 @@ chapters:
         text: |
           Node a first, and the main term: how many partitions the node
           already holds in this state. Node a holds one primary,
-          partition 0's, so [[node a's bar]] rises to 1.
+          partition 0's, so [[node a's score bar]] rises to 1.
 
       - id: spread
         view: { at: fresh.2~a.spread, target: bar.a, focus: col.a }
         text: |
-          Then [[a hatched part]], which matters for replicas, coming
-          up: how many partitions with the same primary node the node
+          Then [[a hatched part]], which is how many partitions
+          with the same primary node the node
           already backs up, ÷ the number of partitions. For a primary
           there's no primary node yet, so it counts every primary
           assigned so far in this pass, 1/8 each, and only node a has
@@ -239,17 +244,21 @@ chapters:
         view: { at: fresh.2~a.fill, target: bar.a, focus: col.a }
         expect: ["fact:fresh.2.a.pre=1.1251"]
         text: |
-          And a tie-breaker, too small to see: 0.001 × all the
+          And a tie-breaker bump, too small to see: 0.001 × all the
           partitions on the node ÷ the number of partitions, 0.0001 for
-          node a. Node [[a's final score]]: 1.1251.
+          node a.
+
+          Node [[a's final score]] is 1.1251.
 
       - id: count-pick
         view: { at: fresh.2, target: winner, focus: strip }
         expect: ["fact:fresh.2.b=0.0000", "fact:fresh.2.c=0.0000", "fact:fresh.2.winner=b"]
         text: |
-          Then node b, and then node c, the same way: nodes b and c
-          hold nothing, so both score 0. The lowest score wins: nodes b
-          and c tie, and node [[b]] is first in the list, so node b
+          Then we score node b, and then node c, the same way: nodes b and c
+          hold nothing, so both score 0.
+
+          The lowest score wins: nodes b
+          and c tie at 0 score, and node [[b]] is first in the list, so node b
           wins.
 
       - id: round
@@ -259,8 +268,10 @@ chapters:
         expect: ["fact:fresh.primaries.counts=a3/0 b3/0 c2/0"]
         text: |
           And so on, round the nodes: a, b, c, a, b, c, a, b. Eight
-          primaries on three nodes: node [[a has 3]], node b 3, and node
-          c 2. Every partition's primary is assigned.
+          primaries on three nodes...
+
+          At the end, node [[a has 3]] partitions, node b 3, and node
+          c 2. Every partition's primary is assigned in a balanced way.
 
   # ------------------------------------------------------------------
   - id: replicas
@@ -273,7 +284,7 @@ chapters:
         text: |
           With every partition's primary assigned, the planner moves
           on to the next state of assigning replica partitions,
-          and the corner of the partition map changes too:
+          and the corner of the partition map changes too, to
           [[assigning replicas]].
 
       - id: replica-sort
@@ -284,8 +295,8 @@ chapters:
           Before assigning the replicas, the planner sorts the
           partitions again, the same way.
 
-          At this point in our example, every partition has its
-          primary on a node, so all 8 partitions get a 3, already on a
+          At this point in our example, every partition has been
+          assigned with a primary node, so all 8 partitions get a 3, already on a
           joining node, and the sort leaves them in name order:
           [[partition 0]] comes first again.
 
@@ -296,20 +307,28 @@ chapters:
         code: [blance.exclude]
         expect: ["fact:fresh.9.partition=0", "fact:fresh.9.state=replica"]
         text: |
-          The replicas start again at partition 0. Partition 0's
-          primary is on node a, so [[node a's column]] is greyed out and node a is not considered:
-          a replica never goes on its own primary's node, where it would
-          be no help if that node failed. So the planner doesn't score
-          node a at all.
+          The replicas start again at partition 0.
+
+          Partition 0's primary is on node a, so [[node a's column]]
+          is greyed out as node a is not considered.
+
+          This is because a replica is never assigned to the same node as its primary's node,
+          as that would be no help if that primary node failed.
+
+          So the planner doesn't ignores node a for now.
 
       - id: exclude
         view: { at: fresh.9, target: winner, focus: strip }
         expect: ["fact:fresh.9.partition=0", "fact:fresh.9.b=0.0004", "fact:fresh.9.c=0.0003", "fact:fresh.9.winner=c"]
         text: |
-          Nodes b and c hold no replicas yet, and node c wins by
-          0.0001. The tie-breaker, 0.001 × all the partitions on the
-          node ÷ the number of partitions, favours the emptier node,
-          and node [[c]] holds 2 primaries to node b's 3.
+          Nodes b and c hold no replicas yet, so they're properly scored.
+
+          Node c has the lowest score of 0.0003 so it wins and becomes the replica
+          node for partition 0.
+          The tie-breakering factor: 0.001 × all the partitions on the
+          node ÷ the number of partitions. This small tie-breaking bump allows the planner
+          to favor the emptier node of node c,
+          as node [[c]] holds 2 primaries to node b's 3.
 
       - id: next-two
         view: { at: fresh.11, target: winner, focus: strip }
