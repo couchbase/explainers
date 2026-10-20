@@ -321,14 +321,14 @@ chapters:
         view: { at: fresh.9, target: winner, focus: strip }
         expect: ["fact:fresh.9.partition=0", "fact:fresh.9.b=0.0004", "fact:fresh.9.c=0.0003", "fact:fresh.9.winner=c"]
         text: |
-          Nodes b and c hold no replicas yet, so they're properly scored.
+          Nodes b and c hold no replica partitions yet, so they're properly scored.
 
           Node c has the lowest score of 0.0003 so it wins and becomes the replica
           node for partition 0.
           The tie-breakering factor: 0.001 × all the partitions on the
           node ÷ the number of partitions. This small tie-breaking bump allows the planner
           to favor the emptier node of node c,
-          as node [[c]] holds 2 primaries to node b's 3.
+          as node [[c]] holds 2 primaries versus node b's 3.
 
       - id: next-two
         view: { at: fresh.11, target: winner, focus: strip }
@@ -336,7 +336,9 @@ chapters:
         text: |
           Partition 1's primary is on node b, so this time node b's
           column is greyed out. Node a, with no replicas yet, wins at
-          0.0004 to node c's 1.0004. Then partition 2's primary is on
+          0.0004 to node c's 1.0004.
+
+          Then partition 2's primary is on
           node c, and node [[b]], with no replicas yet, wins at 0.0004
           to node a's 1.0005.
 
@@ -347,10 +349,14 @@ chapters:
         text: |
           Partition 3's primary is on node a, too, and node c already
           backs up partition 0, another of node a's primaries. So node c
-          gets the hatched 1/8 more. That's what the hatched term is
+          gets the hatched 1/8 more.
+
+          That's what the hatched term is
           for: spreading node a's replicas over several nodes, so that
           if node a fails, several nodes share taking over for it, not
-          just one. Node [[b]] wins, at 1.0005 to node c's 1.1254.
+          just one.
+
+          Node [[b]] wins, at 1.0005 to node c's 1.1254.
 
       - id: done
         view: { at: fresh.replicas, panel: none, target: tally.b, focus: tallies }
@@ -358,7 +364,9 @@ chapters:
         multi: true
         expect: ["fact:fresh.replicas.counts=a3/3 b3/2 c2/3"]
         text: |
-          The rest of the replicas go the same way. Every node ends up
+          The rest of the replicas go the same way.
+
+          Every node ends up
           with 5 or 6 partitions: node a with 3 primaries and 3
           replicas, node [[b with 3 and 2]], and node c with 2 and 3.
 
@@ -369,7 +377,9 @@ chapters:
         text: |
           Then blance does it all again, starting from the partition
           map just computed, up to 10 times, until a pass changes
-          nothing. Here the second pass changes nothing, so the planner
+          nothing.
+
+          In this case, the second pass changes nothing, so the planner
           is done, in 2 passes, with [[the partition map]].
 
   # ------------------------------------------------------------------
@@ -381,7 +391,9 @@ chapters:
       - id: joins
         view: { at: add.prev, target: node.d, focus: col.d }
         text: |
-          Next, let's suppose a new [[node d]] joins the cluster. What happens?
+          Next, let's suppose a new [[node d]] joins the cluster.
+
+          What happens?
 
       - id: join-phase
         view: { at: add.primaries~phase, target: phase }
@@ -394,9 +406,11 @@ chapters:
         code: [blance.partitionOrder]
         expect: ["fact:add.primaries.order=0,1,2,3,4,5,6,7", "fact:add.primaries.group1=8"]
         text: |
-          First, the sort. Partitions not yet on node d come first. At
+          First, just like before, the sorting of partitions...
+
+          Partitions not yet on node d are sorted first. At
           this point in our example, no partition is on node d yet, so
-          every partition gets a 2, and the sort leaves the partitions
+          every partition gets a sorting value of 2, so the sort leaves the partitions
           in name order: [[partition 0]] comes first.
 
       - id: order
@@ -406,8 +420,10 @@ chapters:
         code: [blance.nodeScore]
         expect: ["fact:add.1.partition=0", "fact:add.1.a.pre=3.0008"]
         text: |
-          So the first decision is partition 0's primary, and the
-          scores. Node a first: node a holds 3 primaries, and before
+          Next, we loop through the sorted partitions.
+
+          We examine partition 0 to consider its primary node, so we score the
+          scores. Node a is scored first: node a holds 3 primaries, and before
           stickiness node [[a]] scores 3.0008.
 
       - id: stickiness
@@ -415,17 +431,20 @@ chapters:
         expect: ["fact:add.1.a=1.5008"]
         text: |
           But node a holds partition 0's primary now, and staying put
-          is worth 1.5, the stickiness, taken off the score of the node
-          that already holds the partition in this state: node [[a]]
+          is worth 1.5, which is the stickiness factor, subtracted
+          off the score of the node that already holds the partition
+          in this state; so, node [[a]]
           scores 1.5008.
 
       - id: d-wins
         view: { at: add.1, target: winner, focus: strip }
         expect: ["fact:add.1.b=3.0006", "fact:add.1.c=2.0006", "fact:add.1.d=0.0000", "fact:add.1.winner=d"]
         text: |
-          Then node b scores 3.0006, node c 2.0006, and node d, holding
-          nothing, 0. Since node d has the lowest score, node [[d]] is assigned partition
-          0's primary.
+          Then node b scores 3.0006, node c scores 2.0006, and node d, holding
+          nothing, scores 0.
+
+          Since node d has the lowest score, node [[d]] is assigned to be partition
+          0's primary node.
 
           Put another way, and partition 0's primary is reassigned from node
           a to node d.
@@ -434,7 +453,9 @@ chapters:
         view: { at: add.3, target: winner, focus: strip }
         expect: ["fact:add.3.partition=2", "fact:add.3.c=0.5006", "fact:add.3.d=2.0002", "fact:add.3.winner=c"]
         text: |
-          Partition 1's primary goes to node d, too. But by partition
+          Partition 1's primary is also assigned to node d.
+
+          But by partition
           2, node d holds 2 primaries and scores 2.0002, while node c,
           holding partition 2's primary, scores 0.5006: partition 2's
           primary [[stays on node c]].
@@ -445,7 +466,8 @@ chapters:
         multi: true
         expect: ["fact:add.primaries.counts=a2/3 b2/2 c2/3 d2/0"]
         text: |
-          The other primaries stay where they are, and node [[d has 2]]
+          As we run through the rest of the partitions,
+          the other primaries stay where they are. So, node [[d has 2]]
           primaries, just like every other node.
 
       - id: join-replica-phase
@@ -459,21 +481,21 @@ chapters:
         code: [blance.sortPass, blance.partitionOrder]
         expect: ["fact:add.replicas.group1=6", "fact:add.replicas.group2=2"]
         text: |
-          The planner sorts the partitions
-          again, where partitions not yet on node d will be sorted
+          The first step, just as before, is sorting the partitions
+          again. The partitions not yet on node d will be sorted
           first.
 
           That is, at this point in our example, partitions 0 and 1 have
           their primaries on node d, so [[partition 0]] and partition 1
           get a 3, already on a joining node, while the other 6
-          partitions get a 2.
+          partitions get a sorting value of 2.
 
       - id: replica-shuffle
         view: { at: add.replicas~clear, target: row.0, focus: board }
         expect: ["fact:add.replicas.order=2,3,4,5,6,7,0,1"]
         text: |
-          So this time the sort changes the order: [[partition 0]] and
-          partition 1 move to the bottom.
+          So this time the sort changes the order of partitions: [[partition 0]] and
+          partition 1 are sorted to the end of the list.
 
       - id: replica-order
         view: { at: add.9~row, panel: score, target: scores, focus: strip }
@@ -481,7 +503,7 @@ chapters:
         multi: true
         expect: ["fact:add.9.partition=2", "fact:add.15.partition=0", "fact:add.16.partition=1"]
         text: |
-          Therefore, we start our pass through the partitions with partition 2, and
+          So, we start our pass through the partitions with partition 2, and
           partitions 0 and 1 come last. Time to compute [[the scores]] again.
 
       - id: replica-d
@@ -490,7 +512,7 @@ chapters:
         text: |
           Partition 2's replica is on node b, which holds 2 replicas;
           node d holds none, so even with node b's stickiness, node
-          [[d]] is assigned partition 2's replica.
+          [[d]] is assigned to become partition 2's replica.
 
       - id: replica-stays
         view: { at: add.10, target: winner, focus: strip }
@@ -499,7 +521,7 @@ chapters:
           Partition 3's replica is on node b, too. Node b and node d
           now hold 1 replica each, and both score 1.0004 before
           stickiness. But stickiness takes 1.5 off node b's score, so
-          node [[b]] scores -0.4996, and partition 3's replica stays on
+          node [[b]] scores -0.4996. This means partition 3's replica stays on
           node b.
 
       - id: replica-c-d
@@ -508,26 +530,25 @@ chapters:
         text: |
           Partition 4's replica is on node c, which holds 3 replicas.
           Even with stickiness, node c scores 1.5006, and node [[d]],
-          holding 1 replica, scores 1.0004: partition 4's replica is
+          holding 1 replica, scores 1.0004: so, partition 4's replica is
           reassigned from node c to node d.
 
       - id: replica-b
         view: { at: add.12, target: winner, focus: strip }
         expect: ["fact:add.12.partition=5", "fact:add.12.a=1.5006", "fact:add.12.b=1.0004", "fact:add.12.winner=b"]
         text: |
-          Partition 5's replica is on node a, which holds 3 replicas,
-          the most. Node b, having given partition 2's replica up,
-          holds only 1, and node [[b]] is assigned partition 5's
-          replica, from node a.
+          Partition 5's replica is on node a, which holds 3 replicas.
+          Node b, having given partition 2's replica up,
+          holds only 1 partition, so node [[b]] is assigned partition 5's
+          replica, reassigned from node a.
 
       - id: wrap
         view: { at: add.16, target: deciding, focus: strip }
         expect: ["fact:add.13.partition=6", "fact:add.14.partition=7", "fact:add.15.partition=0", "fact:add.16.partition=1"]
         text: |
           Let's run through the remaining partitions:
-          [[partition 6]], then partition 7. And since the replicas
-          started at partition 2, the planner then wraps around, back
-          to partitions 0 and 1.
+          [[partition 6]], then partition 7, then lastly,
+          partition 0 and 1.
 
       - id: balanced
         view: { at: add.replicas, panel: none, target: tally.d, focus: tallies }
@@ -535,8 +556,9 @@ chapters:
         multi: true
         expect: ["fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
         text: |
-          The rest of the replicas stay where they are, partitions 0
-          and 1 included. Every node ends with
+          The rest of the replicas stay where they are.
+
+          Every node ends with
           [[2 primaries and 2 replicas]].
 
       - id: in-order
@@ -550,7 +572,7 @@ chapters:
         expect: ["fact:add.moves=10", "fact:add.moved=5"]
         text: |
           Here's a bar chart of moves involved in transitioning
-          from the old partition map to the new one (blance's
+          from the old partition map to the new one (see blance's
           `CalcPartitionMoves()`): [[10 moves]], over 5 partitions.
 
       - id: optimal
@@ -560,8 +582,8 @@ chapters:
           But this isn't the best partition map possible.
 
           Node d needs
-          [[4 partitions]], 2 primaries and 2 replicas, and each one
-          takes 2 moves: a partition built on node d, and a partition deleted from
+          [[4 partitions]], 2 primaries and 2 replicas, and each would ideally
+          take 2 moves: a partition built on node d, and a partition deleted from
           another node. So, theoretically 8 moves should be enough
           instead of 10 moves. Where do the 'extra' 2 moves
           come from?
@@ -578,15 +600,15 @@ chapters:
         text: |
           Then [[partition 5]]'s replica moved from node a to node b.
 
-          Maybe we should have just moved partition 5's replica to node d instead,
-          skipping the changes to node b?
+          Maybe we should have just moved partition 5's replica directly to node d instead,
+          skipping the intervening hop involving node b?
 
       - id: detour
         view: { target: tally.b, focus: tallies }
         expect: ["fact:add.prev.counts=a3/3 b3/2 c2/3 d0/0", "fact:add.replicas.counts=a2/2 b2/2 c2/2 d2/2"]
         text: |
-          And leaving partition 2's
-          replica on [[node b]] would have meant just overall 8 moves instead of 10.
+          If we had instead just left partition 2's
+          replica on [[node b]], that would have meant just overall 8 moves instead of 10.
 
       - id: greedy
         view: { target: moves.total, focus: strip }
@@ -599,7 +621,7 @@ chapters:
           When the planner
           decided partition 2's replica, node d held no replicas and
           scored the lowest, and the planner couldn't know that
-          partition 5's replica, decided later, could go to node d
+          partition 5's replica could go to node d
           instead.
 
           So blance ends up computing [[10 moves]].
@@ -613,7 +635,7 @@ chapters:
       - id: leaves
         view: { at: remove.prev, target: node.b, focus: col.b }
         text: |
-          Now [[node b]] leaves, in a rebalance that removes node b.
+          Now let consider the scenario when [[node b]] leaves or is removed from the cluster.
 
       - id: drop
         view: { at: remove.0, target: row.4, focus: board }
@@ -632,35 +654,40 @@ chapters:
         code: [blance.partitionOrder]
         expect: ["fact:remove.primaries.group0=2"]
         text: |
-          Next, the sort. Partitions that were on a leaving node come
+          And, we the sort the partitions.
+
+          Partitions that were on a leaving node are sorted
           first.
 
           In our example, node b held the primaries of partitions 4
-          and 7, so [[partition 4]] and partition 7 get a 1. With no
-          node joining, every other partition gets a 2.
+          and 7, so [[partition 4]] and partition 7 get a sorting value of 1.
+
+          With no
+          node joining, every other partition gets a sorting value of 2.
 
       - id: leave-shuffle
         view: { at: remove.primaries~clear, target: row.4, focus: board }
         expect: ["fact:remove.primaries.order=4,7,0,1,2,3,5,6"]
         text: |
           So the sort moves [[partition 4]] and partition 7 to the
-          top.
+          top of the list.
 
       - id: scores
         view: { panel: score, target: scores, focus: strip }
         text: |
-          Back to [[the scores]].
+          Next, we move onwards to [[the scores]].
 
       - id: no-promote
         view: { at: remove.1, target: winner, focus: strip }
         expect: ["fact:remove.1.partition=4", "fact:remove.1.a=2.0005", "fact:remove.1.d=2.0005", "fact:remove.1.winner=a"]
         text: |
           Partition 4's replica is on node d, so promoting node d's
-          replica would be cheap, with no data to copy. But stickiness
+          replica would be cheap, with no data to copy.
+
+          But the stickiness factor
           only counts for a node already in the same state: node d is
-          one of three nodes tied at 2.0005, and node [[a]], first in
-          the list, is assigned partition 4's primary, as a whole new
-          copy.
+          one of three nodes tied at 2.0005. So, node [[a]], first in
+          the list, is assigned to be partition 4's primary.
 
       - id: leave-primaries
         view: { at: remove.primaries, target: scores, focus: strip }
@@ -671,17 +698,17 @@ chapters:
       - id: leave-replica-phase
         view: { at: remove.replicas~phase, target: phase }
         text: |
-          Once the primaries are done, the planner changes gears to the
-          replicas: [[assigning replicas]].
+          Once the primaries are done, the planner changes gears to
+          [[assigning replicas]].
 
       - id: leave-replicas
         view: { at: remove.16, target: winner, focus: strip }
         expect: ["fact:remove.replicas.order=3,5,0,1,2,4,6,7"]
         text: |
-          The replicas go the same way. The sort puts partitions 3 and
-          5 first, since their replicas were on node b, then partitions
-          0, 1, 2, 4, 6 and 7, each scored in turn, down to
-          [[the last one]].
+          The replicas are handled the same way. The sort puts partitions 3 and
+          5 first, since their replicas were on node b.
+
+          Then partitions are [[scored]].
 
       - id: left
         view: { at: remove.replicas, panel: none, target: tally.a, focus: tallies }
@@ -695,18 +722,20 @@ chapters:
       - id: in-order
         view: { at: remove.unsorted, target: row.0 }
         text: |
-          With the plan done, let's view [[the rows]] again in name order.
+          With the plan done, let's view [[the partitions]] again in name order.
 
       - id: moves
         view: { panel: moves, target: row.4, focus: strip, trace: "4" }
         code: [cbgt.failover]
         expect: ["fact:remove.moves=8", "fact:remove.moves.4=add a:primary, del b"]
         text: |
-          8 moves, among them [[partition 4]]'s: add node a as
-          partition 4's primary, then delete node b's copy. (An app can
-          handle a failed node outside blance: cbgt, for one, promotes a
-          surviving replica itself, and uses blance's partition map only
-          for a partition with no surviving replica.)
+          This led to 8 moves, among them [[partition 4]]'s: add node a as
+          partition 4's primary, then delete node b's copy.
+
+          As an aside: an app that
+          uses blance can handle a failed node on its own -- cbgt, for example,
+          promotes a surviving replica partition without involving blance, and
+          uses blance's planner only to assign a partition when there's no surviving replica.
 
       - id: gone
         view: { at: remove.after, target: board.title, focus: board }
@@ -752,10 +781,10 @@ chapters:
         code: [blance.assign, blance.nodeScore]
         text: |
           Whether blance is assigning primaries or replicas, and
-          whether nodes are joining or leaving, the planner is a sort
-          and two nested for-loops. For each state, the planner first
-          sorts the partitions. Then, for each partition in that sorted
-          order, it computes a score for every node, and
+          whether nodes are joining or leaving, blance's planner performs
+          the same steps: for each partition state (primaries, then replicas),
+          blance first sorts the partitions. Then, for each sorted partition,
+          it computes a score for each available node, and
           [[assigns the partition]] to the node with the lowest score.
 
           ```
@@ -774,7 +803,9 @@ chapters:
         view: { target: tally.a }
         expect: ["fact:add.moves=10"]
         text: |
-          So the takeaway: although blance might not always
+          So the takeaway...
+
+          Although blance might not always
           produce the most optimal partition maps
           with the least number of moves, it's approach is simple,
           easy to calculate and [[balanced]].
