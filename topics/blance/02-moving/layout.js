@@ -1,30 +1,42 @@
 // The 02-moving explainer's diagram geometry, with no DOM, so the build
 // can validate narrative references (cameras, anchors) against it.
 //
-// The picture: on the left, the partition map as a board, as in
-// 01-planning, with each copy being built or deleted shown in place,
-// and under each node, its mover: what it's doing now. On the right, a
-// panel: each partition's moves (its plan, at the same rows as the
-// board), or the movers' timeline, a lane per node.
+// The picture, a triangle of panels: top left, the partition map now, as
+// a board, as in 01-planning, with each copy being built or deleted shown
+// in place, and under each node, its mover: what it's doing now. Top
+// right, the map after: blance's next partition map, where the moves
+// end up (it slides out of the map now, once the story gets to it).
+// Bottom, centered: each partition's moves (its plan), or the movers'
+// timeline, a lane per node.
 
 import { NODES, PARTITIONS } from './scenarios.js';
 
-export const CANVAS = [0, 0, 1240, 640];
+export const CANVAS = [0, 0, 1160, 960];
 
-export const BOARD = { x0: 40, labelX: 70, y0: 112, rowH: 50, colW: 104, col0: 200 };
-BOARD.y1 = BOARD.y0 + PARTITIONS.length * BOARD.rowH;
-BOARD.x1 = BOARD.col0 + NODES.length * BOARD.colW;
-export const colX = (node) => BOARD.col0 + NODES.indexOf(node) * BOARD.colW + BOARD.colW / 2;
-export const rowY = (p) => BOARD.y0 + PARTITIONS.indexOf(p) * BOARD.rowH + BOARD.rowH / 2;
-export const chipX = (node, state) => colX(node) + (state === 'primary' ? -20 : 20);
-export const HEAD_Y = BOARD.y0 - 26;
-export const MOVER_Y = BOARD.y1 + 34;
+// A board: its rows, a partition each, and its columns, a node each.
+const board = (x0) => {
+  const b = { x0, labelX: x0 + 12, col0: x0 + 110, colW: 80, y0: 96, rowH: 36, titleY: 40 };
+  b.y1 = b.y0 + PARTITIONS.length * b.rowH;
+  b.x1 = b.col0 + NODES.length * b.colW;
+  return b;
+};
+export const BOARDS = { now: board(40), after: board(690) };
+export const BOARD = BOARDS.now;
+export const colX = (node, B = BOARD) => B.col0 + NODES.indexOf(node) * B.colW + B.colW / 2;
+export const rowY = (p, B = BOARD) => B.y0 + PARTITIONS.indexOf(p) * B.rowH + B.rowH / 2;
+export const chipX = (node, state, B = BOARD) => colX(node, B) + (state === 'primary' ? -16 : 16);
+export const HEAD_Y = BOARD.y0 - 22;
+export const MOVER_Y = BOARD.y1 + 30;
+// (between the two maps: the arrow from now to after)
+export const ARROW = { x0: BOARDS.now.x1 + 26, x1: BOARDS.after.x0 + 10, y: (BOARD.y0 + BOARD.y1) / 2 };
 
-export const PANEL = { x0: 640, x1: 1210, y0: 60, titleY: 84 };
-// the plans: a partition's moves, at its board row
+// the bottom panel, centered under the two maps
+export const PANEL = { x0: 280, x1: 880, y0: 470, y1: 944, titleY: 500 };
+// the plans: a partition's moves, a row each
 export const PLAN_X = PANEL.x0 + 110;
+export const planY = (p) => PANEL.y0 + 66 + PARTITIONS.indexOf(p) * 46;
 // the timeline: a lane per node, time across
-export const TL = { x0: PANEL.x0 + 104, x1: PANEL.x1 - 20, laneY0: 170, laneH: 74, ctlY: 132, maxT: 1400 };
+export const TL = { x0: PANEL.x0 + 104, x1: PANEL.x1 - 20, laneY0: 600, laneH: 72, ctlY: 548, maxT: 1400 };
 TL.axisY = TL.laneY0 + NODES.length * TL.laneH - 10;
 export const laneY = (n) => TL.laneY0 + NODES.indexOf(n) * TL.laneH;
 export const timeX = (t) => TL.x0 + (t / TL.maxT) * (TL.x1 - TL.x0);
@@ -33,18 +45,19 @@ export const LIDS = {};
 export const BUBBLES = {};
 
 export const CAMERAS = {
-  overview: { rect: [0, 20, 1240, 620], label: '', section: null },
-  board: { rect: [20, 20, 640, 620], label: 'the partition map', section: null },
-  panel: { rect: [600, 40, 1230, 560], label: 'the movers', section: null },
+  overview: { rect: [0, 0, 1160, 960], label: '', section: null },
 };
 
+const A = BOARDS.after;
 export const ANCHORS = {
-  'board.title': { p: [BOARD.x0, 46], needs: [] },
+  'board.title': { p: [BOARD.x0, BOARD.titleY - 6], needs: [] },
+  'after.title': { p: [A.x0, A.titleY - 6], needs: [] },
   ...Object.fromEntries(NODES.map((n) => [`node.${n}`, { p: [colX(n) - 18, HEAD_Y - 6], needs: [] }])),
-  ...Object.fromEntries(NODES.map((n) => [`mover.${n}`, { p: [colX(n) - 40, MOVER_Y], needs: [] }])),
+  ...Object.fromEntries(NODES.map((n) => [`after.node.${n}`, { p: [colX(n, A) - 18, HEAD_Y - 6], needs: [] }])),
+  ...Object.fromEntries(NODES.map((n) => [`mover.${n}`, { p: [colX(n) - 36, MOVER_Y], needs: [] }])),
   ...Object.fromEntries(PARTITIONS.map((p) => [`row.${p}`, { p: [BOARD.labelX - 8, rowY(p)], needs: [] }])),
   'panel.title': { p: [PANEL.x0 + 10, PANEL.titleY - 6], needs: [] },
-  ...Object.fromEntries(PARTITIONS.map((p) => [`plan.${p}`, { p: [PANEL.x0 + 12, rowY(p)], needs: [] }])),
+  ...Object.fromEntries(PARTITIONS.map((p) => [`plan.${p}`, { p: [PANEL.x0 + 12, planY(p)], needs: [] }])),
   ...Object.fromEntries(NODES.map((n) => [`lane.${n}`, { p: [PANEL.x0 + 12, laneY(n)], needs: [] }])),
   'controller': { p: [PANEL.x0 + 12, TL.ctlY], needs: [] },
 };

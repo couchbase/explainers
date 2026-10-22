@@ -21,7 +21,7 @@ for (const scheme of ['light', 'dark']) {
       const s = await page.evaluate(() => {
         const x = window.explainer;
         const sc = x.scenes[x.ctl.current];
-        return { current: x.ctl.current, want: [sc.run, sc.t, sc.panel], got: [x.diagram.cur.run, Math.round(x.diagram.cur.t), x.diagram.cur.panel] };
+        return { current: x.ctl.current, want: [sc.run, sc.t, sc.panel, sc.split], got: [x.diagram.cur.run, Math.round(x.diagram.cur.t), x.diagram.cur.panel, x.diagram.cur.split] };
       });
       assert.equal(s.current, i);
       assert.deepEqual(s.got, s.want, `step ${i}`);

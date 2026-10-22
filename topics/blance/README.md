@@ -78,11 +78,20 @@ tallies (`add.16.counts`), each scenario's moves.
 
 ## 02-moving
 
-"Inside blance: how a rebalance moves partitions". The same board, at
-a moment of a rebalance (copies being built fill in place, deletes
-fade, a partition with no primary is marked), each node's mover under
-its column, and a panel: each partition's moves, or the movers'
-timeline, a lane per node, with the controller's rounds.
+"Inside blance: how a rebalance moves partitions". A triangle of
+panels. Top left, the map now: the same board, at a moment of a
+rebalance (copies being built fill in place, deletes fade, a partition
+with no primary is marked), each node's mover under its column. Top
+right, the map after: blance's next partition map, which slides out of
+the map now (the `split` view key) and turns into it. Bottom, centered,
+a panel: each partition's moves, or the movers' timeline, a lane per
+node, with the controller's rounds.
+
+The map after has its own look, in indigo (`--after`): its frame, its
+nodes, and a ring around each copy. As the moves land, the map now
+takes it on: a copy in its final place gets the ring, and a node whose
+column matches the map after gets its color (node d's "joining"
+becomes "joined"), so the map now comes to look like the map after.
 
 `scenarios.js` runs node d joining (01-planning's second plan) through
 `lib/orchestrate.js` three ways: one move at a time per node, up to

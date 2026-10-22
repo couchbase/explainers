@@ -39,6 +39,16 @@ chapters:
           new nodes, and removing the old copies, while the partitions
           stay in use. Let's walk through how blance does that.
 
+      - id: after
+        view: { split: two, target: after.title }
+        text: |
+          That next partition map is where the moves end up:
+          [[the map after]], on the right. The map now, on the left,
+          will change move by move until it looks just like it. Each
+          copy that's in its final place takes on the map after's
+          ring, and each node whose column matches the map after takes
+          on its color.
+
       - id: moves
         view: { panel: plans, target: plan.0 }
         code: [blance.CalcPartitionMoves]
