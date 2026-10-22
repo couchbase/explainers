@@ -111,8 +111,9 @@ export class Diagram {
 
   _now(g) {
     const B = BOARDS.now;
-    // (its frame takes in the movers, under the board)
-    this._frame(g, B, 'bframe-now', MOVER_Y - B.y1 + 8);
+    // (the same frame as the map after's, so the two look alike; the
+    // movers sit under it, outside)
+    this._frame(g, B, 'bframe-now');
     txt(g, B.x0, B.titleY, 'the map now', 'btitle');
     this.subA = txt(g, B.x1 + 10, B.titleY, '', 'bsub', 'end');
     this.subB = txt(g, B.x1 + 10, B.titleY, '', 'bsub', 'end');

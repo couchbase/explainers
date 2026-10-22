@@ -11,7 +11,7 @@
 
 import { NODES, PARTITIONS } from './scenarios.js';
 
-export const CANVAS = [0, 0, 1160, 960];
+export const CANVAS = [0, 0, 1080, 960];
 
 // A board: its rows, a partition each, and its columns, a node each.
 const board = (x0) => {
@@ -20,18 +20,19 @@ const board = (x0) => {
   b.x1 = b.col0 + NODES.length * b.colW;
   return b;
 };
-export const BOARDS = { now: board(40), after: board(690) };
+export const BOARDS = { now: board(40), after: board(600) };
 export const BOARD = BOARDS.now;
 export const colX = (node, B = BOARD) => B.col0 + NODES.indexOf(node) * B.colW + B.colW / 2;
 export const rowY = (p, B = BOARD) => B.y0 + PARTITIONS.indexOf(p) * B.rowH + B.rowH / 2;
 export const chipX = (node, state, B = BOARD) => colX(node, B) + (state === 'primary' ? -16 : 16);
 export const HEAD_Y = BOARD.y0 - 22;
-export const MOVER_Y = BOARD.y1 + 30;
+// (the movers: under the map now, outside its frame)
+export const MOVER_Y = BOARD.y1 + 42;
 // (between the two maps: the arrow from now to after)
-export const ARROW = { x0: BOARDS.now.x1 + 26, x1: BOARDS.after.x0 + 10, y: (BOARD.y0 + BOARD.y1) / 2 };
+export const ARROW = { x0: BOARDS.now.x1 + 28, x1: BOARDS.after.x0 - 20, y: (BOARD.y0 + BOARD.y1) / 2 };
 
 // the bottom panel, centered under the two maps
-export const PANEL = { x0: 280, x1: 880, y0: 470, y1: 944, titleY: 500 };
+export const PANEL = { x0: 240, x1: 840, y0: 470, y1: 944, titleY: 500 };
 // the plans: a partition's moves, a row each
 export const PLAN_X = PANEL.x0 + 110;
 export const planY = (p) => PANEL.y0 + 66 + PARTITIONS.indexOf(p) * 46;
@@ -45,7 +46,7 @@ export const LIDS = {};
 export const BUBBLES = {};
 
 export const CAMERAS = {
-  overview: { rect: [0, 0, 1160, 960], label: '', section: null },
+  overview: { rect: [0, 0, 1080, 960], label: '', section: null },
 };
 
 const A = BOARDS.after;
