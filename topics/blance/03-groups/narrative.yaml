@@ -12,6 +12,10 @@ subtitle: >-
   for replicas, so a partition's copies don't all share one.
 audience: Engineers who build or run distributed systems
 
+showcase:
+  - step: decision--scored
+    caption: "Scoring nodes for a replica, with server groups"
+
 chapters:
 
   # ------------------------------------------------------------------

@@ -16,6 +16,11 @@ subtitle: >-
   only where it must.
 audience: People who build or study database internals
 
+showcase:
+  - step: push--sweep
+    play: [0, 1]
+    caption: "The scan's rows pushed up through the plan"
+
 chapters:
 
   # ------------------------------------------------------------------

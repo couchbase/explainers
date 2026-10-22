@@ -16,6 +16,11 @@ subtitle: >-
   keeps every node busy, one round at a time.
 audience: Engineers who build or run distributed systems
 
+showcase:
+  - step: movers--bottleneck
+    play: [0, 1]
+    caption: "A mover per node, each making one move at a time, until the last"
+
 chapters:
 
   # ------------------------------------------------------------------

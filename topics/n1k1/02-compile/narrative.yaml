@@ -18,6 +18,11 @@ subtitle: >-
   turning into a code printer, and the Go it prints, fused.
 audience: People who build or study database internals
 
+showcase:
+  - step: compile--fuse
+    play: [0, 1]
+    caption: "Operator fusion: the project's code dropped into the filter"
+
 chapters:
 
   # ------------------------------------------------------------------

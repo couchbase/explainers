@@ -79,10 +79,10 @@ ${css(topic)}
 // `ws`: the explainers, as {name, title, subtitleHtml, showcase}; links
 // are prefixed with `prefix` (the topic's directory, from the root
 // index). A showcase scene is a thumbnail, in light or dark as the
-// reader's is, a still or a looping clip, linking to its step.
+// reader's is, a still or a looping clip, linking to the page (its top, not the step).
 const showcase = (w, prefix) => (w.showcase && w.showcase.length ? `<div class="showcase">${w.showcase.map((s) => {
   const vars = `--light: url('${prefix}${s.light}'); --dark: url('${prefix}${s.dark}'); --frames: ${s.frames}; --seconds: ${(s.frames / 6).toFixed(1)}s; --steps: steps(${s.frames}, jump-none); aspect-ratio: ${s.width} / ${s.height}`;
-  return `<a class="shot" href="${prefix}${w.name}.html#${esc(s.step)}" title="${esc(s.caption || w.title)}"><div class="sprite${s.frames > 1 ? ' playing' : ''}" role="img" aria-label="${esc(s.caption || w.title)}" style="${vars}"></div></a>`;
+  return `<a class="shot" href="${prefix}${w.name}.html" title="${esc(s.caption || w.title)}"><div class="sprite${s.frames > 1 ? ' playing' : ''}" role="img" aria-label="${esc(s.caption || w.title)}" style="${vars}"></div></a>`;
 }).join('')}</div>` : '');
 // (`key`: the key goes before this list's first draft)
 const entries = (ws, prefix, key = false) => `<ol class="entries">${ws.map((w, i) => `${key && w.draft && ws.findIndex((x) => x.draft) === i ? draftKey() : ''}<li class="entry card${w.draft ? ' is-draft' : ''}">${w.draft ? '<span class="draft-stamp">Draft</span>' : ''}

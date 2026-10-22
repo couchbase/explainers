@@ -18,6 +18,16 @@ subtitle: >-
   happen.
 audience: People who build or study databases and their clients
 
+showcase:
+  - step: commit--commit
+    rect: [650, 271, 310, 283]
+    play: [0, 1]
+    caption: "The commit point: one write flips the ATR to COMMITTED"
+  - step: unstage--unstage-alice
+    rect: [40, 271, 310, 283]
+    play: [0, 1]
+    caption: "Unstaging: alice's staged value becomes her body"
+
 chapters:
 
   # ------------------------------------------------------------------

@@ -20,6 +20,11 @@ subtitle: >-
   overloading anyone.
 audience: Engineers who build or run distributed systems
 
+showcase:
+  - step: flow--rest
+    play: [0, 1]
+    caption: "Path by path, the flow fills the pipes to a maximum"
+
 chapters:
 
   # ------------------------------------------------------------------

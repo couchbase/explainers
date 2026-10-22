@@ -17,6 +17,15 @@ subtitle: >-
   transaction that wants to change bob at the same time?
 audience: People who build or study databases and their clients
 
+showcase:
+  - step: reads--verdict
+    rect: [462, 12, 516, 212]
+    caption: "Plain reads saw the transfer half done; a transaction's reads added up"
+  - step: conflict--t2-cas
+    rect: [266, 262, 712, 278]
+    play: [0, 1]
+    caption: "T2's write refused: bob's CAS changed since T2 read him"
+
 chapters:
 
   # ------------------------------------------------------------------

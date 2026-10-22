@@ -19,6 +19,13 @@ subtitle: >-
   allocation, measured, and what boxing does to a number on the way.
 audience: People who build or study database internals
 
+showcase:
+  - step: stages--boxed-convert
+    play: [0, 1]
+    caption: "cbq boxing one row, each allocation landing on the Go heap"
+  - step: sum--summary-n1k1
+    caption: "Bytes and allocations per row, cbq and n1k1"
+
 chapters:
 
   # ------------------------------------------------------------------

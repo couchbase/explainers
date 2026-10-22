@@ -74,13 +74,16 @@ step: it shows everything the step plays, in order.
 
 **Showcase pictures.** A narrative can list a few scenes that show
 off the explainer at a glance; the index pages show their pictures,
-each linking to its step:
+each linking to the explainer's page (its top, not the step). A scene
+with `play: [from, to]` is a short looping clip of that stretch of the
+step's scroll:
 
 ```yaml
 showcase:
   - step: fst--outputs            # a step's chapter--step id
     rect: [438, 809, 904, 474]    # optional: [x, y, width, height], in the diagram's units
     caption: "A field's terms, as a vellum FST"   # optional
+    play: [0, 1]                  # optional: a clip, not a still
 ```
 
 `npm run showcase [-- <filter>]` shoots them from the built pages
