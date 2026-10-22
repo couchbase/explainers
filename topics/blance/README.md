@@ -82,8 +82,11 @@ tallies (`add.16.counts`), each scenario's moves.
 panels. Top left, the map now: the same board, at a moment of a
 rebalance (copies being built fill in place, deletes fade, a partition
 with no primary is marked), each node's mover under its column. Top
-right, the map after: blance's next partition map, which slides out of
-the map now (the `split` view key) and turns into it. Bottom, centered,
+right, the map after: the cluster's wanted partition map, blance's next
+partition map, which slides out of the map now (the `split` view key)
+and turns into it. The two maps are labelled alike, "the cluster's
+current partition map" and "the cluster's wanted partition map", so
+they differ as little as they can. Bottom, centered,
 a panel: each partition's moves, or the movers' timeline, a lane per
 node, with the controller's rounds.
 

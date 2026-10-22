@@ -84,7 +84,7 @@ export class Diagram {
     const ag = this.afterG = el('g', { opacity: 0 }, g);
     this._frame(ag, B, 'bframe-after');
     txt(ag, B.x0, B.titleY, 'the map after', 'btitle btitle-after');
-    txt(ag, B.x1 + 10, B.titleY, "blance's next partition map", 'bsub', 'end');
+    txt(ag, B.x1 + 10, B.titleY, "the cluster's wanted partition map", 'bsub', 'end');
     for (const n of NODES) txt(ag, colX(n, B), HEAD_Y, `node ${n}`, 'bnode bnode-after', 'middle');
     // as it slides out it shows the map now's copies, and then turns
     // into the map after's
@@ -115,8 +115,9 @@ export class Diagram {
     // movers sit under it, outside)
     this._frame(g, B, 'bframe-now');
     txt(g, B.x0, B.titleY, 'the map now', 'btitle');
-    this.subA = txt(g, B.x1 + 10, B.titleY, '', 'bsub', 'end');
-    this.subB = txt(g, B.x1 + 10, B.titleY, '', 'bsub', 'end');
+    // (worded like the map after's, so the two differ as little as they
+    // can; the run's name is in the bottom panel's title)
+    txt(g, B.x1 + 10, B.titleY, "the cluster's current partition map", 'bsub', 'end');
     this.noPrimary = {};
     for (const p of PARTITIONS) {
       this.noPrimary[p] = el('rect', { x: B.x0, y: rowY(p) - B.rowH / 2 + 2, width: B.x1 - B.x0 + 6, height: B.rowH - 4, rx: 6, class: 'bnoprimary', opacity: 0 }, g);
@@ -216,11 +217,6 @@ export class Diagram {
       const pa = xa.length ? xa[0].progress : 0, pb = xb.length ? xb[0].progress : 0;
       m.fill.setAttribute('width', (72 * (xa.length && xb.length && xa[0].batch === xb[0].batch ? lerp(pa, pb, q) : q < 0.5 ? pa : pb)).toFixed(1));
     }
-    const ra = RUNS[A.run], rb = RUNS[B.run];
-    setText(this.subA, ra.title);
-    setText(this.subB, rb.title);
-    op(this.subA, ra === rb ? 1 : 1 - q);
-    op(this.subB, ra === rb ? 0 : q);
   }
 
   // The map after splitting off the map now: s, 0 (not yet) to 1 (in
@@ -247,7 +243,7 @@ export class Diagram {
   _plans(id) {
     const r = RUNS[id];
     const g = el('g', { opacity: 0 }, this.panelG);
-    this._panelFrame(g, 'each partition\'s moves (CalcPartitionMoves)');
+    this._panelFrame(g, `each partition's moves (CalcPartitionMoves)${r.favorMinNodes ? ', deletes first' : ''}`);
     const rows = {};
     for (const p of PARTITIONS) {
       const y = planY(p);
